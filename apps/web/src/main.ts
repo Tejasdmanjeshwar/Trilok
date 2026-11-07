@@ -121,7 +121,7 @@ function attack(): void {
   updateHud();
   if (battle.phase === "enemy_windup") {
     impactAt = performance.now() + WINDUP_MS;
-    timeoutId = window.setTimeout(() => finishReaction(null), WINDUP_MS);
+    timeoutId = window.setTimeout(() => finishReaction(null), WINDUP_MS + 380);
   }
 }
 
