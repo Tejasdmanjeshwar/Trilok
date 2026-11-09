@@ -31,7 +31,7 @@ host.innerHTML = [
 ].join("");
 
 function required<T extends HTMLElement>(selector: string): T {
-  const element = host.querySelector<T>(selector);
+  const element = host!.querySelector<T>(selector);
   if (!element) throw new Error("Missing UI element: " + selector);
   return element;
 }
