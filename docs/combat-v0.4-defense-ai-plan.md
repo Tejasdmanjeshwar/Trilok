@@ -1,6 +1,6 @@
 # Trilok Combat v0.4 — Symmetric Defense, Enemy AI and Move-Level Rule Overrides
 
-Status: **Approved implementation plan; not implemented yet**. Baseline: playable v0.3.2.
+Status: **v0.4-A pure combat domain and catalog implemented**; web encounter adapter and AI/presentation are scheduled for v0.4-B/C. Baseline: playable v0.3.2. The v0.3.x duel remains active pending migration. Do not mark enemy reactions as playable yet.
 Owner: combat domain + choreography + AI + presentation adapters.
 Priority: implement before adding many enemies, large ability catalogs, or final character art.
 
@@ -108,6 +108,20 @@ Default "unblockable" should disable ordinary parries, not necessarily dodges. "
 
 Preserve attack move overrides and defender reaction move overrides as **data**, not nested conditionals inside `main.ts` or enemy-specific branches. Validate invalid combinations at load time (unknown technique IDs, contradictory allow/deny, missing animations, impossible timing windows).
 
+## AI architecture decision — HFSM + Utility scoring (GOAP deferred)
+
+**Decision:** Implement a lightweight hierarchical finite state machine (HFSM) for tactical mode, action availability, interruptions, and recovery, plus a bounded utility scorer to rank actions legal under the shared combat domain. **Do not use GOAP in baseline v0.4-B.**
+
+- The encounter state and reaction legality are authoritative. The HFSM provides *context* (observing, deciding, approaching, attacking, reacting, recovering, staggered, boss phase), never independent damage or eligibility rules.
+- A tactical HFSM state filters candidate intents and provides interruption/commitment rules. A utility scorer evaluates only the currently legal intents (attack, guard/deflect, projectile intercept, dodge, reposition, switch weapon, wait).
+- Utility factors should include projected damage, target distance, survivability, resource/stamina, animation commitment, telegraph perception, timing uncertainty, cooldown, switch cost, recent action repetition, and encounter personality.
+- Use explicit, data-authored score curves with sensible normalization, reproducible seeded noise/tie-breaking, hysteresis (to avoid oscillation), and per-actor decision frequency/budget; record selection traces for tuning.
+- For reaction events, the AI chooses from `getLegalReactions()` and submits a plausible timestamp based on perception/reaction profile. No omniscient instant parries; difficulty modifies perception delay and skill, not access to illegal moves or hidden information.
+- The HFSM is small and event-driven, not a general-purpose behavior-tree/GOAP platform. An enemy can intentionally miss or choose an inferior legal action; tune competence rather than forcing perfect play.
+- Introduce GOAP only if a concrete encounter requires **multi-step resource/state planning** that a local utility scorer cannot express, e.g., disarm guard -> build stagger -> exploit vulnerability. It would produce strategic goals/plans, while HFSM manages execution and combat domain validates every step. Benchmark its planning costs before adopting.
+- Package boundary: pure TS `packages/combat-ai` depends on `packages/combat` contracts; the core never imports AI. Presentation consumes combat events, not AI private state.
+- Add deterministic HFSM transitions, utility score ranking, interruption, resource scarcity, anti-repetition, and performance tests in v0.4-B.
+
 ## Symmetric combat and enemy behavior
 
 - Replace `player_turn -> enemy_windup` and `strike(state)`'s immediate damage assumption with a **generic action lifecycle**:
@@ -133,10 +147,10 @@ Preserve attack move overrides and defender reaction move overrides as **data**,
 ## Implementation stages
 
 ### v0.4-A — Domain/data model
-1. Add move registry, equipped loadouts, defense technique capabilities and typed policy overrides.
-2. Implement shared pure `getLegalReactions()`, `queueAttack()` and `resolveReaction()` with immutable state.
-3. Migrate `enablesParry`, `availableDefenses(actor)`, `resolveEnemyTurn()` and hero-only `equipWeapon()` to generic actor IDs and contexts. Retire redundant interfaces after tests pass; no permanent dual code paths.
-4. Prove matrix and move-level overrides with headless unit tests.
+1. [x] Add authored attack/defense/equipment catalogs and explicit reaction policy overrides with validation.
+2. [x] Implement generic pure `getLegalReactions()`, `queueAttack()`, `resolveReaction()`, `equipCombatant()` and encounter state.
+3. [ ] Migrate v0.3.x browser presentation from hero-only combat API to the generic encounter controller during v0.4-B; remove the temporary legacy compatibility interface once UI/animation tests pass.
+4. [x] Add headless tests for four matrix cases, overrides, symmetric attack direction, costs, timing and reach.
 
 ### v0.4-B — Enemy decisions and counterplay
 1. Implement seeded `EnemyCombatPolicy` based on the same legal-action query and known telegraphs.

@@ -139,3 +139,12 @@ export function resolveEnemyTurn(
       : label[grade] + " Took " + damage[grade] + " damage.",
   };
 }
+
+/**
+ * v0.4-A generic encounter API.
+ * Existing one-on-one exports above are a temporary v0.3.x presentation adapter.
+ * Migrate apps/web to this encounter API in v0.4-B, then remove legacy code.
+ */
+export * from "./encounter-types";
+export * from "./encounter-catalog";
+export * from "./encounter";
