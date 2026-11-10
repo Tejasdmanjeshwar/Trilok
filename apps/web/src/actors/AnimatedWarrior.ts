@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { createWarrior, type WarriorRole } from "./warrior";
+import type { WeaponId } from "@trilok/combat";
 
-export type Motion = "idle" | "attack" | "windup" | "parry" | "hit" | "victory";
+export type Motion = "idle" | "attack" | "melee" | "windup" | "parry" | "dodge" | "hit" | "victory";
 type Key = readonly [number, number, number, number];
 type Joint = "LeftArm" | "RightArm" | "Torso";
 type Pose = Partial<Record<Joint, readonly Key[]>>;
@@ -32,6 +33,11 @@ function clips(): Record<Motion, THREE.AnimationClip> {
       RightArm: [[0,0,0,.1],[.38,-.7,0,.45],[.68,-1.35,0,.75],[.8,-1.65,0,.1],[1.2,-.35,0,.1],[1.5,0,0,.1]],
       Torso: [[0,0,0,0],[.54,-.12,.2,0],[.9,.06,-.09,0],[1.5,0,0,0]],
     }),
+    melee: clip("melee", 2.35, {
+      LeftArm: [[0,0,0,-.1],[.65,-.45,0,-.3],[1.18,-.8,0,-.28],[1.42,-1.05,0,-.15],[1.75,0,0,-.1],[2.35,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.9,-.5,0,.2],[1.15,-2.35,0,.18],[1.4,-2.55,0,.15],[1.55,.75,0,-.15],[1.9,.12,0,.12],[2.35,0,0,.1]],
+      Torso: [[0,0,0,0],[1.1,-.1,-.2,0],[1.43,.14,.25,0],[1.85,0,0,0],[2.35,0,0,0]],
+    }),
     windup: clip("windup", 2.18, {
       LeftArm: [[0,0,0,-.1],[.7,-.5,0,-.4],[1.4,-.8,0,-.43],[1.88,.1,0,-.15],[2.18,0,0,-.1]],
       RightArm: [[0,0,0,.1],[.6,-1.6,0,.15],[1.3,-2.5,0,.3],[1.66,-2.35,0,.3],[1.88,.85,0,-.12],[2.18,0,0,.1]],
@@ -41,6 +47,11 @@ function clips(): Record<Motion, THREE.AnimationClip> {
       LeftArm: [[0,0,0,-.1],[.18,-1.35,0,-.5],[.43,-1.2,0,-.5],[.73,0,0,-.1]],
       RightArm: [[0,0,0,.1],[.2,-.95,0,.55],[.43,-.85,0,.45],[.73,0,0,.1]],
       Torso: [[0,0,0,0],[.24,-.2,0,-.12],[.73,0,0,0]],
+    }),
+    dodge: clip("dodge", .73, {
+      LeftArm: [[0,0,0,-.1],[.13,.45,0,-.55],[.4,.45,0,-.6],[.73,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.13,.35,0,.5],[.4,.35,0,.6],[.73,0,0,.1]],
+      Torso: [[0,0,0,0],[.17,.07,0,-.32],[.36,.1,0,-.43],[.73,0,0,0]],
     }),
     hit: clip("hit", .73, {
       LeftArm: [[0,0,0,-.1],[.2,.4,0,-.38],[.73,0,0,-.1]],
@@ -61,6 +72,7 @@ export interface AnimatedWarrior {
   update(deltaSeconds: number, actionElapsedMs?: number): void;
   socketWorld(target: THREE.Vector3): THREE.Vector3;
   face(target: THREE.Vector3): void;
+  equip(weapon: WeaponId): void;
   dispose(): void;
 }
 
@@ -78,6 +90,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
   return {
     root: rig.root,
     face: rig.face,
+    equip: rig.equip,
     play(name) {
       if (current === name) return;
       active.fadeOut(0.13);

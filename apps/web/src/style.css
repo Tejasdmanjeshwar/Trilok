@@ -2,3 +2,17 @@
 @media(max-width:760px){.top{padding:12px}.brand{font-size:1rem;gap:5px}.brand span{font-size:.41rem}.tools{gap:4px}.tools>*{font-size:.5rem;padding:5px}.tools select{font-size:.57rem}.location{top:15%;font-size:.5rem;letter-spacing:.12em}.enemy{right:14px;top:23%;font-size:.75rem;width:155px}.telegraph{top:40%;width:75vw}.hud{bottom:62px;left:12px;right:12px;flex-direction:column;align-items:stretch;gap:10px}.hero{width:230px;gap:9px}.sigil{height:40px;width:40px;font-size:1.3rem}.hero strong{font-size:.58rem}.hero small{font-size:.48rem;margin:3px 0}.actions{width:100%}.actions button,.actions button.primary{min-width:0;flex:1;height:50px;gap:5px;padding:6px;font-size:1rem}.actions button span{font-size:.62rem}.actions button small{display:none}.status{bottom:10px;left:12px;right:12px;font-size:.54rem}.feedback{font-size:1.5rem}}
 @media(max-height:640px) and (orientation:landscape){.hud{bottom:38px;flex-direction:row;align-items:end}.actions button,.actions button.primary{height:45px}.hero{width:200px}.status{bottom:5px;padding-top:4px}.location{top:15%}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}}
+
+/* v0.3.1 equipment-aware combat controls */
+#weapon{font-size:.58rem;letter-spacing:.07em;color:#f4dfb3;background:#1a372c;border:1px solid #e4bd807c;border-radius:3px;padding:3px 4px;cursor:pointer}
+#weapon:disabled{opacity:.66;cursor:not-allowed}
+.weapon-keys{font-size:.54rem;color:#d9c59b}
+.actions button#dodge{border-color:#9bbda5a1}
+.actions button#react:disabled{opacity:.25}
+@media(max-width:760px){
+  .actions{gap:5px}
+  .actions button,.actions button.primary{padding:5px 2px;gap:3px;font-size:.83rem}
+  .actions button span{font-size:.56rem}
+  .hero{width:min(275px,85vw)}
+  .hero small{display:flex;gap:4px;align-items:center}
+}

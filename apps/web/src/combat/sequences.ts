@@ -1,36 +1,41 @@
 import type { Sequence } from "@trilok/choreography";
 
-/** Markers authored alongside the motion clips (milliseconds, fixed choreography). */
 export type CombatCue =
   | "camera_draw" | "bow_release" | "arrow_hit"
+  | "melee_draw" | "melee_impact" | "melee_recover"
   | "camera_defense" | "enemy_swing" | "enemy_impact"
   | "reaction_close" | "camera_recover";
 
+/** Authored events are independent of frame count or actual asset format. */
 export const ARCHERY_ATTACK: Sequence<CombatCue> = {
-  id: "archer_precision_shot",
-  durationMs: 1500,
+  id: "archer_precision_shot", durationMs: 1500,
   cues: [
-    { id: "draw-shot", atMs: 0, type: "camera_draw" },
+    { id: "draw", atMs: 0, type: "camera_draw" },
     { id: "release", atMs: 715, type: "bow_release" },
-    { id: "arrow-impact", atMs: 1150, type: "arrow_hit" },
+    { id: "impact", atMs: 1150, type: "arrow_hit" },
+  ],
+};
+
+export const MELEE_ATTACK: Sequence<CombatCue> = {
+  id: "warrior_melee_lunge", durationMs: 2350,
+  cues: [
+    { id: "approach", atMs: 0, type: "melee_draw" },
+    { id: "strike", atMs: 1450, type: "melee_impact" },
+    { id: "return", atMs: 1650, type: "melee_recover" },
   ],
 };
 
 export const ENEMY_STRIKE: Sequence<CombatCue> = {
-  id: "rakshasa_overhead_strike",
-  durationMs: 2180,
+  id: "rakshasa_overhead_strike", durationMs: 2180,
   cues: [
-    { id: "defense-shot", atMs: 0, type: "camera_defense" },
-    { id: "sword-commit", atMs: 1210, type: "enemy_swing" },
-    { id: "strike-impact", atMs: 1850, type: "enemy_impact" },
-    { id: "close-reaction", atMs: 2130, type: "reaction_close" },
+    { id: "defense", atMs: 0, type: "camera_defense" },
+    { id: "swing", atMs: 1210, type: "enemy_swing" },
+    { id: "impact", atMs: 1850, type: "enemy_impact" },
+    { id: "close", atMs: 2130, type: "reaction_close" },
   ],
 };
 
 export const ARCHERY_REACTION: Sequence<CombatCue> = {
-  id: "parry_recovery",
-  durationMs: 730,
-  cues: [
-    { id: "recover-shot", atMs: 250, type: "camera_recover" },
-  ],
+  id: "defense_recovery", durationMs: 730,
+  cues: [{ id: "camera-recover", atMs: 250, type: "camera_recover" }],
 };

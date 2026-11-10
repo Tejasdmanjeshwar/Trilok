@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { WeaponId } from "@trilok/combat";
 
 export type WarriorRole = "archer" | "rakshasa";
 export type WarriorPose = "idle" | "attack" | "windup" | "parry" | "hit" | "victory";
@@ -8,6 +9,7 @@ export interface WarriorRig {
   readonly role: WarriorRole;
   animate(pose: WarriorPose, progress: number, elapsed: number): void;
   face(position: THREE.Vector3): void;
+  equip(weapon: WeaponId): void;
   dispose(): void;
 }
 
@@ -80,8 +82,11 @@ export function createWarrior(role: WarriorRole): WarriorRig {
   attach(leftArm, new THREE.SphereGeometry(0.125, 9, 7), skin, [-0.05, -0.77, 0]);
   attach(rightArm, new THREE.SphereGeometry(0.125, 9, 7), skin, [0.05, -0.77, 0]);
 
+  let heroBow: THREE.Group | null = null;
+  let heroSword: THREE.Group | null = null;
   if (hero) {
     const bow = new THREE.Group();
+    heroBow = bow;
     bow.position.set(-0.13, -0.82, 0.2);
     leftArm.add(bow);
     const points = [
@@ -101,6 +106,14 @@ export function createWarrior(role: WarriorRole): WarriorRig {
     bow.add(string);
     attach(body, new THREE.CylinderGeometry(0.13, 0.17, 1, 8), leather, [0.55, 1.65, -0.38]);
     for (let i = 0; i < 4; i++) attach(body, new THREE.CylinderGeometry(0.018, 0.018, 1.25, 4), ivory, [0.47 + i * 0.055, 2.13, -0.40], false);
+    const sword = new THREE.Group();
+    sword.position.set(0.05, -0.8, 0.28);
+    rightArm.add(sword);
+    attach(sword, new THREE.CylinderGeometry(0.04, 0.06, 0.45, 7), leather, [0, -0.11, 0]);
+    attach(sword, new THREE.BoxGeometry(0.46, 0.09, 0.14), metal, [0, 0.12, 0]);
+    attach(sword, new THREE.ConeGeometry(0.105, 1.55, 4), ivory, [0, 0.91, 0]);
+    heroSword = sword;
+    heroSword.visible = false;
   } else {
     const sword = new THREE.Group();
     sword.position.set(0.05, -0.8, 0.28);
@@ -117,6 +130,10 @@ export function createWarrior(role: WarriorRole): WarriorRig {
   return {
     root,
     role,
+    equip(weapon) {
+      if (heroBow) heroBow.visible = weapon === "bow";
+      if (heroSword) heroSword.visible = weapon === "sword";
+    },
     face(position) {
       root.rotation.y = Math.atan2(position.x - root.position.x, position.z - root.position.z);
     },
