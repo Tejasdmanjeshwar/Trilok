@@ -1,15 +1,18 @@
 import * as THREE from "three";
 import { beginBattle, gradeReaction, resolveEnemyTurn, strike, type BattleState } from "@trilok/combat";
+import { ReactionBuffer, SequencePlayer } from "@trilok/choreography";
 import { createArena, type ArenaInstance, type ArenaQuality } from "./world/arena";
-import { createWarrior, type WarriorPose } from "./actors/warrior";
+import { createAnimatedWarrior, type AnimatedWarrior, type Motion } from "./actors/AnimatedWarrior";
 import { CombatCameraDirector, type CameraShot } from "./camera/CombatCameraDirector";
+import { CombatEffects } from "./effects/CombatEffects";
+import { ARCHERY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
 import "./style.css";
 
 const host = document.querySelector<HTMLDivElement>("#app");
 if (!host) throw new Error("Missing application element.");
 host.innerHTML = [
   '<main class="game"><div id="viewport" class="viewport"></div><div class="vignette"></div>',
-  '<header class="top"><div class="brand">✦ <strong>TRILOK</strong><span>COMBAT ARENA · V0.2</span></div>',
+  '<header class="top"><div class="brand">✦ <strong>TRILOK</strong><span>COMBAT ARENA · V0.3</span></div>',
   '<div class="tools"><span id="fps">— FPS</span><label>QUALITY <select id="quality"><option value="high">HIGH</option><option value="low">MOBILE</option></select></label>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
@@ -47,10 +50,10 @@ const telegraph = query<HTMLElement>("#telegraph");
 const timingFill = query<HTMLElement>("#timing-fill");
 const feedback = query<HTMLElement>("#feedback");
 const loading = query<HTMLElement>("#loading");
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let quality: ArenaQuality = /Android|iPhone|iPad/i.test(navigator.userAgent) ? "low" : "high";
 qualitySelect.value = quality;
-
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8ca497);
 scene.fog = new THREE.FogExp2(0x8ca497, 0.0095);
@@ -66,7 +69,6 @@ const sun = new THREE.DirectionalLight(0xffd8a0, 3.5);
 sun.position.set(-23, 31, 19);
 sun.target.position.set(0, 0, 0);
 scene.add(sun, sun.target);
-
 function applyQuality(): void {
   const high = quality === "high";
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, high ? 1.5 : 1));
@@ -88,59 +90,60 @@ applyQuality();
 
 let arena: ArenaInstance = createArena(119, quality);
 scene.add(arena.root);
-const hero = createWarrior("archer");
-const enemy = createWarrior("rakshasa");
+const hero: AnimatedWarrior = createAnimatedWarrior("archer");
+const enemy: AnimatedWarrior = createAnimatedWarrior("rakshasa");
 hero.root.position.set(-3.8, 0.15, 2.7);
 enemy.root.position.set(3.3, 0.12, -3.8);
 scene.add(hero.root, enemy.root);
 hero.face(enemy.root.position);
 enemy.face(hero.root.position);
 const director = new CombatCameraDirector(camera, hero.root, enemy.root);
-
+const effects = new CombatEffects(scene);
+const heroSocket = new THREE.Vector3();
+const targetPoint = new THREE.Vector3();
+const effectPoint = new THREE.Vector3();
+const choreography = new SequencePlayer<CombatCue>();
 type Presentation = "intro" | "choice" | "attack" | "windup" | "reaction" | "victory" | "defeat";
 let presentation: Presentation = "intro";
-let started = performance.now();
+let phaseAt = performance.now();
 let battle: BattleState = beginBattle();
-let hasHit = false;
-let parryOffset: number | null = null;
+let parry: ReactionBuffer | null = null;
 let noticeUntil = 0;
 let soundEnabled = false;
 let soundContext: AudioContext | null = null;
-const INTRO_MS = reducedMotion ? 250 : 1500;
-const ATTACK_MS = 1100;
-const WINDUP_MS = 1850;
-const RECOVER_MS = 680;
+const INTRO_MS = reduceMotion ? 250 : 1500;
 
 function audio(frequency: number): void {
   if (!soundEnabled) return;
   try {
     soundContext ??= new AudioContext();
     if (soundContext.state === "suspended") void soundContext.resume();
-    const o = soundContext.createOscillator();
-    const g = soundContext.createGain();
-    o.frequency.setValueAtTime(frequency, soundContext.currentTime);
-    o.frequency.exponentialRampToValueAtTime(Math.max(70, frequency * 0.65), soundContext.currentTime + 0.18);
-    g.gain.setValueAtTime(0.055, soundContext.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001, soundContext.currentTime + 0.18);
-    o.connect(g);
-    g.connect(soundContext.destination);
-    o.start();
-    o.stop(soundContext.currentTime + 0.18);
-  } catch { /* Sound never blocks gameplay. */ }
+    const oscillator = soundContext.createOscillator();
+    const gain = soundContext.createGain();
+    oscillator.frequency.setValueAtTime(frequency, soundContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(70, frequency * .65), soundContext.currentTime + .18);
+    gain.gain.setValueAtTime(.055, soundContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.0001, soundContext.currentTime + .18);
+    oscillator.connect(gain);
+    gain.connect(soundContext.destination);
+    oscillator.start();
+    oscillator.stop(soundContext.currentTime + .18);
+  } catch { /* Audio is optional. */ }
 }
-function phase(next: Presentation, shot: CameraShot): void {
+
+function setPhase(next: Presentation, shot: CameraShot, now = performance.now()): void {
   presentation = next;
-  started = performance.now();
-  hasHit = false;
+  phaseAt = now;
   director.setShot(shot);
-  hud();
+  if (next !== "attack" && next !== "windup" && next !== "reaction") choreography.cancel();
+  updateHud();
 }
 function notice(message: string, warning = false): void {
   feedback.textContent = message;
   feedback.className = warning ? "feedback visible warning" : "feedback visible";
-  noticeUntil = performance.now() + 1050;
+  noticeUntil = performance.now() + 1150;
 }
-function hud(): void {
+function updateHud(): void {
   heroHp.textContent = battle.hero.hp + " / " + battle.hero.maxHp;
   enemyHp.textContent = battle.enemy.hp + " / " + battle.enemy.maxHp;
   heroBar.style.width = (battle.hero.hp / battle.hero.maxHp * 100) + "%";
@@ -148,58 +151,110 @@ function hud(): void {
   phaseDisplay.textContent = battle.phase === "victory" ? "VICTORY" : battle.phase === "defeat" ? "DEFEAT" : "ROUND " + battle.round;
   messageDisplay.textContent = battle.message;
   attackButton.disabled = presentation !== "choice";
-  parryButton.disabled = presentation !== "windup";
+  parryButton.disabled = presentation !== "windup" || parry?.captured === true;
   telegraph.classList.toggle("show", presentation === "windup");
   enemy.root.visible = battle.enemy.hp > 0;
   hero.root.visible = battle.hero.hp > 0;
 }
-function strikeAction(): void {
+function startAttack(now = performance.now()): void {
   if (presentation !== "choice" || battle.phase !== "player_turn") return;
-  phase("attack", "attack");
-  audio(290);
+  setPhase("attack", "attack", now);
+  choreography.start(ARCHERY_ATTACK, now);
+  hero.play("attack");
+  enemy.play("idle");
+  effects.clear();
+  audio(310);
 }
-function damageEnemy(): void {
-  if (hasHit || battle.phase !== "player_turn") return;
-  hasHit = true;
-  battle = strike(battle);
-  director.impact();
-  notice(battle.phase === "victory" ? "VICTORY" : "PRECISION STRIKE");
-  audio(140);
-  hud();
+function startEnemy(now: number): void {
+  if (battle.phase !== "enemy_windup") return;
+  setPhase("windup", "defense", now);
+  choreography.start(ENEMY_STRIKE, now);
+  parry = new ReactionBuffer(now + 1850);
+  hero.play("idle");
+  enemy.play("windup");
 }
-function resolveDefense(): void {
+function resolveDefense(now: number): void {
   if (presentation !== "windup" || battle.phase !== "enemy_windup") return;
-  const grade = gradeReaction(parryOffset);
+  const grade = gradeReaction(parry?.offsetMs ?? null);
   battle = resolveEnemyTurn(battle, grade);
-  director.impact(grade === "perfect" ? 0.11 : 0.18);
+  director.impact(grade === "perfect" ? .10 : .17);
   notice(grade === "perfect" ? "PERFECT PARRY" : grade === "parry" ? "PARRIED" : grade === "guard" ? "GUARDED" : "HIT!", grade === "miss");
   audio(grade === "miss" ? 110 : 480);
-  parryOffset = null;
-  phase("reaction", "reaction");
+  enemy.root.getWorldPosition(effectPoint).y += 1.4;
+  if (grade !== "miss") {
+    hero.root.getWorldPosition(effectPoint).y += 1.5;
+    effects.impact(effectPoint, now);
+  }
+  setPhase("reaction", "reaction", now);
+  choreography.start(ARCHERY_REACTION, now);
+  parry = null;
+  hero.play(grade === "miss" ? "hit" : "parry");
+  enemy.play("idle");
+  updateHud();
 }
-function parryAction(): void {
-  if (presentation !== "windup" || battle.phase !== "enemy_windup") return;
-  const offset = performance.now() - (started + WINDUP_MS);
-  if (offset < -380 || offset > 280) {
-    notice("TOO EARLY", true);
+function attemptParry(): void {
+  if (presentation !== "windup" || !parry) return;
+  const now = performance.now();
+  if (!parry.capture(now)) {
+    if (!parry.captured) notice(now < parry.impactAtMs ? "TOO EARLY" : "TOO LATE", true);
     return;
   }
-  parryOffset = offset;
-  resolveDefense();
+  hero.play("parry");
+  notice("DEFENSE TIMED");
+  updateHud();
+  if (now >= parry.impactAtMs) resolveDefense(now);
 }
 function reset(): void {
+  choreography.cancel();
+  effects.clear();
+  parry = null;
   battle = beginBattle();
-  parryOffset = null;
-  phase("choice", "decision");
+  hero.play("idle");
+  enemy.play("idle");
+  feedback.classList.remove("visible");
+  noticeUntil = 0;
+  setPhase("choice", "decision");
+}
+function onCue(cue: CombatCue, at: number): void {
+  switch (cue) {
+    case "camera_draw": director.setShot("attack"); break;
+    case "bow_release":
+      hero.socketWorld(heroSocket);
+      enemy.root.getWorldPosition(targetPoint);
+      targetPoint.y += 1.7;
+      effects.launch(heroSocket, targetPoint, at, 435);
+      director.setShot("attack");
+      audio(650);
+      break;
+    case "arrow_hit":
+      if (presentation !== "attack" || battle.phase !== "player_turn") break;
+      enemy.root.getWorldPosition(targetPoint);
+      targetPoint.y += 1.7;
+      effects.impact(targetPoint, at);
+      battle = strike(battle);
+      director.impact(.15);
+      enemy.play("hit");
+      notice(battle.phase === "victory" ? "VICTORY" : "PRECISION STRIKE");
+      audio(145);
+      updateHud();
+      break;
+    case "camera_defense": director.setShot("defense"); break;
+    case "enemy_swing": director.setShot("windup"); audio(235); break;
+    case "enemy_impact":
+      if (parry?.captured) resolveDefense(at);
+      break;
+    case "reaction_close": resolveDefense(at); break;
+    case "camera_recover": director.setShot("decision"); break;
+  }
 }
 function keyDown(event: KeyboardEvent): void {
   if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-  if (event.code === "Space") { event.preventDefault(); strikeAction(); }
-  if (event.code === "KeyP") parryAction();
+  if (event.code === "Space") { event.preventDefault(); startAttack(); }
+  if (event.code === "KeyP") attemptParry();
   if (event.code === "KeyR") reset();
 }
-attackButton.addEventListener("click", strikeAction);
-parryButton.addEventListener("click", parryAction);
+attackButton.addEventListener("click", () => startAttack());
+parryButton.addEventListener("click", attemptParry);
 restartButton.addEventListener("click", reset);
 audioButton.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
@@ -215,7 +270,6 @@ qualitySelect.addEventListener("change", () => {
   resize();
 });
 window.addEventListener("keydown", keyDown);
-
 function resize(): void {
   const width = Math.max(1, viewport.clientWidth);
   const height = Math.max(1, viewport.clientHeight);
@@ -226,51 +280,72 @@ function resize(): void {
 const observer = new ResizeObserver(resize);
 observer.observe(viewport);
 resize();
-hud();
-
+updateHud();
 let previous = performance.now();
 let frames = 0;
 let frameSeconds = 0;
-function frame(time: number): void {
-  const delta = Math.min(0.06, Math.max(0, (time - previous) / 1000));
-  previous = time;
-  let ms = time - started;
-  if (presentation === "intro" && ms > INTRO_MS) {
+
+function frame(now: number): void {
+  const delta = Math.min(.05, Math.max(0, (now - previous) / 1000));
+  previous = now;
+  if (presentation === "intro" && now - phaseAt >= INTRO_MS) {
     loading.classList.add("hidden");
-    phase("choice", "decision");
+    setPhase("choice", "decision", now);
   }
-  if (presentation === "attack") {
-    if (ms > ATTACK_MS * 0.65) damageEnemy();
-    if (ms >= ATTACK_MS) {
-      phase(battle.phase === "victory" ? "victory" : "windup", battle.phase === "victory" ? "victory" : "defense");
+
+  // Capture the sequence ID before callbacks, because callbacks can start a new sequence.
+  const activeSequence = choreography.sequenceId;
+  const sample = choreography.advance(now);
+  if (sample) {
+    const baseTime = now - sample.elapsedMs;
+    for (const cue of sample.cues) {
+      // Stop processing stale events if a cue transitioned to a new sequence.
+      if (presentation === "reaction" && activeSequence !== ARCHERY_REACTION.id &&
+          cue.type !== "camera_recover") break;
+      const authored = activeSequence === ARCHERY_ATTACK.id ? ARCHERY_ATTACK :
+        activeSequence === ENEMY_STRIKE.id ? ENEMY_STRIKE : ARCHERY_REACTION;
+      onCue(cue.type, baseTime + cue.atMs);
+    }
+    if (sample.finished && choreography.sequenceId === null) {
+      if (presentation === "attack") {
+        if (battle.phase === "victory") {
+          setPhase("victory", "victory", now);
+          hero.play("victory");
+        } else if (battle.phase === "enemy_windup") {
+          startEnemy(now);
+        }
+      } else if (presentation === "windup") {
+        resolveDefense(now);
+      } else if (presentation === "reaction") {
+        setPhase(battle.phase === "defeat" ? "defeat" : "choice",
+          battle.phase === "defeat" ? "victory" : "decision", now);
+        hero.play("idle");
+        enemy.play("idle");
+      }
     }
   }
   if (presentation === "windup") {
-    timingFill.style.width = Math.min(100, ms / WINDUP_MS * 100) + "%";
-    if (ms >= WINDUP_MS + 280) resolveDefense();
+    const progress = Math.min(100, (now - phaseAt) / 1850 * 100);
+    timingFill.style.width = progress + "%";
   } else {
     timingFill.style.width = "0%";
   }
-  if (presentation === "reaction" && ms >= RECOVER_MS) {
-    phase(battle.phase === "defeat" ? "defeat" : "choice", battle.phase === "defeat" ? "victory" : "decision");
-  }
-  if (noticeUntil && time > noticeUntil) {
+  if (noticeUntil && now > noticeUntil) {
     feedback.classList.remove("visible");
     noticeUntil = 0;
   }
-  ms = time - started;
-  const heroPose: WarriorPose = presentation === "attack" ? "attack" : presentation === "reaction" ? "parry" : presentation === "victory" ? "victory" : "idle";
-  const enemyPose: WarriorPose = presentation === "windup" ? "windup" : presentation === "attack" && hasHit ? "hit" : "idle";
-  hero.animate(heroPose, Math.min(1, ms / (presentation === "attack" ? ATTACK_MS : RECOVER_MS)), time / 1000);
-  enemy.animate(enemyPose, Math.min(1, ms / (presentation === "windup" ? WINDUP_MS : ATTACK_MS)), time / 1000);
+  const motionElapsed = Math.max(0, now - phaseAt);
+  hero.update(delta, presentation === "attack" || presentation === "reaction" ? motionElapsed : undefined);
+  enemy.update(delta, presentation === "windup" ? motionElapsed : undefined);
+  effects.update(now);
   director.update(delta);
   renderer.render(scene, camera);
   frames++;
   frameSeconds += delta;
-  if (frameSeconds > 0.8) {
+  if (frameSeconds >= .8) {
     fpsDisplay.textContent = Math.round(frames / frameSeconds) + " FPS";
-    frames = 0;
     frameSeconds = 0;
+    frames = 0;
   }
 }
 renderer.setAnimationLoop(frame);
@@ -278,7 +353,9 @@ window.addEventListener("pagehide", () => {
   renderer.setAnimationLoop(null);
   observer.disconnect();
   window.removeEventListener("keydown", keyDown);
+  choreography.cancel();
   arena.dispose();
+  effects.dispose();
   hero.dispose();
   enemy.dispose();
   renderer.dispose();

@@ -31,6 +31,7 @@ export function createWarrior(role: WarriorRole): WarriorRig {
   const root = new THREE.Group();
   root.name = hero ? "ArcherHero" : "RakshasaOpponent";
   const body = new THREE.Group();
+  body.name = "Torso";
   root.add(body);
 
   const skin = new THREE.MeshStandardMaterial({ color: hero ? 0x9f6843 : 0x79564d, roughness: 0.91 });
@@ -55,6 +56,8 @@ export function createWarrior(role: WarriorRole): WarriorRig {
 
   const leftLeg = new THREE.Group();
   const rightLeg = new THREE.Group();
+  leftLeg.name = "LeftLeg";
+  rightLeg.name = "RightLeg";
   leftLeg.position.set(-0.23, 0.83, 0);
   rightLeg.position.set(0.23, 0.83, 0);
   body.add(leftLeg, rightLeg);
@@ -65,6 +68,8 @@ export function createWarrior(role: WarriorRole): WarriorRig {
 
   const leftArm = new THREE.Group();
   const rightArm = new THREE.Group();
+  leftArm.name = "LeftArm";
+  rightArm.name = "RightArm";
   leftArm.position.set(-0.56, 1.94, 0);
   rightArm.position.set(0.56, 1.94, 0);
   body.add(leftArm, rightArm);

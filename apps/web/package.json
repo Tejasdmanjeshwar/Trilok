@@ -11,6 +11,7 @@
   "dependencies": {
     "@trilok/combat": "workspace:*",
     "@trilok/core": "workspace:*",
+    "@trilok/choreography": "workspace:*",
     "three": "^0.180.0"
   },
   "devDependencies": {
