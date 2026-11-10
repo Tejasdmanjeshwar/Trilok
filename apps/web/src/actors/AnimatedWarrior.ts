@@ -49,14 +49,14 @@ function clips(): Record<Motion, THREE.AnimationClip> {
       Torso: [[0,0,0,0],[.24,-.2,0,-.12],[.73,0,0,0]],
     }),
     dodge: clip("dodge", .73, {
-      LeftArm: [[0,0,0,-.1],[.13,.45,0,-.55],[.4,.45,0,-.6],[.73,0,0,-.1]],
-      RightArm: [[0,0,0,.1],[.13,.35,0,.5],[.4,.35,0,.6],[.73,0,0,.1]],
-      Torso: [[0,0,0,0],[.17,.07,0,-.32],[.36,.1,0,-.43],[.73,0,0,0]],
+      LeftArm: [[0,0,0,-.1],[.07,.54,0,-.48],[.18,.75,0,-.6],[.4,.42,0,-.48],[.73,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.07,.44,0,.48],[.18,.64,0,.65],[.4,.38,0,.46],[.73,0,0,.1]],
+      Torso: [[0,0,0,0],[.08,.13,-.08,-.38],[.24,.14,-.1,-.50],[.48,-.08,0,-.18],[.73,0,0,0]],
     }),
     hit: clip("hit", .73, {
-      LeftArm: [[0,0,0,-.1],[.2,.4,0,-.38],[.73,0,0,-.1]],
-      RightArm: [[0,0,0,.1],[.2,.6,0,.45],[.73,0,0,.1]],
-      Torso: [[0,0,0,0],[.16,.32,0,.14],[.73,0,0,0]],
+      LeftArm: [[0,0,0,-.1],[.06,.65,0,-.55],[.22,.58,0,-.35],[.5,.22,0,-.20],[.73,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.06,.85,0,.58],[.22,.70,0,.43],[.5,.32,0,.17],[.73,0,0,.1]],
+      Torso: [[0,0,0,0],[.06,.50,0,.17],[.24,.35,0,.22],[.44,-.10,0,-.07],[.73,0,0,0]],
     }),
     victory: clip("victory", 1.5, {
       LeftArm: [[0,0,0,-.1],[.6,-.55,0,-.2],[1.5,-.55,0,-.2]],
@@ -73,6 +73,7 @@ export interface AnimatedWarrior {
   socketWorld(target: THREE.Vector3): THREE.Vector3;
   face(target: THREE.Vector3): void;
   equip(weapon: WeaponId): void;
+  setLocomotion(moving: boolean): void;
   dispose(): void;
 }
 
@@ -86,11 +87,20 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
   ) as Record<Motion, THREE.AnimationAction>;
   let current: Motion = "idle";
   let active = actions.idle;
+  const leftLeg = rig.root.getObjectByName("LeftLeg");
+  const rightLeg = rig.root.getObjectByName("RightLeg");
+  const leftArm = rig.root.getObjectByName("LeftArm");
+  const rightArm = rig.root.getObjectByName("RightArm");
+  const torso = rig.root.getObjectByName("Torso");
+  let moving = false;
+  let gait = 0;
+  let stride = 0;
   active.play();
   return {
     root: rig.root,
     face: rig.face,
     equip: rig.equip,
+    setLocomotion(value) { moving = value; },
     play(name) {
       if (current === name) return;
       active.fadeOut(0.13);
@@ -105,13 +115,26 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       active.play();
     },
     update(delta, elapsedMs) {
-      mixer.update(Math.max(0, Math.min(.05, delta)));
+      const dt = Math.max(0, Math.min(.05, delta));
+      mixer.update(dt);
       if (current !== "idle" && elapsedMs !== undefined && Number.isFinite(elapsedMs)) {
         const time = Math.min(library[current].duration, Math.max(0, elapsedMs / 1000));
         if (Math.abs(active.time - time) > .05) {
           active.time = time;
           mixer.update(0);
         }
+      }
+      // A small procedural gait layer prevents root-motion slides while moving.
+      // Leg joints are not animated by the authored upper-body clips.
+      gait += ((moving ? 1 : 0) - gait) * (1 - Math.exp(-11 * dt));
+      stride += dt * 14;
+      const step = Math.sin(stride);
+      if (leftLeg) leftLeg.rotation.x = step * gait * .57;
+      if (rightLeg) rightLeg.rotation.x = -step * gait * .57;
+      if (torso) torso.position.y = Math.abs(step) * gait * .045;
+      if (current === "idle") {
+        if (leftArm) leftArm.rotation.x += -step * gait * .22;
+        if (rightArm) rightArm.rotation.x += step * gait * .22;
       }
     },
     socketWorld(out) {

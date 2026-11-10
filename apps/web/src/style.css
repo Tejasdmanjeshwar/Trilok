@@ -16,3 +16,33 @@
   .hero{width:min(275px,85vw)}
   .hero small{display:flex;gap:4px;align-items:center}
 }
+
+/* Combat v0.3.2: pooled feedback UI, rendered above the 3D stage. */
+.combat-impact-overlay{
+  position:absolute;inset:0;pointer-events:none;z-index:3;opacity:0;
+  background:radial-gradient(ellipse at 52% 48%,#fff1bd8c 0%,#ffe2b542 24%,transparent 72%);
+  mix-blend-mode:screen;
+}
+.combat-impact-overlay.parry{
+  background:radial-gradient(ellipse at 50% 50%,#e4fffc93 0%,#81bfc54d 26%,transparent 72%);
+}
+.combat-impact-overlay.dodge{
+  background:radial-gradient(ellipse at 50% 50%,#c5ffe57d 0%,#80bdad39 25%,transparent 66%);
+}
+.combat-impact-overlay.miss{
+  background:radial-gradient(ellipse at 50% 50%,#ffb59c88 0%,#b9545249 25%,transparent 72%);
+}
+.combat-damage-number{
+  position:absolute;z-index:7;pointer-events:none;white-space:nowrap;
+  color:#ffe2a2;font-size:clamp(1.3rem,3.2vw,2.65rem);font-weight:900;
+  font-variant-numeric:tabular-nums;letter-spacing:-.04em;
+  text-shadow:0 2px 2px #332616,0 3px 16px #12130d;
+  will-change:transform,opacity;
+}
+.combat-damage-number.hero-damage{color:#ffc0a2;text-shadow:0 2px 3px #451c1e,0 3px 16px #260e14}
+@media(max-width:760px){
+  .combat-damage-number{font-size:1.45rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .combat-damage-number{will-change:opacity}
+}

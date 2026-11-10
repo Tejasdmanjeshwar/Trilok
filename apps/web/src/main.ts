@@ -5,6 +5,8 @@ import { createArena, type ArenaInstance, type ArenaQuality } from "./world/aren
 import { createAnimatedWarrior, type AnimatedWarrior, type Motion } from "./actors/AnimatedWarrior";
 import { CombatCameraDirector, type CameraShot } from "./camera/CombatCameraDirector";
 import { CombatEffects } from "./effects/CombatEffects";
+import { CombatFeedback } from "./feedback/CombatFeedback";
+import { CombatAudio } from "./feedback/CombatAudio";
 import { ARCHERY_ATTACK, MELEE_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
 import { CombatMovementController } from "./movement/CombatMovementController";
 import "./style.css";
@@ -13,7 +15,7 @@ const host = document.querySelector<HTMLDivElement>("#app");
 if (!host) throw new Error("Missing application element.");
 host.innerHTML = [
   '<main class="game"><div id="viewport" class="viewport"></div><div class="vignette"></div>',
-  '<header class="top"><div class="brand">✦ <strong>TRILOK</strong><span>COMBAT ARENA · V0.3.1</span></div>',
+  '<header class="top"><div class="brand">✦ <strong>TRILOK</strong><span>COMBAT ARENA · V0.3.2</span></div>',
   '<div class="tools"><span id="fps">— FPS</span><label>QUALITY <select id="quality"><option value="high">HIGH</option><option value="low">MOBILE</option></select></label>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
@@ -51,6 +53,7 @@ const enemyHp = query<HTMLElement>("#enemy-hp");
 const heroBar = query<HTMLElement>("#hero-bar");
 const enemyBar = query<HTMLElement>("#enemy-bar");
 const telegraph = query<HTMLElement>("#telegraph");
+const defenseHint = query<HTMLElement>("#telegraph small");
 const timingFill = query<HTMLElement>("#timing-fill");
 const feedback = query<HTMLElement>("#feedback");
 const loading = query<HTMLElement>("#loading");
@@ -108,6 +111,8 @@ movement.register(enemy.root);
 hero.equip("bow");
 enemy.equip("sword");
 const effects = new CombatEffects(scene);
+const visualFeedback = new CombatFeedback(scene, host!, reduceMotion);
+const sound = new CombatAudio();
 const heroSocket = new THREE.Vector3();
 const targetPoint = new THREE.Vector3();
 const effectPoint = new THREE.Vector3();
@@ -119,26 +124,11 @@ let battle: BattleState = beginBattle();
 let reaction: ReactionBuffer | null = null;
 let chosenDefense: DefenseAction | null = null;
 let noticeUntil = 0;
-let soundEnabled = false;
-let soundContext: AudioContext | null = null;
 const INTRO_MS = reduceMotion ? 250 : 1500;
 
-function audio(frequency: number): void {
-  if (!soundEnabled) return;
-  try {
-    soundContext ??= new AudioContext();
-    if (soundContext.state === "suspended") void soundContext.resume();
-    const oscillator = soundContext.createOscillator();
-    const gain = soundContext.createGain();
-    oscillator.frequency.setValueAtTime(frequency, soundContext.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(70, frequency * .65), soundContext.currentTime + .18);
-    gain.gain.setValueAtTime(.055, soundContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(.0001, soundContext.currentTime + .18);
-    oscillator.connect(gain);
-    gain.connect(soundContext.destination);
-    oscillator.start();
-    oscillator.stop(soundContext.currentTime + .18);
-  } catch { /* Audio is optional. */ }
+function dust(actor: AnimatedWarrior, now: number): void {
+  effectPoint.set(actor.root.position.x, 0.18, actor.root.position.z);
+  visualFeedback.emit("step", effectPoint, now);
 }
 
 function setPhase(next: Presentation, shot: CameraShot, now = performance.now()): void {
@@ -162,6 +152,7 @@ function updateHud(): void {
   messageDisplay.textContent = battle.message;
   attackButton.disabled = presentation !== "choice";
   const defenses = availableDefenses(battle.hero);
+  defenseHint.textContent = defenses.includes("parry") ? "PARRY OR DODGE AT IMPACT" : "DODGE AT IMPACT";
   parryButton.disabled = presentation !== "windup" || !defenses.includes("parry") || reaction?.captured === true;
   dodgeButton.disabled = presentation !== "windup" || !defenses.includes("dodge") || reaction?.captured === true;
   weaponSelect.value = battle.hero.weaponId;
@@ -176,11 +167,14 @@ function startAttack(now = performance.now()): void {
   const weapon = equippedWeapon(battle.hero);
   const melee = weapon.weaponClass === "melee";
   choreography.start(melee ? MELEE_ATTACK : ARCHERY_ATTACK, now);
-  if (melee) movement.approach(hero.root, enemy.root, weapon.reachMeters, now, 1080);
+  if (melee) {
+    movement.approach(hero.root, enemy.root, weapon.reachMeters, now, 1080);
+    dust(hero, now);
+  }
   hero.play(melee ? "melee" : "attack");
   enemy.play("idle");
   effects.clear();
-  audio(310);
+  sound.play(melee ? "step" : "draw");
 }
 function startEnemy(now: number): void {
   if (battle.phase !== "enemy_windup") return;
@@ -191,6 +185,8 @@ function startEnemy(now: number): void {
   const enemyWeapon = equippedWeapon(battle.enemy);
   if (enemyWeapon.weaponClass === "melee") {
     movement.approach(enemy.root, hero.root, enemyWeapon.reachMeters, now, 1060);
+    dust(enemy, now);
+    sound.play("step");
   }
   hero.play("idle");
   enemy.play("windup");
@@ -199,19 +195,23 @@ function resolveDefense(now: number): void {
   if (presentation !== "windup" || battle.phase !== "enemy_windup") return;
   const grade = gradeReaction(reaction?.offsetMs ?? null);
   const defense = chosenDefense ?? "dodge";
+  const previousHp = battle.hero.hp;
   battle = resolveEnemyTurn(battle, grade, defense);
-  director.impact(grade === "perfect" ? .10 : .17);
+  director.impact(grade === "perfect" ? .09 : .15);
   const defenseLabel = defense === "dodge"
     ? { perfect: "PERFECT DODGE", parry: "DODGED", guard: "GLANCING DODGE", miss: "HIT!" }
     : { perfect: "PERFECT PARRY", parry: "PARRIED", guard: "GUARDED", miss: "HIT!" };
   notice(defenseLabel[grade], grade === "miss");
-  audio(grade === "miss" ? 110 : 480);
+  const response = grade === "miss" ? "miss" : defense;
+  sound.play(response);
   movement.retreat(enemy.root, now, ARCHERY_REACTION.durationMs);
-  enemy.root.getWorldPosition(effectPoint).y += 1.4;
-  if (grade !== "miss") {
-    hero.root.getWorldPosition(effectPoint).y += 1.5;
-    effects.impact(effectPoint, now);
-  }
+  dust(enemy, now);
+
+  hero.root.getWorldPosition(effectPoint);
+  effectPoint.y += 1.5;
+  visualFeedback.emit(response, effectPoint, now, previousHp - battle.hero.hp, true);
+  if (grade !== "miss" && defense === "parry") effects.impact(effectPoint, now);
+
   setPhase("reaction", "reaction", now);
   choreography.start(ARCHERY_REACTION, now);
   reaction = null;
@@ -229,9 +229,13 @@ function attemptDefense(kind: DefenseAction): void {
     return;
   }
   chosenDefense = kind;
-  if (kind === "dodge") movement.dodge(hero.root, enemy.root, now, 750);
+  if (kind === "dodge") {
+    movement.dodge(hero.root, enemy.root, now, 750);
+    dust(hero, now);
+  }
   hero.play(kind);
   notice(kind === "dodge" ? "DODGE TIMED" : "PARRY TIMED");
+  sound.play(kind);
   updateHud();
   if (now >= reaction.impactAtMs) resolveDefense(now);
 }
@@ -244,6 +248,7 @@ function changeWeapon(id: WeaponId): void {
 function reset(): void {
   choreography.cancel();
   effects.clear();
+  visualFeedback.reset();
   reaction = null;
   chosenDefense = null;
   movement.reset();
@@ -255,29 +260,42 @@ function reset(): void {
   noticeUntil = 0;
   setPhase("choice", "decision");
 }
+/** Both ranged and melee contact use the same authoritative damage path. */
+function landHeroHit(at: number, attack: "ranged" | "melee"): void {
+  if (presentation !== "attack" || battle.phase !== "player_turn") return;
+  const weapon = equippedWeapon(battle.hero);
+  if (weapon.weaponClass !== attack) return;
+  const distance = movement.separation(hero.root, enemy.root);
+  if (distance > weapon.reachMeters + .0001) {
+    notice("OUT OF REACH", true);
+    return;
+  }
+  enemy.root.getWorldPosition(targetPoint);
+  targetPoint.y += 1.7;
+  const previousHp = battle.enemy.hp;
+  if (attack === "melee") effects.swing(hero.root.position, hero.root.rotation.y, at);
+  battle = strike(battle, distance);
+  effects.impact(targetPoint, at);
+  visualFeedback.emit("hit", targetPoint, at, previousHp - battle.enemy.hp);
+  director.impact(attack === "melee" ? .14 : .11);
+  enemy.play("hit");
+  notice(battle.phase === "victory" ? "VICTORY" : attack === "melee" ? "MELEE STRIKE" : "PRECISION STRIKE");
+  sound.play(battle.phase === "victory" ? "victory" : "hit");
+  updateHud();
+}
+
 function onCue(cue: CombatCue, at: number): void {
   switch (cue) {
-    case "camera_draw": director.setShot("attack"); break;
-    case "melee_draw": director.setShot("attack"); break;
+    case "camera_draw":
+    case "melee_draw":
+      director.setShot("attack");
+      break;
     case "melee_impact":
-      if (presentation !== "attack" || battle.phase !== "player_turn") break;
-      // This is a real melee hit: the root must be within the equipped weapon's reach.
-      if (movement.separation(hero.root, enemy.root) > equippedWeapon(battle.hero).reachMeters + .15) {
-        notice("OUT OF REACH", true);
-        break;
-      }
-      enemy.root.getWorldPosition(targetPoint);
-      targetPoint.y += 1.7;
-      effects.impact(targetPoint, at);
-      battle = strike(battle, movement.separation(hero.root, enemy.root));
-      director.impact(.18);
-      enemy.play("hit");
-      notice(battle.phase === "victory" ? "VICTORY" : "MELEE STRIKE");
-      audio(160);
-      updateHud();
+      landHeroHit(at, "melee");
       break;
     case "melee_recover":
       movement.retreat(hero.root, at, 675);
+      dust(hero, at);
       director.setShot("decision");
       break;
     case "bow_release":
@@ -285,28 +303,28 @@ function onCue(cue: CombatCue, at: number): void {
       enemy.root.getWorldPosition(targetPoint);
       targetPoint.y += 1.7;
       effects.launch(heroSocket, targetPoint, at, 435);
-      director.setShot("attack");
-      audio(650);
+      sound.play("release");
       break;
     case "arrow_hit":
-      if (presentation !== "attack" || battle.phase !== "player_turn") break;
-      enemy.root.getWorldPosition(targetPoint);
-      targetPoint.y += 1.7;
-      effects.impact(targetPoint, at);
-      battle = strike(battle, movement.separation(hero.root, enemy.root));
-      director.impact(.15);
-      enemy.play("hit");
-      notice(battle.phase === "victory" ? "VICTORY" : "PRECISION STRIKE");
-      audio(145);
-      updateHud();
+      landHeroHit(at, "ranged");
       break;
-    case "camera_defense": director.setShot("defense"); break;
-    case "enemy_swing": director.setShot("windup"); audio(235); break;
+    case "camera_defense":
+      director.setShot("defense");
+      break;
+    case "enemy_swing":
+      director.setShot("windup");
+      sound.play("slash");
+      break;
     case "enemy_impact":
+      effects.swing(enemy.root.position, enemy.root.rotation.y, at);
       if (reaction?.captured) resolveDefense(at);
       break;
-    case "reaction_close": resolveDefense(at); break;
-    case "camera_recover": director.setShot("decision"); break;
+    case "reaction_close":
+      resolveDefense(at);
+      break;
+    case "camera_recover":
+      director.setShot("decision");
+      break;
   }
 }
 function keyDown(event: KeyboardEvent): void {
@@ -324,9 +342,9 @@ dodgeButton.addEventListener("click", () => attemptDefense("dodge"));
 weaponSelect.addEventListener("change", () => changeWeapon(weaponSelect.value as WeaponId));
 restartButton.addEventListener("click", reset);
 audioButton.addEventListener("click", () => {
-  soundEnabled = !soundEnabled;
-  audioButton.textContent = soundEnabled ? "♪" : "♫";
-  if (soundEnabled) audio(520);
+  const enabled = sound.toggle();
+  audioButton.textContent = enabled ? "♪" : "♫";
+  audioButton.setAttribute("aria-pressed", String(enabled));
 });
 qualitySelect.addEventListener("change", () => {
   quality = qualitySelect.value as ArenaQuality;
@@ -407,12 +425,21 @@ function frame(now: number): void {
   const motionElapsed = Math.max(0, now - phaseAt);
   hero.face(enemy.root.position);
   enemy.face(hero.root.position);
-  hero.update(delta, presentation === "attack" || presentation === "reaction" ? motionElapsed : undefined);
-  enemy.update(delta, presentation === "windup" ? motionElapsed : undefined);
-  // Apply moves started by timeline cues before updating camera tracking.
+  hero.setLocomotion(movement.activity(hero.root) === "approach" ||
+                     movement.activity(hero.root) === "retreat");
+  enemy.setLocomotion(movement.activity(enemy.root) === "approach" ||
+                      movement.activity(enemy.root) === "retreat");
+  // Short presentation-only hit stop; combat timeline and input stay authoritative.
+  const frozen = now < visualFeedback.frozenUntil;
+  const motionDelta = frozen ? 0 : delta;
+  if (!frozen) {
+    hero.update(motionDelta, presentation === "attack" || presentation === "reaction" ? motionElapsed : undefined);
+    enemy.update(motionDelta, presentation === "windup" ? motionElapsed : undefined);
+  }
   movement.update(now);
   effects.update(now);
-  director.update(delta);
+  director.update(frozen ? delta * .18 : delta);
+  visualFeedback.update(now, camera);
   renderer.render(scene, camera);
   frames++;
   frameSeconds += delta;
@@ -430,8 +457,9 @@ window.addEventListener("pagehide", () => {
   choreography.cancel();
   arena.dispose();
   effects.dispose();
+  visualFeedback.dispose();
+  sound.dispose();
   hero.dispose();
   enemy.dispose();
   renderer.dispose();
-  void soundContext?.close();
 }, { once: true });

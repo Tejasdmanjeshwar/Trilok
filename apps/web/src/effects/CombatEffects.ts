@@ -1,11 +1,16 @@
 import * as THREE from "three";
 
-/** Reusable arrow and impact geometry: no allocations during attack updates. */
+/** Reusable arrow, slash and impact geometry: no allocations during attack updates. */
 export class CombatEffects {
   private readonly group = new THREE.Group();
   private readonly arrow = new THREE.Group();
   private readonly trail: THREE.Line;
   private readonly ring: THREE.Mesh;
+  private readonly slash: THREE.Mesh;
+  private readonly slashMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffe2a0, transparent: true, opacity: .82,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
   private readonly ringMaterial = new THREE.MeshBasicMaterial({ color: 0xf8d194, transparent: true, opacity: .8, depthWrite: false });
   private readonly start = new THREE.Vector3();
   private readonly end = new THREE.Vector3();
@@ -15,6 +20,7 @@ export class CombatEffects {
   private flightAt = -1;
   private flightDuration = 1;
   private burstAt = -1;
+  private slashAt = -1;
 
   constructor(scene: THREE.Scene) {
     const gold = new THREE.MeshStandardMaterial({ color: 0xf3d49e, emissive: 0x996b2a, emissiveIntensity: .65, roughness: .35, metalness: .45 });
@@ -32,6 +38,16 @@ export class CombatEffects {
     this.ring = new THREE.Mesh(new THREE.TorusGeometry(.35,.04,6,28),this.ringMaterial);
     this.ring.visible = false;
     this.group.add(this.ring);
+
+    // A single curved weapon streak reused for each melee swing.
+    const path = new THREE.CatmullRomCurve3(Array.from({length: 8}, (_, i) => {
+      const a = -0.85 + (i / 7) * 2.7;
+      return new THREE.Vector3(Math.cos(a) * 1.2, 1.65 + Math.sin(a) * 1.1, 1.25);
+    }));
+    this.slash = new THREE.Mesh(new THREE.TubeGeometry(path, 26, .045, 5, false), this.slashMaterial);
+    this.slash.visible = false;
+    this.slash.renderOrder = 2;
+    this.group.add(this.slash);
     scene.add(this.group);
   }
 
@@ -49,9 +65,15 @@ export class CombatEffects {
     this.ring.position.copy(at);
     this.ring.visible = true;
   }
+  swing(origin: THREE.Vector3, facingRadians: number, time: number): void {
+    this.slash.position.copy(origin);
+    this.slash.rotation.y = facingRadians;
+    this.slash.visible = true;
+    this.slashAt = time;
+  }
   clear():void {
-    this.flightAt = this.burstAt = -1;
-    this.arrow.visible = this.trail.visible = this.ring.visible = false;
+    this.flightAt = this.burstAt = this.slashAt = -1;
+    this.arrow.visible = this.trail.visible = this.ring.visible = this.slash.visible = false;
   }
   private interpolate(t:number):void {
     this.point.copy(this.start).lerp(this.end,t);
@@ -71,6 +93,12 @@ export class CombatEffects {
       }
       positions.needsUpdate=true;
       if(t>=1){this.flightAt=-1;this.arrow.visible=this.trail.visible=false;}
+    }
+    if(this.slashAt>=0){
+      const t=Math.min(1,Math.max(0,(now-this.slashAt)/380));
+      this.slash.visible=t<1;
+      this.slashMaterial.opacity=.82*Math.pow(1-t,2);
+      if(t>=1)this.slashAt=-1;
     }
     if(this.burstAt>=0){
       const t=Math.min(1,(now-this.burstAt)/480);
