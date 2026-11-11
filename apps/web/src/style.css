@@ -378,3 +378,14 @@
 .telegraph.target-weakpoint #timing-fill{background:linear-gradient(90deg,#892f40,#ff8e85)}
 .telegraph.target-weakpoint #timing-feasible{background:#f56d6b77;border-color:#ffaaa3}
 .telegraph.target-weakpoint #timing-perfect{background:#ffd6af;box-shadow:0 0 14px #ff7676}
+
+/* D10: reliable HTML fallback if the Three.js animation callback throws. */
+.runtime-fault[hidden]{display:none}
+.runtime-fault{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:20px;background:#0d1716e8;backdrop-filter:blur(7px)}
+.fault-panel{width:min(500px,94vw);padding:clamp(20px,4vw,35px);background:#1d302b;border:1px solid #e5bd82ad;box-shadow:0 18px 56px #0009;color:#f1dfbf;text-align:center}
+.fault-panel>b{display:block;color:#ffcca4;letter-spacing:.18em;font-size:1.1rem}
+.fault-panel p{margin:18px 0 10px;font-size:.92rem;line-height:1.5}
+.fault-panel small{display:block;color:#c7bfad;line-height:1.6}
+.fault-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:22px}
+.fault-actions button{padding:11px 15px;background:#365344;color:#f7e8d1;border:1px solid #d5b27c99;cursor:pointer;font-size:.78rem;letter-spacing:.07em}
+.fault-actions button:focus-visible{outline:3px solid #ffe2a3;outline-offset:3px}
