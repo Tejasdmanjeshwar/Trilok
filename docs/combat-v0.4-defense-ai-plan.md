@@ -1,6 +1,6 @@
 # Trilok Combat v0.4 — Symmetric Combat, Reactive Timing, Energy, Precision Targeting and AI
 
-Status: **v0.4-A shared encounter domain implemented**. **Variable reaction windows, Energy multi-action turns, body-region targeting, armor damage, enemy AI and the new browser adapter are planned but not implemented.** Browser baseline remains playable v0.3.2 pending migration from the legacy duel adapter.
+Status: **v0.4-A shared encounter domain implemented**. **v0.4-A.1 variable reaction windows and core multi-hit pending-hit resolution are now implemented in the pure domain. Energy multi-action turns, body-region targeting, armor damage, enemy AI and the new browser adapter remain planned, not implemented.** Browser baseline remains playable v0.3.2 pending migration from the legacy duel adapter.
 Design revision: **2026-11-11 — post-audit update, documentation only**.
 Owner: combat domain + choreography + AI + presentation adapters.
 Priority: stabilize authoritative timing, multi-action resource economy and regional damage before scaling enemy content or replacing character art. Design inspiration: Expedition 33 combines AP-funded actions, repeated free-aim attacks, weak points and real-time reactions; Trilok will use its own cost, timing and damage balance.
@@ -247,10 +247,12 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 3. [ ] Migrate v0.3.x browser presentation from hero-only combat API to the generic encounter controller during v0.4-B; remove the temporary legacy compatibility interface once UI/animation tests pass.
 4. [x] Add headless tests for four matrix cases, overrides, symmetric attack direction, costs, timing and reach.
 
-### v0.4-A.1 — Timing profiles and multi-hit windows (planned)
-1. Add delivery x defense-technique timing defaults and move-level overrides; snapshot effective windows at each hit.
-2. Separate telegraph, weapon commit, release, hit and recovery markers; add multi-hit identifiers and no duplicate resolutions.
-3. Test timing boundary conditions, modifier precedence, accessibility/latency and frame skips.
+### v0.4-A.1 — Timing profiles and multi-hit windows (domain implemented)
+1. [x] Add delivery × defense-technique timing defaults and attack/defense/hit-level timing overrides; snapshot effective windows when each attack is queued.
+2. [x] Model stable per-hit IDs and independently resolvable impact markers; resolve each hit once, charging the attack once, and advance the turn only after the final hit (or defeat).
+3. [x] Add tests for asymmetric boundary conditions, modifier precedence, accessibility-scale inputs, stale hit IDs and long frame skips.
+4. [ ] Migrate the **browser presentation** to generic encounter timelines; telegraph/commit/release/recovery markers remain owned by choreography until integration.
+5. [ ] Validate timing accessibility and perceived reaction fairness through actual mobile playtesting.
 
 ### v0.4-A.2 — Energy and action economy (planned)
 1. Implement one authoritative Energy balance, per-turn regeneration and independent action budget.
@@ -307,4 +309,4 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 - **DIP:** AI and presentation depend on shared combat contracts/events, not on each other or on concrete browser objects.
 - **DRY:** shared legality/reaction, effective-timing, Energy/turn-policy and region-aware damage resolvers for player/NPC; one attack lifecycle, validated move-level overrides and one timing source. Avoid premature abstractions, subclass trees or duplicated browser-side rules.
 
-**This is the revised implementation plan, not an implementation. Only the earlier v0.4-A baseline domain has been shipped; variable windows, Energy/action chains, aiming/armor, enemy HFSM/utility behavior and presentation work require explicit authorization.**
+**Implementation status:** v0.4-A baseline and v0.4-A.1 **pure-domain timing and independent multi-hit impact resolution** are implemented. The deployed web duel remains on v0.3.2 until adapter migration. Energy/action chains, aiming/armor, enemy HFSM/utility behavior and new browser presentation are not implemented.

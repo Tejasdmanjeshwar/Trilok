@@ -1,9 +1,11 @@
 import type {
   AttackDelivery, CombatCatalog, CombatantId, EncounterActor, EncounterState,
-  ReactionGradeV2, ReactionOption, ReactionPolicyOverride,
-  ReactionResolution, ReactionTechnique, TimingProfile,
+  ReactionOption, ReactionPolicyOverride, ReactionResolution, ReactionTechnique,
+  TimingAdjustments, PendingHit, AttackHitSpec,
 } from "./encounter-types";
 import { validateCombatCatalog } from "./encounter-catalog";
+import { gradeReactionWindow, resolveEffectiveTiming, validateTimingAdjustments } from "./encounter-timing";
+export { gradeReactionWindow as gradeReactionV2 } from "./encounter-timing";
 
 const DEFAULT_BY_DELIVERY: Readonly<Record<AttackDelivery, readonly ReactionTechnique[]>> = {
   melee_contact: ["dodge", "weapon_deflect"],
@@ -109,6 +111,8 @@ export interface QueueAttackInput {
   readonly moveId: string;
   readonly distanceAtStartMeters: number;
   readonly startedTick: number;
+  /** Difficulty, accessibility and status adjustments snapshotted when queued. */
+  readonly reactionTiming?: TimingAdjustments;
 }
 
 /**
@@ -135,8 +139,28 @@ export function queueAttack(
     throw new Error("Target is too far to engage.");
   }
   if (attacker.resource < move.resourceCost) throw new Error("Insufficient attack resources.");
-  const impactTick = input.startedTick + move.impactOffsetTicks;
-  if (!validTick(impactTick)) throw new Error("Invalid attack impact tick.");
+  const adjustments = input.reactionTiming ?? {};
+  validateTimingAdjustments(adjustments);
+  const rawHits: readonly AttackHitSpec[] = move.hits ??
+    [{ id: "impact", offsetTicks: move.impactOffsetTicks }];
+  const defenseIds = catalog.equipment[defender.equippedId]?.defenseMoveIds ?? [];
+  const hits: PendingHit[] = rawHits.map(hit => {
+    const impactTick = input.startedTick + hit.offsetTicks;
+    if (!validTick(impactTick)) throw new Error("Invalid attack impact tick.");
+    const timingByDefenseId: Record<string, ReturnType<typeof resolveEffectiveTiming>> = {};
+    for (const defenseId of defenseIds) {
+      const defense = catalog.defenses[defenseId];
+      if (!defense) throw new Error("Equipped defense is absent from the catalog.");
+      timingByDefenseId[defenseId] =
+        resolveEffectiveTiming(move, defense, catalog, adjustments, hit);
+    }
+    return {
+      id: hit.id,
+      impactTick,
+      damageMultiplier: hit.damageMultiplier ?? 1,
+      timingByDefenseId,
+    };
+  });
   const next = withActor(state, { ...attacker, resource: attacker.resource - move.resourceCost });
   return {
     ...next,
@@ -146,7 +170,9 @@ export function queueAttack(
       defenderId: input.defenderId,
       moveId: input.moveId,
       startedTick: input.startedTick,
-      impactTick,
+      hitIndex: 0,
+      hits,
+      impactTick: hits[0]!.impactTick,
     },
   };
 }
@@ -194,31 +220,24 @@ export function getLegalReactions(
     if (denied || (!permitted.has(move.technique) && !hasException) ||
         defender.resource < move.resourceCost ||
         (defender.cooldownUntilTurn[move.id] ?? 0) > state.turn) return [];
+    const hit = pending.hits[pending.hitIndex];
+    const timing = hit?.timingByDefenseId[move.id];
+    if (!timing) throw new Error("Missing snapshotted timing for equipped reaction.");
     return [{
       moveId: move.id,
       technique: move.technique,
       resourceCost: move.resourceCost,
-      timingProfileId: move.timingProfileId,
+      timingProfileId: timing.sourceProfileId,
+      timing,
       outcomeProfileId: move.outcomeProfileId,
     }];
   });
 }
 
-/** The grade is a timing outcome, not a parry action. */
-export function gradeReactionV2(
-  offsetTicks: number | null,
-  profile: TimingProfile,
-): ReactionGradeV2 {
-  if (offsetTicks === null || !Number.isFinite(offsetTicks) ||
-      offsetTicks < -profile.partialTicks || offsetTicks > profile.lateGraceTicks) return "miss";
-  const error = Math.abs(offsetTicks);
-  if (error <= profile.perfectTicks) return "perfect";
-  if (error <= profile.goodTicks) return "good";
-  return "partial";
-}
-
 export interface ResolveReactionInput {
   readonly defenderId: CombatantId;
+  /** Optional stale-event guard for delayed animation/network adapters. */
+  readonly hitId?: string;
   readonly defenseMoveId: string | null;
   readonly reactionTick: number | null;
   readonly resolvedTick: number;
@@ -250,10 +269,16 @@ export function resolveReaction(
   const pending = state.pending;
   if (!pending || state.phase !== "reaction") throw new Error("No pending reaction.");
   if (pending.defenderId !== input.defenderId) throw new Error("Wrong defending combatant.");
+  const hit = pending.hits[pending.hitIndex];
+  if (!hit || hit.impactTick !== pending.impactTick) throw new Error("Invalid pending hit cursor.");
+  if (input.hitId !== undefined && input.hitId !== hit.id) {
+    throw new Error("Reaction references a stale or unknown hit ID.");
+  }
   if (!validTick(input.resolvedTick) || input.resolvedTick < pending.impactTick) {
     throw new Error("Attack cannot resolve before its impact tick.");
   }
   if (input.reactionTick !== null && (!validTick(input.reactionTick) ||
+      input.reactionTick < pending.startedTick ||
       input.reactionTick > input.resolvedTick)) {
     throw new Error("Invalid reaction input timestamp.");
   }
@@ -271,32 +296,45 @@ export function resolveReaction(
     if (!chosen) throw new Error("Unavailable or illegal defense move.");
     if (input.reactionTick === null) throw new Error("Selected defense requires an input timestamp.");
   }
-  const profile = chosen ? catalog.timings[chosen.timingProfileId]! : null;
-  const grade = chosen && profile
-    ? gradeReactionV2(input.reactionTick! - pending.impactTick, profile)
+  const grade = chosen
+    ? gradeReactionWindow(input.reactionTick! - hit.impactTick, chosen.timing)
     : "miss";
   const outcome = chosen ? catalog.outcomes[chosen.outcomeProfileId]! : null;
   const inReach = input.distanceAtImpactMeters <= attack.reachMeters + 0.0001;
-  const damage = inReach ? Math.min(defender.hp, Math.round(attack.damage * (outcome?.[grade] ?? 1))) : 0;
+  const damage = inReach
+    ? Math.min(defender.hp, Math.round(attack.damage * hit.damageMultiplier * (outcome?.[grade] ?? 1)))
+    : 0;
   const updatedDefender: EncounterActor = {
     ...defender,
     hp: Math.max(0, defender.hp - damage),
     resource: defender.resource - (chosen?.resourceCost ?? 0),
     cooldownUntilTurn: chosen ? {
       ...defender.cooldownUntilTurn,
-      [chosen.moveId]: state.turn + catalog.defenses[chosen.moveId]!.cooldownTurns + 1,
+      // A zero-turn cooldown permits independent reactions to each combo hit.
+      [chosen.moveId]: state.turn +
+        (catalog.defenses[chosen.moveId]!.cooldownTurns === 0
+          ? 0 : catalog.defenses[chosen.moveId]!.cooldownTurns + 1),
     } : defender.cooldownUntilTurn,
   };
   const actors = { ...state.actors, [defender.id]: updatedDefender };
   const remaining = Object.values(actors).filter(actor => actor.hp > 0);
   const complete = remaining.length <= 1;
+  const nextIndex = pending.hitIndex + 1;
+  const nextHit = pending.hits[nextIndex];
+  const finalHit = !nextHit || complete;
   const nextState: EncounterState = {
     ...state,
     actors,
-    turn: state.turn + 1,
-    activeActorId: complete ? (remaining[0]?.id ?? attacker.id) : nextLivingActor(state, attacker.id, actors),
-    phase: complete ? "complete" : "decision",
-    pending: null,
+    turn: finalHit ? state.turn + 1 : state.turn,
+    activeActorId: finalHit && !complete
+      ? nextLivingActor(state, attacker.id, actors)
+      : complete ? (remaining[0]?.id ?? attacker.id) : state.activeActorId,
+    phase: complete ? "complete" : finalHit ? "decision" : "reaction",
+    pending: finalHit ? null : {
+      ...pending,
+      hitIndex: nextIndex,
+      impactTick: nextHit!.impactTick,
+    },
     victorId: complete ? (remaining[0]?.id ?? null) : null,
   };
   return {
@@ -304,6 +342,9 @@ export function resolveReaction(
     outcome: {
       attackerId: attacker.id,
       defenderId: defender.id,
+      hitId: hit.id,
+      hitIndex: pending.hitIndex,
+      finalHit,
       defenseMoveId: chosen?.moveId ?? null,
       technique: chosen?.technique ?? null,
       grade,

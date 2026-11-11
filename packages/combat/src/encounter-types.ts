@@ -1,15 +1,24 @@
-/** Renderer-agnostic combat contracts for symmetric player/NPC encounters. */
+/** Immutable, renderer-agnostic combat contracts shared by players and AI. */
 export type AttackDelivery = "melee_contact" | "ranged_projectile" | "area";
 export type ReactionTechnique = "dodge" | "weapon_deflect" | "projectile_intercept";
 export type ReactionGradeV2 = "perfect" | "good" | "partial" | "miss";
 export type CombatantId = string;
 
 export interface ReactionPolicyOverride {
-  /** inherit intersects the defaults; extend unions; replace discards defaults. */
+  /** Inherit intersects defaults, extend unions, replace overrides defaults. */
   readonly mode?: "inherit" | "extend" | "replace";
   readonly allow?: readonly ReactionTechnique[];
-  /** Deny always takes precedence over allow. */
+  /** Explicit deny takes precedence over allow. */
   readonly deny?: readonly ReactionTechnique[];
+}
+
+/** A hit has a stable identity and independent reaction resolution. */
+export interface AttackHitSpec {
+  readonly id: string;
+  readonly offsetTicks: number;
+  readonly damageMultiplier?: number;
+  /** Optional timing replacement for this individual hit. */
+  readonly timingProfileOverrides?: Partial<Record<ReactionTechnique, string>>;
 }
 
 export interface AttackSpec {
@@ -17,10 +26,14 @@ export interface AttackSpec {
   readonly delivery: AttackDelivery;
   readonly damage: number;
   readonly reachMeters: number;
-  /** Upper bound at action selection; movement must reach weapon range by impact. */
+  /** Selection range: movement must reach real weapon range by contact. */
   readonly engageRangeMeters: number;
-  /** Milliseconds/ticks from attack start until contact. */
+  /** Legacy single-hit timestamp; used only when hits is omitted. */
   readonly impactOffsetTicks: number;
+  /** One or more strictly increasing authored impact markers. */
+  readonly hits?: readonly AttackHitSpec[];
+  /** Per-technique move-level timing overrides, layered over delivery defaults. */
+  readonly timingProfileOverrides?: Partial<Record<ReactionTechnique, string>>;
   readonly resourceCost: number;
   readonly reactionPolicy?: ReactionPolicyOverride;
 }
@@ -30,9 +43,11 @@ export interface DefenseSpec {
   readonly technique: ReactionTechnique;
   readonly resourceCost: number;
   readonly cooldownTurns: number;
+  /** Backwards-compatible fallback when catalog has no delivery × technique profile. */
   readonly timingProfileId: string;
+  /** Defense-move-specific timing replacement, applied after attack's override. */
+  readonly timingOverrideProfileId?: string;
   readonly outcomeProfileId: string;
-  /** A move can explicitly counter additional delivery types. */
   readonly grantsAgainst?: readonly AttackDelivery[];
 }
 
@@ -44,14 +59,29 @@ export interface EquipmentSpec {
   readonly switchCost: number;
 }
 
+/** Explicit asymmetric reaction window, measured from the impact marker. */
 export interface TimingProfile {
+  readonly earlyTicks: number;
+  readonly lateTicks: number;
   readonly perfectTicks: number;
   readonly goodTicks: number;
-  readonly partialTicks: number;
-  readonly lateGraceTicks: number;
 }
 
-/** Damage multipliers; the attacker supplies base damage, not the defense. */
+/** Snapshot computed once when the attack is queued; not re-evaluated on impact. */
+export interface EffectiveTimingProfile extends TimingProfile {
+  readonly sourceProfileId: string;
+}
+
+/** Integer-tick modifiers supplied by difficulty/accessibility/actor statuses. */
+export interface TimingAdjustments {
+  /** 1 = normal, 1.4 = 40% wider accepted/grade windows. Bound to 0.5–2. */
+  readonly windowScale?: number;
+  /** Additional accepted early/late ticks; validated to -250..250. */
+  readonly earlyBonusTicks?: number;
+  readonly lateBonusTicks?: number;
+}
+
+/** Damage multipliers; attack supplies base damage. */
 export type OutcomeProfile = Readonly<Record<ReactionGradeV2, number>>;
 
 export interface CombatCatalog {
@@ -59,6 +89,8 @@ export interface CombatCatalog {
   readonly attacks: Readonly<Record<string, AttackSpec>>;
   readonly defenses: Readonly<Record<string, DefenseSpec>>;
   readonly timings: Readonly<Record<string, TimingProfile>>;
+  /** Optional delivery × technique defaults; defense fallback supports older catalogs. */
+  readonly reactionTimingDefaults?: Partial<Record<AttackDelivery, Partial<Record<ReactionTechnique, string>>>>;
   readonly outcomes: Readonly<Record<string, OutcomeProfile>>;
 }
 
@@ -75,12 +107,23 @@ export interface EncounterActor {
   readonly switchedOnTurn: number | null;
 }
 
+export interface PendingHit {
+  readonly id: string;
+  readonly impactTick: number;
+  readonly damageMultiplier: number;
+  /** Snapshots keyed by equipped defense move ID, independent of frame rate. */
+  readonly timingByDefenseId: Readonly<Record<string, EffectiveTimingProfile>>;
+}
+
 export interface PendingAttack {
   readonly attackerId: CombatantId;
   readonly defenderId: CombatantId;
   readonly moveId: string;
   readonly startedTick: number;
+  /** Current unresolved hit; kept for convenient browser adapters. */
   readonly impactTick: number;
+  readonly hitIndex: number;
+  readonly hits: readonly PendingHit[];
 }
 
 export interface EncounterState {
@@ -98,6 +141,7 @@ export interface ReactionOption {
   readonly technique: ReactionTechnique;
   readonly resourceCost: number;
   readonly timingProfileId: string;
+  readonly timing: EffectiveTimingProfile;
   readonly outcomeProfileId: string;
 }
 
@@ -106,6 +150,9 @@ export interface ReactionResolution {
   readonly outcome: {
     readonly attackerId: string;
     readonly defenderId: string;
+    readonly hitId: string;
+    readonly hitIndex: number;
+    readonly finalHit: boolean;
     readonly defenseMoveId: string | null;
     readonly technique: ReactionTechnique | null;
     readonly grade: ReactionGradeV2;

@@ -1,6 +1,7 @@
 import type {
   AttackDelivery, CombatCatalog, ReactionPolicyOverride, ReactionTechnique,
 } from "./encounter-types";
+import { validateTimingProfile } from "./encounter-timing";
 
 const TECHNIQUES: readonly ReactionTechnique[] = ["dodge", "weapon_deflect", "projectile_intercept"];
 const DELIVERIES: readonly AttackDelivery[] = ["melee_contact", "ranged_projectile", "area"];
@@ -33,6 +34,19 @@ function validatePolicy(policy?: ReactionPolicyOverride): void {
   }
 }
 
+function validateTimingReferences(
+  references: Partial<Record<ReactionTechnique, string>> | undefined,
+  catalog: CombatCatalog,
+  owner: string,
+): void {
+  if (!references) return;
+  for (const [technique, profileId] of Object.entries(references)) {
+    if (!known(technique, TECHNIQUES) || !profileId || !catalog.timings[profileId]) {
+      throw new Error("Unknown timing technique/profile on " + owner + ": " + technique);
+    }
+  }
+}
+
 /** Validate authored content once at loading; never silently ignore bad IDs. */
 export function validateCombatCatalog(catalog: CombatCatalog): void {
   for (const [id, move] of Object.entries(catalog.attacks)) {
@@ -47,6 +61,31 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
       throw new Error("Invalid attack range or impact timing: " + id);
     }
     validatePolicy(move.reactionPolicy);
+    validateTimingReferences(move.timingProfileOverrides, catalog, "attack " + id);
+    if (move.hits !== undefined) {
+      if (move.hits.length < 1 || move.hits.length > 16) {
+        throw new Error("Attack must contain between one and sixteen impact markers.");
+      }
+      const hitIds = new Set<string>();
+      let previous = 0;
+      for (const hit of move.hits) {
+        if (!hit.id || hitIds.has(hit.id) || !Number.isSafeInteger(hit.offsetTicks) ||
+            hit.offsetTicks <= previous || hit.offsetTicks > 600_000) {
+          throw new Error("Attack hit IDs and offsets must be unique and strictly increasing.");
+        }
+        if (hit.damageMultiplier !== undefined &&
+            (!Number.isFinite(hit.damageMultiplier) ||
+             hit.damageMultiplier <= 0 || hit.damageMultiplier > 10)) {
+          throw new Error("Invalid hit damage multiplier.");
+        }
+        validateTimingReferences(hit.timingProfileOverrides, catalog, "attack hit " + hit.id);
+        hitIds.add(hit.id);
+        previous = hit.offsetTicks;
+      }
+      if (move.hits[0]!.offsetTicks !== move.impactOffsetTicks) {
+        throw new Error("First hit offset must equal the legacy impact offset.");
+      }
+    }
   }
   for (const [id, defense] of Object.entries(catalog.defenses)) {
     assertId(id);
@@ -54,7 +93,9 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
     nonnegative(defense.resourceCost, "defense cost");
     nonnegative(defense.cooldownTurns, "cooldown");
     if (!Number.isInteger(defense.cooldownTurns)) throw new Error("Cooldown must be an integer.");
-    if (!catalog.timings[defense.timingProfileId] || !catalog.outcomes[defense.outcomeProfileId]) {
+    if (!catalog.timings[defense.timingProfileId] || !catalog.outcomes[defense.outcomeProfileId] ||
+        (defense.timingOverrideProfileId !== undefined &&
+          !catalog.timings[defense.timingOverrideProfileId])) {
       throw new Error("Unknown timing or outcome profile: " + id);
     }
     const deliveries = defense.grantsAgainst ?? [];
@@ -75,14 +116,13 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
       throw new Error("Equipment references unknown move: " + id);
     }
   }
+  for (const [delivery, perTechnique] of Object.entries(catalog.reactionTimingDefaults ?? {})) {
+    if (!known(delivery, DELIVERIES)) throw new Error("Invalid default timing delivery.");
+    validateTimingReferences(perTechnique, catalog, "delivery " + delivery);
+  }
   for (const [id, timing] of Object.entries(catalog.timings)) {
     assertId(id);
-    for (const [name, value] of Object.entries(timing)) nonnegative(value, "timing " + name);
-    if (!(timing.perfectTicks <= timing.goodTicks &&
-          timing.goodTicks <= timing.partialTicks &&
-          timing.lateGraceTicks <= timing.partialTicks)) {
-      throw new Error("Timing thresholds are inconsistent: " + id);
-    }
+    validateTimingProfile(timing);
   }
   for (const [id, outcome] of Object.entries(catalog.outcomes)) {
     assertId(id);
@@ -108,6 +148,7 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
       id: "heavy_crush", delivery: "melee_contact", damage: 26,
       reachMeters: 2, engageRangeMeters: 15, impactOffsetTicks: 1850, resourceCost: 2,
       reactionPolicy: { mode: "inherit", deny: ["weapon_deflect"] },
+      timingProfileOverrides: { dodge: "heavy_dodge" },
     },
   },
   defenses: {
@@ -116,7 +157,24 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
     countershot: { id: "countershot", technique: "projectile_intercept", resourceCost: 2, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry" },
   },
   timings: {
-    standard: { perfectTicks: 90, goodTicks: 200, partialTicks: 380, lateGraceTicks: 280 },
+    // Fallback for authored content that does not yet select delivery defaults.
+    standard: { earlyTicks: 380, lateTicks: 280, perfectTicks: 90, goodTicks: 200 },
+    melee_dodge: { earlyTicks: 280, lateTicks: 120, perfectTicks: 65, goodTicks: 140 },
+    melee_parry: { earlyTicks: 130, lateTicks: 70, perfectTicks: 35, goodTicks: 70 },
+    ranged_dodge: { earlyTicks: 170, lateTicks: 90, perfectTicks: 50, goodTicks: 95 },
+    ranged_parry: { earlyTicks: 90, lateTicks: 50, perfectTicks: 25, goodTicks: 50 },
+    heavy_dodge: { earlyTicks: 360, lateTicks: 140, perfectTicks: 75, goodTicks: 150 },
+  },
+  reactionTimingDefaults: {
+    melee_contact: {
+      dodge: "melee_dodge",
+      weapon_deflect: "melee_parry",
+    },
+    ranged_projectile: {
+      dodge: "ranged_dodge",
+      weapon_deflect: "ranged_parry",
+      projectile_intercept: "ranged_parry",
+    },
   },
   outcomes: {
     dodge: { perfect: 0, good: 0, partial: 0.36, miss: 1 },
