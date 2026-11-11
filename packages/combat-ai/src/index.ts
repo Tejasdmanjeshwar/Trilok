@@ -88,6 +88,8 @@ export interface AIDecisionContext {
   readonly targetId: string;
   readonly distanceMeters: number;
   readonly tick: number;
+  /** AI-only phase gate; domain attack legality is still queried first. */
+  readonly attackAllowlist?: readonly string[];
 }
 
 export interface ActionScore {
@@ -176,6 +178,20 @@ export class EnemyCombatBrain {
   }
   private recentMove: string | null = null;
   private readonly observedDefenses=new Map<string,{parry:number;dodge:number;ignored:number}>();
+  private battleStyle:FightingStyle|null=null;
+  private aggressionBonus=0;
+  private awarenessBonus=0;
+  /** Phase changes retain seeded RNG and learned player habits. */
+  setBattleStage(style:FightingStyle,aggressionBonus:number,awarenessBonus:number):void {
+    if(!["duelist","trickster","brute"].includes(style) ||
+       !Number.isFinite(aggressionBonus)||aggressionBonus<0||aggressionBonus>.3||
+       !Number.isFinite(awarenessBonus)||awarenessBonus<0||awarenessBonus>.3)
+      throw new Error("Invalid boss AI phase tuning.");
+    this.battleStyle=style;
+    this.aggressionBonus=aggressionBonus;
+    this.awarenessBonus=awarenessBonus;
+  }
+
   /** Count only resolved player reactions, never predictions or telegraphs. */
   observeDefense(defenderId:string,technique:ReactionTechnique|null):void {
     const previous=this.observedDefenses.get(defenderId)??{parry:0,dodge:0,ignored:0};
@@ -211,6 +227,9 @@ export class EnemyCombatBrain {
     // Callers replace the brain to replay the exact RNG sequence.
     this.transition("observe");
     this.recentMove = null;
+    this.battleStyle=null;
+    this.aggressionBonus=0;
+    this.awarenessBonus=0;
     this.observedTargets.clear();
     this.observedDefenses.clear();
     this.switchTurn = -1;
@@ -277,7 +296,13 @@ export class EnemyCombatBrain {
     const normalizedEnergy = actor.resource / Math.max(1, actor.maxResource);
     const targetFraction = target.hp / Math.max(1, target.maxHp);
     const remaining = state.rules.maxActionsPerTurn - state.turnBudget.actionsUsed;
-    const available = getLegalAttackMoves(state, catalog, targetId, distanceMeters);
+    if(ctx.attackAllowlist &&
+        (new Set(ctx.attackAllowlist).size!==ctx.attackAllowlist.length ||
+         ctx.attackAllowlist.some(id=>!catalog.attacks[id])))
+      throw new Error("Invalid AI phase attack allowlist.");
+    const allowed=ctx.attackAllowlist ? new Set(ctx.attackAllowlist) : null;
+    const available = getLegalAttackMoves(state, catalog, targetId, distanceMeters)
+      .filter(id=>!allowed||allowed.has(id));
     for (const moveId of available) {
       const move = catalog.attacks[moveId]!;
       const recovery = move.turnPolicy?.energyGainOnCompletion ?? 0;
@@ -288,7 +313,7 @@ export class EnemyCombatBrain {
       const expected = move.damage / Math.max(1, target.hp);
       const costPenalty = move.resourceCost / Math.max(1, actor.maxResource);
       const ending = move.turnPolicy?.continuation !== "continue";
-      let score = .34 + this.profile.aggression * .23 +
+      let score = .34 + Math.min(1,this.profile.aggression+this.aggressionBonus) * .23 +
         clamp(expected * 1.8, 0, .5) +
         (isMelee ? .12 * viable : distanceMeters >= 4 ? .14 : -.07);
       // Distant melee attacks require a conspicuous approach. Switching to
@@ -299,7 +324,7 @@ export class EnemyCombatBrain {
       score -= this.recentMove === moveId ? .15 : 0;
       if(move.turnPolicy?.freeAction)score+=.7;
       if(move.pattern){
-        const style=this.profile.fightingStyle??"duelist";
+        const style=this.battleStyle??this.profile.fightingStyle??"duelist";
         const affinity={
           duelist:{flurry:.24,feint:.025,delayed:-.045},
           trickster:{flurry:.08,feint:.26,delayed:.07},
@@ -308,7 +333,8 @@ export class EnemyCombatBrain {
         score+=affinity[style][move.pattern.kind];
         // A wounded enemy becomes less predictable and more willing to commit.
         if(actor.hp/actor.maxHp<.45)
-          score+=(move.pattern.kind==="delayed"?.14:.07)*this.profile.aggression;
+          score+=(move.pattern.kind==="delayed"?.14:.07)*
+            Math.min(1,this.profile.aggression+this.aggressionBonus);
         const history=this.observedDefenses.get(targetId);
         const total=history ? history.parry+history.dodge+history.ignored : 0;
         const confidence=(this.profile.intelligence??this.profile.awareness)*Math.min(1,total/4);
@@ -340,7 +366,8 @@ export class EnemyCombatBrain {
         const afterCost = actor.resource;
         const canAttack = next.attackMoveIds.some(id => {
           const move = catalog.attacks[id]!;
-          return move.resourceCost <= afterCost && move.engageRangeMeters >= distanceMeters;
+          return (!allowed||allowed.has(id)) &&
+            move.resourceCost <= afterCost && move.engageRangeMeters >= distanceMeters;
         });
         const score = .26 + match * this.profile.switchingPreference +
           clamp(difference * .03, -.20, .20) +
@@ -392,7 +419,7 @@ export class EnemyCombatBrain {
     const weakThreat=!!vulnerable && vulnerable.vulnerabilityMultiplier>1 &&
       state.actors[defenderId]?.regionExposure?.[pending.intendedRegionId!]!=="protected";
     const intelligence=this.profile.intelligence??this.profile.awareness;
-    const awareness=threatRecognition(this.profile,repeated,weakThreat);
+    const awareness=clamp(threatRecognition(this.profile,repeated,weakThreat)+this.awarenessBonus);
     if (!available.length || this.random.next() >= awareness) return null;
     const actor = state.actors[defenderId]!;
     const weighted = available.map(option => {
