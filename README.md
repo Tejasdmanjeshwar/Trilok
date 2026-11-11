@@ -35,7 +35,7 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
 
-The playable version is **v0.4.0-preview.7**, the combat engine version is **v0.4-D3**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
+The playable version is **v0.4.0-preview.8**, the combat engine version is **v0.4-D4**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
 
 See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.
 
@@ -48,3 +48,7 @@ See [v0.4-D2 UI and camera notes](docs/combat-v0.4D2-medieval-hud.md).
 ### Continuous projectile clashes — v0.4-D3
 
 A ranged interception **fires the defender's arrow once during the intercept animation**. Both arrows travel together and collide before the original impact. Depending on timing and authored projectile strength, the incoming arrow survives, both shatter, or the defender's **same original arrow** continues automatically toward the attacker. No separate bow counter-attack or second projectile is created. Melee perfect parries still invoke authored sword ripostes. See [D3 projectile-clash technical notes](docs/combat-v0.4D3-projectile-clash.md).
+
+### Ballistic and homing-ready interception — v0.4-D4
+
+Incoming and defensive arrows now use the **same deterministic ballistic trajectory sampler** for physics and rendering. The shared solver calculates feasible interception inputs, prefers a path through both the incoming projectile and the predicted opponent position, and publishes an **early green feasibility band** plus a **gold perfect band** on the reaction bar. A surviving arrow retains its original trajectory and can still miss a moving target. The trajectory API supports straight, ballistic and future guided/homing **piecewise analytic segments**; a production homing controller is not implemented yet. See [D4 ballistic system specification](docs/combat-v0.4D4-ballistics.md).

@@ -1,3 +1,5 @@
+> **Historical v0.4-D3 prototype:** fixed-tick collision geometry and linear flight have been superseded by [v0.4-D4 shared ballistic trajectory and physical feasibility planning](combat-v0.4D4-ballistics.md). See D4 for current timing, future homing extension and unchanged survivor velocity.
+
 # Trilok v0.4-D3 — One Continuous Projectile Clash
 
 ## Status
