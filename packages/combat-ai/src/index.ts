@@ -55,25 +55,26 @@ export interface AIProfile {
   /** Select non-greedy legal candidates by temperature/noise. */
   readonly decisionNoise: number;
   readonly minThinkTicks: number;
+  readonly intelligence?: number;
 }
 export const ENEMY_PROFILES = {
   novice: {
     id: "novice", awareness: .43, perceptionDelayTicks: 330,
     timingErrorTicks: 160, aggression: .48, conservation: .68,
     switchingPreference: .35, defensePreference: .42,
-    decisionNoise: .28, minThinkTicks: 340,
+    decisionNoise: .28, minThinkTicks: 340, intelligence: .2,
   },
   capable: {
     id: "capable", awareness: .70, perceptionDelayTicks: 250,
     timingErrorTicks: 105, aggression: .62, conservation: .48,
     switchingPreference: .60, defensePreference: .66,
-    decisionNoise: .15, minThinkTicks: 270,
+    decisionNoise: .15, minThinkTicks: 270, intelligence: .6,
   },
   elite: {
     id: "elite", awareness: .83, perceptionDelayTicks: 190,
     timingErrorTicks: 70, aggression: .73, conservation: .37,
     switchingPreference: .76, defensePreference: .78,
-    decisionNoise: .09, minThinkTicks: 230,
+    decisionNoise: .09, minThinkTicks: 230, intelligence: .95,
   },
 } satisfies Record<string, AIProfile>;
 
@@ -99,6 +100,7 @@ export interface DecisionTrace {
 }
 
 function validateProfile(profile: AIProfile): void {
+  if (profile.intelligence !== undefined && (!Number.isFinite(profile.intelligence) || profile.intelligence < 0 || profile.intelligence > 1)) throw new Error("Invalid AI intelligence.");
   for (const property of ["awareness", "aggression", "conservation", "switchingPreference", "defensePreference", "decisionNoise"] as const) {
     if (!Number.isFinite(profile[property]) || profile[property] < 0 || profile[property] > 1) {
       throw new Error("Invalid AI profile probability: " + property);
@@ -129,6 +131,12 @@ export class SeededRandom {
 }
 
 function clamp(v: number, a = 0, b = 1): number { return Math.min(b, Math.max(a, v)); }
+/** Pure threat recognition model; profiles supply skill, memory supplies pattern frequency. */
+export function threatRecognition(profile: AIProfile, repeatCount: number, weakPoint: boolean): number {
+  const intelligence = profile.intelligence ?? profile.awareness;
+  return clamp(profile.awareness + Math.max(0, Math.min(5, repeatCount)) * .10 * intelligence +
+    (weakPoint ? .16 * intelligence : 0));
+}
 function equipmentClass(catalog: CombatCatalog, id: string): "ranged" | "melee" {
   const moves = catalog.equipment[id]?.attackMoveIds ?? [];
   const ranged = moves.filter(move => catalog.attacks[move]?.delivery === "ranged_projectile").length;
@@ -162,6 +170,7 @@ export class EnemyCombatBrain {
     this.currentPath = tacticalPath(leaf);
   }
   private recentMove: string | null = null;
+  private readonly observedTargets = new Map<string,{region:string;streak:number}>();
   private switchTurn = -1;
   private reactionToken: string | null = null;
   private plannedReaction: DefenseIntent | null = null;
@@ -177,10 +186,38 @@ export class EnemyCombatBrain {
     // Callers replace the brain to replay the exact RNG sequence.
     this.transition("observe");
     this.recentMove = null;
+    this.observedTargets.clear();
     this.switchTurn = -1;
     this.reactionToken = null;
     this.plannedReaction = null;
     this._trace = null;
+  }
+  observeAttack(attackerId: string, regionId: string | null): void {
+    if (!regionId) { this.observedTargets.delete(attackerId); return; }
+    const previous = this.observedTargets.get(attackerId);
+    this.observedTargets.set(attackerId, {region:regionId,
+      streak:previous?.region===regionId ? Math.min(6,previous.streak+1) : 1});
+  }
+  selectTargetRegion(state:EncounterState,catalog:CombatCatalog,targetId:string,moveId:string):string|null {
+    const target=state.actors[targetId], move=catalog.attacks[moveId];
+    const anatomy=target?.anatomyId ? catalog.anatomies?.[target.anatomyId] : undefined;
+    if(!target||!move||!anatomy||move.targeting?.mode!=="free_aim")return null;
+    const intelligence=this.profile.intelligence ?? this.profile.awareness;
+    const scored=Object.values(anatomy.regions)
+      .filter(region=>target.regionExposure?.[region.id]!=="hidden")
+      .map(region=>{
+        const protectedSpot=target.regionExposure?.[region.id]==="protected";
+        const armor=(target.equippedArmorIds??[]).reduce((value,id)=>{
+          const cover=catalog.armor?.[id]?.coverage.find(item=>item.regionId===region.id);
+          return value*(1-Math.min(1,(cover?.protection??0)*
+            (cover?.damageTypeModifiers?.[move.damageType??"blunt"]??1)));
+        },1);
+        return {id:region.id, score:(protectedSpot?1:region.vulnerabilityMultiplier)*armor+
+          (region.criticalEligible&&!protectedSpot?.12*intelligence:0)};
+      }).sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id));
+    if(!scored.length)return null;
+    return this.random.next()<intelligence || target.regionExposure?.[anatomy.defaultRegionId]==="hidden"
+      ?scored[0]!.id:anatomy.defaultRegionId;
   }
   markCommitted(): void { this.transition("commit"); }
   markRecovering(): void { this.transition("recover"); }
@@ -234,6 +271,7 @@ export class EnemyCombatBrain {
       score -= costPenalty * this.profile.conservation * .55;
       score -= ending && remaining > 1 ? .10 : 0;
       score -= this.recentMove === moveId ? .15 : 0;
+      if(move.turnPolicy?.freeAction)score+=.7;
       if (targetFraction < .25 && move.damage >= target.hp) score += .27;
       if (recovery > 0) {
         const missing = (actor.maxResource - actor.resource) / Math.max(1, actor.maxResource);
@@ -252,12 +290,12 @@ export class EnemyCombatBrain {
         const match = nextClass === appropriate ? .44 : -.26;
         const difference = averageExpectedDamage(actor, catalog, equipmentId) -
           averageExpectedDamage(actor, catalog, actor.equippedId);
-        const afterCost = actor.resource - next.switchCost;
+        const afterCost = actor.resource;
         const canAttack = next.attackMoveIds.some(id => {
           const move = catalog.attacks[id]!;
           return move.resourceCost <= afterCost && move.engageRangeMeters >= distanceMeters;
         });
-        const score = .12 + match * this.profile.switchingPreference +
+        const score = .26 + match * this.profile.switchingPreference +
           clamp(difference * .03, -.20, .20) +
           (currentClass === nextClass ? -.12 : .07) -
           (afterCost < 2 ? .19 : 0) -
@@ -299,7 +337,16 @@ export class EnemyCombatBrain {
     this.plannedReaction = null;
     this.onEncounter(state, defenderId);
     const available = getLegalReactions(state, catalog);
-    if (!available.length || this.random.next() >= this.profile.awareness) return null;
+    const memory=this.observedTargets.get(pending.attackerId);
+    const repeated=pending.intendedRegionId && memory?.region===pending.intendedRegionId ? memory.streak : 0;
+    const anatomyId=state.actors[defenderId]?.anatomyId;
+    const vulnerable=pending.intendedRegionId&&anatomyId
+      ?catalog.anatomies?.[anatomyId]?.regions[pending.intendedRegionId] : undefined;
+    const weakThreat=!!vulnerable && vulnerable.vulnerabilityMultiplier>1 &&
+      state.actors[defenderId]?.regionExposure?.[pending.intendedRegionId!]!=="protected";
+    const intelligence=this.profile.intelligence??this.profile.awareness;
+    const awareness=threatRecognition(this.profile,repeated,weakThreat);
+    if (!available.length || this.random.next() >= awareness) return null;
     const actor = state.actors[defenderId]!;
     const weighted = available.map(option => {
       const outcome = catalog.outcomes[option.outcomeProfileId]!;
@@ -308,13 +355,15 @@ export class EnemyCombatBrain {
         (option.technique === "dodge" ? .13 : this.profile.defensePreference * .34);
       score -= remaining < 1 ? this.profile.conservation * .23 : 0;
       score -= option.resourceCost / Math.max(1,actor.maxResource) * .19;
+      score += (weakThreat ? .18*intelligence : 0) + repeated*.05*intelligence;
       score += (this.random.next() - .5) * this.profile.decisionNoise;
       return { option, score };
     }).sort((a,b) => b.score - a.score);
     const choice = weighted[0]!.option;
     // The action is triggered after perceiving the attack, with uncertainty
     // that sometimes places the input outside its legal graded window.
-    const timingError = Math.round((this.random.next() * 2 - 1) * this.profile.timingErrorTicks);
+    const timingError = Math.round((this.random.next() * 2 - 1) * this.profile.timingErrorTicks *
+      (1-Math.min(.6,repeated*.12*intelligence+(weakThreat?.12*intelligence:0))));
     const targetTick = choice.targetTick + timingError;
     const perceivedAt = Math.max(nowTick, pending.startedTick + this.profile.perceptionDelayTicks);
     if (targetTick < perceivedAt || targetTick > choice.targetTick + choice.timing.lateTicks ||

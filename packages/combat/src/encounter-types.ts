@@ -78,6 +78,8 @@ export interface AttackTurnPolicy {
   readonly continuation: TurnContinuation;
   /** Optional per-turn move cap, separate from the global action budget. */
   readonly maxUsesPerTurn?: number;
+  readonly firstActionOnly?: boolean;
+  readonly freeAction?: boolean;
   /** Awarded once when the full attack completes; recovery moves must end the turn. */
   readonly energyGainOnCompletion?: number;
 }

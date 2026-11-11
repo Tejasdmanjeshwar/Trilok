@@ -17,6 +17,14 @@ export const ARCHERY_ATTACK: Sequence<CombatCue> = {
   ],
 };
 
+export const RAPID_MELEE_ATTACK: Sequence<CombatCue> = {
+  id: "rapid_melee_opener", durationMs: 1190,
+  cues: [
+    { id: "rapid-approach", atMs: 0, type: "melee_draw" },
+    { id: "rapid-impact", atMs: 720, type: "melee_impact" },
+    { id: "rapid-retreat", atMs: 890, type: "melee_recover" },
+  ],
+};
 export const MELEE_ATTACK: Sequence<CombatCue> = {
   id: "warrior_melee_lunge", durationMs: 2350,
   cues: [

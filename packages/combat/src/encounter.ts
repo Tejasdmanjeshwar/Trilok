@@ -119,7 +119,7 @@ export function getLegalEquipmentSwitches(
   return actor.loadoutIds.filter(id => {
     const equipment = catalog.equipment[id];
     return id !== actor.equippedId && equipment !== undefined &&
-      actor.resource >= equipment.switchCost;
+      true; // One switch per own turn, at no Energy cost.
   });
 }
 
@@ -134,9 +134,8 @@ export function equipCombatant(
   if (!getLegalEquipmentSwitches(state, catalog, actorId).includes(equipmentId)) {
     throw new Error("Equipment switch unavailable: loadout, turn limit or Energy.");
   }
-  const cost = catalog.equipment[equipmentId]!.switchCost;
   return withActor(state, {
-    ...actor, equippedId: equipmentId, resource: actor.resource - cost,
+    ...actor, equippedId: equipmentId,
     switchedOnTurn: state.turn,
   });
 }
@@ -162,6 +161,8 @@ export function getLegalAttackMoves(
     const move = catalog.attacks[id];
     if (!move) return false;
     return move.resourceCost <= actor.resource &&
+      (!move.turnPolicy?.firstActionOnly || (state.turnBudget.actionsUsed === 0 &&
+        Object.keys(state.turnBudget.moveUses).length === 0)) &&
       distanceMeters <= move.engageRangeMeters &&
       (move.turnPolicy?.maxUsesPerTurn === undefined ||
         (state.turnBudget.moveUses[id] ?? 0) < move.turnPolicy.maxUsesPerTurn);
@@ -281,7 +282,7 @@ export function queueAttack(
   const next = withActor(state, { ...attacker, resource: attacker.resource - move.resourceCost });
   return {
     ...next,
-    turnBudget: recordAttackAction(next.turnBudget, move.id),
+    turnBudget: recordAttackAction(next.turnBudget, move.id, policy.freeAction),
     phase: "reaction",
     pending: {
       attackerId: input.attackerId,

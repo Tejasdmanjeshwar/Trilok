@@ -11,7 +11,7 @@ Trilok shows a playable version, a combat engine version, and an automatically g
 ## In-game verification
 
 1. Open https://trilok.tejasdmjr996.workers.dev/.
-2. Look for COMBAT ARENA · V0.4.0-preview.11, with combat engine v0.4-D7. These labels should match `apps/web/build-version.json`.
+2. Look for COMBAT ARENA · V0.4.0-preview.12, with combat engine v0.4-D8. These labels should match `apps/web/build-version.json`.
 3. Directly below the title, look for BUILD <8-character-commit> · <HH:MM> UTC.
 4. Tap the BUILD badge to expand the playable version, combat engine, full commit, UTC timestamp and unique build ID. Use Copy details to share a report.
 5. Compare the commit with the latest commit at https://github.com/Tejasdmanjeshwar/Trilok/commits/main.
@@ -62,3 +62,14 @@ If the BUILD badge remains old, inspect the Cloudflare deployment first, then re
 - Critical precision hit on exposed neck: blood burst, arrow attachment and a dark-red wound mark at the actual impact position; wound and arrow follow animated body part.
 - Ordinary hits and recover shots do not create critical-only wounds. A helmet-blocked headshot also suppresses those critical effects.
 - Restart clears persistent wounds. Check touch/desktop and at MOBILE/HIGH graphics quality. Confirm build version.
+
+
+### D8: adaptive AI and free opening actions
+
+- At the start of a player turn, switching from bow to sword must consume **zero Energy and zero actions**; attempting a second switch during the same turn must fail.
+- On a sword turn, a **Rapid Slash** can be used exactly once **as the first attack**, for zero Energy and zero ordinary actions. After it finishes, normal actions remain available. Starting with another move disables this opener until the next own turn.
+- The guardian may choose its own once-per-turn rapid slash. Weak-point selection evaluates anatomy, armor and exposed/protected state instead of assuming every target has the same humanoid weak spot.
+- Repeatedly aim at the same exposed body region. Elite defenders should become more likely to recognize and successfully time defensive actions; novices should remain less reliable. These are **probabilistic AI reactions** controlled by seeded, reproducible decisions; the underlying projectile geometry never acquires hit/miss RNG.
+- When the guardian deliberately targets an **exposed player weak point**, the parry/intercept telegraph takes on a red tint. Ordinary torso attacks must keep the normal style.
+- Compare rapid, standard and heavy sword swings. Heavy attack has its own windup/impact/recoil animation, audio reinforcement and stronger camera punch. With reduced-motion settings, essential combat timing and health/energy updates must still work.
+- Inspect desktop and touch controls at HIGH and MOBILE settings. Verify the public build `/build-info.json` commit matches the deployed Git SHA.

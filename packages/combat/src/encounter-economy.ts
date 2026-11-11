@@ -38,6 +38,9 @@ export function validateAttackTurnPolicy(policy: AttackTurnPolicy): void {
     boundedInteger(policy.maxUsesPerTurn, 16, "per-move use limit");
     if (policy.maxUsesPerTurn === 0) throw new Error("Move use limit must be positive.");
   }
+  if (policy.freeAction && (!policy.firstActionOnly || policy.maxUsesPerTurn !== 1)) {
+    throw new Error("Free attacks require first-action-only and once-per-turn limits.");
+  }
   if (policy.energyGainOnCompletion !== undefined) {
     boundedInteger(policy.energyGainOnCompletion, 100, "Energy gain on completion");
     if (policy.energyGainOnCompletion > 0 && policy.continuation !== "end") {
@@ -51,10 +54,10 @@ export function emptyTurnBudget(): TurnBudget {
   return { actionsUsed: 0, moveUses: {}, perfectRefundUsedByActor: {} };
 }
 
-export function recordAttackAction(budget: TurnBudget, moveId: string): TurnBudget {
+export function recordAttackAction(budget: TurnBudget, moveId: string, freeAction = false): TurnBudget {
   return {
     ...budget,
-    actionsUsed: budget.actionsUsed + 1,
+    actionsUsed: budget.actionsUsed + (freeAction ? 0 : 1),
     moveUses: { ...budget.moveUses, [moveId]: (budget.moveUses[moveId] ?? 0) + 1 },
   };
 }

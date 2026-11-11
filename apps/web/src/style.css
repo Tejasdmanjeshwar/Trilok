@@ -371,3 +371,10 @@
 .timing #timing-feasible[hidden],.timing #timing-perfect[hidden]{display:none}
 #timing-title{font-family:Georgia,serif;font-variant:small-caps;letter-spacing:.12em}
 #telegraph small{display:block;line-height:1.55;max-width:100%}
+
+/* Threat-specific reaction window: red warns that an exposed weak point is targeted. */
+.telegraph.target-weakpoint{color:#ffc5bb}
+.telegraph.target-weakpoint .timing{border-color:#ff7773;background:#51252bd9;box-shadow:0 0 17px #b92d3066}
+.telegraph.target-weakpoint #timing-fill{background:linear-gradient(90deg,#892f40,#ff8e85)}
+.telegraph.target-weakpoint #timing-feasible{background:#f56d6b77;border-color:#ffaaa3}
+.telegraph.target-weakpoint #timing-perfect{background:#ffd6af;box-shadow:0 0 14px #ff7676}

@@ -10,7 +10,7 @@ export const PREVIEW_CATALOG: CombatCatalog = {
     ...DEFAULT_COMBAT_CATALOG.equipment,
     rakshasa_sword: {
       id: "rakshasa_sword", label: "Rakshasa Greatsword",
-      attackMoveIds: ["overhead_slash", "rakshasa_quick_slash", "rakshasa_heavy"],
+      attackMoveIds: ["rakshasa_rapid_slash", "overhead_slash", "rakshasa_quick_slash", "rakshasa_heavy"],
       defenseMoveIds: ["evade", "blade_deflect"],
       switchCost: 2,
     },
@@ -59,24 +59,29 @@ export const PREVIEW_CATALOG: CombatCatalog = {
       ...DEFAULT_COMBAT_CATALOG.attacks.recover_shot!,
       impactEffects: [], // Lightweight recovery attacks never leave wounds.
     },
+    rakshasa_rapid_slash: { ...DEFAULT_COMBAT_CATALOG.attacks.rapid_slash!, id:"rakshasa_rapid_slash", damage:7,
+      targeting:{mode:"free_aim",precisionCriticalMultiplier:1.2} },
     overhead_slash: {
       ...DEFAULT_COMBAT_CATALOG.attacks.slash!,
-      id: "overhead_slash", damage: 14, impactOffsetTicks: 1850,
+      id: "overhead_slash", damage: 14,
+      targeting:{mode:"free_aim",precisionCriticalMultiplier:1.2}, impactOffsetTicks: 1850,
       turnPolicy: { continuation: "end", maxUsesPerTurn: 1 }, resourceCost: 1,
     },
     rakshasa_quick_slash: {
       ...DEFAULT_COMBAT_CATALOG.attacks.slash!,
-      id: "rakshasa_quick_slash", damage: 11, resourceCost: 2,
+      id: "rakshasa_quick_slash", damage: 11,
+      targeting:{mode:"free_aim",precisionCriticalMultiplier:1.2}, resourceCost: 2,
       turnPolicy: { continuation: "continue", maxUsesPerTurn: 2 },
     },
     rakshasa_heavy: {
       ...DEFAULT_COMBAT_CATALOG.attacks.heavy_crush!,
       id: "rakshasa_heavy", damage: 22,
+      targeting:{mode:"free_aim",precisionCriticalMultiplier:1.2},
     },
     rakshasa_arrow: {
       ...DEFAULT_COMBAT_CATALOG.attacks.arrow!,
       id: "rakshasa_arrow", damage: 12, projectilePower: 10,
-      targeting: { mode: "actor" },
+      targeting: { mode: "free_aim", precisionCriticalMultiplier: 1.2 },
       turnPolicy: { continuation: "continue", maxUsesPerTurn: 2 },
     },
     rakshasa_recover: {
