@@ -48,7 +48,7 @@ describe("v0.4-D1 move-authored perfect defensive counters",()=>{
     expect(impact.state.actors.hero!.hp).toBe(78);
   });
   it("a perfect melee deflection invokes a sword riposte instead of showing only a parry",()=>{
-    const r=defended("slash","blade_deflect");
+    const r=defended("slash","blade_deflect",PREVIEW_CATALOG,"sword","rakshasa_sword");
     expect(r.outcome.counter?.presentation).toBe("sword_riposte");
     expect(r.outcome.counter?.damage).toBe(30);
     const impact=resolveCounter(r.state,r.state.pendingCounter!.impactTick,PREVIEW_CATALOG);
@@ -99,7 +99,7 @@ describe("v0.4-D1 move-authored perfect defensive counters",()=>{
     }})).toThrow();
   });
   it("a counter cannot be parried, dodged, intercepted, or countered again",()=>{
-    const r=defended("slash","blade_deflect");
+    const r=defended("slash","blade_deflect",PREVIEW_CATALOG,"sword","rakshasa_sword");
     expect(r.state.pendingCounter).not.toBeNull();
     expect(r.state.pending).toBeNull();
     expect(getLegalReactions(r.state,PREVIEW_CATALOG)).toEqual([]);
