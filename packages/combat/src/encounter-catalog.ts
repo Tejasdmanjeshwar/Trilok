@@ -236,7 +236,7 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
 export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
   equipment: {
     bow: { id: "bow", label: "Longbow", attackMoveIds: ["arrow", "recover_shot"], defenseMoveIds: ["evade", "countershot"], switchCost: 2 },
-    sword: { id: "sword", label: "Sword", attackMoveIds: ["slash", "heavy_crush"], defenseMoveIds: ["evade", "blade_deflect"], switchCost: 2 },
+    sword: { id: "sword", label: "Sword", attackMoveIds: ["rapid_slash", "slash", "heavy_crush"], defenseMoveIds: ["evade", "blade_deflect"], switchCost: 2 },
   },
   attacks: {
     arrow: { id: "arrow", delivery: "ranged_projectile", damage: 18, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 1,
@@ -245,6 +245,10 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
     recover_shot: { id: "recover_shot", delivery: "ranged_projectile", damage: 8, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 0,
       damageType: "pierce", targeting: { mode: "actor" },
       turnPolicy: { continuation: "end", maxUsesPerTurn: 1, energyGainOnCompletion: 2 } },
+    rapid_slash: { id: "rapid_slash", delivery: "melee_contact", damage: 9, reachMeters: 1.9,
+      engageRangeMeters: 15, impactOffsetTicks: 720, resourceCost: 0,
+      damageType: "slash", targeting: { mode: "actor" },
+      turnPolicy: { continuation: "continue", firstActionOnly: true, freeAction: true, maxUsesPerTurn: 1 } },
     slash: { id: "slash", delivery: "melee_contact", damage: 22, reachMeters: 1.9, engageRangeMeters: 15, impactOffsetTicks: 1450, resourceCost: 2,
       damageType: "slash", targeting: { mode: "actor" },
       turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 } },

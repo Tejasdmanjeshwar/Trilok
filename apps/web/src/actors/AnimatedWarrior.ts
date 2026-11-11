@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { createWarrior, type WarriorRole } from "./warrior";
 import type { WeaponId } from "@trilok/combat";
 
-export type Motion = "idle" | "attack" | "melee" | "windup" | "parry" | "intercept" | "riposte" | "dodge" | "hit" | "hit_heavy" | "hit_arm" | "hit_head" | "victory";
+export type Motion = "idle" | "attack" | "rapid_melee" | "heavy_melee" | "melee" | "windup" | "parry" | "intercept" | "riposte" | "dodge" | "hit" | "hit_heavy" | "hit_arm" | "hit_head" | "victory";
 type Key = readonly [number, number, number, number];
 type Joint = "LeftArm" | "RightArm" | "Torso";
 type Pose = Partial<Record<Joint, readonly Key[]>>;
@@ -32,6 +32,16 @@ function clips(): Record<Motion, THREE.AnimationClip> {
       LeftArm: [[0,0,0,-.1],[.35,-.55,0,-.28],[.67,-1.1,0,-.5],[.85,-1.15,0,-.55],[1.2,-.45,0,-.2],[1.5,0,0,-.1]],
       RightArm: [[0,0,0,.1],[.38,-.7,0,.45],[.68,-1.35,0,.75],[.8,-1.65,0,.1],[1.2,-.35,0,.1],[1.5,0,0,.1]],
       Torso: [[0,0,0,0],[.54,-.12,.2,0],[.9,.06,-.09,0],[1.5,0,0,0]],
+    }),
+    rapid_melee: clip("rapid_melee", 1.19, {
+      LeftArm: [[0,0,0,-.1],[.22,-.45,0,-.3],[.54,-.9,0,-.4],[.83,-.3,0,-.2],[1.19,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.25,-1.1,.2,.3],[.54,-2.25,-.2,.48],[.72,.8,.1,-.2],[1.19,0,0,.1]],
+      Torso: [[0,0,0,0],[.35,-.2,-.25,-.12],[.72,.28,.28,.15],[1.19,0,0,0]],
+    }),
+    heavy_melee: clip("heavy_melee", 2.75, {
+      LeftArm: [[0,0,0,-.1],[.5,-.9,0,-.4],[1.2,-1.4,0,-.5],[1.6,-1.5,0,-.35],[1.85,.5,0,-.1],[2.75,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.5,-1.4,.3,.4],[1.2,-2.6,.2,.6],[1.6,-2.8,-.2,.4],[1.85,1.1,0,-.2],[2.75,0,0,.1]],
+      Torso: [[0,0,0,0],[.6,-.2,-.4,-.1],[1.55,-.4,-.55,-.18],[1.86,.45,.4,.2],[2.75,0,0,0]],
     }),
     melee: clip("melee", 2.35, {
       LeftArm: [[0,0,0,-.1],[.65,-.45,0,-.3],[1.18,-.8,0,-.28],[1.42,-1.05,0,-.15],[1.75,0,0,-.1],[2.35,0,0,-.1]],

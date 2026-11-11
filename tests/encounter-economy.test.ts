@@ -121,15 +121,15 @@ describe("v0.4-A.2 Energy action economy", () => {
     expect(s.actors.enemy!.resource).toBe(8);
   });
 
-  it("allows one costly weapon switch per own turn, and prevents refund of the switch", () => {
+  it("allows one free weapon switch per own turn", () => {
     let s = start(actor("hero", "bow", 7));
     s = equipCombatant(s, "hero", "sword", catalog);
-    expect(s.actors.hero!.resource).toBe(5);
+    expect(s.actors.hero!.resource).toBe(7);
     expect(s.turnBudget.actionsUsed).toBe(0);
     expect(() => equipCombatant(s, "hero", "bow", catalog)).toThrow();
     s = finish(attack(s, "slash", 0));
     expect(s.activeActorId).toBe("hero");
-    expect(s.actors.hero!.resource).toBe(3);
+    expect(s.actors.hero!.resource).toBe(5);
     expect(() => equipCombatant(s, "hero", "bow", catalog)).toThrow();
   });
 
@@ -196,5 +196,23 @@ describe("v0.4-A.2 Energy action economy", () => {
     s = finish(attack(s, "arrow", 0));
     expect(s.activeActorId).toBe("enemy");
     expect(s.actors.enemy!.resource).toBe(10);
+  });
+});
+
+describe("free first-action melee",()=>{
+  it("does not consume Energy or an ordinary action and cannot be repeated",()=>{
+    let s=start(actor("hero","sword",0));
+    s=attack(s,"rapid_slash",0);
+    expect(s.actors.hero!.resource).toBe(0);
+    expect(s.turnBudget.actionsUsed).toBe(0);
+    expect(s.turnBudget.moveUses.rapid_slash).toBe(1);
+    s=finish(s);
+    expect(s.activeActorId).toBe("hero");
+    expect(()=>attack(s,"rapid_slash",3000)).toThrow();
+  });
+  it("cannot be used after a normal first action",()=>{
+    let s=start(actor("hero","sword",8));
+    s=finish(attack(s,"slash",0));
+    expect(()=>attack(s,"rapid_slash",3000)).toThrow();
   });
 });

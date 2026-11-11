@@ -10,6 +10,7 @@ export interface CombatMoveView {
 const moveViews: Readonly<Record<string, CombatMoveView>> = {
   arrow: {label:"Precision Arrow",glyph:"➶",description:"Free aim",category:"projectile"},
   recover_shot: {label:"Steady Shot",glyph:"✧",description:"Recover Energy",category:"recovery"},
+  rapid_slash: {label:"Rapid Slash",glyph:"✦",description:"Free first action · once/turn",category:"blade"},
   slash: {label:"Quick Slash",glyph:"⚔",description:"Flowing strike",category:"blade"},
   heavy_crush: {label:"Heavy Crush",glyph:"◆",description:"Committed blow",category:"heavy"},
 };
@@ -122,7 +123,7 @@ export class CombatCommandDeck {
         span(meta.label,"move-title"),
         span(meta.description,"move-subtitle"),
         span(spec.resourceCost===0?"FREE":spec.resourceCost+" EN","move-cost"),
-        span(i===0?"Q":i===1?"Q ↻":String(i+1),"move-index"),
+        span(String(i+1),"move-index"),
       );
       fragment.append(button);
     }
@@ -141,7 +142,7 @@ export class CombatCommandDeck {
       button.append(
         span(/bow/i.test(id)?"➶":"⚔","weapon-glyph"),
         span(weapon.label,"weapon-name"),
-        span(current?"EQUIPPED":weapon.switchCost+" EN","weapon-cost"),
+        span(current?"EQUIPPED":"FREE · 1/TURN","weapon-cost"),
       );
       weapons.append(button);
     }

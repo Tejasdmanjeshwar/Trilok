@@ -68,7 +68,7 @@ describe("v0.4-B1 deterministic HFSM + utility enemy intelligence", () => {
     const session = new EncounterSession();
     session.end("hero");
     session.equip("enemy", "rakshasa_bow");
-    expect(session.state.actors.enemy!.resource).toBe(5); // +1 own-turn regen, -2 switching
+    expect(session.state.actors.enemy!.resource).toBe(7); // +1 own-turn regen; free switch
     expect(session.legalSwitches("enemy")).toEqual([]);
     expect(session.legalAttacks("hero", 16)).toContain("rakshasa_arrow");
     expect(() => session.equip("enemy", "rakshasa_sword")).toThrow();
@@ -126,7 +126,7 @@ describe("v0.4-B1 deterministic HFSM + utility enemy intelligence", () => {
       state, catalog: PREVIEW_CATALOG, actorId: "enemy",
       targetId: "hero", distanceMeters: 6, tick: 100,
     });
-    expect(decision.kind).toBe("end_turn");
+    expect(["attack","end_turn"]).toContain(decision.kind); // Free opener remains legal
   });
 
   it("can choose ranged interception against an incoming arrow", () => {
@@ -184,5 +184,20 @@ describe("v0.4-B1 deterministic HFSM + utility enemy intelligence", () => {
       ...ENEMY_PROFILES.capable, awareness: 1.6,
     }, 5)).toThrow();
     expect(() => new EnemyCombatBrain(ENEMY_PROFILES.capable, Number.NaN)).toThrow();
+  });
+});
+
+describe("target intelligence",()=>{
+  it("selects unarmored, exposed weak spots",()=>{
+    const brain=new EnemyCombatBrain({...ENEMY_PROFILES.elite,intelligence:1},1);
+    expect(brain.selectTargetRegion(readyEnemy(),PREVIEW_CATALOG,"hero","rakshasa_arrow")).toBe("head");
+  });
+  it("supports tracking and resetting repeated attack patterns",()=>{
+    const brain=new EnemyCombatBrain(ENEMY_PROFILES.elite,4);
+    brain.observeAttack("hero","head");
+    brain.observeAttack("hero","head");
+    brain.observeAttack("hero","torso");
+    brain.reset();
+    expect(brain.state).toBe("observe");
   });
 });

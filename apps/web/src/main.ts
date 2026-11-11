@@ -481,11 +481,12 @@ function showEnemyIntent(text: string): void {
 
 function beginEnemyAttack(moveId: string, now: number): void {
   const move = session.catalog.attacks[moveId]!;
+  const targetRegion=enemyBrain.selectTargetRegion(session.state,session.catalog,"hero",moveId);
   const enemyShot=move.delivery==="ranged_projectile"
-    ? heroHitVolumes.snapshot(enemy.socketWorld(heroSocket),"torso",move.reachMeters)
+    ? heroHitVolumes.snapshot(enemy.socketWorld(heroSocket),targetRegion??"torso",move.reachMeters)
     : null;
   session.attack("enemy", "hero", moveId,
-    movement.separation(enemy.root, hero.root), now, null,
+    movement.separation(enemy.root, hero.root), now, targetRegion,
     enemyShot?projectileGeometry(enemy,hero,Math.floor(now),enemyShot.toward):undefined);
   shotSnapshot=enemyShot;
   impactWorldPoint = null;
@@ -987,6 +988,7 @@ function landPlayerHit(now: number): void {
   const result=session.resolveIfReady(now,distance,waitingForDefense,
     pendingSpatialImpact??undefined);
   if(!result)return;
+  enemyBrain.observeAttack(result.outcome.attackerId,result.outcome.breakdown.intendedRegionId??result.outcome.breakdown.actualRegionId);
   if(move.delivery==="melee_contact")
     effects.swing(hero.root.position,hero.root.rotation.y,now);
   playOutcome(result,now);
@@ -1010,12 +1012,18 @@ function finishEnemyImpact(now: number): void {
     if(!pendingSpatialImpact)return;
   }else if(now<pending.impactTick)return;
   const distance=movement.separationForHit(enemy.root,hero.root);
+  if(!pending.projectileGeometry && pending.intendedRegionId &&
+      distance<=session.catalog.attacks[pending.moveId]!.reachMeters+.0001) {
+    pendingSpatialImpact=heroHitVolumes.impact(heroHitVolumes.snapshot(
+      enemy.socketWorld(new THREE.Vector3()),pending.intendedRegionId,4));
+  }
   if(!option && !pending.projectileGeometry && !pendingSpatialImpact && shotSnapshot)
     pendingSpatialImpact=heroHitVolumes.impact(shotSnapshot);
   if(pendingSpatialImpact)impactWorldPoint=pendingSpatialImpact.impactPoint;
   const result=session.resolveIfReady(now,distance,undefined,
     pendingSpatialImpact??undefined);
   if(!result)return;
+  enemyBrain.observeAttack(result.outcome.attackerId,result.outcome.breakdown.intendedRegionId??result.outcome.breakdown.actualRegionId);
   playOutcome(result,now);
   pendingSpatialImpact=null;
   if(result.outcome.projectileClash)return;
