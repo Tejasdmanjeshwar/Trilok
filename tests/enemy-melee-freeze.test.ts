@@ -56,7 +56,8 @@ describe("D8.1: enemy opening melee cannot freeze the arena", () => {
     expect(intent).toEqual({kind:"attack",moveId:"rakshasa_rapid_slash"});
     session.attack("enemy","hero",intent.moveId,9,1000,"head");
     expect(session.state.pending?.impactTick).toBe(1720);
-    const result = session.resolveIfReady(1720,9);
+    expect(session.resolveIfReady(1720,9)).toBeNull(); // defender's late dodge grace
+    const result = session.resolveIfReady(1840,9);
     expect(result?.outcome).toMatchObject({result:"out_of_reach",damage:0});
     expect(session.state.pending).toBeNull();
     expect(session.state.phase).toBe("decision");
@@ -68,14 +69,14 @@ describe("D8.1: enemy opening melee cannot freeze the arena", () => {
     const session = new EncounterSession();
     session.end("hero");
     session.attack("enemy","hero","rakshasa_rapid_slash",1.7,100,"head");
-    expect(() => session.resolveIfReady(820,1.7)).toThrow(/authoritative impact region/);
+    expect(() => session.resolveIfReady(940,1.7)).toThrow(/authoritative impact region/);
     const rig = createWarrior("archer");
     const volumes = new CombatHitVolumes(rig.root,session.state.actors.hero!,PREVIEW_CATALOG);
     const head = volumes.worldCenter("head");
     const from = head.clone().add(new THREE.Vector3(0,0,1.4));
     const contact = volumes.meleeImpact(from,"head",1.9,1.7);
     expect(contact).toMatchObject({contact:true,actualRegionId:"head"});
-    const result = session.resolveIfReady(820,1.7,undefined,contact);
+    const result = session.resolveIfReady(940,1.7,undefined,contact);
     expect(result?.outcome.damage).toBeGreaterThan(0);
     expect(session.state.pending).toBeNull();
     const miss = volumes.meleeImpact(from,"head",1.9,3);
