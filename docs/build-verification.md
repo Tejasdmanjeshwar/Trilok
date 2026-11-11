@@ -11,7 +11,7 @@ Trilok shows a playable version, a combat engine version, and an automatically g
 ## In-game verification
 
 1. Open https://trilok.tejasdmjr996.workers.dev/.
-2. Look for COMBAT ARENA · V0.4.0-preview.16, with combat engine v0.4-D11. These labels should match `apps/web/build-version.json`.
+2. Look for COMBAT ARENA · V0.4.0-preview.17, with combat engine v0.4-D12. These labels should match `apps/web/build-version.json`.
 3. Directly below the title, look for BUILD <8-character-commit> · <HH:MM> UTC.
 4. Tap the BUILD badge to expand the playable version, combat engine, full commit, UTC timestamp and unique build ID. Use Copy details to share a report.
 5. Compare the commit with the latest commit at https://github.com/Tejasdmanjeshwar/Trilok/commits/main.
@@ -96,3 +96,10 @@ If the BUILD badge remains old, inspect the Cloudflare deployment first, then re
 - Run with reduced-motion enabled: disable impact freeze and camera punch but retain gameplay timing, status updates and essential feedback.
 - Verify multiple rapid strikes cannot bypass turn economy and that the original D8.1 720ms first melee regression remains passing. The new authored cues must always agree with domain impact markers.
 - The WebAudio engine is optional/muted by default; unblocking audio should never interrupt combat. Continue actual device audio/visual tuning in subsequent art integration.
+
+### D12 rhythm acceptance
+
+- Equip sword; press STRIKE then tap the dedicated STRIKE BEAT button or F at the gold timing zone. Rapid, standard and heavy attacks show distinct cue timing. Bow attack also has an optional release beat.
+- Perfect > good > skipped timing bonus, capped at 1.5×. Missed, parried, spatially missed or out-of-reach attacks never gain damage from the UI. A confirmed timed hit increments RHYTHM CHAIN on the current turn; an ungraded or missed action resets it.
+- Verify repeated taps cannot double-apply or extend the timing window. Reset must remove the active prompt and clear chains.
+- Validate keyboard and touch layouts; preserve AI opening melee and D10 browser recovery tests. With input omitted, baseline attack damage remains unchanged.

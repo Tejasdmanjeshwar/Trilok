@@ -1,12 +1,13 @@
 import {
   endTurn, equipCombatant, getLegalAttackMoves, getLegalEquipmentSwitches,
   getLegalReactions, getInterceptionPlan, gradeReactionV2,
-  queueAttack, resolveReaction, resolveCounter,
+  queueAttack, captureOffensiveTiming, resolveReaction, resolveCounter,
   resolveProjectileContinuation,
   type CombatCatalog, type EncounterState, type ReactionOption,
   type ReactionResolution, type ReactionTechnique, type CounterResolution,
   type ProjectileContinuationResolution,
   type ProjectileAttackGeometry, type InterceptionPlan,
+  type OffenseGrade,
 } from "@trilok/combat";
 import { createPreviewEncounter, PREVIEW_CATALOG } from "./preview-encounter";
 
@@ -40,6 +41,12 @@ export class EncounterSession {
   reset(): void {
     this.selectedDefense = null;
     this.state = this.factory();
+  }
+  /** One domain-authoritative offensive timing input per committed move. */
+  captureOffense(nowMs:number,attackerId="hero"):OffenseGrade {
+    const result=captureOffensiveTiming(this.state,attackerId,Math.floor(nowMs));
+    this.state=result.state;
+    return result.grade;
   }
   get activeDefense(): CapturedDefense | null { return this.selectedDefense; }
   get activeInterceptionPlan(): InterceptionPlan | null {

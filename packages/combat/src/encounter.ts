@@ -3,8 +3,10 @@ import type {
   ReactionOption, ReactionPolicyOverride, ReactionResolution, ReactionTechnique,
   TimingAdjustments, PendingHit, AttackHitSpec, EncounterRules, DamageType,
   PendingCounter, CounterResolution, ProjectileContinuationResolution, ProjectileAttackGeometry,
+  OffenseGrade,
 } from "./encounter-types";
 import { validateCombatCatalog } from "./encounter-catalog";
+import { gradeOffense, offensiveMultiplier } from "./offensive-timing";
 import { gradeReactionWindow, resolveEffectiveTiming, validateTimingAdjustments } from "./encounter-timing";
 import { resolveDefaultRegion, resolveRegionDamage, validateActorTargets } from "./encounter-damage";
 import { calculateProjectileClash } from "./encounter-clash";
@@ -297,8 +299,36 @@ export function queueAttack(
       damageType: (move.damageType ?? "blunt") as DamageType,
       ...(input.projectileGeometry ? { projectileGeometry: input.projectileGeometry } : {}),
       impactTick: hits[0]!.impactTick,
+      ...(move.offensiveTiming ? {offense:{
+        policy:{...move.offensiveTiming},grade:null,inputTick:null,connected:false,
+      }}:{}),
     },
   };
+}
+
+/** Capture a single committed attack timing input. Immutable, domain authoritative. */
+export function captureOffensiveTiming(
+  state:EncounterState,attackerId:string,inputTick:number,
+):{state:EncounterState;grade:OffenseGrade} {
+  const pending=state.pending;
+  if(!pending||state.phase!=="reaction"||pending.attackerId!==attackerId||
+      !pending.offense||pending.offense.inputTick!==null) {
+    throw new Error("Offensive timing unavailable or already used.");
+  }
+  if(!validTick(inputTick)||inputTick<pending.startedTick||inputTick>=pending.impactTick)
+    throw new Error("Offensive timing input outside the active attack.");
+  const target=pending.startedTick+pending.offense.policy.targetOffsetTicks;
+  const offset=inputTick-target;
+  // Reject premature input without consuming the one chance; late presses never
+  // earn an unintended second opportunity after the authored cue passes.
+  if(offset < -pending.offense.policy.goodWindowTicks-150)
+    throw new Error("Offensive timing input too early.");
+  if(offset > pending.offense.policy.goodWindowTicks)
+    throw new Error("Offensive timing input too late.");
+  const grade=gradeOffense(offset,pending.offense.policy);
+  return {grade,state:{...state,pending:{...pending,
+    offense:{...pending.offense,grade,inputTick},
+  }}};
 }
 
 function permittedTechniques(
@@ -710,6 +740,11 @@ export function resolveReaction(
     moveId: pending.moveId,
     hitId: hit.id,
     baseDamage: attack.damage * hit.damageMultiplier,
+    ...(pending.offense ? {
+      offenseGrade: pending.offense.grade ?? "miss" as OffenseGrade,
+      offenseMultiplier: offensiveMultiplier(pending.offense.grade,
+        state.turnBudget.rhythmChain,pending.offense.policy),
+    } : {}),
     damageType: pending.damageType,
     targeting: pending.targeting,
     intendedRegionId: pending.intendedRegionId,
@@ -756,6 +791,14 @@ export function resolveReaction(
   const nextIndex = pending.hitIndex + 1;
   const nextHit = pending.hits[nextIndex];
   const finalHit = !nextHit || complete;
+  // Multi-hit actions advance their chain once. Reactions, misses and ungraded
+  // hits cannot manufacture a rhythm bonus.
+  const connected=(pending.offense?.connected??false)||damage>0;
+  const chain=finalHit
+    ? pending.offense && connected &&
+      (pending.offense.grade==="good"||pending.offense.grade==="perfect")
+      ? Math.min(pending.offense.policy.maxChain,state.turnBudget.rhythmChain+1) : 0
+    : state.turnBudget.rhythmChain;
   const budget = energyRefunded > 0
     ? {
       ...state.turnBudget,
@@ -768,7 +811,7 @@ export function resolveReaction(
   const continuing: EncounterState = {
     ...state,
     actors,
-    turnBudget: budget,
+    turnBudget: { ...budget, rhythmChain:chain },
     defenseUsesSinceTurn: chosen ? {
       ...state.defenseUsesSinceTurn,
       [defender.id]: (state.defenseUsesSinceTurn[defender.id] ?? 0) + 1,
@@ -777,6 +820,7 @@ export function resolveReaction(
       ...pending,
       hitIndex: nextIndex,
       impactTick: nextHit!.impactTick,
+      ...(pending.offense ? {offense:{...pending.offense,connected}} : {}),
     },
   };
   let nextState: EncounterState;

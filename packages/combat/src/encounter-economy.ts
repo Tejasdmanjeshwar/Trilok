@@ -51,7 +51,7 @@ export function validateAttackTurnPolicy(policy: AttackTurnPolicy): void {
 
 /** No mutable references shared across turns. */
 export function emptyTurnBudget(): TurnBudget {
-  return { actionsUsed: 0, moveUses: {}, perfectRefundUsedByActor: {} };
+  return { actionsUsed: 0, rhythmChain: 0, moveUses: {}, perfectRefundUsedByActor: {} };
 }
 
 export function recordAttackAction(budget: TurnBudget, moveId: string, freeAction = false): TurnBudget {

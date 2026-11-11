@@ -1,6 +1,6 @@
 import type {
   AnatomySpec, ArmorSpec, CombatCatalog, DamageBreakdown, DamageType,
-  EncounterActor, RegionExposure, TargetRegionSpec, TargetingSpec,
+  EncounterActor, RegionExposure, TargetRegionSpec, TargetingSpec, OffenseGrade,
 } from "./encounter-types";
 
 const DAMAGE_TYPES: readonly DamageType[] = ["pierce","slash","blunt","divine"];
@@ -97,6 +97,8 @@ export interface DamageInput {
   /** null means a spatial miss if a regioned target was expected. */
   readonly actualRegionId: string | null;
   readonly reactionMultiplier: number;
+  readonly offenseMultiplier?: number;
+  readonly offenseGrade?: OffenseGrade;
   readonly inReach: boolean;
   readonly contact?: boolean;
 }
@@ -135,6 +137,11 @@ export function resolveRegionDamage(input: DamageInput, catalog: CombatCatalog):
   if (!multiplier(Math.max(input.reactionMultiplier, .000001)) || !Number.isFinite(input.baseDamage) ||
       input.baseDamage < 0) throw new Error("Invalid damage modifiers.");
   const baseDamage = input.baseDamage;
+  const offenseBonus=input.offenseMultiplier??1;
+  if(!Number.isFinite(offenseBonus)||offenseBonus<1||offenseBonus>1.5)
+    throw new Error("Invalid offensive damage multiplier.");
+  if(input.offenseGrade && input.offenseGrade!=="miss" && contacted && input.reactionMultiplier>0)
+    reasons.push("offensive_"+input.offenseGrade);
   const vulnerabilityMultiplier = region?.vulnerabilityMultiplier ?? 1;
   let armorMultiplier = 1;
   let suppressCritical = false;
@@ -170,8 +177,8 @@ export function resolveRegionDamage(input: DamageInput, catalog: CombatCatalog):
   if (suppressCritical) reasons.push("critical_suppressed");
   if (input.reactionMultiplier === 0) reasons.push("defense_countered");
   const armorAbsorbed = contacted
-    ? Math.max(0, baseDamage * input.reactionMultiplier * weakness * (1 - armorMultiplier)) : 0;
-  const raw = contacted ? baseDamage * input.reactionMultiplier * weakness *
+    ? Math.max(0, baseDamage * input.reactionMultiplier * offenseBonus * weakness * (1 - armorMultiplier)) : 0;
+  const raw = contacted ? baseDamage * input.reactionMultiplier * offenseBonus * weakness *
     armorMultiplier * criticalMultiplier : 0;
   const finalDamage = Math.min(defender.hp, Math.max(0, Math.round(raw)));
   const stagger = contacted && region ? Math.round(finalDamage * (region.staggerMultiplier ?? 0)) : 0;
@@ -181,6 +188,8 @@ export function resolveRegionDamage(input: DamageInput, catalog: CombatCatalog):
     actualRegionId: input.actualRegionId, damageType: input.damageType, baseDamage,
     reactionMultiplier: input.reactionMultiplier, vulnerabilityMultiplier: weakness,
     armorMultiplier, armorAbsorbed: Math.round(armorAbsorbed * 100) / 100,
-    critical, criticalMultiplier, stagger, finalDamage, reasons,
+    critical, criticalMultiplier, stagger, finalDamage,
+    ...(input.offenseGrade!==undefined ? {offenseGrade:input.offenseGrade,offenseMultiplier:offenseBonus}:{}),
+    reasons,
   };
 }

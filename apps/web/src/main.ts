@@ -56,6 +56,7 @@ host.innerHTML = [
   '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p><p id="enemy-wounds"></p></section>',
   '<section id="telegraph" class="telegraph"><b id="timing-title">⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i id="timing-feasible"></i><i id="timing-perfect"></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
+  '<section id="offense-rhythm" class="offense-rhythm" aria-label="Offensive rhythm timing" hidden><b id="rhythm-title">STRIKE RHYTHM</b><div class="rhythm-track" aria-hidden="true"><i id="rhythm-good"></i><i id="rhythm-perfect"></i><span id="rhythm-progress"></span></div><button id="rhythm-input" type="button">✦ STRIKE BEAT <small>F</small></button><p id="rhythm-hint">TIME YOUR STRIKE AT THE GOLD FLASH</p></section>',
   '<section class="command-panel" aria-label="Combat command deck">',
   '<div class="command-heading"><span class="command-ornament">✦</span><div><b>CHOOSE YOUR ACTION</b><small>THE WARRIOR’S DECREE</small></div><span class="command-key">Q · CYCLE</span></div>',
   '<div id="move-deck" class="move-deck" role="group" aria-label="Available combat actions"></div>',
@@ -65,7 +66,7 @@ host.innerHTML = [
   '<footer class="hud"><section class="hero"><div class="sigil">✶</div><div class="hero-info"><strong>TRIAL WARRIOR</strong><small>THE WAYFARER · ARMS <span class="weapon-keys">[1 / 2]</span></small>',
   '<div id="weapon-deck" class="weapon-deck" role="group" aria-label="Equipped arms"></div>',
   '<div class="bar hero-bar"><span id="hero-bar"></span></div><p id="hero-hp"></p>',
-  '<p id="hero-wounds"></p><div class="energy-info"><b id="hero-energy-label">ENERGY</b><span id="actions-left"></span></div>',
+  '<p id="hero-wounds"></p><p id="hero-chain"></p><div class="energy-info"><b id="hero-energy-label">ENERGY</b><span id="actions-left"></span></div>',
   '<div class="energy-track"><span id="hero-energy-bar"></span></div></div></section>',
   '<div class="actions"><button id="attack" class="primary">➶ <span>STRIKE<small>SPACE</small></span></button>',
   '<button id="react">✦ <span>PARRY<small>P</small></span></button>',
@@ -137,6 +138,14 @@ const timingFeasible = query<HTMLElement>("#timing-feasible");
 const timingPerfect = query<HTMLElement>("#timing-perfect");
 const timingTitle = query<HTMLElement>("#timing-title");
 const feedback = query<HTMLElement>("#feedback");
+const rhythmPanel=query<HTMLElement>("#offense-rhythm");
+const rhythmTitle=query<HTMLElement>("#rhythm-title");
+const rhythmHint=query<HTMLElement>("#rhythm-hint");
+const rhythmProgress=query<HTMLElement>("#rhythm-progress");
+const rhythmGood=query<HTMLElement>("#rhythm-good");
+const rhythmPerfect=query<HTMLElement>("#rhythm-perfect");
+const rhythmInput=query<HTMLButtonElement>("#rhythm-input");
+const heroChain=query<HTMLElement>("#hero-chain");
 const loading = query<HTMLElement>("#loading");
 const runtimeFaultPanel = query<HTMLElement>("#runtime-fault");
 const faultDescription = query<HTMLElement>("#fault-description");
@@ -299,6 +308,51 @@ function setPhase(next: Presentation, shot: CameraShot, now = performance.now())
   updateHud();
 }
 
+/** The active attack owns the timing target. UI cannot grade or modify damage. */
+function updateOffenseRhythm(now:number):void {
+  const pending=session.state.pending;
+  const offense=pending?.attackerId==="hero" && presentation==="attack"
+    ?pending.offense:undefined;
+  rhythmPanel.hidden=!offense;
+  if(!offense||!pending)return;
+  const target=pending.startedTick+offense.policy.targetOffsetTicks;
+  const duration=Math.max(1,target-pending.startedTick+offense.policy.goodWindowTicks+130);
+  const percent=(tick:number)=>Math.max(0,Math.min(100,(tick-pending.startedTick)/duration*100));
+  rhythmProgress.style.width=percent(now)+"%";
+  rhythmGood.style.left=percent(target-offense.policy.goodWindowTicks)+"%";
+  rhythmGood.style.width=(percent(target+offense.policy.goodWindowTicks)-
+    percent(target-offense.policy.goodWindowTicks))+"%";
+  rhythmPerfect.style.left=percent(target-offense.policy.perfectWindowTicks)+"%";
+  rhythmPerfect.style.width=(percent(target+offense.policy.perfectWindowTicks)-
+    percent(target-offense.policy.perfectWindowTicks))+"%";
+  const captured=offense.inputTick!==null;
+  rhythmInput.disabled=captured||now>target+offense.policy.goodWindowTicks||
+    now>=pending.impactTick;
+  rhythmTitle.textContent=captured ? "RHYTHM · "+offense.grade!.toUpperCase() :
+    now>target+offense.policy.goodWindowTicks?"RHYTHM MISSED":"✦ STRIKE RHYTHM";
+  rhythmHint.textContent=captured ?
+    (offense.grade==="perfect"?"PERFECT BEAT · BONUS DAMAGE":
+      offense.grade==="good"?"GOOD BEAT · BONUS DAMAGE":"EARLY BEAT · BASE DAMAGE") :
+    "PRESS F OR TAP AT THE GOLD FLASH · OPTIONAL";
+}
+function attemptOffense():void {
+  if(runtimeFault||presentation!=="attack" ||
+      session.state.pending?.attackerId!=="hero")return;
+  const now=performance.now();
+  const timing=session.state.pending.offense;
+  if(!timing||timing.inputTick!==null)return;
+  try{
+    const grade=session.captureOffense(now);
+    runtimeGuard.record(now,"offense-beat",grade);
+    notice(grade==="perfect"?"✦ PERFECT STRIKE":grade==="good"?"GOOD RHYTHM":
+      "EARLY · BASE DAMAGE");
+    if(grade==="perfect")sound.play("parry");
+  }catch(error){
+    notice(error instanceof Error&&error.message.includes("too early")
+      ?"WAIT FOR THE BEAT":"RHYTHM WINDOW PASSED",true);
+  }
+  updateOffenseRhythm(now);
+}
 function isPlayerDecision(): boolean {
   return !runtimeFault && presentation === "choice" &&
     session.state.phase === "decision" && session.state.activeActorId === "hero";
@@ -370,6 +424,7 @@ function updateHud(): void {
   const heroArrows = projectiles.embeddedCountFor("hero");
   enemyWoundsLabel.textContent = enemyArrows ? "➶ " + enemyArrows + " ARROWS LODGED" : "";
   heroWoundsLabel.textContent = heroArrows ? "➶ " + heroArrows + " ARROWS LODGED" : "";
+  heroChain.textContent=state.turnBudget.rhythmChain>0 ? "✦ RHYTHM CHAIN ×"+state.turnBudget.rhythmChain : "";
   enemyIntentLabel.textContent = "AI · " + enemyIntent;
   const remaining = state.rules.maxActionsPerTurn - state.turnBudget.actionsUsed;
   actionsLeftLabel.textContent = remaining + " / " + state.rules.maxActionsPerTurn + " ACTIONS";
@@ -422,6 +477,7 @@ function updateHud(): void {
     defenseHint.textContent = "HIGH RISK · " + defenseHint.textContent;
   }
   telegraph.classList.toggle("show", presentation === "windup");
+  updateOffenseRhythm(performance.now());
   hero.root.visible = true;
   enemy.root.visible = true;
   updateMovePicker();
@@ -773,6 +829,8 @@ function presentConfirmedHit(
     target.root.getWorldPosition(targetPoint);
     targetPoint.y+=1.65;
   }
+  if(breakdown.attackerId==="hero" && breakdown.offenseGrade && breakdown.offenseGrade!=="miss")
+    runtimeGuard.record(now,"rhythm-hit",breakdown.offenseGrade+" x"+breakdown.offenseMultiplier);
   const kind=breakdown.critical?"critical":
     breakdown.reasons.some(reason=>reason.startsWith("armor:"))?"armor":
     breakdown.reasons.includes("weak_point")?"weakpoint":"hit";
@@ -964,7 +1022,9 @@ function playOutcome(result: ReactionResolution, now: number): void {
     }else sound.play(kind);
   } else if (out.damage > 0) {
     presentConfirmedHit(out.breakdown,pendingSpatialImpact,projectileId,now);
-    notice((out.breakdown.critical?"PRECISION CRITICAL · ":"")+
+    notice((out.breakdown.offenseGrade==="perfect"?"✦ PERFECT RHYTHM · ":
+      out.breakdown.offenseGrade==="good"?"GOOD RHYTHM · ":"")+
+      (out.breakdown.critical?"PRECISION CRITICAL · ":"")+
       out.damage+" DAMAGE");
   }
   if(projectileId && out.damage===0)projectiles.stop(projectileId);
@@ -1209,6 +1269,7 @@ function onCue(cue: CombatCue, at: number, now: number): void {
 function keyDown(event: KeyboardEvent): void {
   if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
   if (event.code === "Space") { event.preventDefault(); startPlayerAttack(); }
+  if (event.code === "KeyF") { event.preventDefault(); attemptOffense(); }
   if (event.code === "KeyP") attemptDefense("parry");
   if (event.code === "KeyD") attemptDefense("dodge");
   if (event.code === "KeyE") playerEndTurn();
@@ -1218,6 +1279,7 @@ function keyDown(event: KeyboardEvent): void {
   if (event.code === "KeyQ") commandDeck.cycle(1);
 }
 attackButton.addEventListener("click", () => startPlayerAttack());
+rhythmInput.addEventListener("click",attemptOffense);
 parryButton.addEventListener("click", () => attemptDefense("parry"));
 dodgeButton.addEventListener("click", () => attemptDefense("dodge"));
 endTurnButton.addEventListener("click", playerEndTurn);
@@ -1255,6 +1317,7 @@ let frameSeconds = 0;
 function frame(now: number): void {
   const delta = Math.min(.05, Math.max(0, (now - previous) / 1000));
   previous = now;
+  updateOffenseRhythm(now);
   const expiredArrows = projectiles.expireTurn(session.state.turn);
   if (expiredArrows > 0) updateHud();
   if (presentation === "intro" && now - phaseAt >= INTRO_MS) {

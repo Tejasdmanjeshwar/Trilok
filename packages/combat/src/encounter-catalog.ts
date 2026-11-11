@@ -3,6 +3,7 @@ import type {
 } from "./encounter-types";
 import { validateTimingProfile } from "./encounter-timing";
 import { validateAttackTurnPolicy } from "./encounter-economy";
+import { STANDARD_RHYTHM, validateOffensiveTiming } from "./offensive-timing";
 import { validateTargetCatalog } from "./encounter-damage";
 
 const TECHNIQUES: readonly ReactionTechnique[] = ["dodge", "weapon_deflect", "projectile_intercept"];
@@ -89,6 +90,7 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
       }
     }
     if (move.turnPolicy) validateAttackTurnPolicy(move.turnPolicy);
+    if (move.offensiveTiming) validateOffensiveTiming(move.offensiveTiming,move.impactOffsetTicks);
     validateTimingReferences(move.timingProfileOverrides, catalog, "attack " + id);
     if (move.hits !== undefined) {
       if (move.hits.length < 1 || move.hits.length > 16) {
@@ -241,17 +243,20 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
   attacks: {
     arrow: { id: "arrow", delivery: "ranged_projectile", damage: 18, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 1,
       damageType: "pierce", targeting: { mode: "free_aim", precisionCriticalMultiplier: 1.4 },
-      turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 } },
+      turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 },
+      offensiveTiming: { ...STANDARD_RHYTHM,targetOffsetTicks:715 } },
     recover_shot: { id: "recover_shot", delivery: "ranged_projectile", damage: 8, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 0,
       damageType: "pierce", targeting: { mode: "actor" },
       turnPolicy: { continuation: "end", maxUsesPerTurn: 1, energyGainOnCompletion: 2 } },
     rapid_slash: { id: "rapid_slash", delivery: "melee_contact", damage: 9, reachMeters: 1.9,
       engageRangeMeters: 15, impactOffsetTicks: 720, resourceCost: 0,
       damageType: "slash", targeting: { mode: "actor" },
-      turnPolicy: { continuation: "continue", firstActionOnly: true, freeAction: true, maxUsesPerTurn: 1 } },
+      turnPolicy: { continuation: "continue", firstActionOnly: true, freeAction: true, maxUsesPerTurn: 1 },
+      offensiveTiming: { ...STANDARD_RHYTHM,targetOffsetTicks:560,goodWindowTicks:95,perfectWindowTicks:40 } },
     slash: { id: "slash", delivery: "melee_contact", damage: 22, reachMeters: 1.9, engageRangeMeters: 15, impactOffsetTicks: 1450, resourceCost: 2,
       damageType: "slash", targeting: { mode: "actor" },
-      turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 } },
+      turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 },
+      offensiveTiming: { ...STANDARD_RHYTHM,targetOffsetTicks:1240 } },
     heavy_crush: {
       id: "heavy_crush", delivery: "melee_contact", damage: 26,
       reachMeters: 2, engageRangeMeters: 15, impactOffsetTicks: 1850, resourceCost: 4,
@@ -260,6 +265,8 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
       reactionPolicy: { mode: "inherit", deny: ["weapon_deflect"] },
       counterPolicy: { mode: "deny" },
       timingProfileOverrides: { dodge: "heavy_dodge" },
+      offensiveTiming: { ...STANDARD_RHYTHM,targetOffsetTicks:1590,goodWindowTicks:135,perfectWindowTicks:55,
+        goodBonus:.10,perfectBonus:.20,chainBonusPerHit:.04 },
     },
   },
   defenses: {
