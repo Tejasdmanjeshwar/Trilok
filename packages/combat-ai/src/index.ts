@@ -11,6 +11,24 @@ import {
 } from "@trilok/combat";
 
 export type Tactic = "observe" | "decide" | "commit" | "react" | "recover" | "defeated";
+export type TacticalParent = "outside" | "engaged" | "terminal";
+export type TacticalBranch = "offense" | "defense" | "recovery" | null;
+export interface TacticalPath {
+  readonly parent: TacticalParent;
+  readonly branch: TacticalBranch;
+  readonly leaf: Tactic;
+}
+/** A small explicit hierarchy, not a costly general-purpose planner. */
+function tacticalPath(leaf: Tactic): TacticalPath {
+  switch (leaf) {
+    case "decide":
+    case "commit": return { parent: "engaged", branch: "offense", leaf };
+    case "react": return { parent: "engaged", branch: "defense", leaf };
+    case "recover": return { parent: "engaged", branch: "recovery", leaf };
+    case "defeated": return { parent: "terminal", branch: null, leaf };
+    case "observe": return { parent: "outside", branch: null, leaf };
+  }
+}
 export type CombatIntent =
   | { readonly kind: "attack"; readonly moveId: string }
   | { readonly kind: "equip"; readonly equipmentId: string }
@@ -135,6 +153,14 @@ function averageExpectedDamage(actor: EncounterActor, catalog: CombatCatalog, we
 export class EnemyCombatBrain {
   private readonly random: SeededRandom;
   private tactic: Tactic = "observe";
+  private currentPath: TacticalPath = tacticalPath("observe");
+  private transition(leaf: Tactic): void {
+    if (this.currentPath.parent === "terminal" && leaf !== "observe" && leaf !== "defeated") {
+      throw new Error("Defeated AI must be reset before re-entering combat.");
+    }
+    this.tactic = leaf;
+    this.currentPath = tacticalPath(leaf);
+  }
   private recentMove: string | null = null;
   private switchTurn = -1;
   private reactionToken: string | null = null;
@@ -145,29 +171,30 @@ export class EnemyCombatBrain {
     this.random = new SeededRandom(seed);
   }
   get state(): Tactic { return this.tactic; }
+  get path(): TacticalPath { return this.currentPath; }
   get trace(): DecisionTrace | null { return this._trace; }
   reset(): void {
     // Callers replace the brain to replay the exact RNG sequence.
-    this.tactic = "observe";
+    this.transition("observe");
     this.recentMove = null;
     this.switchTurn = -1;
     this.reactionToken = null;
     this.plannedReaction = null;
     this._trace = null;
   }
-  markCommitted(): void { this.tactic = "commit"; }
-  markRecovering(): void { this.tactic = "recover"; }
+  markCommitted(): void { this.transition("commit"); }
+  markRecovering(): void { this.transition("recover"); }
   onEncounter(state: EncounterState, actorId: string): void {
     if (state.actors[actorId]?.hp === 0 || state.phase === "complete") {
-      this.tactic = "defeated";
+      this.transition("defeated");
     } else if (state.pending?.defenderId === actorId) {
-      this.tactic = "react";
+      this.transition("react");
     } else if (state.pending?.attackerId === actorId) {
-      this.tactic = "commit";
+      this.transition("commit");
     } else if (state.phase === "decision" && state.activeActorId === actorId) {
-      this.tactic = "decide";
+      this.transition("decide");
     } else {
-      this.tactic = "observe";
+      this.transition("observe");
     }
   }
 
@@ -250,7 +277,7 @@ export class EnemyCombatBrain {
     if (selected.kind === "attack") this.recentMove = selected.moveId;
     if (selected.kind === "equip") this.switchTurn = state.turn;
     this._trace = { turn: state.turn, tactic: this.tactic, scores: ranked, selected };
-    this.tactic = selected.kind === "end_turn" ? "recover" : "commit";
+    this.transition(selected.kind === "end_turn" ? "recover" : "commit");
     return selected;
   }
 
