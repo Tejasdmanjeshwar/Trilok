@@ -35,7 +35,7 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
 
-The playable version is **v0.4.0-preview.17**, the combat engine version is **v0.4-D12**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
+The playable version is **v0.4.0-preview.18**, the combat engine version is **v0.4-D13**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
 
 See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.
 
@@ -81,3 +81,7 @@ Rapid, standard and heavy melee attacks now have distinct authored strike antici
 ### D12 — Rhythmic offensive combat
 
 While an attack is committed, a short gold timing lane offers an **optional** `F`/tap strike beat. Perfect or good beats add modest, deterministic damage after contact and defense checks. A per-turn rhythm chain rewards consecutive connected, well-timed attacks, up to a strict limit; ungraded, blocked and missed attacks reset it. Early presses do not bypass the window, and duplicate input cannot grant extra damage. Combat-domain timing policies are validated and snapshotted on attack commitment, with no influence on projectile collision, energy or defense windows. [D12 notes](docs/combat-v0.4D12-offensive-rhythm.md).
+
+### D13 — Adaptive enemy attack patterns
+
+Rakshasa gains **Crosscut** (two independently defendable hits), **Deceiver** (false swing before true contact), and **Delayed Heavy** (prolonged windup). Fighting-style profiles influence legal utility decisions and adapt to bounded player dodge/parry history. The choreography derives real contact markers from the domain catalog; feints never deal damage. See [D13 notes](docs/combat-v0.4D13-enemy-patterns.md).

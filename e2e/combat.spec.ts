@@ -58,3 +58,28 @@ test("D12 sword attacks expose an optional rhythmic execution prompt",async ({pa
   await expect(page.locator("#runtime-fault")).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test("D13 sustains multiple enemy decisions without a soft-lock",async ({page})=>{
+  // Rendering two whole undefended enemy turns with software WebGL can exceed
+  // the default 45s test budget; a real stall still fails the strict deadline.
+  test.setTimeout(95_000);
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/");
+  await expect(page.locator("#loading")).toBeHidden({timeout:15000});
+  for(let turn=0;turn<2;turn++){
+    await expect(page.locator("#end-turn")).toBeEnabled({timeout:20000});
+    await page.locator("#end-turn").click();
+    // An undefended fighter may legitimately lose after repeated enemy turns.
+    // Victory/defeat are terminal game states, NOT runtime soft-locks.
+    await expect(page.locator("#phase")).toContainText(/YOUR ACTION|DEFEAT/,
+      {timeout:70000});
+    await expect(page.locator("#runtime-fault")).toBeHidden();
+    if((await page.locator("#phase").textContent())?.includes("DEFEAT")){
+      await page.locator("#restart").click();
+      await expect(page.locator("#end-turn")).toBeEnabled();
+      await expect(page.locator("#hero-hp")).toContainText("100 / 100");
+    }
+  }
+  expect(errors).toEqual([]);
+});

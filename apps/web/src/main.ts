@@ -467,6 +467,10 @@ function updateHud(): void {
     defenseHint.textContent=hints.length?hints.join(" · ")+" AT IMPACT":"NO LEGAL DEFENSE";
   }
   const pending = state.pending;
+  if(pending?.defenderId==="hero" && pending.hits.length>1 && presentation==="windup") {
+    timingTitle.textContent="⚔ COMBINATION · HIT "+(pending.hitIndex+1)+"/"+pending.hits.length;
+    defenseHint.textContent="EACH HIT NEEDS ITS OWN DODGE OR PARRY · "+defenseHint.textContent;
+  }
   const region = pending?.defenderId === "hero" ? pending.intendedRegionId : null;
   const anatomy = player.anatomyId ? session.catalog.anatomies?.[player.anatomyId] : undefined;
   const vulnerability = region ? anatomy?.regions[region]?.vulnerabilityMultiplier ?? 1 : 1;
@@ -607,8 +611,16 @@ function beginEnemyAttack(moveId: string, now: number): void {
     dust(enemy, now);
     sound.play(presentationPlan.feel?.windupSound ?? "melee_ready");
     enemy.play(presentationPlan.motion);
-    showEnemyIntent("MELEE · " + moveId.replaceAll("_", " ").toUpperCase());
-    lastMessage = "Rakshasa melee attack incoming. React at the impact!";
+    showEnemyIntent(move.pattern ? move.pattern.kind.toUpperCase()+" · "+
+      moveId.replaceAll("_"," ").toUpperCase() :
+      "MELEE · " + moveId.replaceAll("_", " ").toUpperCase());
+    lastMessage = move.pattern?.kind==="flurry"
+      ? "TWO STRIKES INCOMING · React separately to each!"
+      : move.pattern?.kind==="feint"
+      ? "WATCH FOR THE FALSE SWING · Defend the REAL contact!"
+      : move.pattern?.kind==="delayed"
+      ? "DELAYED HEAVY · Wait for the actual impact!"
+      : "Rakshasa melee attack incoming. React at the impact!";
   } else {
     enemy.play(presentationPlan.motion);
     sound.play("draw");
@@ -1165,6 +1177,21 @@ function finishEnemyImpact(now: number): void {
   enemyBrain.observeAttack(result.outcome.attackerId,result.outcome.breakdown.intendedRegionId??result.outcome.breakdown.actualRegionId);
   playOutcome(result,now);
   pendingSpatialImpact=null;
+  // A multi-hit attack is still in the defender's reaction phase after its
+  // first hit. Do NOT cancel the choreography, retreat, or enter next turn.
+  // The domain advances the hit cursor and resets chosen defense per hit.
+  if(!result.outcome.finalHit){
+    defenseBuffer.clear();
+    enemyBrain.observeDefense("hero",result.outcome.technique);
+    const next=session.state.pending!;
+    showEnemyIntent("COMBINATION · HIT "+(next.hitIndex+1)+"/"+next.hits.length);
+    lastMessage="STRIKE "+(result.outcome.hitIndex+1)+
+      " RESOLVED · React again when the next weapon swing connects!";
+    director.setShot("defense");
+    updateHud();
+    return;
+  }
+  enemyBrain.observeDefense("hero",result.outcome.technique);
   if(result.outcome.projectileClash)return;
   if(result.outcome.counter){
     beginPerfectCounter(result.outcome.counter,now);
@@ -1242,6 +1269,16 @@ function onCue(cue: CombatCue, at: number, now: number): void {
     case "camera_defense":
       director.setShot("defense");
       break;
+    case "feint_flash": {
+      // Presentation-only bait: no hit cursor, no combat resolver, no damage.
+      if(session.state.pending?.attackerId==="enemy"){
+        runtimeGuard.record(now,"enemy-feint",session.state.pending.moveId);
+        showEnemyIntent("FEINT · REAL STRIKE STILL COMING");
+        notice("⚠ FALSE SWING · WAIT FOR CONTACT",true);
+        sound.play("slash_fast");
+      }
+      break;
+    }
     case "enemy_swing": {
       director.setShot("windup");
       const pending=session.state.pending;
@@ -1373,9 +1410,13 @@ function frame(now: number): void {
   if (presentation === "projectile") finishSurvivingProjectile(now);
   if (presentation === "windup") {
     const pending = session.state.pending;
-    const length = pending ? pending.impactTick - pending.startedTick : 1;
+    // Each hit's telegraph has its own progress and independently valid
+    // reaction window. The previous impact must never freeze the bar at 100%.
+    const start=pending?.hitIndex ? pending.hits[pending.hitIndex-1]!.impactTick :
+      pending?.startedTick??phaseAt;
+    const length=pending ? Math.max(1,pending.impactTick-start) : 1;
     timingFill.style.width = Math.min(100, Math.max(0,
-      (now - phaseAt) / length * 100)) + "%";
+      (now - start) / length * 100)) + "%";
     releaseScheduledInterception(now);
     finishEnemyImpact(now);
   } else {

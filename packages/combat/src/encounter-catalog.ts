@@ -79,6 +79,30 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
         keys.add(effect.id);
       }
     }
+    if(move.pattern){
+      const {kind,feintAtTicks=[],swingLeadTicks=180}=move.pattern;
+      const hits=move.hits??[{offsetTicks:move.impactOffsetTicks}];
+      if(move.delivery!=="melee_contact"||!["flurry","feint","delayed"].includes(kind)||
+          !Number.isSafeInteger(swingLeadTicks)||swingLeadTicks<120||swingLeadTicks>400||
+          (kind==="flurry" && hits.length<2) ||
+          (kind!=="flurry" && hits.length!==1) ||
+          (kind!=="feint" && feintAtTicks.length>0)||
+          (kind==="feint" && feintAtTicks.length===0)||
+          feintAtTicks.length>3||
+          hits[0]!.offsetTicks<=swingLeadTicks+80)
+        throw new Error("Invalid enemy attack pattern: "+id);
+      let last=0;
+      for(const cue of feintAtTicks){
+        if(!Number.isSafeInteger(cue)||cue<150||cue<=last||
+            cue>=move.impactOffsetTicks-swingLeadTicks-200)
+          throw new Error("Feint cue must precede real impact: "+id);
+        last=cue;
+      }
+      for(let i=1;i<hits.length;i++){
+        if(hits[i]!.offsetTicks-hits[i-1]!.offsetTicks<=swingLeadTicks+80)
+          throw new Error("Pattern strikes must leave separate defense windows: "+id);
+      }
+    }
     validatePolicy(move.reactionPolicy);
     const counterPolicy = move.counterPolicy;
     if (counterPolicy) {

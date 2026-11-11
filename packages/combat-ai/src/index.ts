@@ -38,7 +38,10 @@ export interface DefenseIntent {
   readonly technique: ReactionTechnique;
   readonly atTick: number;
 }
+export type FightingStyle = "duelist" | "trickster" | "brute";
 export interface AIProfile {
+  /** Distinct authored move choices, regardless of combat tier. */
+  readonly fightingStyle?: FightingStyle;
   readonly id: string;
   /** Probability of noticing and attempting a legal defense, 0..1. */
   readonly awareness: number;
@@ -59,19 +62,19 @@ export interface AIProfile {
 }
 export const ENEMY_PROFILES = {
   novice: {
-    id: "novice", awareness: .43, perceptionDelayTicks: 330,
+    id: "novice", fightingStyle:"brute", awareness: .43, perceptionDelayTicks: 330,
     timingErrorTicks: 160, aggression: .48, conservation: .68,
     switchingPreference: .35, defensePreference: .42,
     decisionNoise: .28, minThinkTicks: 340, intelligence: .2,
   },
   capable: {
-    id: "capable", awareness: .70, perceptionDelayTicks: 250,
+    id: "capable", fightingStyle:"duelist", awareness: .70, perceptionDelayTicks: 250,
     timingErrorTicks: 105, aggression: .62, conservation: .48,
     switchingPreference: .60, defensePreference: .66,
     decisionNoise: .15, minThinkTicks: 270, intelligence: .6,
   },
   elite: {
-    id: "elite", awareness: .83, perceptionDelayTicks: 190,
+    id: "elite", fightingStyle:"trickster", awareness: .83, perceptionDelayTicks: 190,
     timingErrorTicks: 70, aggression: .73, conservation: .37,
     switchingPreference: .76, defensePreference: .78,
     decisionNoise: .09, minThinkTicks: 230, intelligence: .95,
@@ -100,6 +103,8 @@ export interface DecisionTrace {
 }
 
 function validateProfile(profile: AIProfile): void {
+  if(profile.fightingStyle && !["duelist","trickster","brute"].includes(profile.fightingStyle))
+    throw new Error("Unknown AI fighting style.");
   if (profile.intelligence !== undefined && (!Number.isFinite(profile.intelligence) || profile.intelligence < 0 || profile.intelligence > 1)) throw new Error("Invalid AI intelligence.");
   for (const property of ["awareness", "aggression", "conservation", "switchingPreference", "defensePreference", "decisionNoise"] as const) {
     if (!Number.isFinite(profile[property]) || profile[property] < 0 || profile[property] > 1) {
@@ -170,6 +175,26 @@ export class EnemyCombatBrain {
     this.currentPath = tacticalPath(leaf);
   }
   private recentMove: string | null = null;
+  private readonly observedDefenses=new Map<string,{parry:number;dodge:number;ignored:number}>();
+  /** Count only resolved player reactions, never predictions or telegraphs. */
+  observeDefense(defenderId:string,technique:ReactionTechnique|null):void {
+    const previous=this.observedDefenses.get(defenderId)??{parry:0,dodge:0,ignored:0};
+    const next={...previous};
+    if(technique==="weapon_deflect"||technique==="projectile_intercept")next.parry++;
+    else if(technique==="dodge")next.dodge++;
+    else next.ignored++;
+    const total=next.parry+next.dodge+next.ignored;
+    if(total>8){
+      next.parry=Math.floor(next.parry*6/total);
+      next.dodge=Math.floor(next.dodge*6/total);
+      next.ignored=Math.floor(next.ignored*6/total);
+    }
+    this.observedDefenses.set(defenderId,next);
+  }
+  get observedDefenseHistory():Readonly<{parry:number;dodge:number;ignored:number}>|null {
+    const item=this.observedDefenses.get("hero");
+    return item?{...item}:null;
+  }
   private readonly observedTargets = new Map<string,{region:string;streak:number}>();
   private switchTurn = -1;
   private reactionToken: string | null = null;
@@ -187,6 +212,7 @@ export class EnemyCombatBrain {
     this.transition("observe");
     this.recentMove = null;
     this.observedTargets.clear();
+    this.observedDefenses.clear();
     this.switchTurn = -1;
     this.reactionToken = null;
     this.plannedReaction = null;
@@ -272,6 +298,27 @@ export class EnemyCombatBrain {
       score -= ending && remaining > 1 ? .10 : 0;
       score -= this.recentMove === moveId ? .15 : 0;
       if(move.turnPolicy?.freeAction)score+=.7;
+      if(move.pattern){
+        const style=this.profile.fightingStyle??"duelist";
+        const affinity={
+          duelist:{flurry:.24,feint:.025,delayed:-.045},
+          trickster:{flurry:.08,feint:.26,delayed:.07},
+          brute:{flurry:-.02,feint:-.10,delayed:.28},
+        } as const;
+        score+=affinity[style][move.pattern.kind];
+        // A wounded enemy becomes less predictable and more willing to commit.
+        if(actor.hp/actor.maxHp<.45)
+          score+=(move.pattern.kind==="delayed"?.14:.07)*this.profile.aggression;
+        const history=this.observedDefenses.get(targetId);
+        const total=history ? history.parry+history.dodge+history.ignored : 0;
+        const confidence=(this.profile.intelligence??this.profile.awareness)*Math.min(1,total/4);
+        if(history&&total>0){
+          const ratio=move.pattern.kind==="feint" ? history.parry/total
+            :move.pattern.kind==="delayed" ? history.dodge/total
+            :history.ignored/total;
+          score+=confidence*ratio*.20;
+        }
+      }
       if (targetFraction < .25 && move.damage >= target.hp) score += .27;
       if (recovery > 0) {
         const missing = (actor.maxResource - actor.resource) / Math.max(1, actor.maxResource);
