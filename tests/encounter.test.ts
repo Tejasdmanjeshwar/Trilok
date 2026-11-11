@@ -37,9 +37,11 @@ describe("symmetric, equipment-aware encounter domain", () => {
     expect(start.phase).toBe("decision");
     expect(start.actors.enemy!.hp).toBe(100);
     expect(pending.actors.enemy!.hp).toBe(100);
-    expect(pending.pending).toEqual({
+    expect(pending.pending).toMatchObject({
       attackerId: "hero", defenderId: "enemy", moveId: "arrow",
       startedTick: 1000, impactTick: 2150,
+      hitIndex: 0,
+      hits: [{ id: "impact", impactTick: 2150 }],
     });
     expect(pending.phase).toBe("reaction");
   });
