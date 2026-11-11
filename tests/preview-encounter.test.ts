@@ -58,11 +58,11 @@ describe("v0.4-B0 playable encounter adapter", () => {
     expect(session.resolveIfReady(4000, 1.8)).toBeNull();
   });
 
-  it("uses sword-deflect rules when the hero spends Energy to switch weapons", () => {
+  it("uses sword-deflect rules after a free weapon switch", () => {
     const session = new EncounterSession();
     session.equip("hero", "sword");
-    expect(session.state.actors.hero!.resource).toBe(2);
-    expect(session.legalAttacks("enemy", 9)).toEqual(["slash"]);
+    expect(session.state.actors.hero!.resource).toBe(4);
+    expect(session.legalAttacks("enemy", 9)).toEqual(["rapid_slash", "slash", "heavy_crush"]);
     session.end("hero");
     session.attack("enemy", "hero", "overhead_slash", 6, 100);
     const techniques = session.legalReactions().map(x => x.technique);

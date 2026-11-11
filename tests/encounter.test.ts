@@ -150,11 +150,11 @@ describe("symmetric, equipment-aware encounter domain", () => {
     expect(resolved.state.activeActorId).toBe("hero");
   });
 
-  it("enforces switch costs, loadouts and once-per-turn commitment for either combatant", () => {
+  it("enforces free switching, loadouts and once-per-turn commitment for either combatant", () => {
     let state = encounter();
     const start = state.actors.hero!;
     state = equipCombatant(state, "hero", "sword", DEFAULT_COMBAT_CATALOG);
-    expect(state.actors.hero!.resource).toBe(start.resource - 2);
+    expect(state.actors.hero!.resource).toBe(start.resource);
     expect(start.equippedId).toBe("bow");
     expect(() => equipCombatant(state, "hero", "bow", DEFAULT_COMBAT_CATALOG)).toThrow();
     expect(() => equipCombatant(state, "enemy", "bow", DEFAULT_COMBAT_CATALOG)).toThrow();
