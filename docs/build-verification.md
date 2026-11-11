@@ -86,5 +86,5 @@ If the BUILD badge remains old, inspect the Cloudflare deployment first, then re
 - Run `pnpm test:e2e` after `pnpm build`, with Chromium installed via `pnpm exec playwright install chromium`. The browser suite launches the production Vite preview automatically.
 - Verify the active D10 attack/defense loop completes a full AI turn without browser exceptions, and that restart works after the opponent's first melee action.
 - Try an early defense input about 110ms before its true window. The input may be queued, but its reaction grade must still be based on the real execution tick. Late or stale inputs must never be resurrected.
-- If a phase stalls or a render callback fails, the user-facing recovery overlay must offer restart and a copyable local diagnostic. Automated checks also exercise the overlay directly with an injected frame fault.
+- If a phase stalls or a render callback fails, the user-facing recovery overlay must offer restart and a copyable local diagnostic. Unit checks cover guard/fault reporting; manual and future browser fault-injection checks should exercise the recovery overlay.
 - Full 1,000-seed headless replay verifies domain invariants; e2e complements it with actual browser UI and WebGL rendering. Additional real-device GPU, touch latency, and WCAG accessibility testing remain necessary before production sign-off.

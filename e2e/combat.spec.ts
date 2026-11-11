@@ -21,7 +21,7 @@ test("combat survives the enemy's first melee turn and can restart", async ({pag
   expect(pageErrors).toEqual([]);
 });
 
-test("the build and touch/keyboard combat controls remain interactive",async ({page,isMobile})=>{
+test("the build and touch/keyboard combat controls remain interactive",async ({page})=>{
   const pageErrors:string[]=[];
   page.on("pageerror",error=>pageErrors.push(error.message));
   await page.goto("/");
@@ -32,7 +32,7 @@ test("the build and touch/keyboard combat controls remain interactive",async ({p
   await expect(page.locator("#quality")).toContainText(/HIGH|MOBILE/);
   await page.locator("#restart").click();
   await expect(page.locator("#phase")).toContainText("YOUR ACTION");
-  if(isMobile){
+  if(test.info().project.name==="touch-chromium"){
     await expect(page.locator("#attack")).toBeVisible();
     await expect(page.locator("#dodge")).toBeVisible();
   }else{
