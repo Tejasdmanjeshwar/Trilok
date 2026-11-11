@@ -83,3 +83,21 @@ test("D13 sustains multiple enemy decisions without a soft-lock",async ({page})=
   }
   expect(errors).toEqual([]);
 });
+
+test("D14 boss phase HUD starts in Sentinel and resets safely",async ({page})=>{
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/");
+  await expect(page.locator("#loading")).toBeHidden({timeout:15000});
+  await expect(page.locator("#boss-phase-name")).toContainText("PHASE I · SENTINEL");
+  await expect(page.locator("#boss-transition")).toBeHidden();
+  await expect(page.locator(".game")).toHaveAttribute("data-boss-phase","1");
+  await page.locator("#end-turn").click();
+  await expect(page.locator("#phase")).toContainText("YOUR ACTION",{timeout:30000});
+  await page.locator("#restart").click();
+  await expect(page.locator("#boss-phase-name")).toContainText("PHASE I · SENTINEL");
+  await expect(page.locator("#boss-transition")).toBeHidden();
+  await expect(page.locator("#enemy-hp")).toContainText("88 / 88");
+  await expect(page.locator("#runtime-fault")).toBeHidden();
+  expect(errors).toEqual([]);
+});

@@ -11,7 +11,7 @@ Trilok shows a playable version, a combat engine version, and an automatically g
 ## In-game verification
 
 1. Open https://trilok.tejasdmjr996.workers.dev/.
-2. Look for COMBAT ARENA · V0.4.0-preview.18, with combat engine v0.4-D13. These labels should match `apps/web/build-version.json`.
+2. Look for COMBAT ARENA · V0.4.0-preview.19, with combat engine v0.4-D14. These labels should match `apps/web/build-version.json`.
 3. Directly below the title, look for BUILD <8-character-commit> · <HH:MM> UTC.
 4. Tap the BUILD badge to expand the playable version, combat engine, full commit, UTC timestamp and unique build ID. Use Copy details to share a report.
 5. Compare the commit with the latest commit at https://github.com/Tejasdmanjeshwar/Trilok/commits/main.
@@ -110,3 +110,12 @@ If the BUILD badge remains old, inspect the Cloudflare deployment first, then re
 - Deceiver's false swing causes no damage; its final attack and Delayed Heavy have independently readable telegraphs.
 - Test an early defense on the feint, then a real dodge; no phantom hits, duplicated damage, soft-locks, or free extra reaction.
 - Retest D8.1 initial melee, D10 browser tests, and desktop/touch controls.
+
+### D14 miniboss acceptance
+
+- Initial HUD must read PHASE I · SENTINEL; no D13 feints/flurries until a real threshold is reached.
+- At or below 65% boss HP, complete the current action and advance to an enemy decision: PHASE II · VEIL OF DECEIT appears with a noninteractive, readable short cinematic beat. Phase II permits Deceiver and Crosscut.
+- At or below 30%, PHASE III · UNBOUND FURY unlocks delayed heavy patterns and more aggressive choices; no skip straight from phase I to III, including on criticals.
+- Verify a phase switch never interrupts active projectiles, second Crosscut hits, parries, counters or authoritative reaction windows. No HP/Energy refill, second action cost or fabricated damage during transitions.
+- Reduced motion skips dynamic camera emphasis but keeps titles; restart returns the boss to phase I with clean memory and visuals.
+- Existing deterministic replay, D8.1 first melee, desktop/touch Chromium, D10 watchdog and build-identity checks remain release gates.

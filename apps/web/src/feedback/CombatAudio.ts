@@ -1,4 +1,4 @@
-export type SoundCue = "ui" | "draw" | "release" | "slash" | "step" | "hit" | "parry" | "intercept" | "clash" | "dodge" | "miss" | "victory" |
+export type SoundCue = "boss_awaken" | "boss_enrage" | "ui" | "draw" | "release" | "slash" | "step" | "hit" | "parry" | "intercept" | "clash" | "dodge" | "miss" | "victory" |
   "melee_ready" | "heavy_charge" | "slash_fast" | "slash_heavy" |
   "impact_light" | "impact_body" | "impact_heavy" | "guard_clash";
 
@@ -21,6 +21,8 @@ const VOICES: Record<SoundCue, Voice> = {
   dodge:   { frequency: 360, duration: .12, wave: "sine", volume: .025 },
   miss:    { frequency: 94, duration: .27, wave: "sawtooth", volume: .035 },
   victory: { frequency: 760, duration: .38, wave: "sine", volume: .033 },
+  boss_awaken: {frequency: 160, duration:.42, wave:"triangle",volume:.045},
+  boss_enrage: {frequency: 92, duration:.62, wave:"sawtooth",volume:.055},
   melee_ready: { frequency: 175, duration: .13, wave: "triangle", volume: .023 },
   heavy_charge: { frequency: 118, duration: .35, wave: "sawtooth", volume: .032 },
   slash_fast: { frequency: 365, duration: .14, wave: "sawtooth", volume: .03 },

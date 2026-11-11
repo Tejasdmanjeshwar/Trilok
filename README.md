@@ -35,7 +35,7 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
 
-The playable version is **v0.4.0-preview.18**, the combat engine version is **v0.4-D13**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
+The playable version is **v0.4.0-preview.19**, the combat engine version is **v0.4-D14**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
 
 See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.
 
@@ -85,3 +85,7 @@ While an attack is committed, a short gold timing lane offers an **optional** `F
 ### D13 — Adaptive enemy attack patterns
 
 Rakshasa gains **Crosscut** (two independently defendable hits), **Deceiver** (false swing before true contact), and **Delayed Heavy** (prolonged windup). Fighting-style profiles influence legal utility decisions and adapt to bounded player dodge/parry history. The choreography derives real contact markers from the domain catalog; feints never deal damage. See [D13 notes](docs/combat-v0.4D13-enemy-patterns.md).
+
+### D14 — The Rakshasa's three-phase miniboss fight
+
+The guardian now evolves through **Sentinel** (100–65% HP), **Veil of Deceit** (65–30%) and **Unbound Fury** (30–0%). New phases alter the AI's fighting style, pattern allowlist, aggression, recognition and readable stage cues. Phase banners and audio occur strictly between combat actions, never inside an arrow flight, parry counter, or Crosscut combination. Boss phase changes cannot heal or recharge, cannot make attacks illegal in the domain legal, and never skip a phase. See [D14 design notes](docs/combat-v0.4D14-boss-phases.md).
