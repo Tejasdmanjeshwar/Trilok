@@ -43,3 +43,6 @@ Status: Playable prototype, subject to manual browser/mobile validation. Both sl
 
 ## Limitations
 The contact query uses coarse invisible sphere proxies and the current rig pose; it is not high-fidelity skinned-triangle collision. Wound mesh depth is stylized, not physically modeled skin penetration; production character assets will need improved anatomical anchors and optional decals. Eight global embedded arrows is a prototype performance cap. Blood is a short-lived visual effect rather than a persistent bleeding status.
+
+### Preview exposure and move authoring
+The enemy's iron helmet still suppresses **head** criticals. To make the mechanic testable without removing armor, the humanoid anatomy now exposes a smaller, unarmored **neck** region as a precision-critical target. The spatial proxy follows the torso rig. Defense moves may also author `impactEffects` so future surviving counter projectiles use the same effect-selection pipeline as regular attacks.

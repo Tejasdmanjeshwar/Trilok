@@ -42,6 +42,7 @@ export class CombatHitVolumes {
     const torso = rig.getObjectByName("Torso") ?? rig;
     const anchors: Readonly<Record<string, [string, number, number, number, number]>> = {
       head: ["Torso", 0, 2.40, 0, .35],
+      neck: ["Torso", 0, 2.04, .35, .17],
       torso: ["Torso", 0, 1.46, 0, .57],
       left_arm: ["LeftArm", -.03, -.40, 0, .25],
       right_arm: ["RightArm", .03, -.40, 0, .25],

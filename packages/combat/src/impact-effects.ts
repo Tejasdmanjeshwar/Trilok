@@ -16,5 +16,9 @@ export function effectsForAttack(
   attackMoveId: string,
   damage: DamageBreakdown,
 ): readonly string[] {
-  return selectImpactEffects(catalog.attacks[attackMoveId]?.impactEffects, damage);
+  return selectImpactEffects(
+    catalog.attacks[attackMoveId]?.impactEffects ??
+      catalog.defenses[attackMoveId]?.impactEffects,
+    damage,
+  );
 }

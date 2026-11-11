@@ -191,6 +191,8 @@ export interface DefenseSpec {
   /** Only perfect and successful matching defenses can schedule this. */
   readonly perfectCounterId?: string;
   readonly projectileInterception?: ProjectileInterceptionSpec;
+  /** Optional effects on a surviving defensive projectile's impact. */
+  readonly impactEffects?: readonly ImpactEffectSpec[];
 }
 
 export interface EquipmentSpec {

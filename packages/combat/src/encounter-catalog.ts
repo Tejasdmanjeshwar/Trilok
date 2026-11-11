@@ -118,6 +118,17 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
   for (const [id, defense] of Object.entries(catalog.defenses)) {
     assertId(id);
     if (defense.id !== id || !known(defense.technique, TECHNIQUES)) throw new Error("Invalid defense definition: " + id);
+    if (defense.impactEffects) {
+      const effects=new Set<string>();
+      for(const effect of defense.impactEffects) {
+        if(!/^[a-z][a-z0-9_]*$/.test(effect.id) ||
+           !["damage","critical"].includes(effect.when) ||
+           effects.has(effect.id)) {
+          throw new Error("Invalid defensive impact effect: "+id);
+        }
+        effects.add(effect.id);
+      }
+    }
     nonnegative(defense.resourceCost, "defense cost");
     const clash = defense.projectileInterception;
     if (clash?.flight) {
@@ -291,6 +302,7 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
       id: "humanoid", defaultRegionId: "torso",
       regions: {
         head: { id: "head", vulnerabilityMultiplier: 1.5, criticalEligible: true, staggerMultiplier: 0.3 },
+        neck: { id: "neck", vulnerabilityMultiplier: 1.2, criticalEligible: true, staggerMultiplier: 0.25 },
         torso: { id: "torso", vulnerabilityMultiplier: 1, criticalEligible: false },
         left_arm: { id: "left_arm", vulnerabilityMultiplier: 0.85, criticalEligible: false, staggerMultiplier: 0.15 },
         right_arm: { id: "right_arm", vulnerabilityMultiplier: 0.85, criticalEligible: false, staggerMultiplier: 0.15 },

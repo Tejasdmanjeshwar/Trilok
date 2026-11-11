@@ -2,7 +2,8 @@ import {describe,expect,it} from "vitest";
 import * as THREE from "three";
 import {
   aimBallisticAt,queueAttack,resolveReaction,resolveProjectileContinuation,
-  effectsForAttack,selectImpactEffects, type DamageBreakdown,
+  effectsForAttack,selectImpactEffects,resolveRegionDamage,
+  type DamageBreakdown,
 } from "../packages/combat/src/index";
 import {PREVIEW_CATALOG,createPreviewEncounter} from "../apps/web/src/combat/preview-encounter";
 import {createWarrior} from "../apps/web/src/actors/warrior";
@@ -120,6 +121,32 @@ describe("v0.4-D6 extensible hit presentation",()=>{
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(false))).toEqual([]);
     expect(effectsForAttack(PREVIEW_CATALOG,"recover_shot",damage(true))).toEqual([]);
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(true,0))).toEqual([]);
+    const defensiveCatalog={...PREVIEW_CATALOG,defenses:{
+      ...PREVIEW_CATALOG.defenses,
+      countershot:{...PREVIEW_CATALOG.defenses.countershot!,
+        impactEffects:[{id:"freeze_fx",when:"damage" as const}],
+      },
+    }};
+    expect(effectsForAttack(defensiveCatalog,"countershot",damage(false)))
+      .toEqual(["freeze_fx"]);
+  });
+  it("helmet suppresses head critical, exposed neck permits an embedded critical",()=>{
+    const enemy=createPreviewEncounter().actors.enemy!;
+    const input={
+      attackerId:"hero",defender:enemy,moveId:"arrow",hitId:"impact",
+      baseDamage:18,damageType:"pierce" as const,
+      targeting:{mode:"free_aim" as const,precisionCriticalMultiplier:1.4},
+      intendedRegionId:"neck",actualRegionId:"neck",
+      reactionMultiplier:1,inReach:true,contact:true,
+    };
+    const critical=resolveRegionDamage(input,PREVIEW_CATALOG);
+    expect(critical.critical).toBe(true);
+    expect(effectsForAttack(PREVIEW_CATALOG,"arrow",critical))
+      .toEqual(["blood_splat","embed_arrow"]);
+    const head=resolveRegionDamage({...input,intendedRegionId:"head",
+      actualRegionId:"head"},PREVIEW_CATALOG);
+    expect(head.critical).toBe(false);
+    expect(effectsForAttack(PREVIEW_CATALOG,"arrow",head)).toEqual([]);
   });
   it("new effect IDs require no combat rule changes and duplicate contacts are ignored",()=>{
     const spec=[{id:"burn_fx",when:"damage" as const},
