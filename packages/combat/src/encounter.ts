@@ -439,6 +439,8 @@ export interface ResolveReactionInput {
   readonly actualRegionId?: string | null;
   /** Explicit projectile/weapon contact outcome from the spatial adapter. */
   readonly contact?: boolean;
+  /** Authoritative first swept contact: only legal for ranged contact=true. */
+  readonly contactTick?: number;
 }
 
 function nextLivingActor(state: EncounterState, currentId: string, actors: Readonly<Record<string, EncounterActor>>): string {
@@ -558,6 +560,8 @@ export function resolveProjectileContinuation(
     readonly actualRegionId?: string | null;
     readonly contact?: boolean;
     readonly distanceAtImpactMeters: number;
+    /** First swept body contact; may precede planned arrival. */
+    readonly contactTick?: number;
   },
   catalog: CombatCatalog,
 ): ProjectileContinuationResolution {
@@ -565,8 +569,14 @@ export function resolveProjectileContinuation(
   if (!pending || pending.projectileId !== input.projectileId) {
     throw new Error("No matching surviving projectile.");
   }
-  if (!validTick(input.resolvedTick) || input.resolvedTick < pending.impactTick) {
-    throw new Error("Surviving projectile has not reached its target.");
+  const gate=input.contactTick ?? pending.impactTick;
+  if(input.contactTick!==undefined &&
+     (!validTick(input.contactTick) || input.contact!==true ||
+      input.contactTick<pending.startedTick || input.contactTick>pending.impactTick)){
+    throw new Error("Invalid surviving projectile contact timestamp.");
+  }
+  if (!validTick(input.resolvedTick) || input.resolvedTick < gate) {
+    throw new Error("Surviving projectile has not reached contact or expiry.");
   }
   assertDistance(input.distanceAtImpactMeters);
   const attacker = getActor(state, pending.attackerId);
@@ -658,13 +668,23 @@ export function resolveReaction(
     throw new Error("Reaction trajectory is not physically feasible at input time.");
   }
   const grade = chosen
-    ? gradeReactionWindow(input.reactionTick! - chosen.targetTick, chosen.timing)
+    ? gradeReactionWindow(input.reactionTick! -
+      (chosen.technique==="projectile_intercept" ? chosen.targetTick :
+        input.contactTick ?? chosen.targetTick), chosen.timing)
     : "miss";
   const isClash = chosen?.technique === "projectile_intercept" &&
     attack.delivery === "ranged_projectile" && grade !== "miss" &&
     catalog.defenses[chosen.moveId]?.projectileInterception !== undefined;
+  if(input.contactTick!==undefined &&
+     (attack.delivery!=="ranged_projectile" || input.contact!==true ||
+      !validTick(input.contactTick) ||
+      input.contactTick<pending.startedTick || input.contactTick>pending.impactTick ||
+      input.contactTick>input.resolvedTick)){
+    throw new Error("Invalid ranged contact tick.");
+  }
   const earliestResolution = isClash ?
-    trajectoryPlan?.clashTick ?? chosen!.clashTick : pending.impactTick;
+    trajectoryPlan?.clashTick ?? chosen!.clashTick :
+    input.contactTick ?? pending.impactTick;
   if (input.resolvedTick < earliestResolution) {
     throw new Error("Attack cannot resolve before its clash or impact tick.");
   }

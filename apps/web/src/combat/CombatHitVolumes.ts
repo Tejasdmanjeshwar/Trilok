@@ -12,6 +12,12 @@ export interface SpatialImpact {
   readonly actualRegionId: string | null;
   readonly contact: boolean;
   readonly impactPoint: THREE.Vector3;
+  /** First swept contact (integer simulation tick); absent on a miss. */
+  readonly contactTick?: number;
+  readonly contactNormal?: THREE.Vector3;
+  readonly velocity?: THREE.Vector3;
+  /** Parent bone/rig socket for persistent effects; never sent into pure combat. */
+  readonly attachment?: THREE.Object3D;
 }
 
 /**
@@ -87,6 +93,7 @@ export class CombatHitVolumes {
     }
     this.rig.updateWorldMatrix(true,true);
     this.caster.setFromCamera(this.screenPoint.set(nx,ny), camera);
+    this.caster.near=.001;this.caster.far=Infinity;
     const hit = this.firstVisibleHit();
     return hit ? (hit.object.userData.regionId as string) : null;
   }
@@ -115,6 +122,7 @@ export class CombatHitVolumes {
     }
     this.rig.updateWorldMatrix(true,true);
     this.caster.setFromCamera(this.screenPoint.set(nx,ny),camera);
+    this.caster.near=.001;this.caster.far=Infinity;
     const hit=this.firstVisibleHit();
     const toward=new THREE.Vector3();
     if (hit) {
@@ -139,40 +147,61 @@ export class CombatHitVolumes {
   }
 
   /**
-   * Continuous-enough fixed-substep contact query, using the SAME trajectory
-   * sampler as the renderer. Collision volumes follow the current rig pose.
-   * No hit is fabricated from an intended region or target position.
+   * Swept first-contact query. All impact consumers share this one timestamp,
+   * region and point. Raycasting uses the same deterministic trajectory model
+   * as the visual projectile; frame skipping cannot pass through a limb.
    */
-  impactTrajectory(
+  firstTrajectoryContact(
     trajectory:ProjectileTrajectory,startTick:number,endTick:number,
-  ):SpatialImpact {
+  ):SpatialImpact | null {
     if(!Number.isFinite(startTick)||!Number.isFinite(endTick)||
        endTick<startTick)throw new Error("Invalid projectile contact interval.");
     this.rig.updateWorldMatrix(true,true);
-    const previous=new THREE.Vector3();
+    const start=sampleTrajectory(trajectory,startTick).position;
+    const previous=new THREE.Vector3(start.x,start.y,start.z);
     const current=new THREE.Vector3();
-    const sample=sampleTrajectory(trajectory,startTick).position;
-    previous.set(sample.x,sample.y,sample.z);
     const iterations=Math.max(1,Math.ceil((endTick-startTick)/12));
     for(let i=1;i<=iterations;i++){
-      const tick=startTick+(endTick-startTick)*i/iterations;
-      const p=sampleTrajectory(trajectory,tick).position;
+      const t0=startTick+(endTick-startTick)*(i-1)/iterations;
+      const t1=startTick+(endTick-startTick)*i/iterations;
+      const p=sampleTrajectory(trajectory,t1).position;
       current.set(p.x,p.y,p.z);
       this.rayDirection.copy(current).sub(previous);
       const segmentLength=this.rayDirection.length();
       if(segmentLength>1e-6){
         this.caster.set(previous,this.rayDirection.multiplyScalar(1/segmentLength));
-        this.caster.near=.001;
+        this.caster.near=.00001;
         this.caster.far=segmentLength;
         const hit=this.firstVisibleHit();
-        if(hit)return {
-          actualRegionId:hit.object.userData.regionId as string,
-          contact:true,impactPoint:hit.point.clone(),
-        };
+        if(hit){
+          const fraction=Math.max(0,Math.min(1,hit.distance/segmentLength));
+          const contactTick=Math.ceil(t0+(t1-t0)*fraction);
+          const at=sampleTrajectory(trajectory,contactTick);
+          const center=hit.object.getWorldPosition(new THREE.Vector3());
+          const normal=hit.point.clone().sub(center).normalize();
+          return {
+            actualRegionId:hit.object.userData.regionId as string,
+            contact:true,impactPoint:hit.point.clone(),
+            contactTick,contactNormal:normal,
+            velocity:new THREE.Vector3(at.velocity.x,at.velocity.y,at.velocity.z),
+            attachment:hit.object.parent ?? this.rig,
+          };
+        }
       }
       previous.copy(current);
     }
-    return {actualRegionId:null,contact:false,impactPoint:current.clone()};
+    return null;
+  }
+
+  /** Backwards-compatible spatial query for callers needing an explicit miss. */
+  impactTrajectory(
+    trajectory:ProjectileTrajectory,startTick:number,endTick:number,
+  ):SpatialImpact {
+    const hit=this.firstTrajectoryContact(trajectory,startTick,endTick);
+    if(hit)return hit;
+    const p=sampleTrajectory(trajectory,endTick).position;
+    return {actualRegionId:null,contact:false,
+      impactPoint:new THREE.Vector3(p.x,p.y,p.z)};
   }
 
   /** Contact is resolved at impact, NOT inferred from the intended region. */

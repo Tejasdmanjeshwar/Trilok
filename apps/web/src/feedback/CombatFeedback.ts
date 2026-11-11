@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-export type FeedbackKind = "hit" | "parry" | "dodge" | "miss" | "step" | "armor" | "critical" | "weakpoint" | "intercept";
+export type FeedbackKind = "hit" | "parry" | "dodge" | "miss" | "step" | "armor" | "critical" | "weakpoint" | "intercept" | "blood";
 
 interface Particle {
   activeUntil: number;
@@ -98,13 +98,15 @@ export class CombatFeedback {
     amount = 0,
     isHeroDamage = false,
   ): void {
-    const tint = kind === "parry" || kind === "dodge" || kind === "intercept" ? 0x91dddc
+    const tint = kind === "blood" ? 0x8f2334
+      : kind === "parry" || kind === "dodge" || kind === "intercept" ? 0x91dddc
       : kind === "armor" ? 0xa8c9df
       : kind === "critical" ? 0xffe09c
       : kind === "weakpoint" ? 0xf6a3a8
       : kind === "miss" ? 0xf19a76
       : kind === "step" ? 0xa1a18a : 0xffd18a;
-    const count = kind === "step" ? 7 : kind === "dodge" ? 13 : 26;
+    const count = kind === "step" ? 7 : kind === "dodge" ? 13 :
+      kind === "blood" ? 20 : 26;
     this.tint.setHex(tint);
 
     for (let i = 0; i < count; i++) {
@@ -113,13 +115,14 @@ export class CombatFeedback {
       const angle = i * 2.399963 + (this.cursor % 9) * 0.37;
       const speed = 1.2 + (i % 7) * 0.37;
       particle.beganAt = nowMs;
-      particle.lifetime = 260 + (i % 6) * 48;
+      particle.lifetime = (kind === "blood" ? 190 : 260) + (i % 6) * 48;
       particle.activeUntil = nowMs + particle.lifetime;
       particle.x = position.x;
       particle.y = position.y;
       particle.z = position.z;
       particle.vx = Math.cos(angle) * speed;
-      particle.vy = kind === "step" ? .25 + (i % 4) * .11 : 1.2 + (i % 5) * .41;
+      particle.vy = kind === "step" ? .25 + (i % 4) * .11 :
+        kind === "blood" ? .18 + (i % 5) * .33 : 1.2 + (i % 5) * .41;
       particle.vz = Math.sin(angle) * speed;
       this.colors[index * 3] = this.tint.r;
       this.colors[index * 3 + 1] = this.tint.g;
@@ -127,7 +130,7 @@ export class CombatFeedback {
     }
     (this.geometry.getAttribute("color") as THREE.BufferAttribute).needsUpdate = true;
 
-    if (kind !== "step") {
+    if (kind !== "step" && kind !== "blood") {
       this.flashAt = nowMs;
       this.flashDuration = kind === "critical" ? 390 : kind === "hit" || kind === "miss" ? 290 : 200;
       this.flashStrength = kind === "critical" ? .55 : kind === "hit" ? .44 : kind === "parry" ? .38 : .25;

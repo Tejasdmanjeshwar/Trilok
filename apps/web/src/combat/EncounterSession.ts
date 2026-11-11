@@ -107,11 +107,12 @@ export class EncounterSession {
       readonly distanceAtImpactMeters: number;
       readonly actualRegionId?: string | null;
       readonly contact?: boolean;
+      readonly contactTick?: number;
     },
   ): ProjectileContinuationResolution | null {
     const pending = this.state.pendingProjectile;
     if (!pending || pending.projectileId !== input.projectileId ||
-        Math.floor(nowMs) < pending.impactTick) return null;
+        Math.floor(nowMs) < (input.contactTick ?? pending.impactTick)) return null;
     const result = resolveProjectileContinuation(this.state, {
       ...input, resolvedTick: Math.floor(nowMs),
     }, this.catalog);
@@ -134,7 +135,11 @@ export class EncounterSession {
    */
   resolveIfReady(nowMs: number, distanceAtImpactMeters: number,
     waitUntilTick?: number,
-    spatial?: { readonly actualRegionId: string | null; readonly contact: boolean },
+    spatial?: {
+      readonly actualRegionId: string | null;
+      readonly contact: boolean;
+      readonly contactTick?: number;
+    },
   ): ReactionResolution | null {
     const pending = this.state.pending;
     if (!pending) return null;
@@ -144,11 +149,15 @@ export class EncounterSession {
       : undefined;
     const isIntercept = option?.technique === "projectile_intercept" &&
       this.selectedDefense !== null;
+    const physicalProjectile=!!pending.projectileGeometry && spatial!==undefined;
     if (tick < (isIntercept ?
       this.selectedDefense?.plan?.clashTick ?? option!.clashTick :
+      physicalProjectile ? spatial.contactTick ?? pending.impactTick :
       pending.impactTick)) return null;
     if (!this.selectedDefense) {
-      if (pending.defenderId === "hero") {
+      if (physicalProjectile) {
+        // Do not postpone contact because a possible input window runs later.
+      } else if (pending.defenderId === "hero") {
         const options = this.legalReactions();
         const latest = Math.max(0, ...options.map(item => item.timing.lateTicks));
         if (tick < pending.impactTick + latest) return null;
@@ -162,7 +171,11 @@ export class EncounterSession {
       reactionTick: this.selectedDefense?.tick ?? null,
       resolvedTick: tick,
       distanceAtImpactMeters,
-      ...(spatial ? { actualRegionId: spatial.actualRegionId, contact: spatial.contact } : {}),
+      ...(spatial ? {
+        actualRegionId:spatial.actualRegionId,
+        contact:spatial.contact,
+        ...(spatial.contactTick!==undefined ? {contactTick:spatial.contactTick}:{}),
+      } : {}),
     }, this.catalog);
     this.state = result.state;
     this.selectedDefense = null;

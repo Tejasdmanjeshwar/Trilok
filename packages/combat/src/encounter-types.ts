@@ -99,6 +99,12 @@ export interface TurnBudget {
   readonly perfectRefundUsedByActor: Readonly<Record<CombatantId, number>>;
 }
 
+/** Presentation effects are event requests, not damage or status implementations.
+ * A future status system can subscribe to the same confirmed hit event. */
+export interface ImpactEffectSpec {
+  readonly id: string;
+  readonly when: "damage" | "critical";
+}
 export interface AttackSpec {
   readonly id: string;
   readonly delivery: AttackDelivery;
@@ -122,6 +128,8 @@ export interface AttackSpec {
   readonly counterPolicy?: CounterPolicy;
   /** Resistance in a ranged-vs-ranged clash (positive authored value). */
   readonly projectilePower?: number;
+  /** Data-driven visual reactions; e.g. blood, lodged arrow, burn, freeze. */
+  readonly impactEffects?: readonly ImpactEffectSpec[];
 }
 
 /** A pre-authored automatic retaliation. It cannot itself be defended or countered. */

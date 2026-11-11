@@ -155,3 +155,5 @@ export { resolveEffectiveTiming, gradeReactionWindow, validateTimingProfile, val
 export { calculateProjectileClash } from "./encounter-clash";
 
 export * from "./projectile-motion";
+
+export { selectImpactEffects, effectsForAttack } from "./impact-effects";

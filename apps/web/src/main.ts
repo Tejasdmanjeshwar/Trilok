@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import {
-  aimBallisticAt, sampleTrajectory,
+  aimBallisticAt, sampleTrajectory, effectsForAttack,
+  type DamageBreakdown,
   type ProjectileTrajectory, type ProjectileAttackGeometry,
   type InterceptionPlan,
   type ReactionResolution, type PendingCounter, type ProjectileClash,
@@ -13,6 +14,7 @@ import { CombatCameraDirector, type CameraShot } from "./camera/CombatCameraDire
 import { CombatEffects } from "./effects/CombatEffects";
 import { ProjectileClashEffects } from "./effects/ProjectileClashEffects";
 import { CombatFeedback } from "./feedback/CombatFeedback";
+import { ImpactEffectDirector, type ImpactVisualContext } from "./feedback/ImpactEffectDirector";
 import { CombatAudio } from "./feedback/CombatAudio";
 import {
   ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE,
@@ -187,6 +189,15 @@ const effects = new CombatEffects(scene);
 const projectiles = new ProjectileClashEffects(scene);
 const visualFeedback = new CombatFeedback(scene, host!, reduceMotion);
 const sound = new CombatAudio();
+const impactDirector = new ImpactEffectDirector();
+impactDirector
+  .register("blood_splat", context => visualFeedback.emit(
+    "blood",context.point,context.presentAtMs))
+  .register("embed_arrow", context => {
+    if(context.projectileId && context.attachment)
+      projectiles.embed(context.projectileId,context.attachment,
+        context.point,context.velocity,.12);
+  });
 const heroSocket = new THREE.Vector3();
 const targetPoint = new THREE.Vector3();
 const effectPoint = new THREE.Vector3();
@@ -651,6 +662,7 @@ function reset(): void {
   interceptorProjectileId = null;
   followthroughAim = null;
   pendingInterceptRelease=null;
+  impactDirector.clear();
   visualFeedback.reset();
   movement.reset();
   session.reset();
@@ -671,6 +683,64 @@ function reset(): void {
   lastMessage = "Choose a move. Energy and actions determine whether you may continue.";
   loading.classList.add("hidden");
   setPhase("choice", "decision");
+}
+
+/** One contact event controls presentation; authors select effects by ID. */
+function presentConfirmedHit(
+  breakdown:DamageBreakdown,
+  spatial:SpatialImpact|null,
+  projectileId:string|null,
+  now:number,
+):void {
+  const isHero=breakdown.defenderId==="hero";
+  const target=isHero?hero:enemy;
+  if(spatial)targetPoint.copy(spatial.impactPoint);
+  else{
+    target.root.getWorldPosition(targetPoint);
+    targetPoint.y+=1.65;
+  }
+  const kind=breakdown.critical?"critical":
+    breakdown.reasons.some(reason=>reason.startsWith("armor:"))?"armor":
+    breakdown.reasons.includes("weak_point")?"weakpoint":"hit";
+  effects.impact(targetPoint,now);
+  visualFeedback.emit(kind,targetPoint,now,breakdown.finalDamage,isHero);
+  const region=breakdown.actualRegionId;
+  target.play(breakdown.critical?"hit_heavy":
+    region==="head"?"hit_head":
+    region==="left_arm"||region==="right_arm"?"hit_arm":"hit");
+  sound.play("hit");
+  director.impact(breakdown.critical?.23:isHero?.15:.12);
+  const context:ImpactVisualContext={
+    projectileId,point:targetPoint.clone(),
+    normal:spatial?.contactNormal?.clone()??new THREE.Vector3(0,1,0),
+    velocity:spatial?.velocity?.clone()??new THREE.Vector3(),
+    regionId:region,attachment:spatial?.attachment??null,
+    tick:spatial?.contactTick??Math.floor(now),presentAtMs:now,
+  };
+  impactDirector.dispatch(
+    (projectileId??"melee")+":"+breakdown.hitId+":"+
+      breakdown.attackerId+":"+session.state.turn,
+    effectsForAttack(session.catalog,breakdown.moveId,breakdown),context);
+  if(projectileId)projectiles.stop(projectileId);
+}
+
+/** Find actual first contact, not a guessed hit at the authored deadline. */
+function trajectoryImpact(
+  pending:NonNullable<typeof session.state.pending>,
+  volumes:CombatHitVolumes,
+  now:number,
+):SpatialImpact|null {
+  const path=pending.projectileGeometry?.incoming;
+  if(!path)return null;
+  const release=path.kind==="ballistic"?path.startTick:path.segments[0]!.startTick;
+  if(now<release)return null;
+  const end=Math.min(Math.floor(now),pending.impactTick);
+  const hit=volumes.firstTrajectoryContact(path,release,end);
+  if(hit)return hit;
+  if(now<pending.impactTick)return null;
+  const p=sampleTrajectory(path,pending.impactTick).position;
+  return {actualRegionId:null,contact:false,
+    impactPoint:new THREE.Vector3(p.x,p.y,p.z)};
 }
 
 /**
@@ -734,36 +804,41 @@ function playProjectileClash(clash: ProjectileClash, now: number): void {
 
 function finishSurvivingProjectile(now:number):void {
   const pending=session.state.pendingProjectile;
-  if(!pending || presentation!=="projectile" || now<pending.impactTick)return;
-  const hitVolumes=pending.defenderId==="hero" ? heroHitVolumes : enemyHitVolumes;
-  const spatial=pending.trajectory
-    ? hitVolumes.impactTrajectory(pending.trajectory,lastClashTick,pending.impactTick)
-    : followthroughAim ? hitVolumes.impact(followthroughAim) : undefined;
-  const from=pending.attackerId==="hero" ? hero : enemy;
-  const to=pending.defenderId==="hero" ? hero : enemy;
+  if(!pending || presentation!=="projectile")return;
+  const volumes=pending.defenderId==="hero"?heroHitVolumes:enemyHitVolumes;
+  const end=Math.min(Math.floor(now),pending.impactTick);
+  const hit=pending.trajectory && end>=lastClashTick
+    ? volumes.firstTrajectoryContact(pending.trajectory,lastClashTick,end)
+    : null;
+  if(!hit && now<pending.impactTick)return;
+  const spatial=hit ?? (pending.trajectory
+    ? volumes.impactTrajectory(pending.trajectory,lastClashTick,pending.impactTick)
+    : followthroughAim?volumes.impact(followthroughAim):null);
+  const from=pending.attackerId==="hero"?hero:enemy;
+  const to=pending.defenderId==="hero"?hero:enemy;
   const result=session.projectileIfReady(now,{
     projectileId:pending.projectileId,
     distanceAtImpactMeters:movement.separationForHit(from.root,to.root),
-    ...(spatial ? {actualRegionId:spatial.actualRegionId,contact:spatial.contact} : {}),
+    ...(spatial?{
+      actualRegionId:spatial.actualRegionId,contact:spatial.contact,
+      ...(spatial.contactTick!==undefined?{contactTick:spatial.contactTick}:{})
+    }:{contact:false,actualRegionId:null}),
   });
   if(!result)return;
-  projectiles.stop(pending.projectileId);
-  if (spatial) targetPoint.copy(spatial.impactPoint);
-  else {to.root.getWorldPosition(targetPoint);targetPoint.y+=1.7;}
-  if(result.outcome.damage>0) {
-    effects.impact(targetPoint,now);
-    visualFeedback.emit(result.outcome.breakdown.critical?"critical":"hit",
-      targetPoint,now,result.outcome.damage,pending.defenderId==="hero");
-    to.play("hit"); sound.play("hit");director.impact(.16);
-    notice((pending.source==="interceptor"?"SURVIVING COUNTER · ":"ARROW HIT · ")+
+  if(result.outcome.damage>0){
+    presentConfirmedHit(result.outcome.breakdown,spatial,
+      pending.projectileId,now);
+    notice((pending.source==="interceptor"?"COUNTER HIT · ":"ARROW HIT · ")+
       result.outcome.damage+" DAMAGE");
-  } else {
+  }else{
+    projectiles.stop(pending.projectileId);
+    if(spatial)targetPoint.copy(spatial.impactPoint);
+    else{to.root.getWorldPosition(targetPoint);targetPoint.y+=1.7;}
     sound.play("miss");
     visualFeedback.emit("miss",targetPoint,now,0,pending.defenderId==="hero");
     notice("SURVIVING PROJECTILE MISSED",true);
   }
-  lastMessage="The surviving "+pending.projectileId+
-    " resolved at its own impact. No extra firing animation.";
+  lastMessage="Surviving projectile resolved at its first contact or miss.";
   followthroughAim=null;
   shotSnapshot=null;
   setPhase("reaction","reaction",now);
@@ -776,10 +851,8 @@ function playOutcome(result: ReactionResolution, now: number): void {
     playProjectileClash(out.projectileClash,now);
     return;
   }
-  if(incomingProjectileId){
-    projectiles.stop(incomingProjectileId);
-    incomingProjectileId=null;
-  }
+  const projectileId=incomingProjectileId;
+  incomingProjectileId=null;
   const target = out.defenderId === "hero" ? hero : enemy;
   const isHero = out.defenderId === "hero";
   target.root.getWorldPosition(targetPoint);
@@ -800,18 +873,11 @@ function playOutcome(result: ReactionResolution, now: number): void {
       kind.toUpperCase() + " · " + out.grade.toUpperCase());
     sound.play(kind);
   } else if (out.damage > 0) {
-    effects.impact(targetPoint, now);
-    const kind = out.breakdown.critical ? "critical" :
-      out.breakdown.reasons.some(reason => reason.startsWith("armor:")) ? "armor" :
-      out.breakdown.reasons.includes("weak_point") ? "weakpoint" : "hit";
-    visualFeedback.emit(kind, targetPoint, now, out.damage, isHero);
-    target.play("hit");
-    director.impact(kind === "critical" ? .23 : isHero ? .15 : .12);
-    sound.play("hit");
-    notice((kind === "critical" ? "PRECISION CRITICAL · " :
-      kind === "armor" ? "ARMOR ABSORBED · " :
-      kind === "weakpoint" ? "WEAK POINT · " : "") + out.damage + " DAMAGE");
+    presentConfirmedHit(out.breakdown,pendingSpatialImpact,projectileId,now);
+    notice((out.breakdown.critical?"PRECISION CRITICAL · ":"")+
+      out.damage+" DAMAGE");
   }
+  if(projectileId && out.damage===0)projectiles.stop(projectileId);
   impactWorldPoint = null;
   const trace = out.breakdown.reasons;
   const mitigation = trace.some(reason => reason.startsWith("armor:"))
@@ -892,61 +958,68 @@ function finishPerfectCounter(now: number): void {
 
 function landPlayerHit(now: number): void {
   const pending = session.state.pending;
-  if (!pending || pending.attackerId !== "hero" || presentation !== "attack") return;
-  const intercept=session.activeDefense
+  if(!pending || pending.attackerId!=="hero" || presentation!=="attack")return;
+  const waitingForDefense=applyEnemyDefense(now);
+  const option=session.activeDefense
     ? session.legalReactions().find(x=>x.moveId===session.activeDefense!.moveId &&
-        x.technique==="projectile_intercept") : undefined;
-  if (now < (session.activeInterceptionPlan?.clashTick ??
-    intercept?.clashTick ?? pending.impactTick)) return;
-  const move = session.catalog.attacks[pending.moveId]!;
-  const waitingForDefense = applyEnemyDefense(now);
-  const distance = movement.separationForHit(hero.root, enemy.root);
-  const intercepting = session.activeDefense &&
-    session.legalReactions().some(x=>x.moveId===session.activeDefense!.moveId &&
-      x.technique==="projectile_intercept");
-  if (!intercepting && !pendingSpatialImpact && shotSnapshot)
-    pendingSpatialImpact = enemyHitVolumes.impact(shotSnapshot);
-  if (pendingSpatialImpact) impactWorldPoint = pendingSpatialImpact.impactPoint;
-  const result = session.resolveIfReady(now, distance, waitingForDefense,
-    pendingSpatialImpact ?? undefined);
-  if (!result) return;
-  if (move.delivery === "melee_contact") {
-    effects.swing(hero.root.position, hero.root.rotation.y, now);
-  }
-  playOutcome(result, now);
-  pendingSpatialImpact = null;
-  plannedEnemyDefense = null;
-  if (result.outcome.counter) beginPerfectCounter(result.outcome.counter, now);
+      x.technique==="projectile_intercept") : undefined;
+  const clashTick=session.activeInterceptionPlan?.clashTick ?? option?.clashTick;
+  if(clashTick!==undefined){
+    if(now<clashTick)return;
+  }else if(pending.projectileGeometry){
+    if(!pendingSpatialImpact)
+      pendingSpatialImpact=trajectoryImpact(pending,enemyHitVolumes,now);
+    if(!pendingSpatialImpact)return; // Projectile has not touched or expired.
+  }else if(now<pending.impactTick)return;
+  const move=session.catalog.attacks[pending.moveId]!;
+  const distance=movement.separationForHit(hero.root,enemy.root);
+  if(!option && !pending.projectileGeometry && !pendingSpatialImpact && shotSnapshot)
+    pendingSpatialImpact=enemyHitVolumes.impact(shotSnapshot);
+  if(pendingSpatialImpact)impactWorldPoint=pendingSpatialImpact.impactPoint;
+  const result=session.resolveIfReady(now,distance,waitingForDefense,
+    pendingSpatialImpact??undefined);
+  if(!result)return;
+  if(move.delivery==="melee_contact")
+    effects.swing(hero.root.position,hero.root.rotation.y,now);
+  playOutcome(result,now);
+  pendingSpatialImpact=null;
+  plannedEnemyDefense=null;
+  if(result.outcome.counter)beginPerfectCounter(result.outcome.counter,now);
 }
 
 function finishEnemyImpact(now: number): void {
-  const pending = session.state.pending;
-  if (!pending || pending.attackerId !== "enemy" || presentation !== "windup") return;
-  const intercept=session.activeDefense
+  const pending=session.state.pending;
+  if(!pending || pending.attackerId!=="enemy" || presentation!=="windup")return;
+  const option=session.activeDefense
     ? session.legalReactions().find(x=>x.moveId===session.activeDefense!.moveId &&
-        x.technique==="projectile_intercept") : undefined;
-  if(now < (session.activeInterceptionPlan?.clashTick ??
-    intercept?.clashTick ?? pending.impactTick)) return;
-  const distance = movement.separationForHit(enemy.root, hero.root);
-  if (!intercept && !pendingSpatialImpact && shotSnapshot)
-    pendingSpatialImpact = heroHitVolumes.impact(shotSnapshot);
-  if (pendingSpatialImpact) impactWorldPoint = pendingSpatialImpact.impactPoint;
-  const result = session.resolveIfReady(now, distance, undefined,
-    pendingSpatialImpact ?? undefined);
-  if (!result) return; // Still inside the late-reaction grace period.
-  playOutcome(result, now);
-  pendingSpatialImpact = null;
+      x.technique==="projectile_intercept") : undefined;
+  const clashTick=session.activeInterceptionPlan?.clashTick??option?.clashTick;
+  if(clashTick!==undefined){
+    if(now<clashTick)return;
+  }else if(pending.projectileGeometry){
+    if(!pendingSpatialImpact)
+      pendingSpatialImpact=trajectoryImpact(pending,heroHitVolumes,now);
+    if(!pendingSpatialImpact)return;
+  }else if(now<pending.impactTick)return;
+  const distance=movement.separationForHit(enemy.root,hero.root);
+  if(!option && !pending.projectileGeometry && !pendingSpatialImpact && shotSnapshot)
+    pendingSpatialImpact=heroHitVolumes.impact(shotSnapshot);
+  if(pendingSpatialImpact)impactWorldPoint=pendingSpatialImpact.impactPoint;
+  const result=session.resolveIfReady(now,distance,undefined,
+    pendingSpatialImpact??undefined);
+  if(!result)return;
+  playOutcome(result,now);
+  pendingSpatialImpact=null;
   if(result.outcome.projectileClash)return;
-  if (result.outcome.counter) {
-    beginPerfectCounter(result.outcome.counter, now);
+  if(result.outcome.counter){
+    beginPerfectCounter(result.outcome.counter,now);
     return;
   }
-  movement.retreat(enemy.root, now, ARCHERY_REACTION.durationMs);
-  dust(enemy, now);
+  movement.retreat(enemy.root,now,ARCHERY_REACTION.durationMs);
+  dust(enemy,now);
   enemyBrain.markRecovering();
-  setPhase("reaction", "reaction", now);
-  choreography.start(ARCHERY_REACTION, now);
-  if (result.outcome.grade === "miss") hero.play("hit");
+  setPhase("reaction","reaction",now);
+  choreography.start(ARCHERY_REACTION,now);
   enemy.play("idle");
 }
 
@@ -981,7 +1054,12 @@ function onCue(cue: CombatCue, at: number, now: number): void {
       break;
     }
     case "melee_impact":
+      if (session.state.pending?.attackerId === "enemy") finishEnemyImpact(now);
+      else landPlayerHit(now);
+      break;
     case "arrow_hit":
+      // Deadline fallback only. Swept projectile-body contact normally wins
+      // and resolves earlier, using the exact hit point and contact tick.
       if (session.state.pending?.attackerId === "enemy") finishEnemyImpact(now);
       else landPlayerHit(now);
       break;

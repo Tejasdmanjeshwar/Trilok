@@ -67,6 +67,17 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
         move.projectilePower <= 0)) {
       throw new Error("Invalid incoming projectile power: " + id);
     }
+    if (move.impactEffects) {
+      const keys = new Set<string>();
+      for (const effect of move.impactEffects) {
+        if (!/^[a-z][a-z0-9_]*$/.test(effect.id) ||
+            !["damage","critical"].includes(effect.when) ||
+            keys.has(effect.id)) {
+          throw new Error("Invalid or duplicate impact effect: " + id);
+        }
+        keys.add(effect.id);
+      }
+    }
     validatePolicy(move.reactionPolicy);
     const counterPolicy = move.counterPolicy;
     if (counterPolicy) {

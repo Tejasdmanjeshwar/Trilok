@@ -47,7 +47,7 @@ function createFlight(color: number): Flight {
  */
 export class ProjectileClashEffects {
   private readonly group=new THREE.Group();
-  private readonly flights: readonly Flight[]=[
+  private readonly flights: Flight[]=[
     createFlight(0xf2dcae),createFlight(0x9de3d7),
   ];
   private readonly up=new THREE.Vector3(0,1,0);
@@ -60,6 +60,8 @@ export class ProjectileClashEffects {
   private burstAt=-1;
   private readonly burstPoint=new THREE.Vector3();
   private readonly temp=new THREE.Vector3();
+  private readonly embedded: THREE.Group[]=[];
+  private static readonly MAX_EMBEDDED=8;
 
   constructor(scene: THREE.Scene) {
     for(const f of this.flights)this.group.add(f.root,f.trail);
@@ -127,6 +129,45 @@ export class ProjectileClashEffects {
     }
     return target.copy(f.from).lerp(f.to,t);
   }
+  /** Transfer the original in-flight arrow mesh to the actual struck bone.
+   * A new pooled flight slot is prepared for future attacks; the embedded
+   * visual is never a guessed replacement arrow or detached particle.
+   */
+  embed(id:string,anchor:THREE.Object3D,contact:THREE.Vector3,
+    velocity:THREE.Vector3,depth=.12):boolean {
+    const index=this.flights.findIndex(f=>f.id===id && f.flying);
+    if(index<0 || velocity.lengthSq()<.000001)return false;
+    const flight=this.flights[index]!;
+    const direction=velocity.clone().normalize();
+    flight.root.position.copy(contact).addScaledVector(direction,-.52+depth);
+    flight.root.quaternion.setFromUnitVectors(this.up,direction);
+    flight.root.updateWorldMatrix(true,false);
+    anchor.updateWorldMatrix(true,false);
+    anchor.attach(flight.root);
+    flight.trail.removeFromParent();
+    flight.trail.geometry.dispose();
+    (flight.trail.material as THREE.Material).dispose();
+    this.embedded.push(flight.root);
+    if(this.embedded.length>ProjectileClashEffects.MAX_EMBEDDED){
+      this.disposeEmbedded(this.embedded.shift()!);
+    }
+    const replacement=createFlight(index===0?0xf2dcae:0x9de3d7);
+    this.flights[index]=replacement;
+    this.group.add(replacement.root,replacement.trail);
+    return true;
+  }
+  private disposeEmbedded(root:THREE.Group):void {
+    root.traverse(object=>{
+      if(!(object instanceof THREE.Mesh))return;
+      object.geometry.dispose();
+      (object.material as THREE.Material).dispose();
+    });
+    root.removeFromParent();
+  }
+  clearEmbedded():void {
+    for(const root of this.embedded)this.disposeEmbedded(root);
+    this.embedded.length=0;
+  }
   stop(id:string):void{
     const f=this.find(id);
     if(!f)return;
@@ -153,6 +194,7 @@ export class ProjectileClashEffects {
     }
   }
   clear():void{
+    this.clearEmbedded();
     for(const f of this.flights){
       f.id=null;f.flying=false;f.trajectory=null;
       f.root.visible=f.trail.visible=false;
@@ -210,6 +252,7 @@ export class ProjectileClashEffects {
     if(t>=1)this.burstAt=-1;
   }
   dispose():void{
+    this.clearEmbedded();
     for(const f of this.flights){
       f.root.traverse(object=>{
         if(!(object instanceof THREE.Mesh))return;

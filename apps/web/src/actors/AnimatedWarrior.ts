@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { createWarrior, type WarriorRole } from "./warrior";
 import type { WeaponId } from "@trilok/combat";
 
-export type Motion = "idle" | "attack" | "melee" | "windup" | "parry" | "intercept" | "riposte" | "dodge" | "hit" | "victory";
+export type Motion = "idle" | "attack" | "melee" | "windup" | "parry" | "intercept" | "riposte" | "dodge" | "hit" | "hit_heavy" | "hit_arm" | "hit_head" | "victory";
 type Key = readonly [number, number, number, number];
 type Joint = "LeftArm" | "RightArm" | "Torso";
 type Pose = Partial<Record<Joint, readonly Key[]>>;
@@ -70,6 +70,21 @@ function clips(): Record<Motion, THREE.AnimationClip> {
       RightArm: [[0,0,0,.1],[.06,.85,0,.58],[.22,.70,0,.43],[.5,.32,0,.17],[.73,0,0,.1]],
       Torso: [[0,0,0,0],[.06,.50,0,.17],[.24,.35,0,.22],[.44,-.10,0,-.07],[.73,0,0,0]],
     }),
+    hit_heavy: clip("hit_heavy", .88, {
+      LeftArm: [[0,0,0,-.1],[.07,.85,0,-.68],[.22,.70,0,-.48],[.52,.20,0,-.17],[.88,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.07,.92,0,.72],[.24,.71,0,.48],[.53,.19,0,.14],[.88,0,0,.1]],
+      Torso: [[0,0,0,0],[.065,.65,0,.25],[.25,.51,0,.25],[.52,-.10,0,-.08],[.88,0,0,0]],
+    }),
+    hit_arm: clip("hit_arm", .72, {
+      LeftArm: [[0,0,0,-.1],[.06,.90,.30,-.73],[.22,.7,.15,-.49],[.72,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.08,.45,0,.21],[.72,0,0,.1]],
+      Torso: [[0,0,0,0],[.08,.3,.1,.27],[.34,.13,0,.12],[.72,0,0,0]],
+    }),
+    hit_head: clip("hit_head", .76, {
+      LeftArm: [[0,0,0,-.1],[.05,.9,0,-.58],[.3,.5,0,-.42],[.76,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.05,.95,0,.61],[.3,.48,0,.34],[.76,0,0,.1]],
+      Torso: [[0,0,0,0],[.05,.75,-.2,0],[.25,.45,-.1,0],[.76,0,0,0]],
+    }),
     victory: clip("victory", 1.5, {
       LeftArm: [[0,0,0,-.1],[.6,-.55,0,-.2],[1.5,-.55,0,-.2]],
       RightArm: [[0,0,0,.1],[.6,-2.1,0,.1],[1.5,-2.1,0,.1]],
@@ -119,7 +134,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
     setLocomotion(value) { moving = value; },
     play(name) {
       if (current === name) return;
-      active.fadeOut(0.13);
+      active.fadeOut(name.startsWith("hit") ? .025 : .13);
       current = name;
       active = actions[name];
       active.reset();
@@ -127,7 +142,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       active.setEffectiveWeight(1);
       active.setLoop(name === "idle" ? THREE.LoopRepeat : THREE.LoopOnce, name === "idle" ? Infinity : 1);
       active.clampWhenFinished = name !== "idle";
-      active.fadeIn(0.13);
+      active.fadeIn(name.startsWith("hit") ? .025 : .13);
       active.play();
     },
     update(delta, elapsedMs) {

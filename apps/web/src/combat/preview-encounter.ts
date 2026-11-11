@@ -47,6 +47,17 @@ export const PREVIEW_CATALOG: CombatCatalog = {
   },
   attacks: {
     ...DEFAULT_COMBAT_CATALOG.attacks,
+    arrow: {
+      ...DEFAULT_COMBAT_CATALOG.attacks.arrow!,
+      impactEffects: [
+        { id:"blood_splat", when:"critical" },
+        { id:"embed_arrow", when:"critical" },
+      ],
+    },
+    recover_shot: {
+      ...DEFAULT_COMBAT_CATALOG.attacks.recover_shot!,
+      impactEffects: [], // Lightweight recovery attacks never leave wounds.
+    },
     overhead_slash: {
       ...DEFAULT_COMBAT_CATALOG.attacks.slash!,
       id: "overhead_slash", damage: 14, impactOffsetTicks: 1850,
