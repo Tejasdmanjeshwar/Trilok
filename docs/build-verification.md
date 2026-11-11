@@ -11,7 +11,7 @@ Trilok shows a playable version, a combat engine version, and an automatically g
 ## In-game verification
 
 1. Open https://trilok.tejasdmjr996.workers.dev/.
-2. Look for COMBAT ARENA · V0.4.0-preview.13, with combat engine v0.4-D8.1. These labels should match `apps/web/build-version.json`.
+2. Look for COMBAT ARENA · V0.4.0-preview.14, with combat engine v0.4-D9. These labels should match `apps/web/build-version.json`.
 3. Directly below the title, look for BUILD <8-character-commit> · <HH:MM> UTC.
 4. Tap the BUILD badge to expand the playable version, combat engine, full commit, UTC timestamp and unique build ID. Use Copy details to share a report.
 5. Compare the commit with the latest commit at https://github.com/Tejasdmanjeshwar/Trilok/commits/main.
@@ -73,3 +73,10 @@ If the BUILD badge remains old, inspect the Cloudflare deployment first, then re
 - When the guardian deliberately targets an **exposed player weak point**, the parry/intercept telegraph takes on a red tint. Ordinary torso attacks must keep the normal style.
 - Compare rapid, standard and heavy sword swings. Heavy attack has its own windup/impact/recoil animation, audio reinforcement and stronger camera punch. With reduced-motion settings, essential combat timing and health/energy updates must still work.
 - Inspect desktop and touch controls at HIGH and MOBILE settings. Verify the public build `/build-info.json` commit matches the deployed Git SHA.
+
+### D9: arrow wound history smoke tests
+
+- Fire two or three ordinary precision arrows into different exposed regions. Each confirmed contact must leave **its own original arrow**, visibly attached to the hit limb/torso while the defender moves. The lodged count must increase, and a new shot must not clear prior wounds.
+- Advance two or three encounter turn transitions: a minor (damage under 12) arrow expires after 2 turns; a deep (12–23 damage or weak-point) arrow after 3; severe hits (24+ or critical) remain until combat reset, subject to the 16-arrow rendering cap.
+- A recovered shot, spatial miss, dodge, projectile clash with no body hit, and zero-damage block must not embed an arrow. Critical hits may still emit blood; ordinary hits do not.
+- Repeated embedded arrow growth must not break the two active flight slots, ongoing interceptions, or restart/disposal; after restart all lodged arrows, marks and counters must clear. Check both desktop/mobile and low/high quality modes.

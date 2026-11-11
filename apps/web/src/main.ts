@@ -14,6 +14,7 @@ import { CombatCameraDirector, type CameraShot } from "./camera/CombatCameraDire
 import { CombatEffects } from "./effects/CombatEffects";
 import { ProjectileClashEffects } from "./effects/ProjectileClashEffects";
 import { SurfaceMarks } from "./effects/SurfaceMarks";
+import { arrowWoundLifetime } from "./effects/ArrowWoundLifetime";
 import { CombatFeedback } from "./feedback/CombatFeedback";
 import { ImpactEffectDirector, type ImpactVisualContext } from "./feedback/ImpactEffectDirector";
 import { CombatAudio } from "./feedback/CombatAudio";
@@ -49,7 +50,7 @@ host.innerHTML = [
   '<div class="tools"><span id="fps">— FPS</span><button id="quality" type="button" aria-label="Toggle graphics quality">⚙ HIGH</button>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
-  '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p></section>',
+  '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p><p id="enemy-wounds"></p></section>',
   '<section id="telegraph" class="telegraph"><b id="timing-title">⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i id="timing-feasible"></i><i id="timing-perfect"></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
   '<section class="command-panel" aria-label="Combat command deck">',
@@ -61,7 +62,7 @@ host.innerHTML = [
   '<footer class="hud"><section class="hero"><div class="sigil">✶</div><div class="hero-info"><strong>TRIAL WARRIOR</strong><small>THE WAYFARER · ARMS <span class="weapon-keys">[1 / 2]</span></small>',
   '<div id="weapon-deck" class="weapon-deck" role="group" aria-label="Equipped arms"></div>',
   '<div class="bar hero-bar"><span id="hero-bar"></span></div><p id="hero-hp"></p>',
-  '<div class="energy-info"><b id="hero-energy-label">ENERGY</b><span id="actions-left"></span></div>',
+  '<p id="hero-wounds"></p><div class="energy-info"><b id="hero-energy-label">ENERGY</b><span id="actions-left"></span></div>',
   '<div class="energy-track"><span id="hero-energy-bar"></span></div></div></section>',
   '<div class="actions"><button id="attack" class="primary">➶ <span>STRIKE<small>SPACE</small></span></button>',
   '<button id="react">✦ <span>PARRY<small>P</small></span></button>',
@@ -112,6 +113,8 @@ const heroEnergyBar = query<HTMLElement>("#hero-energy-bar");
 const heroEnergyLabel = query<HTMLElement>("#hero-energy-label");
 const enemyEnergyLabel = query<HTMLElement>("#enemy-energy");
 const enemyWeaponLabel = query<HTMLElement>("#enemy-weapon");
+const enemyWoundsLabel = query<HTMLElement>("#enemy-wounds");
+const heroWoundsLabel = query<HTMLElement>("#hero-wounds");
 const enemyIntentLabel = query<HTMLElement>("#enemy-intent");
 const actionsLeftLabel = query<HTMLElement>("#actions-left");
 const restartButton = query<HTMLButtonElement>("#restart");
@@ -199,9 +202,14 @@ impactDirector
     });
   })
   .register("embed_arrow", context => {
-    if(context.projectileId && context.attachment)
-      projectiles.embed(context.projectileId,context.attachment,
-        context.point,context.velocity,.12);
+    if(!context.projectileId || !context.attachment || !context.breakdown) return;
+    const lifetime = arrowWoundLifetime(context.breakdown);
+    const expiresAtTurn = lifetime.turns === null ? null :
+      (context.turn ?? session.state.turn) + lifetime.turns;
+    projectiles.embed(context.projectileId,context.attachment,
+      context.point,context.velocity,.12,{
+        ownerId:context.breakdown.defenderId,expiresAtTurn,
+      });
   });
 const heroSocket = new THREE.Vector3();
 const targetPoint = new THREE.Vector3();
@@ -335,6 +343,10 @@ function updateHud(): void {
   heroEnergyLabel.textContent = "ENERGY " + player.resource + " / " + player.maxResource;
   enemyEnergyLabel.textContent = "ENERGY " + opponent.resource + " / " + opponent.maxResource;
   enemyWeaponLabel.textContent = session.catalog.equipment[opponent.equippedId]?.label ?? opponent.equippedId;
+  const enemyArrows = projectiles.embeddedCountFor("enemy");
+  const heroArrows = projectiles.embeddedCountFor("hero");
+  enemyWoundsLabel.textContent = enemyArrows ? "➶ " + enemyArrows + " ARROWS LODGED" : "";
+  heroWoundsLabel.textContent = heroArrows ? "➶ " + heroArrows + " ARROWS LODGED" : "";
   enemyIntentLabel.textContent = "AI · " + enemyIntent;
   const remaining = state.rules.maxActionsPerTurn - state.turnBudget.actionsUsed;
   actionsLeftLabel.textContent = remaining + " / " + state.rules.maxActionsPerTurn + " ACTIONS";
@@ -468,7 +480,7 @@ function startPlayerAttack(now = performance.now()): void {
   hero.play(presentationPlan.motion);
   enemy.play("idle");
   effects.clear();
-  projectiles.clear();
+  projectiles.clearActive();
   incomingProjectileId = null;
   interceptorProjectileId = null;
   followthroughAim = null;
@@ -498,7 +510,7 @@ function beginEnemyAttack(moveId: string, now: number): void {
   pendingSpatialImpact = null;
   enemyBrain.markCommitted();
   plannedEnemyDefense = null;
-  projectiles.clear();
+  projectiles.clearActive();
   incomingProjectileId = null;
   interceptorProjectileId = null;
   followthroughAim = null;
@@ -733,6 +745,7 @@ function presentConfirmedHit(
     velocity:spatial?.velocity?.clone()??new THREE.Vector3(),
     regionId:region,attachment:spatial?.attachment??null,
     tick:spatial?.contactTick??Math.floor(now),presentAtMs:now,
+    breakdown,turn:session.state.turn,
   };
   impactDirector.dispatch(
     (projectileId??"melee")+":"+breakdown.hitId+":"+
@@ -1166,6 +1179,8 @@ let frameSeconds = 0;
 function frame(now: number): void {
   const delta = Math.min(.05, Math.max(0, (now - previous) / 1000));
   previous = now;
+  const expiredArrows = projectiles.expireTurn(session.state.turn);
+  if (expiredArrows > 0) updateHud();
   if (presentation === "intro" && now - phaseAt >= INTRO_MS) {
     loading.classList.add("hidden");
     enterNextTurn(now);

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { DamageBreakdown } from "@trilok/combat";
 
 /** An emitted contact is immutable. The same contact drives all presentation. */
 export interface ImpactVisualContext {
@@ -10,6 +11,9 @@ export interface ImpactVisualContext {
   readonly attachment: THREE.Object3D | null;
   readonly tick: number;
   readonly presentAtMs: number;
+  /** Optional authoritative impact facts for lifecycle-aware renderers. */
+  readonly breakdown?: DamageBreakdown;
+  readonly turn?: number;
 }
 export type ImpactEffectHandler = (context:ImpactVisualContext)=>void;
 /** OCP registry: a new effect only registers another handler. */

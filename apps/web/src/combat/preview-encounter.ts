@@ -32,6 +32,10 @@ export const PREVIEW_CATALOG: CombatCatalog = {
       // A second bow release is NOT a counter action: its original arrow
       // collides with the incoming arrow and may continue to the attacker.
       perfectCounterId: undefined,
+      impactEffects: [
+        { id:"wound_mark", when:"damage" },
+        { id:"embed_arrow", when:"damage" },
+      ],
       projectileInterception: {
         power: 13, launchLeadTicks: 315, clashLeadTicks: 115,
         continuationTicks: 460, continuationDamage: 22,
@@ -51,8 +55,19 @@ export const PREVIEW_CATALOG: CombatCatalog = {
       ...DEFAULT_COMBAT_CATALOG.attacks.arrow!,
       impactEffects: [
         { id:"blood_splat", when:"critical" },
-        { id:"wound_mark", when:"critical" },
-        { id:"embed_arrow", when:"critical" },
+        { id:"wound_mark", when:"damage" },
+        { id:"embed_arrow", when:"damage" },
+      ],
+    },
+    rakshasa_arrow: {
+      ...DEFAULT_COMBAT_CATALOG.attacks.arrow!,
+      id: "rakshasa_arrow", damage: 12, projectilePower: 10,
+      targeting: { mode: "free_aim", precisionCriticalMultiplier: 1.2 },
+      turnPolicy: { continuation: "continue", maxUsesPerTurn: 2 },
+      impactEffects: [
+        { id:"blood_splat", when:"critical" },
+        { id:"wound_mark", when:"damage" },
+        { id:"embed_arrow", when:"damage" },
       ],
     },
     recover_shot: {
@@ -77,12 +92,6 @@ export const PREVIEW_CATALOG: CombatCatalog = {
       ...DEFAULT_COMBAT_CATALOG.attacks.heavy_crush!,
       id: "rakshasa_heavy", damage: 22,
       targeting:{mode:"free_aim",precisionCriticalMultiplier:1.2},
-    },
-    rakshasa_arrow: {
-      ...DEFAULT_COMBAT_CATALOG.attacks.arrow!,
-      id: "rakshasa_arrow", damage: 12, projectilePower: 10,
-      targeting: { mode: "free_aim", precisionCriticalMultiplier: 1.2 },
-      turnPolicy: { continuation: "continue", maxUsesPerTurn: 2 },
     },
     rakshasa_recover: {
       ...DEFAULT_COMBAT_CATALOG.attacks.recover_shot!,
