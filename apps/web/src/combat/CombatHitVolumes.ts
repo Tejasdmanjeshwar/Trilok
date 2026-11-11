@@ -22,6 +22,7 @@ export class CombatHitVolumes {
   private readonly proxies: THREE.Mesh[] = [];
   private readonly byRegion = new Map<string, THREE.Mesh>();
   private readonly caster = new THREE.Raycaster();
+  private readonly screenPoint = new THREE.Vector2();
   private readonly worldPoint = new THREE.Vector3();
   private readonly rayDirection = new THREE.Vector3();
   constructor(
@@ -84,7 +85,7 @@ export class CombatHitVolumes {
       return null;
     }
     this.rig.updateWorldMatrix(true,true);
-    this.caster.setFromCamera(new THREE.Vector2(nx,ny), camera);
+    this.caster.setFromCamera(this.screenPoint.set(nx,ny), camera);
     const hit = this.firstVisibleHit();
     return hit ? (hit.object.userData.regionId as string) : null;
   }

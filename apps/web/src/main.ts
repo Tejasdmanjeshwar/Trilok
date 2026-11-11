@@ -11,8 +11,10 @@ import { CombatAudio } from "./feedback/CombatAudio";
 import { ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
 import { EncounterSession } from "./combat/EncounterSession";
 import {
-  CombatHitVolumes, normalizedPointer, type AimSnapshot, type SpatialImpact,
+  CombatHitVolumes, type AimSnapshot, type SpatialImpact,
 } from "./combat/CombatHitVolumes";
+import { AimCursor } from "@trilok/input";
+import { BrowserAimInput } from "./input/BrowserAimInput";
 
 import { CombatMovementController } from "./movement/CombatMovementController";
 import { getBuildIdentity, compactBuildLabel, formatBuildReport } from "./build-info";
@@ -40,7 +42,7 @@ host.innerHTML = [
   '<section id="telegraph" class="telegraph"><b>⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
   '<section class="command-panel"><label for="move">MOVE <select id="move" aria-label="Choose combat move"></select></label>',
-  '<div id="aim-controls" class="aim-controls"><label for="aim-region">AIM AT <select id="aim-region" aria-label="Target body region"></select></label>',
+  '<div id="aim-controls" class="aim-controls"><span id="aim-instructions">MOVE CROSSHAIR · CLICK OR FIRE</span>',
   '<span id="aim-armor-hint" role="status"></span></div><span id="move-hint"></span></section>',
   '<div id="aim-marker" class="aim-marker" aria-hidden="true"><span>⊕</span><small id="aim-marker-label"></small></div>',
   '<footer class="hud"><section class="hero"><div class="sigil">✶</div><div><strong>TRIAL WARRIOR</strong><small>WEAPON <select id="weapon" aria-label="Equipped weapon"><option value="bow">LONGBOW</option><option value="sword">SWORD</option></select> <span class="weapon-keys">[1/2]</span></small>',
@@ -88,7 +90,6 @@ const weaponSelect = query<HTMLSelectElement>("#weapon");
 const moveSelect = query<HTMLSelectElement>("#move");
 const moveHint = query<HTMLElement>("#move-hint");
 const aimControls = query<HTMLElement>("#aim-controls");
-const aimRegionSelect = query<HTMLSelectElement>("#aim-region");
 const aimArmorHint = query<HTMLElement>("#aim-armor-hint");
 const aimMarker = query<HTMLElement>("#aim-marker");
 const aimMarkerLabel = query<HTMLElement>("#aim-marker-label");
@@ -180,19 +181,11 @@ type Presentation =
 const session = new EncounterSession();
 const heroHitVolumes = new CombatHitVolumes(hero.root, session.state.actors.hero!, session.catalog);
 const enemyHitVolumes = new CombatHitVolumes(enemy.root, session.state.actors.enemy!, session.catalog);
-const targetRegions = enemyHitVolumes.visibleRegionIds;
-aimRegionSelect.replaceChildren(...targetRegions.map(region => {
-  const item = document.createElement("option");
-  item.value = region;
-  item.textContent = region.replaceAll("_", " ").toUpperCase();
-  return item;
-}));
-aimRegionSelect.value = "torso";
+const aimCursor = new AimCursor();
+let hoveredRegion: string | null = null;
 let shotSnapshot: AimSnapshot | null = null;
 let pendingSpatialImpact: SpatialImpact | null = null;
 let impactWorldPoint: THREE.Vector3 | null = null;
-const reticleWorld = new THREE.Vector3();
-const reticleProjected = new THREE.Vector3();
 let enemyBrain = new EnemyCombatBrain(ENEMY_PROFILES.capable, 119);
 let plannedEnemyDefense: DefenseIntent | null = null;
 let enemyIntent = "OBSERVING";
@@ -202,6 +195,13 @@ let noticeUntil = 0;
 let enemyPauseUntil = 0;
 let lastMessage = "Choose a move. Energy and actions determine whether you may continue.";
 const INTRO_MS = reduceMotion ? 250 : 1500;
+const browserAim = new BrowserAimInput(renderer.domElement, aimCursor, {
+  active: () => isAimActive(),
+  fire: () => startPlayerAttack(),
+});
+function isAimActive(): boolean {
+  return isPlayerDecision() && !aimControls.hidden;
+}
 
 function dust(actor: AnimatedWarrior, now: number): void {
   effectPoint.set(actor.root.position.x, .18, actor.root.position.z);
@@ -269,18 +269,7 @@ function updateMovePicker(): void {
     move?.targeting?.mode === "free_aim" && available.includes(selected);
   aimControls.hidden = !canAim;
   aimMarker.hidden = !canAim;
-  aimRegionSelect.disabled = !canAim;
   if (canAim) {
-    if (!targetRegions.includes(aimRegionSelect.value)) aimRegionSelect.value = "torso";
-    const region = aimRegionSelect.value;
-    const armor = session.state.actors.enemy!.equippedArmorIds?.some(id =>
-      session.catalog.armor?.[id]?.coverage.some(cover =>
-        cover.regionId === region && cover.protection > 0)) ?? false;
-    const weakness = session.catalog.anatomies?.humanoid?.regions[region]?.criticalEligible;
-    aimArmorHint.textContent = armor ? "ARMOR COVERED · CRITICAL MAY BE BLOCKED" :
-      weakness ? "EXPOSED WEAK POINT · PRECISE AIM" : "UNARMORED REGION";
-    aimMarkerLabel.textContent = region.toUpperCase().replaceAll("_", " ");
-    director.setAimPoint(enemyHitVolumes.worldCenter(region,reticleWorld));
     director.setShot("aim");
   } else if (isPlayerDecision()) {
     director.setShot("decision");
@@ -353,14 +342,21 @@ function startPlayerAttack(now = performance.now()): void {
   const move = session.catalog.attacks[moveId];
   if (!move) return;
   try {
-    const intendedRegionId = move.targeting?.mode === "free_aim" ?
-      aimRegionSelect.value : null;
+    // A manual aim ray is selected in screen space, never snapped to a
+    // preselected region. The core still resolves actual contact at impact.
+    const manualAim = move.targeting?.mode === "free_aim";
+    const aimPoint = aimCursor.value;
+    const candidate = manualAim
+      ? enemyHitVolumes.snapshotCameraAim(camera, aimPoint.x, aimPoint.y,
+          hero.socketWorld(heroSocket), move.reachMeters)
+      : move.delivery === "ranged_projectile"
+        ? enemyHitVolumes.snapshot(hero.socketWorld(heroSocket),
+            "torso", move.reachMeters)
+        : null;
     session.attack("hero", "enemy", moveId,
-      movement.separation(hero.root, enemy.root), now, intendedRegionId);
-    shotSnapshot = move.delivery === "ranged_projectile"
-      ? enemyHitVolumes.snapshot(hero.socketWorld(heroSocket),
-          intendedRegionId ?? "torso", move.reachMeters)
-      : null;
+      movement.separation(hero.root, enemy.root), now,
+      manualAim ? candidate?.regionId ?? null : null);
+    shotSnapshot = candidate;
     impactWorldPoint = null;
     pendingSpatialImpact = null;
   } catch (error) {
@@ -543,9 +539,10 @@ function reset(): void {
   movement.reset();
   session.reset();
   shotSnapshot = null;
+  aimCursor.recenter();
+  hoveredRegion = null;
   pendingSpatialImpact = null;
   impactWorldPoint = null;
-  aimRegionSelect.value = "torso";
   enemyBrain = new EnemyCombatBrain(ENEMY_PROFILES.capable, 119);
   plannedEnemyDefense = null;
   enemyIntent = "OBSERVING";
@@ -732,17 +729,6 @@ parryButton.addEventListener("click", () => attemptDefense("parry"));
 dodgeButton.addEventListener("click", () => attemptDefense("dodge"));
 endTurnButton.addEventListener("click", playerEndTurn);
 moveSelect.addEventListener("change", updateHud);
-aimRegionSelect.addEventListener("change", updateHud);
-renderer.domElement.addEventListener("pointerdown", event => {
-  if (!isPlayerDecision() || aimControls.hidden) return;
-  const pointer = normalizedPointer(renderer.domElement, event.clientX, event.clientY);
-  if (!pointer) return;
-  const region = enemyHitVolumes.pickCamera(camera, pointer.x, pointer.y);
-  if (!region) return;
-  aimRegionSelect.value = region;
-  updateHud();
-  notice("TARGET LOCK · " + region.replaceAll("_", " ").toUpperCase());
-});
 weaponSelect.addEventListener("change", () => changeWeapon(weaponSelect.value));
 restartButton.addEventListener("click", reset);
 audioButton.addEventListener("click", () => {
@@ -847,14 +833,31 @@ function frame(now: number): void {
   movement.update(now);
   effects.update(now);
   director.update(frozen ? delta * .18 : delta);
+  browserAim.update(delta);
   if (!aimMarker.hidden) {
-    reticleProjected.copy(enemyHitVolumes.worldCenter(aimRegionSelect.value, reticleWorld));
-    reticleProjected.project(camera);
-    const visible = reticleProjected.z > -1 && reticleProjected.z < 1;
-    aimMarker.style.opacity = visible ? "1" : "0";
-    aimMarker.style.left = ((reticleProjected.x * .5 + .5) * viewport.clientWidth) + "px";
-    aimMarker.style.top = ((1 - (reticleProjected.y * .5 + .5)) *
-      viewport.clientHeight) + "px";
+    const point = aimCursor.value;
+    aimMarker.style.opacity = "1";
+    aimMarker.style.left = ((point.x * .5 + .5) * viewport.clientWidth) + "px";
+    aimMarker.style.top = ((1 - (point.y * .5 + .5)) * viewport.clientHeight) + "px";
+    const region = enemyHitVolumes.pickCamera(camera, point.x, point.y);
+    if (region !== hoveredRegion) {
+      hoveredRegion = region;
+      aimMarkerLabel.textContent = region
+        ? region.replaceAll("_", " ").toUpperCase() : "MISS";
+      const armor = region !== null && (
+        session.state.actors.enemy!.equippedArmorIds?.some(id =>
+          session.catalog.armor?.[id]?.coverage.some(cover =>
+            cover.regionId === region && cover.protection > 0)) ?? false);
+      const weakness = region !== null &&
+        session.catalog.anatomies?.humanoid?.regions[region]?.criticalEligible;
+      aimArmorHint.textContent = armor ? "ARMORED · CRITICAL BLOCKED" :
+        weakness ? "WEAK POINT · PRECISION SHOT" :
+        region ? "TARGET: " + region.replaceAll("_", " ").toUpperCase() :
+        "NO TARGET · SHOT WILL MISS";
+      aimMarker.classList.toggle("aim-on-target", region !== null);
+    }
+  } else {
+    hoveredRegion = null;
   }
   visualFeedback.update(now, camera);
   renderer.render(scene, camera);
@@ -876,6 +879,7 @@ window.addEventListener("pagehide", () => {
   effects.dispose();
   visualFeedback.dispose();
   sound.dispose();
+  browserAim.dispose();
   heroHitVolumes.dispose();
   enemyHitVolumes.dispose();
   hero.dispose();
