@@ -4,7 +4,7 @@ import {
   type EncounterState,
 } from "../packages/combat/src/index";
 import {
-  EnemyCombatBrain, ENEMY_PROFILES, type AIProfile, type CombatIntent,
+  EnemyCombatBrain, ENEMY_PROFILES, threatRecognition, type AIProfile, type CombatIntent,
 } from "../packages/combat-ai/src/index";
 import { EncounterSession } from "../apps/web/src/combat/EncounterSession";
 import { PREVIEW_CATALOG, createPreviewEncounter } from "../apps/web/src/combat/preview-encounter";
@@ -199,5 +199,22 @@ describe("target intelligence",()=>{
     brain.observeAttack("hero","torso");
     brain.reset();
     expect(brain.state).toBe("observe");
+  });
+});
+
+describe("adaptive reaction recognition", () => {
+  it("becomes more vigilant at repeat-target weak points while respecting tier skill", () => {
+    for (const profile of Object.values(ENEMY_PROFILES)) {
+      const first = threatRecognition(profile,0,false);
+      const repeated = threatRecognition(profile,3,false);
+      const weakPoint = threatRecognition(profile,3,true);
+      expect(first).toBeCloseTo(profile.awareness);
+      expect(repeated).toBeGreaterThanOrEqual(first);
+      expect(weakPoint).toBeGreaterThanOrEqual(repeated);
+      expect(weakPoint).toBeLessThanOrEqual(1);
+      expect(threatRecognition(profile,5,true)).toBeGreaterThanOrEqual(weakPoint);
+    }
+    expect(threatRecognition(ENEMY_PROFILES.elite,2,true))
+      .toBeGreaterThan(threatRecognition(ENEMY_PROFILES.novice,2,true));
   });
 });

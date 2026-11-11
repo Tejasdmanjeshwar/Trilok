@@ -35,7 +35,7 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
 
-The playable version is **v0.4.0-preview.11**, the combat engine version is **v0.4-D7**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
+The playable version is **v0.4.0-preview.12**, the combat engine version is **v0.4-D8**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
 
 See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.
 
@@ -60,3 +60,8 @@ A ballistic arrow now resolves on the **first swept body contact**, not at an in
 ### D7 — Reliable bow aiming, fletched arrows and anatomical wound marks
 
 Camera-selected regions now aim a shallow distance *inside the actual selected hit volume*, mitigating bow-camera parallax and surface-grazing misses without turning off deterministic collision or granting hits on empty space. The arrow visual's **tip**, not its shaft center, follows the authoritative trajectory; arrows now include a metal head, wooden shaft, nock and three feather vanes. Critical-hit preview arrows author a persistent `wound_mark` effect along with blood and optional arrow embedding. The wound is attached at the confirmed contact position to the moving anatomical rig and is pooled independently from arrows. The renderer supports configurable surface mark styles (wound, scorch and frost) without implementing unrequested gameplay statuses. See [D7 design and verification](docs/combat-v0.4D7-aim-wounds.md).
+
+
+### D8 — Adaptive defense and satisfying melee
+
+The preview now includes a free first-action rapid melee attack (zero Energy, no ordinary action spent, once per turn) and one free equipment switch each turn. Enemy utility AI remembers targeted regions, scales awareness and reaction precision with intelligence tier, evaluates exposed body-region vulnerability and armor, and can target unprotected weak spots. The incoming defensive timing indicator turns red when a vulnerable player region is under attack. Distinct rapid/heavy clip timelines, heavier impact shake and layered slash/hit sounds improve sword feel. [D8 verification notes](docs/combat-v0.4D8-adaptive-melee.md).

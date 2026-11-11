@@ -131,6 +131,12 @@ export class SeededRandom {
 }
 
 function clamp(v: number, a = 0, b = 1): number { return Math.min(b, Math.max(a, v)); }
+/** Pure threat recognition model; profiles supply skill, memory supplies pattern frequency. */
+export function threatRecognition(profile: AIProfile, repeatCount: number, weakPoint: boolean): number {
+  const intelligence = profile.intelligence ?? profile.awareness;
+  return clamp(profile.awareness + Math.max(0, Math.min(5, repeatCount)) * .10 * intelligence +
+    (weakPoint ? .16 * intelligence : 0));
+}
 function equipmentClass(catalog: CombatCatalog, id: string): "ranged" | "melee" {
   const moves = catalog.equipment[id]?.attackMoveIds ?? [];
   const ranged = moves.filter(move => catalog.attacks[move]?.delivery === "ranged_projectile").length;
@@ -339,8 +345,7 @@ export class EnemyCombatBrain {
     const weakThreat=!!vulnerable && vulnerable.vulnerabilityMultiplier>1 &&
       state.actors[defenderId]?.regionExposure?.[pending.intendedRegionId!]!=="protected";
     const intelligence=this.profile.intelligence??this.profile.awareness;
-    const awareness=clamp(this.profile.awareness+repeated*.10*intelligence+
-      (weakThreat?.16*intelligence:0));
+    const awareness=threatRecognition(this.profile,repeated,weakThreat);
     if (!available.length || this.random.next() >= awareness) return null;
     const actor = state.actors[defenderId]!;
     const weighted = available.map(option => {
