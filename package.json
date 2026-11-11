@@ -8,7 +8,8 @@
     "dev": "pnpm --filter @trilok/web dev",
     "build": "pnpm --filter @trilok/web build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
@@ -16,6 +17,7 @@
     "vitest": "^3.2.4",
     "wrangler": "^4.135.0",
     "three": "^0.180.0",
-    "@types/three": "^0.180.0"
+    "@types/three": "^0.180.0",
+    "@playwright/test": "^1.56.1"
   }
 }

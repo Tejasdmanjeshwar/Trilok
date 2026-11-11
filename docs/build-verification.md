@@ -80,3 +80,11 @@ If the BUILD badge remains old, inspect the Cloudflare deployment first, then re
 - Advance two or three encounter turn transitions: a minor (damage under 12) arrow expires after 2 turns; a deep (12–23 damage or weak-point) arrow after 3; severe hits (24+ or critical) remain until combat reset, subject to the 16-arrow rendering cap.
 - A recovered shot, spatial miss, dodge, projectile clash with no body hit, and zero-damage block must not embed an arrow. Critical hits may still emit blood; ordinary hits do not.
 - Repeated embedded arrow growth must not break the two active flight slots, ongoing interceptions, or restart/disposal; after restart all lodged arrows, marks and counters must clear. Check both desktop/mobile and low/high quality modes.
+
+### D10 reliability smoke checks
+
+- Run `pnpm test:e2e` after `pnpm build`, with Chromium installed via `pnpm exec playwright install chromium`. The browser suite launches the production Vite preview automatically.
+- Verify the active D10 attack/defense loop completes a full AI turn without browser exceptions, and that restart works after the opponent's first melee action.
+- Try an early defense input about 110ms before its true window. The input may be queued, but its reaction grade must still be based on the real execution tick. Late or stale inputs must never be resurrected.
+- If a phase stalls or a render callback fails, the user-facing recovery overlay must offer restart and a copyable local diagnostic. Automated checks also exercise the overlay directly with an injected frame fault.
+- Full 1,000-seed headless replay verifies domain invariants; e2e complements it with actual browser UI and WebGL rendering. Additional real-device GPU, touch latency, and WCAG accessibility testing remain necessary before production sign-off.

@@ -69,3 +69,7 @@ The preview now includes a free first-action rapid melee attack (zero Energy, no
 ### D9 — Accumulating arrow wounds
 
 Every confirmed damaging precision or warbow arrow leaves its **original projectile** lodged in the struck animated body region and adds a surface wound mark. Minor injuries persist for two encounter turns, deeper wounds for three turns, and severe or critical impacts remain for the encounter. The combat HUD counts arrows lodged in each fighter. Active projectile cleanup never erases wounds; multiple arrows can coexist (bounded to 16 on screen), with temporary arrows preferred for eviction when at capacity. Restart and disposal clear all attached arrows and decals. The persistence policy is purely visual and does not change damage or introduce bleeding-over-time. See [D9 notes](docs/combat-v0.4D9-wound-history.md).
+
+### D10 — Combat reliability and browser validation
+
+The D10 preview adds bounded early defense input buffering (110ms, without widening combat timing windows), an in-memory phase watchdog, visible restart/copy-report recovery after animation-loop errors, and diagnostic tracking of combat transitions and frame cadence. Tests now replay 1,000 seeded encounters through the combat adapter, and CI launches real Chromium desktop/mobile smoke checks against the production build. The runtime report is local until the player chooses to copy it; it is not sent to an analytics service. See [D10 reliability details](docs/combat-v0.4D10-reliability.md).
