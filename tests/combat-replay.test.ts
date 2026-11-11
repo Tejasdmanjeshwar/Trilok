@@ -39,11 +39,25 @@ function replay(seed:number) {
         expect(session.state.turnBudget.actionsUsed).toBeLessThanOrEqual(
           session.state.rules.maxActionsPerTurn);
         const spatial=target?{actualRegionId:"torso",contact:true}:undefined;
-        const result=session.resolveIfReady(pending!.impactTick+500,1.7,undefined,spatial);
-        expect(result).not.toBeNull();
-        expect(session.state.pending).toBeNull();
-        events.push(actorId+":"+moveId+":"+result!.outcome.damage+
-          ":"+session.state.turn+":"+session.state.phase);
+        // D13: one committed attack may author several independently
+        // defendable hits. Resolve every hit, retaining one action/Energy cost.
+        const committedActions=session.state.turnBudget.actionsUsed;
+        let hitCount=0;
+        while(session.state.pending){
+          const hit=session.state.pending;
+          const resolvedAt=hit.impactTick+500;
+          const result=session.resolveIfReady(resolvedAt,1.7,undefined,spatial);
+          expect(result).not.toBeNull();
+          expect(result!.outcome.hitIndex).toBe(hitCount);
+          events.push(actorId+":"+moveId+":"+result!.outcome.hitId+":"+
+            result!.outcome.damage+":"+session.state.turn+":"+session.state.phase);
+          hitCount++;
+          expect(hitCount).toBeLessThanOrEqual(16);
+          clock=Math.max(clock,resolvedAt+100);
+          if(session.state.pending)
+            expect(session.state.turnBudget.actionsUsed).toBe(committedActions);
+        }
+        expect(hitCount).toBeGreaterThan(0);
       }
     }
     for(const actor of Object.values(session.state.actors)){
