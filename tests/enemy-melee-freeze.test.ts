@@ -54,6 +54,7 @@ describe("D8.1: enemy opening melee cannot freeze the arena", () => {
       actorId:"enemy", targetId:"hero", distanceMeters:9, tick:1000,
     });
     expect(intent).toEqual({kind:"attack",moveId:"rakshasa_rapid_slash"});
+    if (intent.kind !== "attack") throw new Error("Expected opening melee attack.");
     session.attack("enemy","hero",intent.moveId,9,1000,"head");
     expect(session.state.pending?.impactTick).toBe(1720);
     expect(session.resolveIfReady(1720,9)).toBeNull(); // defender's late dodge grace
