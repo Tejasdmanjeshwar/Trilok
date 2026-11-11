@@ -32,6 +32,10 @@ export const PREVIEW_CATALOG: CombatCatalog = {
       // A second bow release is NOT a counter action: its original arrow
       // collides with the incoming arrow and may continue to the attacker.
       perfectCounterId: undefined,
+      impactEffects: [
+        { id:"wound_mark", when:"damage" },
+        { id:"embed_arrow", when:"damage" },
+      ],
       projectileInterception: {
         power: 13, launchLeadTicks: 315, clashLeadTicks: 115,
         continuationTicks: 460, continuationDamage: 22,

@@ -122,6 +122,8 @@ describe("v0.4-D6 extensible hit presentation",()=>{
       .toEqual(["wound_mark","embed_arrow"]);
     expect(effectsForAttack(PREVIEW_CATALOG,"rakshasa_arrow",damage(false)))
       .toEqual(["wound_mark","embed_arrow"]);
+    expect(effectsForAttack(PREVIEW_CATALOG,"countershot",damage(false)))
+      .toEqual(["wound_mark","embed_arrow"]);
     expect(effectsForAttack(PREVIEW_CATALOG,"recover_shot",damage(true))).toEqual([]);
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(true,0))).toEqual([]);
     const defensiveCatalog={...PREVIEW_CATALOG,defenses:{
