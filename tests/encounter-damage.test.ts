@@ -51,8 +51,9 @@ describe("v0.4-A.3 regional damage and armor", () => {
     const result = fire(actor("enemy", "humanoid", ["iron_helmet"]));
     expect(result.outcome.breakdown).toMatchObject({
       actualRegionId: "head", critical: false, criticalMultiplier: 1,
-      armorMultiplier: 0.45, finalDamage: 12,
+      finalDamage: 12,
     });
+    expect(result.outcome.breakdown.armorMultiplier).toBeCloseTo(0.45);
     expect(result.outcome.breakdown.armorAbsorbed).toBeCloseTo(14.85);
     expect(result.outcome.breakdown.reasons).toContain("critical_suppressed");
     expect(result.outcome.damage).toBeLessThan(fire().outcome.damage);
