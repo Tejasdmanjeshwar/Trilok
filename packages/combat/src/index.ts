@@ -149,4 +149,5 @@ export * from "./encounter-types";
 export * from "./encounter-catalog";
 export * from "./encounter";
 export * from "./encounter-economy";
+export { resolveRegionDamage, validateActorTargets, validateTargetCatalog, resolveDefaultRegion } from "./encounter-damage";
 export { resolveEffectiveTiming, gradeReactionWindow, validateTimingProfile, validateTimingAdjustments } from "./encounter-timing";

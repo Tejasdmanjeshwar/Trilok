@@ -1,6 +1,6 @@
 # Trilok Combat v0.4 — Symmetric Combat, Reactive Timing, Energy, Precision Targeting and AI
 
-Status: **v0.4-A shared encounter domain implemented**. **v0.4-A.1 variable reaction windows and core multi-hit pending-hit resolution are now implemented in the pure domain. Energy multi-action turns are now implemented in the pure domain. Body-region targeting, armor damage, enemy AI and the new browser adapter remain planned, not implemented.** Browser baseline remains playable v0.3.2 pending migration from the legacy duel adapter.
+Status: **v0.4-A shared encounter domain implemented**. **v0.4-A.1 variable reaction windows and core multi-hit pending-hit resolution are now implemented in the pure domain. Energy multi-action turns are now implemented in the pure domain. Body-region targeting and armor damage are now implemented in the pure domain. Enemy AI and the browser adapter remain planned, not implemented.** Browser baseline remains playable v0.3.2 pending migration from the legacy duel adapter.
 Design revision: **2026-11-11 — post-audit update, documentation only**.
 Owner: combat domain + choreography + AI + presentation adapters.
 Priority: stabilize authoritative timing, multi-action resource economy and regional damage before scaling enemy content or replacing character art. Design inspiration: Expedition 33 combines AP-funded actions, repeated free-aim attacks, weak points and real-time reactions; Trilok will use its own cost, timing and damage balance.
@@ -261,10 +261,12 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 4. [ ] Integrate the new state and Energy HUD into the playable browser encounter with a compatible presentation controller. Legacy encounter creation defaults to one action/no regen until migrated.
 5. [ ] Balance actual Energy/turn profiles with AI difficulty and mobile encounter tests.
 
-### v0.4-A.3 — Precision regions, armor and damage (planned)
-1. Define authored region IDs, armor coverage, damage types, critical eligibility and current weak-point exposure.
-2. Separate intended free aim from actual impact and resolve damage using one explainable deterministic pipeline.
-3. Test armored vs unarmored headshots, unusual enemy anatomy, regional mitigation, stagger and weak-point effects.
+### v0.4-A.3 — Precision regions, armor and damage (pure domain implemented)
+1. [x] Author validated anatomy/target-region IDs, regional armor coverage, damage types, exposure states and deterministic precision-critical eligibility.
+2. [x] Distinguish intended free aim from actual spatial impact and use one explainable pure damage pipeline; `HitOutcome.breakdown` provides damage, armor mitigation, critical/stagger information and reason codes.
+3. [x] Cover helmet vs exposed head, humanoid and nonhumanoid weak points, regional armor, misses, deflected hits, validation and independent multi-hit damage in headless tests.
+4. [ ] Implement rig-attached hit volumes, raycast aiming/impact tracking and target-region feedback in the browser adapter (v0.4-C).
+5. [ ] Tune damage types, armor/vulnerability coefficients and weak-point balance with real encounters (v0.4-D).
 
 ### v0.4-B — Enemy decisions and counterplay
 1. Migrate the browser encounter to the shared v0.4 domain (including Energy/actions/targeting) and retire the temporary legacy duel adapter after integration tests; implement seeded HFSM + utility EnemyCombatPolicy using the same legal-action and timing queries.
@@ -311,4 +313,4 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 - **DIP:** AI and presentation depend on shared combat contracts/events, not on each other or on concrete browser objects.
 - **DRY:** shared legality/reaction, effective-timing, Energy/turn-policy and region-aware damage resolvers for player/NPC; one attack lifecycle, validated move-level overrides and one timing source. Avoid premature abstractions, subclass trees or duplicated browser-side rules.
 
-**Implementation status:** v0.4-A baseline and v0.4-A.1 **pure-domain timing and independent multi-hit impact resolution** are implemented. The deployed web duel remains on v0.3.2 until adapter migration. Energy/action chains are implemented in the pure domain but not yet deployed in the browser. Aiming/armor, enemy HFSM/utility behavior and new browser presentation are not implemented.
+**Implementation status:** v0.4-A baseline and v0.4-A.1 **pure-domain timing and independent multi-hit impact resolution** are implemented. The deployed web duel remains on v0.3.2 until adapter migration. Energy/action chains are implemented in the pure domain but not yet deployed in the browser. The regional damage and armor domain is implemented but lacks live hit-zone raycasts/aim UI. Enemy HFSM/utility behavior and the new browser presentation are not implemented.

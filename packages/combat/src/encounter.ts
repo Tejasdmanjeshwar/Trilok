@@ -1,10 +1,11 @@
 import type {
   AttackDelivery, CombatCatalog, CombatantId, EncounterActor, EncounterState,
   ReactionOption, ReactionPolicyOverride, ReactionResolution, ReactionTechnique,
-  TimingAdjustments, PendingHit, AttackHitSpec, EncounterRules,
+  TimingAdjustments, PendingHit, AttackHitSpec, EncounterRules, DamageType,
 } from "./encounter-types";
 import { validateCombatCatalog } from "./encounter-catalog";
 import { gradeReactionWindow, resolveEffectiveTiming, validateTimingAdjustments } from "./encounter-timing";
+import { resolveDefaultRegion, resolveRegionDamage, validateActorTargets } from "./encounter-damage";
 import {
   emptyTurnBudget, LEGACY_ENCOUNTER_RULES, mayContinueTurn, recordAttackAction,
   transitionTurn, validateEncounterRules,
@@ -70,6 +71,7 @@ export function createEncounter(
     for (const [key, until] of Object.entries(actor.cooldownUntilTurn)) {
       if (!catalog.defenses[key] || !validTick(until)) throw new Error("Invalid reaction cooldown.");
     }
+    validateActorTargets(actor, catalog);
     if (actor.switchedOnTurn !== null && !validTick(actor.switchedOnTurn)) {
       throw new Error("Invalid last-switch turn.");
     }
@@ -77,6 +79,8 @@ export function createEncounter(
       ...actor,
       loadoutIds: [...actor.loadoutIds],
       cooldownUntilTurn: { ...actor.cooldownUntilTurn },
+      equippedArmorIds: actor.equippedArmorIds ? [...actor.equippedArmorIds] : undefined,
+      regionExposure: actor.regionExposure ? { ...actor.regionExposure } : undefined,
     };
   }
   if (!ids.has(activeActorId)) throw new Error("Unknown initial combatant.");
@@ -121,6 +125,8 @@ export interface QueueAttackInput {
   readonly startedTick: number;
   /** Difficulty, accessibility and status adjustments snapshotted when queued. */
   readonly reactionTiming?: TimingAdjustments;
+  /** Stable desired target; never inferred to be the actual impacted region. */
+  readonly intendedRegionId?: string | null;
 }
 
 /**
@@ -147,6 +153,15 @@ export function queueAttack(
     throw new Error("Target is too far to engage.");
   }
   if (attacker.resource < move.resourceCost) throw new Error("Insufficient attack resources.");
+  const targeting = move.targeting ?? { mode: "actor" as const };
+  const intendedRegionId = input.intendedRegionId ?? null;
+  if (intendedRegionId !== null) {
+    const anatomy = defender.anatomyId ? catalog.anatomies?.[defender.anatomyId] : undefined;
+    if (targeting.mode !== "free_aim" || !anatomy?.regions[intendedRegionId] ||
+        defender.regionExposure?.[intendedRegionId] === "hidden") {
+      throw new Error("Invalid or hidden aimed region.");
+    }
+  }
   if (state.turnBudget.actionsUsed >= state.rules.maxActionsPerTurn) {
     throw new Error("No offensive actions remain this turn.");
   }
@@ -190,6 +205,9 @@ export function queueAttack(
       hitIndex: 0,
       hits,
       turnPolicy: { ...policy },
+      targeting: { ...targeting },
+      intendedRegionId,
+      damageType: (move.damageType ?? "blunt") as DamageType,
       impactTick: hits[0]!.impactTick,
     },
   };
@@ -260,6 +278,10 @@ export interface ResolveReactionInput {
   readonly reactionTick: number | null;
   readonly resolvedTick: number;
   readonly distanceAtImpactMeters: number;
+  /** Omitted = existing actor-targeted behavior (default region). Null = spatial miss. */
+  readonly actualRegionId?: string | null;
+  /** Explicit projectile/weapon contact outcome from the spatial adapter. */
+  readonly contact?: boolean;
 }
 
 function nextLivingActor(state: EncounterState, currentId: string, actors: Readonly<Record<string, EncounterActor>>): string {
@@ -332,9 +354,29 @@ export function resolveReaction(
     : "miss";
   const outcome = chosen ? catalog.outcomes[chosen.outcomeProfileId]! : null;
   const inReach = input.distanceAtImpactMeters <= attack.reachMeters + 0.0001;
-  const damage = inReach
-    ? Math.min(defender.hp, Math.round(attack.damage * hit.damageMultiplier * (outcome?.[grade] ?? 1)))
-    : 0;
+  if (pending.targeting.mode === "free_aim" &&
+      pending.intendedRegionId !== null &&
+      defender.anatomyId !== undefined &&
+      input.actualRegionId === undefined) {
+    throw new Error("Aimed shots require an authoritative impact region or explicit spatial miss.");
+  }
+  const actualRegionId = input.actualRegionId === undefined
+    ? resolveDefaultRegion(defender, catalog) : input.actualRegionId;
+  const breakdown = resolveRegionDamage({
+    attackerId: attacker.id,
+    defender,
+    moveId: pending.moveId,
+    hitId: hit.id,
+    baseDamage: attack.damage * hit.damageMultiplier,
+    damageType: pending.damageType,
+    targeting: pending.targeting,
+    intendedRegionId: pending.intendedRegionId,
+    actualRegionId,
+    reactionMultiplier: outcome?.[grade] ?? 1,
+    inReach,
+    contact: input.contact !== false,
+  }, catalog);
+  const damage = breakdown.finalDamage;
   const defenseCost = chosen?.resourceCost ?? 0;
   const requestedRefund = grade === "perfect" && chosen &&
     (chosen.technique === "weapon_deflect" || chosen.technique === "projectile_intercept")
@@ -431,7 +473,10 @@ export function resolveReaction(
       grade,
       damage,
       energyRefunded,
-      result: !inReach ? "out_of_reach" : damage === 0 ? "countered" : "hit",
+      breakdown,
+      result: !inReach ? "out_of_reach" :
+        input.contact === false || breakdown.reasons.includes("region_miss") ? "missed" :
+        damage === 0 ? "countered" : "hit",
     },
   };
 }

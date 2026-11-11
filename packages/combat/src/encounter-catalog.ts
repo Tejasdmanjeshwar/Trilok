@@ -3,6 +3,7 @@ import type {
 } from "./encounter-types";
 import { validateTimingProfile } from "./encounter-timing";
 import { validateAttackTurnPolicy } from "./encounter-economy";
+import { validateTargetCatalog } from "./encounter-damage";
 
 const TECHNIQUES: readonly ReactionTechnique[] = ["dodge", "weapon_deflect", "projectile_intercept"];
 const DELIVERIES: readonly AttackDelivery[] = ["melee_contact", "ranged_projectile", "area"];
@@ -50,6 +51,7 @@ function validateTimingReferences(
 
 /** Validate authored content once at loading; never silently ignore bad IDs. */
 export function validateCombatCatalog(catalog: CombatCatalog): void {
+  validateTargetCatalog(catalog);
   for (const [id, move] of Object.entries(catalog.attacks)) {
     assertId(id);
     if (move.id !== id || !known(move.delivery, DELIVERIES)) throw new Error("Invalid attack definition: " + id);
@@ -151,14 +153,18 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
   },
   attacks: {
     arrow: { id: "arrow", delivery: "ranged_projectile", damage: 18, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 1,
+      damageType: "pierce", targeting: { mode: "free_aim", precisionCriticalMultiplier: 1.4 },
       turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 } },
     recover_shot: { id: "recover_shot", delivery: "ranged_projectile", damage: 8, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 0,
+      damageType: "pierce", targeting: { mode: "actor" },
       turnPolicy: { continuation: "end", maxUsesPerTurn: 1, energyGainOnCompletion: 2 } },
     slash: { id: "slash", delivery: "melee_contact", damage: 22, reachMeters: 1.9, engageRangeMeters: 15, impactOffsetTicks: 1450, resourceCost: 2,
+      damageType: "slash", targeting: { mode: "actor" },
       turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 } },
     heavy_crush: {
       id: "heavy_crush", delivery: "melee_contact", damage: 26,
       reachMeters: 2, engageRangeMeters: 15, impactOffsetTicks: 1850, resourceCost: 4,
+      damageType: "blunt", targeting: { mode: "actor" },
       turnPolicy: { continuation: "end", maxUsesPerTurn: 1 },
       reactionPolicy: { mode: "inherit", deny: ["weapon_deflect"] },
       timingProfileOverrides: { dodge: "heavy_dodge" },
@@ -192,5 +198,41 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
   outcomes: {
     dodge: { perfect: 0, good: 0, partial: 0.36, miss: 1 },
     parry: { perfect: 0, good: 0.14, partial: 0.57, miss: 1 },
+  },
+  anatomies: {
+    humanoid: {
+      id: "humanoid", defaultRegionId: "torso",
+      regions: {
+        head: { id: "head", vulnerabilityMultiplier: 1.5, criticalEligible: true, staggerMultiplier: 0.3 },
+        torso: { id: "torso", vulnerabilityMultiplier: 1, criticalEligible: false },
+        left_arm: { id: "left_arm", vulnerabilityMultiplier: 0.85, criticalEligible: false, staggerMultiplier: 0.15 },
+        right_arm: { id: "right_arm", vulnerabilityMultiplier: 0.85, criticalEligible: false, staggerMultiplier: 0.15 },
+        left_leg: { id: "left_leg", vulnerabilityMultiplier: 0.8, criticalEligible: false, staggerMultiplier: 0.2 },
+        right_leg: { id: "right_leg", vulnerabilityMultiplier: 0.8, criticalEligible: false, staggerMultiplier: 0.2 },
+      },
+    },
+    horned_beast: {
+      id: "horned_beast", defaultRegionId: "body",
+      regions: {
+        body: { id: "body", vulnerabilityMultiplier: 1, criticalEligible: false },
+        horn: { id: "horn", vulnerabilityMultiplier: 1.8, criticalEligible: true, staggerMultiplier: 0.5 },
+        tail: { id: "tail", vulnerabilityMultiplier: 0.7, criticalEligible: false },
+      },
+    },
+  },
+  armor: {
+    iron_helmet: {
+      id: "iron_helmet", label: "Iron Helmet",
+      coverage: [{ regionId: "head", protection: 0.55, suppressesCritical: true,
+        damageTypeModifiers: { pierce: 1, blunt: 0.55, divine: 0.4 } }],
+    },
+    chestplate: {
+      id: "chestplate", label: "Chestplate",
+      coverage: [{ regionId: "torso", protection: 0.4, damageTypeModifiers: { blunt: 0.55 } }],
+    },
+    horn_guard: {
+      id: "horn_guard", label: "Horn Guard",
+      coverage: [{ regionId: "horn", protection: 0.65, suppressesCritical: true }],
+    },
   },
 };

@@ -3,6 +3,55 @@ export type AttackDelivery = "melee_contact" | "ranged_projectile" | "area";
 export type ReactionTechnique = "dodge" | "weapon_deflect" | "projectile_intercept";
 export type ReactionGradeV2 = "perfect" | "good" | "partial" | "miss";
 export type CombatantId = string;
+export type DamageType = "pierce" | "slash" | "blunt" | "divine";
+export type TargetMode = "actor" | "free_aim";
+export type RegionExposure = "exposed" | "protected" | "hidden";
+
+export interface TargetRegionSpec {
+  readonly id: string;
+  readonly vulnerabilityMultiplier: number;
+  readonly criticalEligible: boolean;
+  readonly staggerMultiplier?: number;
+}
+export interface AnatomySpec {
+  readonly id: string;
+  readonly defaultRegionId: string;
+  readonly regions: Readonly<Record<string, TargetRegionSpec>>;
+}
+export interface ArmorCoverageSpec {
+  readonly regionId: string;
+  readonly protection: number;
+  readonly damageTypeModifiers?: Partial<Record<DamageType, number>>;
+  readonly suppressesCritical?: boolean;
+}
+export interface ArmorSpec {
+  readonly id: string;
+  readonly label: string;
+  readonly coverage: readonly ArmorCoverageSpec[];
+}
+export interface TargetingSpec {
+  readonly mode: TargetMode;
+  readonly precisionCriticalMultiplier?: number;
+}
+export interface DamageBreakdown {
+  readonly attackerId: CombatantId;
+  readonly defenderId: CombatantId;
+  readonly moveId: string;
+  readonly hitId: string;
+  readonly intendedRegionId: string | null;
+  readonly actualRegionId: string | null;
+  readonly damageType: DamageType;
+  readonly baseDamage: number;
+  readonly reactionMultiplier: number;
+  readonly vulnerabilityMultiplier: number;
+  readonly armorMultiplier: number;
+  readonly armorAbsorbed: number;
+  readonly critical: boolean;
+  readonly criticalMultiplier: number;
+  readonly stagger: number;
+  readonly finalDamage: number;
+  readonly reasons: readonly string[];
+}
 
 export interface ReactionPolicyOverride {
   /** Inherit intersects defaults, extend unions, replace overrides defaults. */
@@ -53,6 +102,8 @@ export interface AttackSpec {
   readonly id: string;
   readonly delivery: AttackDelivery;
   readonly damage: number;
+  readonly damageType?: DamageType;
+  readonly targeting?: TargetingSpec;
   readonly reachMeters: number;
   /** Selection range: movement must reach real weapon range by contact. */
   readonly engageRangeMeters: number;
@@ -125,6 +176,8 @@ export interface CombatCatalog {
   /** Optional delivery × technique defaults; defense fallback supports older catalogs. */
   readonly reactionTimingDefaults?: Partial<Record<AttackDelivery, Partial<Record<ReactionTechnique, string>>>>;
   readonly outcomes: Readonly<Record<string, OutcomeProfile>>;
+  readonly anatomies?: Readonly<Record<string, AnatomySpec>>;
+  readonly armor?: Readonly<Record<string, ArmorSpec>>;
 }
 
 export interface EncounterActor {
@@ -135,6 +188,9 @@ export interface EncounterActor {
   readonly maxResource: number;
   readonly equippedId: string;
   readonly loadoutIds: readonly string[];
+  readonly anatomyId?: string;
+  readonly equippedArmorIds?: readonly string[];
+  readonly regionExposure?: Readonly<Record<string, RegionExposure>>;
   readonly status: "ready" | "stunned";
   readonly cooldownUntilTurn: Readonly<Record<string, number>>;
   readonly switchedOnTurn: number | null;
@@ -159,6 +215,9 @@ export interface PendingAttack {
   readonly hits: readonly PendingHit[];
   /** Snapshotted policy prevents authored content edits mid-attack. */
   readonly turnPolicy: AttackTurnPolicy;
+  readonly targeting: TargetingSpec;
+  readonly intendedRegionId: string | null;
+  readonly damageType: DamageType;
 }
 
 export interface EncounterState {
@@ -195,6 +254,7 @@ export interface ReactionResolution {
     readonly grade: ReactionGradeV2;
     readonly damage: number;
     readonly energyRefunded: number;
-    readonly result: "hit" | "countered" | "out_of_reach";
+    readonly breakdown: DamageBreakdown;
+    readonly result: "hit" | "countered" | "out_of_reach" | "missed";
   };
 }
