@@ -691,14 +691,19 @@ export function resolveReaction(
   }
   const outcome = chosen ? catalog.outcomes[chosen.outcomeProfileId]! : null;
   const inReach = input.distanceAtImpactMeters <= attack.reachMeters + 0.0001;
-  if (!isClash && pending.targeting.mode === "free_aim" &&
+  // No contact can occur outside reach: an aimed melee swing must resolve
+  // as out_of_reach, not demand a spatial hit proxy that is physically impossible.
+  // Within reach, actual aimed contacts still require authoritative geometry.
+  if (!isClash && inReach && input.contact !== false &&
+      pending.targeting.mode === "free_aim" &&
       pending.intendedRegionId !== null &&
       defender.anatomyId !== undefined &&
       input.actualRegionId === undefined) {
     throw new Error("Aimed shots require an authoritative impact region or explicit spatial miss.");
   }
-  const actualRegionId = isClash ? null : input.actualRegionId === undefined
-    ? resolveDefaultRegion(defender, catalog) : input.actualRegionId;
+  const actualRegionId = isClash || !inReach || input.contact === false
+    ? null : input.actualRegionId === undefined
+      ? resolveDefaultRegion(defender, catalog) : input.actualRegionId;
   const rawBreakdown = resolveRegionDamage({
     attackerId: attacker.id,
     defender,
