@@ -1,4 +1,4 @@
-export type SoundCue = "ui" | "draw" | "release" | "slash" | "step" | "hit" | "parry" | "dodge" | "miss" | "victory";
+export type SoundCue = "ui" | "draw" | "release" | "slash" | "step" | "hit" | "parry" | "intercept" | "dodge" | "miss" | "victory";
 
 interface Voice {
   readonly frequency: number;
@@ -14,6 +14,7 @@ const VOICES: Record<SoundCue, Voice> = {
   step:    { frequency: 92, duration: .09, wave: "triangle", volume: .015 },
   hit:     { frequency: 132, duration: .21, wave: "triangle", volume: .072 },
   parry:   { frequency: 920, duration: .34, wave: "triangle", volume: .048 },
+  intercept: { frequency: 1130, duration: .25, wave: "triangle", volume: .043 },
   dodge:   { frequency: 360, duration: .12, wave: "sine", volume: .025 },
   miss:    { frequency: 94, duration: .27, wave: "sawtooth", volume: .035 },
   victory: { frequency: 760, duration: .38, wave: "sine", volume: .033 },
