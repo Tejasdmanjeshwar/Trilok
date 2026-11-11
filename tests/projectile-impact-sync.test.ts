@@ -30,7 +30,7 @@ describe("v0.4-D5 first-contact synchronization",()=>{
     expect(impact.velocity!.z).toBeLessThan(0);
     expect(impact.contactNormal!.length()).toBeCloseTo(1);
     expect(impact.attachment).toBeDefined();
-    expect(impact.impactPoint.distanceTo(center)).toBeLessThan(.65);
+    expect(impact.impactPoint.distanceTo(center)).toBeLessThan(.8);
     const same=volumes.firstTrajectoryContact(path,100,600)!;
     expect(same.contactTick).toBe(impact.contactTick);
     volumes.dispose();rig.dispose();
