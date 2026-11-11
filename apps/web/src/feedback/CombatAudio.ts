@@ -1,4 +1,4 @@
-export type SoundCue = "ui" | "draw" | "release" | "slash" | "step" | "hit" | "parry" | "intercept" | "dodge" | "miss" | "victory";
+export type SoundCue = "ui" | "draw" | "release" | "slash" | "step" | "hit" | "parry" | "intercept" | "clash" | "dodge" | "miss" | "victory";
 
 interface Voice {
   readonly frequency: number;
@@ -15,6 +15,7 @@ const VOICES: Record<SoundCue, Voice> = {
   hit:     { frequency: 132, duration: .21, wave: "triangle", volume: .072 },
   parry:   { frequency: 920, duration: .34, wave: "triangle", volume: .048 },
   intercept: { frequency: 1130, duration: .25, wave: "triangle", volume: .043 },
+  clash:   { frequency: 1470, duration: .29, wave: "sawtooth", volume: .065 },
   dodge:   { frequency: 360, duration: .12, wave: "sine", volume: .025 },
   miss:    { frequency: 94, duration: .27, wave: "sawtooth", volume: .035 },
   victory: { frequency: 760, duration: .38, wave: "sine", volume: .033 },
@@ -54,7 +55,7 @@ export class CombatAudio {
       gain.connect(context.destination);
       oscillator.start(now);
       oscillator.stop(now + cue.duration + .01);
-      if (name === "slash" || name === "dodge" || name === "release") {
+      if (name === "slash" || name === "dodge" || name === "release" || name === "clash") {
         this.whoosh(context, cue.duration, now);
       }
     } catch {

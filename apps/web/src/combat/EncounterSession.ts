@@ -1,8 +1,10 @@
 import {
   endTurn, equipCombatant, getLegalAttackMoves, getLegalEquipmentSwitches,
   getLegalReactions, gradeReactionV2, queueAttack, resolveReaction, resolveCounter,
+  resolveProjectileContinuation,
   type CombatCatalog, type EncounterState, type ReactionOption,
   type ReactionResolution, type ReactionTechnique, type CounterResolution,
+  type ProjectileContinuationResolution,
 } from "@trilok/combat";
 import { createPreviewEncounter, PREVIEW_CATALOG } from "./preview-encounter";
 
@@ -71,7 +73,7 @@ export class EncounterSession {
     const option = this.legalReactions().find(item => item.technique === technique);
     if (!option) return { accepted: false, reason: "unavailable" };
     const tick = Math.floor(nowMs);
-    const offset = tick - pending.impactTick;
+    const offset = tick - option.targetTick;
     if (tick < pending.startedTick || offset < -option.timing.earlyTicks) {
       return { accepted: false, reason: "too_early" };
     }
@@ -82,7 +84,27 @@ export class EncounterSession {
     return { accepted: true, option };
   }
 
-  /** The domain alone applies a perfect-intercept or perfect-parry riposte. */
+  /** Apply damage only when a surviving ORIGINAL projectile reaches its target. */
+  projectileIfReady(
+    nowMs: number,
+    input: {
+      readonly projectileId: string;
+      readonly distanceAtImpactMeters: number;
+      readonly actualRegionId?: string | null;
+      readonly contact?: boolean;
+    },
+  ): ProjectileContinuationResolution | null {
+    const pending = this.state.pendingProjectile;
+    if (!pending || pending.projectileId !== input.projectileId ||
+        Math.floor(nowMs) < pending.impactTick) return null;
+    const result = resolveProjectileContinuation(this.state, {
+      ...input, resolvedTick: Math.floor(nowMs),
+    }, this.catalog);
+    this.state = result.state;
+    return result;
+  }
+
+  /** The domain alone applies a perfect melee-parry riposte. */
   counterIfReady(nowMs: number): CounterResolution | null {
     const counter = this.state.pendingCounter;
     if (!counter || Math.floor(nowMs) < counter.impactTick) return null;
@@ -102,7 +124,12 @@ export class EncounterSession {
     const pending = this.state.pending;
     if (!pending) return null;
     const tick = Math.floor(nowMs);
-    if (tick < pending.impactTick) return null;
+    const option = this.selectedDefense
+      ? this.legalReactions().find(item => item.moveId === this.selectedDefense!.moveId)
+      : undefined;
+    const isIntercept = option?.technique === "projectile_intercept" &&
+      this.selectedDefense !== null;
+    if (tick < (isIntercept ? option!.clashTick : pending.impactTick)) return null;
     if (!this.selectedDefense) {
       if (pending.defenderId === "hero") {
         const options = this.legalReactions();

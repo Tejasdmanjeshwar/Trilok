@@ -63,6 +63,10 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
     if (move.reachMeters <= 0 || move.engageRangeMeters < move.reachMeters || move.impactOffsetTicks <= 0) {
       throw new Error("Invalid attack range or impact timing: " + id);
     }
+    if (move.projectilePower !== undefined && (!Number.isFinite(move.projectilePower) ||
+        move.projectilePower <= 0)) {
+      throw new Error("Invalid incoming projectile power: " + id);
+    }
     validatePolicy(move.reactionPolicy);
     const counterPolicy = move.counterPolicy;
     if (counterPolicy) {
@@ -104,6 +108,28 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
     assertId(id);
     if (defense.id !== id || !known(defense.technique, TECHNIQUES)) throw new Error("Invalid defense definition: " + id);
     nonnegative(defense.resourceCost, "defense cost");
+    const clash = defense.projectileInterception;
+    if (clash) {
+      if (defense.technique !== "projectile_intercept" ||
+          !Number.isFinite(clash.power) || clash.power <= 0 ||
+          !Number.isFinite(clash.continuationDamage) || clash.continuationDamage <= 0 ||
+          !Number.isSafeInteger(clash.launchLeadTicks) ||
+          !Number.isSafeInteger(clash.clashLeadTicks) ||
+          !Number.isSafeInteger(clash.continuationTicks) ||
+          clash.launchLeadTicks < 100 || clash.launchLeadTicks > 10000 ||
+          clash.clashLeadTicks < 40 || clash.clashLeadTicks >= clash.launchLeadTicks ||
+          clash.continuationTicks < 100 || clash.continuationTicks > 10000 ||
+          (clash.deadband !== undefined &&
+            (!Number.isFinite(clash.deadband) || clash.deadband < 0))) {
+        throw new Error("Invalid projectile interception specification: " + id);
+      }
+      for (const [grade, multiplier] of Object.entries(clash.gradePower ?? {})) {
+        if (!["perfect","good","partial","miss"].includes(grade) ||
+            !Number.isFinite(multiplier) || multiplier < 0 || multiplier > 10) {
+          throw new Error("Invalid interception grade power: " + grade);
+        }
+      }
+    }
     if (defense.perfectCounterId && !catalog.counters?.[defense.perfectCounterId]) {
       throw new Error("Defense references an unknown perfect counter: " + defense.id);
     }

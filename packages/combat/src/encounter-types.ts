@@ -119,6 +119,8 @@ export interface AttackSpec {
   readonly turnPolicy?: AttackTurnPolicy;
   readonly reactionPolicy?: ReactionPolicyOverride;
   readonly counterPolicy?: CounterPolicy;
+  /** Resistance in a ranged-vs-ranged clash (positive authored value). */
+  readonly projectilePower?: number;
 }
 
 /** A pre-authored automatic retaliation. It cannot itself be defended or countered. */
@@ -137,6 +139,24 @@ export interface CounterPolicy {
   readonly counterId?: string;
 }
 
+/** Authored projectile-versus-projectile defensive attack. */
+export interface ProjectileInterceptionSpec {
+  /** Intrinsic strength of the defending projectile. */
+  readonly power: number;
+  /** Input is timed this many ticks BEFORE the incoming projectile's hit. */
+  readonly launchLeadTicks: number;
+  /** Collision occurs this many ticks before the incoming contact marker. */
+  readonly clashLeadTicks: number;
+  /** Time for surviving interception projectile to reach original attacker. */
+  readonly continuationTicks: number;
+  /** Base continuation damage when the intercepting projectile survives. */
+  readonly continuationDamage: number;
+  /** Difference considered a mutual-destruction collision. */
+  readonly deadband?: number;
+  /** Per-move grades determine power; stronger moves can overpower on good. */
+  readonly gradePower?: Partial<Record<ReactionGradeV2, number>>;
+}
+
 export interface DefenseSpec {
   readonly id: string;
   readonly technique: ReactionTechnique;
@@ -152,6 +172,7 @@ export interface DefenseSpec {
   readonly grantsAgainst?: readonly AttackDelivery[];
   /** Only perfect and successful matching defenses can schedule this. */
   readonly perfectCounterId?: string;
+  readonly projectileInterception?: ProjectileInterceptionSpec;
 }
 
 export interface EquipmentSpec {
@@ -240,6 +261,51 @@ export interface PendingAttack {
   readonly damageType: DamageType;
 }
 
+export type ProjectileClashVerdict =
+  | "incoming_survives" | "interceptor_survives" | "mutual_destruction";
+export interface ProjectileClash {
+  readonly incomingProjectileId: string;
+  readonly interceptorProjectileId: string;
+  readonly attackerId: CombatantId;
+  readonly interceptorId: CombatantId;
+  readonly incomingMoveId: string;
+  readonly defenseMoveId: string;
+  readonly clashTick: number;
+  readonly incomingPower: number;
+  readonly interceptorPower: number;
+  readonly remainingPower: number;
+  readonly verdict: ProjectileClashVerdict;
+  readonly survivingProjectileId: string | null;
+  readonly continuation: PendingProjectileContinuation | null;
+}
+/** Projectile identity is carried across a clash; NO second arrow is spawned. */
+export interface PendingProjectileContinuation {
+  readonly projectileId: string;
+  readonly source: "incoming" | "interceptor";
+  readonly attackerId: CombatantId;
+  readonly defenderId: CombatantId;
+  readonly moveId: string;
+  readonly startedTick: number;
+  readonly impactTick: number;
+  readonly damage: number;
+  readonly damageType: DamageType;
+  readonly targeting: TargetingSpec;
+  readonly intendedRegionId: string | null;
+}
+
+export interface ProjectileContinuationResolution {
+  readonly state: EncounterState;
+  readonly outcome: {
+    readonly projectileId: string;
+    readonly source: PendingProjectileContinuation["source"];
+    readonly attackerId: CombatantId;
+    readonly defenderId: CombatantId;
+    readonly damage: number;
+    readonly breakdown: DamageBreakdown;
+    readonly contact: boolean;
+  };
+}
+
 export interface PendingCounter {
   readonly id: string;
   /** Original defender automatically retaliates against original attacker. */
@@ -265,6 +331,7 @@ export interface EncounterState {
   readonly phase: "decision" | "reaction" | "complete";
   readonly pending: PendingAttack | null;
   readonly pendingCounter: PendingCounter | null;
+  readonly pendingProjectile: PendingProjectileContinuation | null;
   readonly victorId: CombatantId | null;
 }
 
@@ -274,6 +341,10 @@ export interface ReactionOption {
   readonly resourceCost: number;
   readonly timingProfileId: string;
   readonly timing: EffectiveTimingProfile;
+  /** Collision event (only for projectile interception), otherwise hit impact. */
+  readonly clashTick: number;
+  /** Aim/fire moment; interception can precede contact by authored lead time. */
+  readonly targetTick: number;
   readonly outcomeProfileId: string;
 }
 
@@ -304,7 +375,8 @@ export interface ReactionResolution {
     readonly energyRefunded: number;
     /** Queued automatic retaliation; damage is applied at its own impact marker. */
     readonly counter: PendingCounter | null;
+    readonly projectileClash: ProjectileClash | null;
     readonly breakdown: DamageBreakdown;
-    readonly result: "hit" | "countered" | "out_of_reach" | "missed";
+    readonly result: "hit" | "countered" | "clash" | "out_of_reach" | "missed";
   };
 }

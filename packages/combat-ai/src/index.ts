@@ -315,10 +315,11 @@ export class EnemyCombatBrain {
     // The action is triggered after perceiving the attack, with uncertainty
     // that sometimes places the input outside its legal graded window.
     const timingError = Math.round((this.random.next() * 2 - 1) * this.profile.timingErrorTicks);
-    const targetTick = pending.impactTick + timingError;
+    const targetTick = choice.targetTick + timingError;
     const perceivedAt = Math.max(nowTick, pending.startedTick + this.profile.perceptionDelayTicks);
-    if (targetTick < perceivedAt || targetTick > pending.impactTick + choice.timing.lateTicks ||
-        targetTick < pending.impactTick - choice.timing.earlyTicks) return null;
+    if (targetTick < perceivedAt || targetTick > choice.targetTick + choice.timing.lateTicks ||
+        targetTick < choice.targetTick - choice.timing.earlyTicks ||
+        targetTick > choice.clashTick) return null;
     this.plannedReaction = { moveId: choice.moveId, technique: choice.technique, atTick: targetTick };
     return this.plannedReaction;
   }

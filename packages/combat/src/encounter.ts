@@ -2,11 +2,12 @@ import type {
   AttackDelivery, CombatCatalog, CombatantId, EncounterActor, EncounterState,
   ReactionOption, ReactionPolicyOverride, ReactionResolution, ReactionTechnique,
   TimingAdjustments, PendingHit, AttackHitSpec, EncounterRules, DamageType,
-  PendingCounter, CounterResolution,
+  PendingCounter, CounterResolution, ProjectileContinuationResolution,
 } from "./encounter-types";
 import { validateCombatCatalog } from "./encounter-catalog";
 import { gradeReactionWindow, resolveEffectiveTiming, validateTimingAdjustments } from "./encounter-timing";
 import { resolveDefaultRegion, resolveRegionDamage, validateActorTargets } from "./encounter-damage";
+import { calculateProjectileClash } from "./encounter-clash";
 import {
   emptyTurnBudget, LEGACY_ENCOUNTER_RULES, mayContinueTurn, recordAttackAction,
   transitionTurn, validateEncounterRules,
@@ -31,7 +32,7 @@ function getActor(state: EncounterState, actorId: string): EncounterActor {
   return actor;
 }
 function assertDecision(state: EncounterState, actorId: string): EncounterActor {
-  if (state.phase !== "decision" || state.pending || state.pendingCounter || state.activeActorId !== actorId) {
+  if (state.phase !== "decision" || state.pending || state.pendingCounter || state.pendingProjectile || state.activeActorId !== actorId) {
     throw new Error("Combatant cannot act outside their decision phase.");
   }
   const actor = getActor(state, actorId);
@@ -96,6 +97,7 @@ export function createEncounter(
     phase: "decision",
     pending: null,
     pendingCounter: null,
+    pendingProjectile: null,
     victorId: null,
   };
 }
@@ -106,7 +108,7 @@ export function getLegalEquipmentSwitches(
   catalog: CombatCatalog,
   actorId: CombatantId,
 ): readonly string[] {
-  if (state.phase !== "decision" || state.pending || state.pendingCounter || state.activeActorId !== actorId) return [];
+  if (state.phase !== "decision" || state.pending || state.pendingCounter || state.pendingProjectile || state.activeActorId !== actorId) return [];
   const actor = state.actors[actorId];
   if (!actor || actor.hp <= 0 || actor.status !== "ready" ||
       actor.switchedOnTurn === state.turn) return [];
@@ -143,7 +145,8 @@ export function getLegalAttackMoves(
   distanceMeters: number,
 ): readonly string[] {
   if (!Number.isFinite(distanceMeters) || distanceMeters < 0 ||
-      state.phase !== "decision" || state.pending !== null || state.pendingCounter !== null) return [];
+      state.phase !== "decision" || state.pending !== null || state.pendingCounter !== null ||
+      state.pendingProjectile !== null) return [];
   const actor = state.actors[state.activeActorId];
   const defender = state.actors[defenderId];
   if (!actor || actor.hp <= 0 || actor.status !== "ready" ||
@@ -298,12 +301,19 @@ export function getLegalReactions(
     const hit = pending.hits[pending.hitIndex];
     const timing = hit?.timingByDefenseId[move.id];
     if (!timing) throw new Error("Missing snapshotted timing for equipped reaction.");
+    const clash = move.technique === "projectile_intercept" && attack.delivery === "ranged_projectile"
+      ? move.projectileInterception : undefined;
+    const targetTick = hit!.impactTick - (clash?.launchLeadTicks ?? 0);
+    const clashTick = hit!.impactTick - (clash?.clashLeadTicks ?? 0);
+    if (clash && (targetTick < pending.startedTick || clashTick <= targetTick)) return [];
     return [{
       moveId: move.id,
       technique: move.technique,
       resourceCost: uses === 0 ? 0 : move.resourceCost,
       timingProfileId: timing.sourceProfileId,
       timing,
+      targetTick,
+      clashTick,
       outcomeProfileId: move.outcomeProfileId,
     }];
   });
@@ -429,6 +439,71 @@ export function resolveCounter(
 }
 
 /**
+ * Apply damage only when a surviving projectile reaches a combatant.
+ * Projectile identity is retained from launch through clash to final impact.
+ */
+export function resolveProjectileContinuation(
+  state: EncounterState,
+  input: {
+    readonly projectileId: string;
+    readonly resolvedTick: number;
+    readonly actualRegionId?: string | null;
+    readonly contact?: boolean;
+    readonly distanceAtImpactMeters: number;
+  },
+  catalog: CombatCatalog,
+): ProjectileContinuationResolution {
+  const pending = state.pendingProjectile;
+  if (!pending || pending.projectileId !== input.projectileId) {
+    throw new Error("No matching surviving projectile.");
+  }
+  if (!validTick(input.resolvedTick) || input.resolvedTick < pending.impactTick) {
+    throw new Error("Surviving projectile has not reached its target.");
+  }
+  assertDistance(input.distanceAtImpactMeters);
+  const attacker = getActor(state, pending.attackerId);
+  const defender = getActor(state, pending.defenderId);
+  if (attacker.hp <= 0 || defender.hp <= 0) throw new Error("Projectile combatant defeated.");
+  if (pending.targeting.mode === "free_aim" && pending.intendedRegionId !== null &&
+      input.actualRegionId === undefined) {
+    throw new Error("Free-aim survivor requires an authoritative impact result.");
+  }
+  const actualRegionId = input.actualRegionId === undefined
+    ? resolveDefaultRegion(defender, catalog) : input.actualRegionId;
+  const damage = resolveRegionDamage({
+    attackerId: attacker.id, defender, moveId: pending.moveId,
+    hitId: "survivor:" + pending.projectileId,
+    baseDamage: pending.damage, damageType: pending.damageType,
+    targeting: pending.targeting, intendedRegionId: pending.intendedRegionId,
+    actualRegionId, reactionMultiplier: 1,
+    inReach: input.distanceAtImpactMeters <=
+      (pending.source === "incoming"
+        ? catalog.attacks[pending.moveId]?.reachMeters ?? 36 : 36),
+    contact: input.contact !== false,
+  }, catalog);
+  const actors = {
+    ...state.actors,
+    [defender.id]: { ...defender, hp: defender.hp - damage.finalDamage },
+  };
+  const alive = Object.values(actors).filter(actor => actor.hp > 0);
+  const complete = alive.length <= 1;
+  return {
+    state: {
+      ...state, actors, pendingProjectile: null,
+      phase: complete ? "complete" : state.phase,
+      victorId: complete ? alive[0]?.id ?? null : state.victorId,
+      activeActorId: complete ? alive[0]?.id ?? attacker.id : state.activeActorId,
+    },
+    outcome: {
+      projectileId: pending.projectileId, source: pending.source,
+      attackerId: attacker.id, defenderId: defender.id,
+      damage: damage.finalDamage, breakdown: damage,
+      contact: input.contact !== false,
+    },
+  };
+}
+
+/**
  * Exactly one authoritative impact, with no user/AI branching.
  * The caller supplies observed distance and input timestamp; the domain
  * validates them against move reach, timing and equipped capabilities.
@@ -446,8 +521,8 @@ export function resolveReaction(
   if (input.hitId !== undefined && input.hitId !== hit.id) {
     throw new Error("Reaction references a stale or unknown hit ID.");
   }
-  if (!validTick(input.resolvedTick) || input.resolvedTick < pending.impactTick) {
-    throw new Error("Attack cannot resolve before its impact tick.");
+  if (!validTick(input.resolvedTick)) {
+    throw new Error("Attack resolution tick must be valid.");
   }
   if (input.reactionTick !== null && (!validTick(input.reactionTick) ||
       input.reactionTick < pending.startedTick ||
@@ -469,19 +544,26 @@ export function resolveReaction(
     if (input.reactionTick === null) throw new Error("Selected defense requires an input timestamp.");
   }
   const grade = chosen
-    ? gradeReactionWindow(input.reactionTick! - hit.impactTick, chosen.timing)
+    ? gradeReactionWindow(input.reactionTick! - chosen.targetTick, chosen.timing)
     : "miss";
+  const isClash = chosen?.technique === "projectile_intercept" &&
+    attack.delivery === "ranged_projectile" && grade !== "miss" &&
+    catalog.defenses[chosen.moveId]?.projectileInterception !== undefined;
+  const earliestResolution = isClash ? chosen!.clashTick : pending.impactTick;
+  if (input.resolvedTick < earliestResolution) {
+    throw new Error("Attack cannot resolve before its clash or impact tick.");
+  }
   const outcome = chosen ? catalog.outcomes[chosen.outcomeProfileId]! : null;
   const inReach = input.distanceAtImpactMeters <= attack.reachMeters + 0.0001;
-  if (pending.targeting.mode === "free_aim" &&
+  if (!isClash && pending.targeting.mode === "free_aim" &&
       pending.intendedRegionId !== null &&
       defender.anatomyId !== undefined &&
       input.actualRegionId === undefined) {
     throw new Error("Aimed shots require an authoritative impact region or explicit spatial miss.");
   }
-  const actualRegionId = input.actualRegionId === undefined
+  const actualRegionId = isClash ? null : input.actualRegionId === undefined
     ? resolveDefaultRegion(defender, catalog) : input.actualRegionId;
-  const breakdown = resolveRegionDamage({
+  const rawBreakdown = resolveRegionDamage({
     attackerId: attacker.id,
     defender,
     moveId: pending.moveId,
@@ -491,10 +573,17 @@ export function resolveReaction(
     targeting: pending.targeting,
     intendedRegionId: pending.intendedRegionId,
     actualRegionId,
-    reactionMultiplier: outcome?.[grade] ?? 1,
+    reactionMultiplier: isClash ? 0 : (outcome?.[grade] ?? 1),
     inReach,
-    contact: input.contact !== false,
+    contact: !isClash && input.contact !== false,
   }, catalog);
+  const clash = isClash ? calculateProjectileClash(
+    pending, attack, catalog.defenses[chosen!.moveId]!, grade,
+    catalog, chosen!.clashTick,
+  ) : null;
+  const breakdown = clash ? {
+    ...rawBreakdown, reasons: ["projectile_clash", clash.verdict],
+  } : rawBreakdown;
   const damage = breakdown.finalDamage;
   // One shared free first reaction per actor; any later dodge, deflect, or
   // intercept pays the authored cost. Changing technique cannot reset it.
@@ -586,12 +675,13 @@ export function resolveReaction(
     }
   }
   // Only final, successful perfect defenses may produce a retaliation.
-  const counter = finalHit && !complete && grade === "perfect" && chosen &&
+  const counter = !isClash && finalHit && !complete && grade === "perfect" && chosen &&
     damage === 0 && inReach && input.contact !== false &&
     !breakdown.reasons.includes("region_miss")
     ? selectPerfectCounter(state, catalog, chosen.moveId, pending.moveId, input.resolvedTick)
     : null;
   if (counter) nextState = { ...nextState, pendingCounter: counter };
+  if (clash) nextState = { ...nextState, pendingProjectile: clash.continuation };
   return {
     state: nextState,
     outcome: {
@@ -607,8 +697,9 @@ export function resolveReaction(
       energySpent: defenseCost,
       energyRefunded,
       counter,
+      projectileClash: clash,
       breakdown,
-      result: !inReach ? "out_of_reach" :
+      result: clash ? "clash" : !inReach ? "out_of_reach" :
         input.contact === false || breakdown.reasons.includes("region_miss") ? "missed" :
         damage === 0 ? "countered" : "hit",
     },

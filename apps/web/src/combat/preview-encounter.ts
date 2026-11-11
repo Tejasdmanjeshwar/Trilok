@@ -29,7 +29,15 @@ export const PREVIEW_CATALOG: CombatCatalog = {
     },
     countershot: {
       ...DEFAULT_COMBAT_CATALOG.defenses.countershot!,
-      perfectCounterId: "bow_countershot",
+      // A second bow release is NOT a counter action: its original arrow
+      // collides with the incoming arrow and may continue to the attacker.
+      perfectCounterId: undefined,
+      projectileInterception: {
+        power: 13, launchLeadTicks: 315, clashLeadTicks: 115,
+        continuationTicks: 460, continuationDamage: 22,
+        deadband: 1,
+        gradePower: { perfect: 1, good: .76, partial: .36, miss: 0 },
+      },
     },
   },
   attacks: {
@@ -50,7 +58,7 @@ export const PREVIEW_CATALOG: CombatCatalog = {
     },
     rakshasa_arrow: {
       ...DEFAULT_COMBAT_CATALOG.attacks.arrow!,
-      id: "rakshasa_arrow", damage: 12,
+      id: "rakshasa_arrow", damage: 12, projectilePower: 10,
       targeting: { mode: "actor" },
       turnPolicy: { continuation: "continue", maxUsesPerTurn: 2 },
     },

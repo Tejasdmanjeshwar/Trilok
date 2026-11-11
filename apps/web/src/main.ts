@@ -1,16 +1,17 @@
 import * as THREE from "three";
-import type { ReactionResolution, PendingCounter } from "@trilok/combat";
+import type { ReactionResolution, PendingCounter, ProjectileClash } from "@trilok/combat";
 import { EnemyCombatBrain, ENEMY_PROFILES, type DefenseIntent } from "@trilok/combat-ai";
 import { SequencePlayer } from "@trilok/choreography";
 import { createArena, type ArenaInstance, type ArenaQuality } from "./world/arena";
 import { createAnimatedWarrior, type AnimatedWarrior } from "./actors/AnimatedWarrior";
 import { CombatCameraDirector, type CameraShot } from "./camera/CombatCameraDirector";
 import { CombatEffects } from "./effects/CombatEffects";
+import { ProjectileClashEffects } from "./effects/ProjectileClashEffects";
 import { CombatFeedback } from "./feedback/CombatFeedback";
 import { CombatAudio } from "./feedback/CombatAudio";
 import {
   ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE,
-  BOW_INTERCEPT_COUNTER, SWORD_RIPOSTE_COUNTER, type CombatCue,
+  SWORD_RIPOSTE_COUNTER, type CombatCue,
 } from "./combat/sequences";
 import { EncounterSession } from "./combat/EncounterSession";
 import { CombatCommandDeck } from "./ui/CombatCommandDeck";
@@ -175,6 +176,7 @@ movement.register(enemy.root);
 hero.equip("bow");
 enemy.equip("sword");
 const effects = new CombatEffects(scene);
+const projectiles = new ProjectileClashEffects(scene);
 const visualFeedback = new CombatFeedback(scene, host!, reduceMotion);
 const sound = new CombatAudio();
 const heroSocket = new THREE.Vector3();
@@ -183,7 +185,7 @@ const effectPoint = new THREE.Vector3();
 const choreography = new SequencePlayer<CombatCue>();
 type Presentation =
   | "intro" | "choice" | "attack" | "windup" | "reaction"
-  | "enemy_pause" | "counter" | "victory" | "defeat";
+  | "enemy_pause" | "counter" | "projectile" | "victory" | "defeat";
 
 const session = new EncounterSession();
 const commandDeck = new CombatCommandDeck(moveDeckRoot, weaponDeckRoot, {
@@ -196,6 +198,11 @@ const aimCursor = new AimCursor();
 let hoveredRegion: string | null = null;
 let shotSnapshot: AimSnapshot | null = null;
 let pendingSpatialImpact: SpatialImpact | null = null;
+let followthroughAim: AimSnapshot | null = null;
+let incomingProjectileId: string | null = null;
+let interceptorProjectileId: string | null = null;
+const clashPoint = new THREE.Vector3();
+const projectileTarget = new THREE.Vector3();
 let impactWorldPoint: THREE.Vector3 | null = null;
 let enemyBrain = new EnemyCombatBrain(ENEMY_PROFILES.capable, 119);
 let plannedEnemyDefense: DefenseIntent | null = null;
@@ -375,6 +382,10 @@ function startPlayerAttack(now = performance.now()): void {
   hero.play(move.delivery === "melee_contact" ? "melee" : "attack");
   enemy.play("idle");
   effects.clear();
+  projectiles.clear();
+  incomingProjectileId = null;
+  interceptorProjectileId = null;
+  followthroughAim = null;
   sound.play(move.delivery === "melee_contact" ? "step" : "draw");
   lastMessage = (MOVE_NAMES[moveId] ?? moveId) + " committed. " +
     move.resourceCost + " Energy spent.";
@@ -396,6 +407,10 @@ function beginEnemyAttack(moveId: string, now: number): void {
   pendingSpatialImpact = null;
   enemyBrain.markCommitted();
   plannedEnemyDefense = null;
+  projectiles.clear();
+  incomingProjectileId = null;
+  interceptorProjectileId = null;
+  followthroughAim = null;
   setPhase("windup", "defense", now);
   const sequence = moveId === "overhead_slash" ? ENEMY_STRIKE : sequenceFor(moveId);
   choreography.start(sequence, now);
@@ -477,6 +492,48 @@ function enterNextTurn(now: number): void {
   }
 }
 
+function activeIncomingId(): string | null {
+  const attack = session.state.pending;
+  if (!attack) return null;
+  return "attack:" + attack.attackerId + ":" +
+    attack.startedTick + ":" + attack.hits[attack.hitIndex]!.id;
+}
+
+/**
+ * Both arrows must already exist before collision. The interceptor launches
+ * once, from its actual bow socket, aimed at the incoming flight's projected
+ * clash location. No animation or arrow is created after a perfect clash.
+ */
+function launchInterception(defenderId: "hero" | "enemy", releaseTick: number): void {
+  const pending = session.state.pending;
+  const incomingId = activeIncomingId();
+  if (!pending || !incomingId) return;
+  const option = session.legalReactions().find(x => x.technique === "projectile_intercept");
+  if (!option) return;
+  const actor = defenderId === "hero" ? hero : enemy;
+  interceptorProjectileId = "intercept:" + defenderId + ":" +
+    pending.startedTick + ":" + pending.hits[pending.hitIndex]!.id;
+  // The incoming arrow was released earlier in its attack choreography.
+  // Using the SAME world position for both flights guarantees a visual clash.
+  try {
+    projectiles.position(incomingId,option.clashTick,clashPoint);
+  } catch {
+    // If a frame skips the original release cue, reconstruct from known endpoints.
+    const attacker = pending.attackerId === "hero" ? hero : enemy;
+    attacker.socketWorld(heroSocket);
+    const defender = defenderId === "hero" ? hero : enemy;
+    defender.root.getWorldPosition(targetPoint);targetPoint.y += 1.7;
+    const originalRelease = pending.startedTick + 715;
+    projectiles.launch(incomingId,heroSocket,targetPoint,originalRelease,
+      Math.max(1,pending.impactTick-originalRelease));
+    projectiles.position(incomingId,option.clashTick,clashPoint);
+  }
+  actor.socketWorld(heroSocket);
+  projectiles.launch(interceptorProjectileId,heroSocket,clashPoint,
+    releaseTick,Math.max(1,option.clashTick-releaseTick));
+  sound.play("release");
+}
+
 function attemptDefense(kind: "dodge" | "parry"): void {
   if (presentation !== "windup" || session.state.pending?.defenderId !== "hero") return;
   const now = performance.now();
@@ -501,11 +558,15 @@ function attemptDefense(kind: "dodge" | "parry"): void {
     dust(hero, now);
   }
   hero.play(option.technique === "projectile_intercept" ? "intercept" : kind);
-  sound.play(option.technique === "projectile_intercept" ? "intercept" : kind);
+  if (option.technique === "projectile_intercept") {
+    launchInterception("hero", now);
+  } else {
+    sound.play(kind);
+  }
   notice((kind === "dodge" ? "DODGE" : "PARRY") +
     " TIMED · " + option.resourceCost + " ENERGY");
   updateHud();
-  if (now >= session.state.pending!.impactTick) finishEnemyImpact(now);
+  finishEnemyImpact(now);
 }
 
 function changeWeapon(id: string): void {
@@ -534,6 +595,10 @@ function playerEndTurn(): void {
 function reset(): void {
   choreography.cancel();
   effects.clear();
+  projectiles.clear();
+  incomingProjectileId = null;
+  interceptorProjectileId = null;
+  followthroughAim = null;
   visualFeedback.reset();
   movement.reset();
   session.reset();
@@ -556,8 +621,95 @@ function reset(): void {
   setPhase("choice", "decision");
 }
 
+/**
+ * One authoritative midair clash: two launched arrows meet, one or both
+ * shatter, and the SAME survivor mesh continues without a new release clip.
+ */
+function playProjectileClash(clash: ProjectileClash, now: number): void {
+  const time=clash.clashTick;
+  projectiles.position(clash.incomingProjectileId,time,clashPoint);
+  projectiles.clash(clash.incomingProjectileId,clash.interceptorProjectileId,
+    clash.verdict,clashPoint,now);
+  visualFeedback.emit("intercept",clashPoint,now,0,false);
+  sound.play("clash");
+  director.impact(.13);
+  if (clash.continuation && clash.survivingProjectileId) {
+    const continued=clash.continuation;
+    const target=continued.defenderId==="hero" ? hero : enemy;
+    const hitVolumes=continued.defenderId==="hero" ? heroHitVolumes : enemyHitVolumes;
+    target.root.getWorldPosition(projectileTarget);
+    projectileTarget.y+=1.7;
+    followthroughAim=continued.source==="incoming"
+      ? shotSnapshot
+      : hitVolumes.snapshot(clashPoint,"torso",36);
+    const destination=followthroughAim?.toward ?? projectileTarget;
+    projectiles.continue(continued.projectileId,destination,
+      time,Math.max(1,continued.impactTick-time));
+    setPhase("projectile","counter",now);
+    choreography.cancel();
+    lastMessage=continued.source==="interceptor"
+      ? "CLASH · Interception arrow survived and is continuing toward the attacker!"
+      : "CLASH · Incoming arrow survived and is still approaching!";
+    notice(continued.source==="interceptor" ? "INTERCEPT SURVIVES · COUNTER!" :
+      "INCOMING ARROW SURVIVES",continued.source==="incoming");
+  } else {
+    followthroughAim=null;
+    setPhase("reaction","reaction",now);
+    choreography.start(ARCHERY_REACTION,now);
+    lastMessage=clash.verdict==="mutual_destruction"
+      ? "CLASH · Both projectiles shattered in midair."
+      : "CLASH · Offensive follow-through disabled by this move.";
+    notice("MID-AIR CLASH · BOTH ARROWS DESTROYED");
+  }
+  updateHud();
+}
+
+function finishSurvivingProjectile(now:number):void {
+  const pending=session.state.pendingProjectile;
+  if(!pending || presentation!=="projectile" || now<pending.impactTick)return;
+  const hitVolumes=pending.defenderId==="hero" ? heroHitVolumes : enemyHitVolumes;
+  const spatial=followthroughAim ? hitVolumes.impact(followthroughAim) : undefined;
+  const from=pending.attackerId==="hero" ? hero : enemy;
+  const to=pending.defenderId==="hero" ? hero : enemy;
+  const result=session.projectileIfReady(now,{
+    projectileId:pending.projectileId,
+    distanceAtImpactMeters:movement.separationForHit(from.root,to.root),
+    ...(spatial ? {actualRegionId:spatial.actualRegionId,contact:spatial.contact} : {}),
+  });
+  if(!result)return;
+  projectiles.stop(pending.projectileId);
+  if (spatial) targetPoint.copy(spatial.impactPoint);
+  else {to.root.getWorldPosition(targetPoint);targetPoint.y+=1.7;}
+  if(result.outcome.damage>0) {
+    effects.impact(targetPoint,now);
+    visualFeedback.emit(result.outcome.breakdown.critical?"critical":"hit",
+      targetPoint,now,result.outcome.damage,pending.defenderId==="hero");
+    to.play("hit"); sound.play("hit");director.impact(.16);
+    notice((pending.source==="interceptor"?"SURVIVING COUNTER · ":"ARROW HIT · ")+
+      result.outcome.damage+" DAMAGE");
+  } else {
+    sound.play("miss");
+    visualFeedback.emit("miss",targetPoint,now,0,pending.defenderId==="hero");
+    notice("SURVIVING PROJECTILE MISSED",true);
+  }
+  lastMessage="The surviving "+pending.projectileId+
+    " resolved at its own impact. No extra firing animation.";
+  followthroughAim=null;
+  shotSnapshot=null;
+  setPhase("reaction","reaction",now);
+  choreography.start(ARCHERY_REACTION,now);
+}
+
 function playOutcome(result: ReactionResolution, now: number): void {
   const out = result.outcome;
+  if(out.projectileClash){
+    playProjectileClash(out.projectileClash,now);
+    return;
+  }
+  if(incomingProjectileId){
+    projectiles.stop(incomingProjectileId);
+    incomingProjectileId=null;
+  }
   const target = out.defenderId === "hero" ? hero : enemy;
   const isHero = out.defenderId === "hero";
   target.root.getWorldPosition(targetPoint);
@@ -616,8 +768,11 @@ function applyEnemyDefense(now: number): number | undefined {
     }
     enemy.play(chosen.technique === "dodge" ? "dodge" :
       chosen.technique === "projectile_intercept" ? "intercept" : "parry");
-    sound.play(chosen.technique === "dodge" ? "dodge" :
-      chosen.technique === "projectile_intercept" ? "intercept" : "parry");
+    if (chosen.technique === "projectile_intercept") {
+      launchInterception("enemy", chosen.atTick);
+    } else {
+      sound.play(chosen.technique === "dodge" ? "dodge" : "parry");
+    }
     showEnemyIntent(chosen.technique === "dodge" ? "DODGING" : "PARRYING");
   }
   return undefined;
@@ -632,23 +787,16 @@ function beginPerfectCounter(counter: PendingCounter, now: number): void {
   const fighter = counter.attackerId === "hero" ? hero : enemy;
   const target = counter.defenderId === "hero" ? hero : enemy;
   const ranged = counter.presentation === "bow_shot";
-  if (ranged && !counter.id.includes("bow")) throw new Error("Unrecognized bow counter.");
+  if (ranged) throw new Error("Ranged interception continues its existing arrow, not a second attack.");
   setPhase("counter", "counter", now);
   fighter.face(target.root.position);
-  fighter.play(ranged ? "attack" : "riposte");
-  if (ranged) {
-    sound.play("draw");
-    choreography.start(BOW_INTERCEPT_COUNTER, now);
-  } else {
-    sound.play("slash");
-    effects.swing(fighter.root.position, fighter.root.rotation.y, now);
-    choreography.start(SWORD_RIPOSTE_COUNTER, now);
-  }
+  fighter.play("riposte");
+  sound.play("slash");
+  effects.swing(fighter.root.position, fighter.root.rotation.y, now);
+  choreography.start(SWORD_RIPOSTE_COUNTER, now);
   showEnemyIntent(counter.attackerId === "enemy" ? "AUTOMATIC COUNTER" : "COUNTERED");
-  lastMessage = ranged
-    ? "PERFECT INTERCEPT · Counter arrow launched automatically!"
-    : "PERFECT PARRY · Strong sword riposte!";
-  notice(ranged ? "PERFECT INTERCEPT · COUNTERSHOT" : "PERFECT PARRY · RIPOSTE");
+  lastMessage = "PERFECT PARRY · Strong sword riposte!";
+  notice("PERFECT PARRY · RIPOSTE");
   updateHud();
 }
 
@@ -674,12 +822,19 @@ function finishPerfectCounter(now: number): void {
 
 function landPlayerHit(now: number): void {
   const pending = session.state.pending;
-  if (!pending || pending.attackerId !== "hero" ||
-      presentation !== "attack" || now < pending.impactTick) return;
+  if (!pending || pending.attackerId !== "hero" || presentation !== "attack") return;
+  const intercept=session.activeDefense
+    ? session.legalReactions().find(x=>x.moveId===session.activeDefense!.moveId &&
+        x.technique==="projectile_intercept") : undefined;
+  if (now < (intercept?.clashTick ?? pending.impactTick)) return;
   const move = session.catalog.attacks[pending.moveId]!;
   const waitingForDefense = applyEnemyDefense(now);
   const distance = movement.separationForHit(hero.root, enemy.root);
-  if (!pendingSpatialImpact && shotSnapshot) pendingSpatialImpact = enemyHitVolumes.impact(shotSnapshot);
+  const intercepting = session.activeDefense &&
+    session.legalReactions().some(x=>x.moveId===session.activeDefense!.moveId &&
+      x.technique==="projectile_intercept");
+  if (!intercepting && !pendingSpatialImpact && shotSnapshot)
+    pendingSpatialImpact = enemyHitVolumes.impact(shotSnapshot);
   if (pendingSpatialImpact) impactWorldPoint = pendingSpatialImpact.impactPoint;
   const result = session.resolveIfReady(now, distance, waitingForDefense,
     pendingSpatialImpact ?? undefined);
@@ -695,16 +850,21 @@ function landPlayerHit(now: number): void {
 
 function finishEnemyImpact(now: number): void {
   const pending = session.state.pending;
-  if (!pending || pending.attackerId !== "enemy" ||
-      presentation !== "windup" || now < pending.impactTick) return;
+  if (!pending || pending.attackerId !== "enemy" || presentation !== "windup") return;
+  const intercept=session.activeDefense
+    ? session.legalReactions().find(x=>x.moveId===session.activeDefense!.moveId &&
+        x.technique==="projectile_intercept") : undefined;
+  if(now < (intercept?.clashTick ?? pending.impactTick)) return;
   const distance = movement.separationForHit(enemy.root, hero.root);
-  if (!pendingSpatialImpact && shotSnapshot) pendingSpatialImpact = heroHitVolumes.impact(shotSnapshot);
+  if (!intercept && !pendingSpatialImpact && shotSnapshot)
+    pendingSpatialImpact = heroHitVolumes.impact(shotSnapshot);
   if (pendingSpatialImpact) impactWorldPoint = pendingSpatialImpact.impactPoint;
   const result = session.resolveIfReady(now, distance, undefined,
     pendingSpatialImpact ?? undefined);
   if (!result) return; // Still inside the late-reaction grace period.
   playOutcome(result, now);
   pendingSpatialImpact = null;
+  if(result.outcome.projectileClash)return;
   if (result.outcome.counter) {
     beginPerfectCounter(result.outcome.counter, now);
     return;
@@ -746,7 +906,13 @@ function onCue(cue: CombatCue, at: number, now: number): void {
       attacker.socketWorld(heroSocket);
       defender.root.getWorldPosition(targetPoint);
       targetPoint.y += 1.7;
-      effects.launch(heroSocket, shotSnapshot?.toward ?? targetPoint, at, 435);
+      const pending=session.state.pending;
+      if(!pending)break;
+      const id=activeIncomingId();
+      if(!id)break;
+      incomingProjectileId=id;
+      projectiles.launch(id,heroSocket,shotSnapshot?.toward ?? targetPoint,
+        at,Math.max(1,pending.impactTick-at));
       sound.play("release");
       break;
     }
@@ -870,12 +1036,15 @@ function frame(now: number): void {
   // A late AI reaction may outlast the final animation cue. Keep the pending
   // hit alive until the scheduled input resolves, not until a render frame.
   if (presentation === "attack" && session.state.pending?.attackerId === "hero") {
+    // The enemy's arrow must launch BEFORE the clash, not when damage is due.
+    applyEnemyDefense(now);
     landPlayerHit(now);
   }
   if (presentation === "attack" && !choreography.running && session.state.pending === null) {
     enterNextTurn(now);
   }
   if (presentation === "counter") finishPerfectCounter(now);
+  if (presentation === "projectile") finishSurvivingProjectile(now);
   if (presentation === "windup") {
     const pending = session.state.pending;
     const length = pending ? pending.impactTick - pending.startedTick : 1;
@@ -911,6 +1080,7 @@ function frame(now: number): void {
   }
   movement.update(now);
   effects.update(now);
+  projectiles.update(now);
   director.update(frozen ? delta * .18 : delta);
   browserAim.update(delta);
   if (!aimMarker.hidden) {
@@ -956,6 +1126,7 @@ window.addEventListener("pagehide", () => {
   choreography.cancel();
   arena.dispose();
   effects.dispose();
+  projectiles.dispose();
   visualFeedback.dispose();
   sound.dispose();
   commandDeck.dispose();
