@@ -1,3 +1,5 @@
+> **Historical v0.4-D1 implementation note.** The ranged countershot design described below was superseded by [v0.4-D3: one continuous projectile clash](combat-v0.4D3-projectile-clash.md). Ranged interception now fires exactly once and can continue that same arrow after midair collision. The melee sword riposte portion remains applicable.
+
 # Trilok v0.4-D1 — Move-Authored Perfect Intercepts and Ripostes
 
 ## Design decision

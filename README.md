@@ -35,7 +35,7 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
 
-The playable version is **v0.4.0-preview.6**, the combat engine version is **v0.4-D1**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
+The playable version is **v0.4.0-preview.7**, the combat engine version is **v0.4-D3**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
 
 See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.
 
@@ -44,3 +44,7 @@ See [Build verification](docs/build-verification.md) for deployment checks and m
 The action and equipment dropdowns are replaced with an original medieval brass-and-parchment command deck. Click/tap move cards, press **Q** to cycle legal moves, and use **1/2** for equipment. Free aim and STRIKE/FIRE use the existing cross-platform input contract. The graphics preset is a HIGH/MOBILE toggle. The player-side decision camera has a gentle breathing pan (disabled when reduced motion is preferred).
 
 See [v0.4-D2 UI and camera notes](docs/combat-v0.4D2-medieval-hud.md).
+
+### Continuous projectile clashes — v0.4-D3
+
+A ranged interception **fires the defender's arrow once during the intercept animation**. Both arrows travel together and collide before the original impact. Depending on timing and authored projectile strength, the incoming arrow survives, both shatter, or the defender's **same original arrow** continues automatically toward the attacker. No separate bow counter-attack or second projectile is created. Melee perfect parries still invoke authored sword ripostes. See [D3 projectile-clash technical notes](docs/combat-v0.4D3-projectile-clash.md).
