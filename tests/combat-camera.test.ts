@@ -23,6 +23,24 @@ describe("combat camera never crosses into opponent POV",()=>{
       vi.unstubAllGlobals();
     }
   });
+  it("adds a subtle, bounded decision pan without changing combat orientation",()=>{
+    vi.stubGlobal("window",{matchMedia:()=>({matches:false})});
+    try{
+      const hero=new THREE.Group(); hero.position.set(-3.8,0,2.7);
+      const enemy=new THREE.Group(); enemy.position.set(3.3,0,-3.8);
+      const camera=new THREE.PerspectiveCamera();
+      const director=new CombatCameraDirector(camera,hero,enemy);
+      director.setShot("decision");
+      director.update(.016,true);
+      const first=camera.position.clone();
+      director.update(3,true);
+      const moved=camera.position.distanceTo(first);
+      expect(moved).toBeGreaterThan(.05);
+      expect(moved).toBeLessThan(.45);
+      expect(camera.position.z).toBeGreaterThan(hero.position.z);
+    }finally{vi.unstubAllGlobals();}
+  });
+
   it("aiming view stays stable while aim cursor changes elsewhere",()=>{
     vi.stubGlobal("window",{matchMedia:()=>({matches:true})});
     try{

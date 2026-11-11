@@ -52,12 +52,18 @@ export class CombatCameraDirector {
         fov = 55;
         speed = 2.6;
         break;
-      case "decision":
-        p.copy(hero).add(new THREE.Vector3(-3.2, 2.9, 6.4));
-        t.copy(enemy).lerp(hero, 0.16).add(new THREE.Vector3(0, 1.5, 0));
+      case "decision": {
+        // Quiet breathing composition: never crosses the combat axis.
+        // The camera pans a few centimeters, without chasing UI selection.
+        const sway = this.reduceMotion ? 0 : Math.sin(this.elapsed * .43) * .19;
+        const rise = this.reduceMotion ? 0 : Math.cos(this.elapsed * .31) * .055;
+        p.copy(hero).add(new THREE.Vector3(-3.2 + sway, 2.9 + rise, 6.4));
+        t.copy(enemy).lerp(hero, 0.16)
+          .add(new THREE.Vector3(sway * .08, 1.5 + rise * .3, 0));
         fov = 44;
         speed = 3.5;
         break;
+      }
       case "aim":
         p.copy(hero).add(new THREE.Vector3(-1.0, 2.6, 4.3));
         t.copy(enemy).add(new THREE.Vector3(0, 1.76, 0));

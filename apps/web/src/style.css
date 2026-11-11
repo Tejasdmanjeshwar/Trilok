@@ -170,3 +170,189 @@
   .aim-marker small { font-size: .49rem; }
   #aim-instructions { font-size: .49rem; padding: 4px 7px; }
 }
+
+
+/* v0.4-D2 — ORIGINAL CINEMATIC MEDIEVAL COMBAT HUD
+   Stone, tarnished brass, parchment and heraldic geometry.
+   No default browser select/dropdown controls in the combat interface. */
+:root {
+  --hud-brass: #c9a46b;
+  --hud-warm: #f5dfb4;
+  --hud-bright: #ffe5a5;
+  --hud-deep: #0b1716;
+  --hud-shadow: #020907;
+}
+.game::after {
+  content: "";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(6,13,13,.32),transparent 19%,transparent 65%,rgba(6,12,13,.42));
+}
+.brand strong {font-family:Georgia,serif;font-variant:small-caps;letter-spacing:.2em;
+  text-shadow:0 2px 12px #000b,0 1px 2px #d6ac6a44;}
+.brand-stack .brand span {color:#d8bb8f;letter-spacing:.16em}
+.top .tools>*{background:linear-gradient(#24342fef,#101f1dee);
+  box-shadow:inset 0 1px #f0cd8a3a,0 3px 10px #0006;
+  border:1px solid #ab8b6088;color:#e5cb9e;border-radius:2px;}
+.top .tools button:focus-visible {outline:2px solid #f5dc9d;outline-offset:2px}
+.enemy {background:linear-gradient(110deg,transparent,rgba(8,17,17,.62));
+  border-right:2px solid #c49b62;padding:9px 12px 10px 5px;
+  text-shadow:0 2px 8px #000b;}
+.enemy>div:first-child {font-family:Georgia,serif;letter-spacing:.13em;
+  font-variant:small-caps;font-size:1.13rem}
+.enemy small {font-family:system-ui,sans-serif;letter-spacing:.1em}
+.enemy .bar {height:8px;border-color:#cf9f648f;background:#1e1b1a}
+.enemy .bar span {background:linear-gradient(90deg,#88473b,#e8a079)}
+.command-panel {
+  position:absolute;right:clamp(14px,4vw,65px);bottom:clamp(180px,21vh,223px);
+  width:min(390px,43vw);max-width:none;z-index:6;display:flex;
+  flex-direction:column;align-items:stretch;gap:7px;padding:12px 14px;
+  border:1px solid #bf9a63a6;border-radius:2px;
+  background:
+    repeating-linear-gradient(128deg,#d1bb8a04 0,#d1bb8a04 1px,transparent 1px,transparent 9px),
+    linear-gradient(160deg,#1f2e2ae8,#0b1717f5 60%,#243026e8);
+  box-shadow:inset 0 0 0 2px #070e0d, inset 0 0 0 3px #c6a16a33,
+    0 12px 36px #000b;backdrop-filter:blur(9px);
+  text-shadow:0 1px 5px #000b;
+}
+.command-panel::before,.command-panel::after{
+  content:"❖";position:absolute;color:#c9a46b;font-size:13px;line-height:1;
+  background:#14201c;top:-6px;width:14px;text-align:center;
+}
+.command-panel::before{left:-7px}.command-panel::after{right:-7px}
+.command-heading{display:flex;align-items:center;gap:11px;border-bottom:1px solid #b18d5d76;
+  padding:0 1px 9px;color:#eed7ad;}
+.command-heading .command-ornament{font-size:1.6rem;color:#d0a963;text-shadow:0 0 12px #d4a06b55}
+.command-heading>div{flex:1;display:flex;flex-direction:column;gap:2px}
+.command-heading b{font:small-caps 700 .89rem/1.1 Georgia,serif;letter-spacing:.085em}
+.command-heading small{font-size:.47rem;font-weight:400;letter-spacing:.19em;color:#b8a68a}
+.command-key{font-size:.48rem;letter-spacing:.06em;color:#d9c2a4;border:1px solid #a98b645a;
+  padding:4px 6px;white-space:nowrap}
+.move-deck{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0}
+.move-card{position:relative;min-height:75px;display:grid;
+  grid-template-columns:30px minmax(0,1fr);grid-template-rows:1fr auto;
+  column-gap:9px;text-align:left;align-items:center;padding:10px 9px;
+  color:#e6d7bf;background:linear-gradient(145deg,#293932e6,#101e1af7);
+  border:1px solid #a78a659c;border-radius:2px;cursor:pointer;
+  box-shadow:inset 0 1px #eedab439,inset 0 0 0 2px #0b141287,0 5px 13px #0007;
+  transition:background .14s,border-color .14s,box-shadow .14s,transform .14s;}
+.move-card::before{content:"";position:absolute;left:4px;top:6px;bottom:6px;
+  border-left:2px solid #bd9a65a0}
+.move-card .move-glyph{font-size:1.52rem;color:#dab67d;grid-row:1/3;
+  text-align:center;filter:drop-shadow(0 1px 3px #0008)}
+.move-card .move-title{font:small-caps 700 .85rem/1.1 Georgia,serif;color:#f4e0b7;
+  white-space:normal;letter-spacing:.025em;overflow-wrap:anywhere}
+.move-card .move-subtitle{grid-column:2;grid-row:2;
+  font-size:.49rem;letter-spacing:.08em;color:#aeb9aa;}
+.move-card .move-cost{position:absolute;right:7px;bottom:5px;
+  font:bold .51rem/1 system-ui,sans-serif;color:#7bd0d7;letter-spacing:.04em;
+  padding:3px;background:#142b2bda;border:1px solid #7db4b23d;border-radius:2px}
+.move-card .move-index{position:absolute;right:6px;top:5px;color:#b4a18a;
+  font-size:.47rem;letter-spacing:.06em}
+.move-card .move-subtitle{padding-right:22px}
+.move-card.is-selected{background:linear-gradient(140deg,#5b4830ed,#27291ff5 57%,#273e31ef);
+  border-color:#f8d08f;box-shadow:inset 0 0 0 2px #d2b47c53,0 0 0 1px #9b815361,0 7px 20px #0009;}
+.move-card.is-selected .move-glyph,.move-card.is-selected .move-title{color:#ffe7aa}
+.move-card:hover:not(:disabled){border-color:#f1c78a;background:linear-gradient(145deg,#4b5036,#263a30)}
+.move-card:active:not(:disabled){transform:scale(.985)}
+.move-card:focus-visible,.weapon-tile:focus-visible{outline:2px solid #ffe5a5;outline-offset:3px}
+.move-card:disabled{cursor:not-allowed;opacity:.36;filter:saturate(.4)}
+.command-panel #move-hint{display:block;min-height:13px;max-width:100%;
+  text-align:right;letter-spacing:.13em;color:#e4c693;
+  font-size:.54rem;line-height:1.35}
+.command-panel .aim-controls{margin-top:2px}
+.command-panel #aim-instructions{background:linear-gradient(90deg,#16342e,#101b19);
+  color:#e7cc92;border-color:#ad9568ab;font-size:.52rem}
+.hud{align-items:end;gap:20px}
+.hud .hero{position:relative;align-items:center;gap:10px;width:min(354px,37vw);
+  padding:13px 14px;border:1px solid #c09b6f92;border-left:3px solid #cfac74;
+  background:linear-gradient(135deg,#20302be8,#111b1af4);
+  box-shadow:inset 0 0 0 2px #0a1212,0 9px 30px #0009;backdrop-filter:blur(8px)}
+.hud .hero .hero-info{min-width:0;flex:1;width:auto}
+.hud .hero strong{font:small-caps 700 .88rem/1.1 Georgia,serif;
+  letter-spacing:.12em;color:#f6ddb0}
+.hud .hero small{font-size:.47rem;letter-spacing:.1em;color:#cfbf9d}
+.hud .sigil{border:1px solid #e6c489d9;
+  clip-path:polygon(50% 0,94% 20%,94% 77%,50% 100%,6% 77%,6% 20%);
+  background:linear-gradient(155deg,#715633,#282f28);flex-shrink:0;
+  color:#f1cd8d;text-shadow:0 0 9px #dfbd6b5c}
+.weapon-deck{display:flex;gap:5px;margin:7px 0 8px;max-width:100%}
+.weapon-tile{flex:1;min-width:0;display:flex;align-items:center;gap:5px;
+  padding:5px 6px;border:1px solid #9077528e;border-radius:2px;
+  background:#132923db;color:#dbd0af;cursor:pointer;
+  box-shadow:inset 0 1px #e2c69232}
+.weapon-tile .weapon-glyph{font-size:1rem;color:#cba974}
+.weapon-tile .weapon-name{flex:1;text-align:left;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;font-size:.55rem;color:#e1d3bc}
+.weapon-tile .weapon-cost{font-size:.47rem;color:#8ebdbd;white-space:nowrap}
+.weapon-tile.is-equipped{border-color:#e7c58ca1;
+  background:linear-gradient(120deg,#56482d,#2e3629)}
+.weapon-tile:disabled:not(.is-equipped){opacity:.42;cursor:not-allowed}
+.hud .hero .bar{height:7px;border:1px solid #8aaf8199}
+.hud .hero .bar span{background:linear-gradient(90deg,#477c57,#b0d69a)}
+.hud .energy-track{height:6px;border-color:#83b0c399}
+.actions{gap:5px;align-items:center}
+.actions button,.actions button.primary{min-width:0;flex:1;max-width:127px;height:65px;
+  padding:8px;gap:6px;border:1px solid #a18e6a9e;border-radius:2px;
+  background:linear-gradient(155deg,#28372eec,#111e1aeb);
+  box-shadow:inset 0 1px #e4bf863a,inset 0 0 0 2px #0b1513a3,0 6px 23px #0009;
+  color:#e7d7b5;text-shadow:0 1px 5px #000a}
+.actions button.primary{background:linear-gradient(145deg,#9e7b42e8,#55432df5);
+  border-color:#f2cf8bae;color:#fff0c9}
+.actions button span{font:small-caps 700 .74rem/1.2 Georgia,serif;text-align:center;letter-spacing:.065em}
+.actions button small{font-family:system-ui,sans-serif;letter-spacing:.08em;color:#d3bc93;font-size:.48rem}
+.actions button:hover:not(:disabled){background:linear-gradient(145deg,#667058,#2e4c3a);border-color:#e6cb9e}
+.actions button:focus-visible{outline:2px solid #ffe1a1;outline-offset:3px}
+.actions button:disabled{opacity:.34;filter:saturate(.5)}
+.actions button#dodge{border-color:#8ba89f8f}
+.actions button#restart{border-color:#a0948192}
+.status{border-top-color:#ad916987}
+.status b{font-family:Georgia,serif;letter-spacing:.1em;color:#f5d59e}
+.telegraph{font-family:Georgia,serif;letter-spacing:.13em}
+@media(max-width:760px){
+  .enemy{top:19%;right:10px;padding:6px 9px;font-size:.68rem;width:145px}
+  .enemy>div:first-child{font-size:.82rem}
+  .command-panel{bottom:235px;right:10px;width:min(320px,calc(100vw - 20px));
+    padding:8px 10px;gap:6px;max-width:none}
+  .command-heading{padding-bottom:5px;gap:7px}
+  .command-heading b{font-size:.73rem}
+  .command-heading small{font-size:.40rem}
+  .command-ornament{font-size:1.25rem}
+  .command-key{font-size:.42rem;padding:3px}
+  .move-deck{gap:6px}
+  .move-card{min-height:51px;padding:7px 5px;
+    grid-template-columns:22px minmax(0,1fr);column-gap:5px}
+  .move-card .move-glyph{font-size:1.12rem}
+  .move-card .move-title{font-size:.69rem}
+  .move-card .move-subtitle{font-size:.44rem}
+  .move-card .move-cost{font-size:.42rem;bottom:3px;right:4px}
+  .move-card .move-index{font-size:.38rem}
+  .command-panel #move-hint{font-size:.46rem}
+  .hud{bottom:55px;gap:7px}
+  .hud .hero{width:min(290px,100%);padding:7px 9px;gap:7px}
+  .hud .hero strong{font-size:.65rem}
+  .hud .hero small{font-size:.42rem}
+  .hud .sigil{width:39px;height:43px}
+  .weapon-deck{gap:3px;margin:4px 0 4px}
+  .weapon-tile{padding:3px 4px;gap:3px}
+  .weapon-tile .weapon-name{font-size:.47rem}
+  .weapon-tile .weapon-cost{font-size:.41rem}
+  .weapon-tile .weapon-glyph{font-size:.8rem}
+  .actions{gap:4px}
+  .actions button,.actions button.primary{height:49px;max-width:none;padding:5px 2px;
+    gap:3px;font-size:.85rem}
+  .actions button span{font-size:.57rem}
+  .status{font-size:.50rem;bottom:7px}
+}
+@media(max-height:640px) and (orientation:landscape){
+  .command-panel{bottom:97px;right:10px;width:min(320px,43vw);
+    padding:5px 8px;gap:4px}
+  .move-card{min-height:46px}
+  .hud{bottom:36px;flex-direction:row;gap:7px}
+  .hud .hero{width:210px;padding:6px}
+  .hud .sigil{display:none}
+  .hud .hero strong{font-size:.65rem}
+  .actions button,.actions button.primary{height:45px}
+  .status{bottom:3px}
+}
+@media(prefers-reduced-motion:reduce){
+  .move-card{transition:none}
+}

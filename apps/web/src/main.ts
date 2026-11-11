@@ -13,6 +13,7 @@ import {
   BOW_INTERCEPT_COUNTER, SWORD_RIPOSTE_COUNTER, type CombatCue,
 } from "./combat/sequences";
 import { EncounterSession } from "./combat/EncounterSession";
+import { CombatCommandDeck } from "./ui/CombatCommandDeck";
 import {
   CombatHitVolumes, type AimSnapshot, type SpatialImpact,
 } from "./combat/CombatHitVolumes";
@@ -38,17 +39,20 @@ host.innerHTML = [
   '<div class="build-field"><b>BUILD ID</b><code id="build-id"></code></div>',
   '<div class="build-actions"><button type="button" id="copy-build">COPY DETAILS</button><a href="/build-info.json" target="_blank" rel="noopener noreferrer">MANIFEST</a></div>',
   '</div></details></div>',
-  '<div class="tools"><span id="fps">— FPS</span><label>QUALITY <select id="quality"><option value="high">HIGH</option><option value="low">MOBILE</option></select></label>',
+  '<div class="tools"><span id="fps">— FPS</span><button id="quality" type="button" aria-label="Toggle graphics quality">⚙ HIGH</button>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
   '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p></section>',
   '<section id="telegraph" class="telegraph"><b>⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
-  '<section class="command-panel"><label for="move">MOVE <select id="move" aria-label="Choose combat move"></select></label>',
+  '<section class="command-panel" aria-label="Combat command deck">',
+  '<div class="command-heading"><span class="command-ornament">✦</span><div><b>CHOOSE YOUR ACTION</b><small>THE WARRIOR’S DECREE</small></div><span class="command-key">Q · CYCLE</span></div>',
+  '<div id="move-deck" class="move-deck" role="group" aria-label="Available combat actions"></div>',
   '<div id="aim-controls" class="aim-controls"><span id="aim-instructions">MOVE CROSSHAIR · CLICK OR FIRE</span>',
   '<span id="aim-armor-hint" role="status"></span></div><span id="move-hint"></span></section>',
   '<div id="aim-marker" class="aim-marker" aria-hidden="true"><span>⊕</span><small id="aim-marker-label"></small></div>',
-  '<footer class="hud"><section class="hero"><div class="sigil">✶</div><div><strong>TRIAL WARRIOR</strong><small>WEAPON <select id="weapon" aria-label="Equipped weapon"><option value="bow">LONGBOW</option><option value="sword">SWORD</option></select> <span class="weapon-keys">[1/2]</span></small>',
+  '<footer class="hud"><section class="hero"><div class="sigil">✶</div><div class="hero-info"><strong>TRIAL WARRIOR</strong><small>THE WAYFARER · ARMS <span class="weapon-keys">[1 / 2]</span></small>',
+  '<div id="weapon-deck" class="weapon-deck" role="group" aria-label="Equipped arms"></div>',
   '<div class="bar hero-bar"><span id="hero-bar"></span></div><p id="hero-hp"></p>',
   '<div class="energy-info"><b id="hero-energy-label">ENERGY</b><span id="actions-left"></span></div>',
   '<div class="energy-track"><span id="hero-energy-bar"></span></div></div></section>',
@@ -85,12 +89,12 @@ copyBuildButton.addEventListener("click", async () => {
   }
 });
 const viewport = query<HTMLDivElement>("#viewport");
-const qualitySelect = query<HTMLSelectElement>("#quality");
+const qualityButton = query<HTMLButtonElement>("#quality");
 const attackButton = query<HTMLButtonElement>("#attack");
 const parryButton = query<HTMLButtonElement>("#react");
 const dodgeButton = query<HTMLButtonElement>("#dodge");
-const weaponSelect = query<HTMLSelectElement>("#weapon");
-const moveSelect = query<HTMLSelectElement>("#move");
+const moveDeckRoot = query<HTMLElement>("#move-deck");
+const weaponDeckRoot = query<HTMLElement>("#weapon-deck");
 const moveHint = query<HTMLElement>("#move-hint");
 const aimControls = query<HTMLElement>("#aim-controls");
 const aimArmorHint = query<HTMLElement>("#aim-armor-hint");
@@ -120,7 +124,7 @@ const loading = query<HTMLElement>("#loading");
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let quality: ArenaQuality = /Android|iPhone|iPad/i.test(navigator.userAgent) ? "low" : "high";
-qualitySelect.value = quality;
+qualityButton.textContent = "⚙ " + (quality === "high" ? "HIGH" : "MOBILE");
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8ca497);
 scene.fog = new THREE.FogExp2(0x8ca497, 0.0095);
@@ -182,6 +186,10 @@ type Presentation =
   | "enemy_pause" | "counter" | "victory" | "defeat";
 
 const session = new EncounterSession();
+const commandDeck = new CombatCommandDeck(moveDeckRoot, weaponDeckRoot, {
+  onMoveSelected: () => updateHud(),
+  onEquip: id => changeWeapon(id),
+});
 const heroHitVolumes = new CombatHitVolumes(hero.root, session.state.actors.hero!, session.catalog);
 const enemyHitVolumes = new CombatHitVolumes(enemy.root, session.state.actors.enemy!, session.catalog);
 const aimCursor = new AimCursor();
@@ -250,37 +258,31 @@ function moveDescription(moveId: string): string {
 
 /** Use the same domain legality query as the scripted opponent and future AI. */
 function updateMovePicker(): void {
-  const hero = session.state.actors.hero!;
-  const equipped = session.catalog.equipment[hero.equippedId]!;
-  const previous = moveSelect.value;
+  const player = session.state.actors.hero!;
   const available = isPlayerDecision()
-    ? session.legalAttacks("enemy", movement.separation(heroRig().root, enemy.root))
+    ? session.legalAttacks("enemy", movement.separation(hero.root, enemy.root))
     : [];
-  const options = equipped.attackMoveIds.map(moveId => {
-    const entry = document.createElement("option");
-    entry.value = moveId;
-    entry.textContent = (MOVE_NAMES[moveId] ?? moveId.replaceAll("_", " ")) +
-      " · " + session.catalog.attacks[moveId]!.resourceCost + " EN";
-    entry.disabled = !available.includes(moveId);
-    return entry;
+  commandDeck.update({
+    catalog: session.catalog,
+    equippedId: player.equippedId,
+    equipmentIds: player.loadoutIds,
+    legalMoveIds: available,
+    legalSwitchIds: isPlayerDecision() ? session.legalSwitches("hero") : [],
+    canDecide: isPlayerDecision(),
   });
-  moveSelect.replaceChildren(...options);
-  const selected = available.includes(previous) ? previous : available[0] ?? equipped.attackMoveIds[0] ?? "";
-  moveSelect.value = selected;
+  const selected = commandDeck.selectedMoveId;
   const move = session.catalog.attacks[selected];
   const canAim = isPlayerDecision() &&
     move?.targeting?.mode === "free_aim" && available.includes(selected);
   aimControls.hidden = !canAim;
   aimMarker.hidden = !canAim;
-  if (canAim) {
-    director.setShot("aim");
-  } else if (isPlayerDecision()) {
-    director.setShot("decision");
-  }
-  moveSelect.disabled = !isPlayerDecision() || available.length === 0;
+  if (canAim) director.setShot("aim");
+  else if (isPlayerDecision()) director.setShot("decision");
   moveHint.textContent = move ? moveDescription(selected) :
-    "No move available. End turn to recover Energy.";
+    "No move available · End turn to recover Energy";
   attackButton.disabled = !isPlayerDecision() || !available.includes(selected);
+  const action = query<HTMLElement>("#attack span");
+  if (action.firstChild) action.firstChild.textContent = canAim ? "FIRE" : "STRIKE";
 }
 
 function heroRig(): AnimatedWarrior { return hero; }
@@ -304,12 +306,6 @@ function updateHud(): void {
     ? state.victorId === "hero" ? "VICTORY" : "DEFEAT"
     : "TURN " + state.turn + (state.activeActorId === "hero" ? " · YOUR ACTION" : " · ENEMY");
   messageDisplay.textContent = lastMessage;
-  weaponSelect.value = player.equippedId;
-  weaponSelect.disabled = !isPlayerDecision() ||
-    player.switchedOnTurn === state.turn ||
-    player.resource < session.catalog.equipment[
-      player.equippedId === "bow" ? "sword" : "bow"
-    ]!.switchCost;
   endTurnButton.disabled = !isPlayerDecision();
   const reactions = presentation === "windup" ? session.legalReactions() : [];
   const parry = reactions.find(option => option.technique !== "dodge");
@@ -341,7 +337,7 @@ function sequenceFor(moveId: string) {
 
 function startPlayerAttack(now = performance.now()): void {
   if (!isPlayerDecision()) return;
-  const moveId = moveSelect.value;
+  const moveId = commandDeck.selectedMoveId;
   const move = session.catalog.attacks[moveId];
   if (!move) return;
   try {
@@ -798,21 +794,21 @@ function keyDown(event: KeyboardEvent): void {
   if (event.code === "Digit1") changeWeapon("bow");
   if (event.code === "Digit2") changeWeapon("sword");
   if (event.code === "KeyR") reset();
+  if (event.code === "KeyQ") commandDeck.cycle(1);
 }
 attackButton.addEventListener("click", () => startPlayerAttack());
 parryButton.addEventListener("click", () => attemptDefense("parry"));
 dodgeButton.addEventListener("click", () => attemptDefense("dodge"));
 endTurnButton.addEventListener("click", playerEndTurn);
-moveSelect.addEventListener("change", updateHud);
-weaponSelect.addEventListener("change", () => changeWeapon(weaponSelect.value));
 restartButton.addEventListener("click", reset);
 audioButton.addEventListener("click", () => {
   const enabled = sound.toggle();
   audioButton.textContent = enabled ? "♪" : "♫";
   audioButton.setAttribute("aria-pressed", String(enabled));
 });
-qualitySelect.addEventListener("change", () => {
-  quality = qualitySelect.value as ArenaQuality;
+qualityButton.addEventListener("click", () => {
+  quality = quality === "high" ? "low" : "high";
+  qualityButton.textContent = "⚙ " + (quality === "high" ? "HIGH" : "MOBILE");
   arena.dispose();
   arena = createArena(119, quality);
   scene.add(arena.root);
@@ -962,6 +958,7 @@ window.addEventListener("pagehide", () => {
   effects.dispose();
   visualFeedback.dispose();
   sound.dispose();
+  commandDeck.dispose();
   browserAim.dispose();
   heroHitVolumes.dispose();
   enemyHitVolumes.dispose();
