@@ -17,10 +17,8 @@ import { SurfaceMarks } from "./effects/SurfaceMarks";
 import { CombatFeedback } from "./feedback/CombatFeedback";
 import { ImpactEffectDirector, type ImpactVisualContext } from "./feedback/ImpactEffectDirector";
 import { CombatAudio } from "./feedback/CombatAudio";
-import {
-  ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE,
-  SWORD_RIPOSTE_COUNTER, type CombatCue,
-} from "./combat/sequences";
+import { ARCHERY_REACTION, SWORD_RIPOSTE_COUNTER, type CombatCue } from "./combat/sequences";
+import { presentationForAttack } from "./combat/attack-presentation";
 import { EncounterSession } from "./combat/EncounterSession";
 import { CombatCommandDeck } from "./ui/CombatCommandDeck";
 import {
@@ -279,6 +277,8 @@ const MOVE_NAMES: Readonly<Record<string, string>> = {
   arrow: "Arrow",
   recover_shot: "Recovery shot",
   slash: "Quick slash",
+  rapid_slash: "Rapid slash",
+  rakshasa_rapid_slash: "Rapid slash",
   heavy_crush: "Heavy crush",
 };
 function moveDescription(moveId: string): string {
@@ -288,7 +288,8 @@ function moveDescription(moveId: string): string {
   const gain = move.turnPolicy?.energyGainOnCompletion
     ? " · +" + move.turnPolicy.energyGainOnCompletion + " EN"
     : "";
-  return cost + " · " + policy + gain;
+  return cost + (move.turnPolicy?.freeAction ? " · FREE OPENING ACTION" : "") +
+    " · " + policy + gain;
 }
 
 /** Use the same domain legality query as the scripted opponent and future AI. */
@@ -375,21 +376,23 @@ function updateHud(): void {
     timingTitle.textContent="⚔ INCOMING STRIKE";
     defenseHint.textContent=hints.length?hints.join(" · ")+" AT IMPACT":"NO LEGAL DEFENSE";
   }
+  const pending = state.pending;
+  const region = pending?.defenderId === "hero" ? pending.intendedRegionId : null;
+  const anatomy = player.anatomyId ? session.catalog.anatomies?.[player.anatomyId] : undefined;
+  const vulnerability = region ? anatomy?.regions[region]?.vulnerabilityMultiplier ?? 1 : 1;
+  const weakPoint = !!region && vulnerability > 1 && player.regionExposure?.[region] !== "protected";
+  telegraph.classList.toggle("target-weakpoint", presentation === "windup" && weakPoint);
+  if (weakPoint) {
+    timingTitle.textContent = "⚠ WEAK POINT TARGETED · " + region!.replaceAll("_", " ").toUpperCase();
+    defenseHint.textContent = "HIGH RISK · " + defenseHint.textContent;
+  }
   telegraph.classList.toggle("show", presentation === "windup");
   hero.root.visible = true;
   enemy.root.visible = true;
   updateMovePicker();
 }
 
-function sequenceFor(moveId: string) {
-  if (moveId === "heavy_crush" || moveId === "rakshasa_heavy") return HEAVY_ATTACK;
-  if (session.catalog.attacks[moveId]?.delivery === "ranged_projectile") {
-    return ARCHERY_ATTACK;
-  }
-  return MELEE_ATTACK;
-}
-
-/** One immutable snapshot shared by the reaction planner, renderer and hit test. */
+ /** One immutable snapshot shared by the reaction planner, renderer and hit test. */
 function projectileGeometry(
   attacker:AnimatedWarrior, defender:AnimatedWarrior,
   startTick:number,aimAt?:THREE.Vector3,
@@ -454,13 +457,15 @@ function startPlayerAttack(now = performance.now()): void {
   plannedEnemyDefense = enemyBrain.planReaction(
     session.state, session.catalog, "enemy", Math.floor(now));
   enemyIntent = plannedEnemyDefense ? "DEFENSE READY" : "WATCHING ATTACK";
+  const presentationPlan = presentationForAttack(move);
   setPhase("attack", "attack", now);
-  choreography.start(sequenceFor(moveId), now);
+  choreography.start(presentationPlan.sequence, now);
   if (move.delivery === "melee_contact") {
-    movement.approach(hero.root, enemy.root, move.reachMeters, now, 1080);
+    movement.approach(hero.root, enemy.root, move.reachMeters, now,
+      presentationPlan.approachDurationMs);
     dust(hero, now);
   }
-  hero.play(move.delivery === "melee_contact" ? "melee" : "attack");
+  hero.play(presentationPlan.motion);
   enemy.play("idle");
   effects.clear();
   projectiles.clear();
@@ -468,7 +473,7 @@ function startPlayerAttack(now = performance.now()): void {
   interceptorProjectileId = null;
   followthroughAim = null;
   pendingInterceptRelease=null;
-  sound.play(move.delivery === "melee_contact" ? "step" : "draw");
+  sound.play(move.delivery === "melee_contact" ? "slash" : "draw");
   lastMessage = (MOVE_NAMES[moveId] ?? moveId) + " committed. " +
     move.resourceCost + " Energy spent.";
   updateHud();
@@ -498,18 +503,19 @@ function beginEnemyAttack(moveId: string, now: number): void {
   interceptorProjectileId = null;
   followthroughAim = null;
   pendingInterceptRelease=null;
+  const presentationPlan = presentationForAttack(move);
   setPhase("windup", "defense", now);
-  const sequence = moveId === "overhead_slash" ? ENEMY_STRIKE : sequenceFor(moveId);
-  choreography.start(sequence, now);
+  choreography.start(presentationPlan.sequence, now);
   if (move.delivery === "melee_contact") {
-    movement.approach(enemy.root, hero.root, move.reachMeters, now, 1050);
+    movement.approach(enemy.root, hero.root, move.reachMeters, now,
+      presentationPlan.approachDurationMs);
     dust(enemy, now);
-    sound.play("step");
-    enemy.play(moveId === "overhead_slash" ? "windup" : "melee");
+    sound.play("slash");
+    enemy.play(presentationPlan.motion);
     showEnemyIntent("MELEE · " + moveId.replaceAll("_", " ").toUpperCase());
     lastMessage = "Rakshasa melee attack incoming. React at the impact!";
   } else {
-    enemy.play("attack");
+    enemy.play(presentationPlan.motion);
     sound.play("draw");
     showEnemyIntent("RANGED · " + moveId.replaceAll("_", " ").toUpperCase());
     lastMessage = "Rakshasa arrow incoming. Ranged timing is tighter!";
@@ -534,7 +540,7 @@ function beginEnemyDecision(now: number): void {
     enemy.play("idle");
     showEnemyIntent("SWITCHING TO " + newClass.toUpperCase());
     lastMessage = "The guardian changes to " + newClass.toUpperCase() +
-      ". It costs Energy and is restricted to one switch per turn.";
+      ". One free switch per turn.";
     enemyPauseUntil = now + 640;
     setPhase("enemy_pause", "defense", now);
     return;
@@ -650,7 +656,7 @@ function changeWeapon(id: string): void {
   }
   hero.equip(id);
   lastMessage = "Equipped " + session.catalog.equipment[id]!.label +
-    ". Switch cost paid from Energy.";
+    ". Free switch used for this turn.";
   sound.play("ui");
   updateHud();
 }
@@ -717,8 +723,10 @@ function presentConfirmedHit(
   target.play(breakdown.critical?"hit_heavy":
     region==="head"?"hit_head":
     region==="left_arm"||region==="right_arm"?"hit_arm":"hit");
-  sound.play("hit");
-  director.impact(breakdown.critical?.23:isHero?.15:.12);
+  const heavy = breakdown.moveId === "heavy_crush" ||
+    breakdown.moveId === "rakshasa_heavy";
+  sound.play(heavy ? "clash" : "hit");
+  director.impact(heavy ? .30 : breakdown.critical ? .23 : isHero ? .15 : .12);
   const context:ImpactVisualContext={
     projectileId,point:targetPoint.clone(),
     normal:spatial?.contactNormal?.clone()??new THREE.Vector3(0,1,0),
@@ -1012,10 +1020,10 @@ function finishEnemyImpact(now: number): void {
     if(!pendingSpatialImpact)return;
   }else if(now<pending.impactTick)return;
   const distance=movement.separationForHit(enemy.root,hero.root);
-  if(!pending.projectileGeometry && pending.intendedRegionId &&
-      distance<=session.catalog.attacks[pending.moveId]!.reachMeters+.0001) {
-    pendingSpatialImpact=heroHitVolumes.impact(heroHitVolumes.snapshot(
-      enemy.socketWorld(new THREE.Vector3()),pending.intendedRegionId,4));
+  if (!pending.projectileGeometry && pending.intendedRegionId) {
+    pendingSpatialImpact = heroHitVolumes.meleeImpact(
+      enemy.socketWorld(new THREE.Vector3()), pending.intendedRegionId,
+      session.catalog.attacks[pending.moveId]!.reachMeters, distance);
   }
   if(!option && !pending.projectileGeometry && !pendingSpatialImpact && shotSnapshot)
     pendingSpatialImpact=heroHitVolumes.impact(shotSnapshot);
@@ -1228,9 +1236,7 @@ function frame(now: number): void {
                       movement.activity(enemy.root) === "retreat");
   const frozen = now < visualFeedback.frozenUntil;
   if (!frozen) {
-    const attackerMove = session.state.pending?.moveId;
-    const heroClipTime = presentation === "attack" && attackerMove === "heavy_crush"
-      ? motionElapsed * 1450 / 1850 : motionElapsed;
+    const heroClipTime = motionElapsed;
     const counter = session.state.pendingCounter;
     hero.update(delta,
       counter && counter.attackerId === "hero" ? motionElapsed :
