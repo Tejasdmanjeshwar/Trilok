@@ -1,8 +1,8 @@
 import {
   endTurn, equipCombatant, getLegalAttackMoves, getLegalEquipmentSwitches,
-  getLegalReactions, gradeReactionV2, queueAttack, resolveReaction,
+  getLegalReactions, gradeReactionV2, queueAttack, resolveReaction, resolveCounter,
   type CombatCatalog, type EncounterState, type ReactionOption,
-  type ReactionResolution, type ReactionTechnique,
+  type ReactionResolution, type ReactionTechnique, type CounterResolution,
 } from "@trilok/combat";
 import { createPreviewEncounter, PREVIEW_CATALOG } from "./preview-encounter";
 
@@ -80,6 +80,15 @@ export class EncounterSession {
     }
     this.selectedDefense = { moveId: option.moveId, tick };
     return { accepted: true, option };
+  }
+
+  /** The domain alone applies a perfect-intercept or perfect-parry riposte. */
+  counterIfReady(nowMs: number): CounterResolution | null {
+    const counter = this.state.pendingCounter;
+    if (!counter || Math.floor(nowMs) < counter.impactTick) return null;
+    const result = resolveCounter(this.state, Math.floor(nowMs), this.catalog);
+    this.state = result.state;
+    return result;
   }
 
   /**

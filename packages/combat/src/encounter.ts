@@ -2,6 +2,7 @@ import type {
   AttackDelivery, CombatCatalog, CombatantId, EncounterActor, EncounterState,
   ReactionOption, ReactionPolicyOverride, ReactionResolution, ReactionTechnique,
   TimingAdjustments, PendingHit, AttackHitSpec, EncounterRules, DamageType,
+  PendingCounter, CounterResolution,
 } from "./encounter-types";
 import { validateCombatCatalog } from "./encounter-catalog";
 import { gradeReactionWindow, resolveEffectiveTiming, validateTimingAdjustments } from "./encounter-timing";
@@ -30,7 +31,7 @@ function getActor(state: EncounterState, actorId: string): EncounterActor {
   return actor;
 }
 function assertDecision(state: EncounterState, actorId: string): EncounterActor {
-  if (state.phase !== "decision" || state.pending || state.activeActorId !== actorId) {
+  if (state.phase !== "decision" || state.pending || state.pendingCounter || state.activeActorId !== actorId) {
     throw new Error("Combatant cannot act outside their decision phase.");
   }
   const actor = getActor(state, actorId);
@@ -94,6 +95,7 @@ export function createEncounter(
     defenseUsesSinceTurn: {},
     phase: "decision",
     pending: null,
+    pendingCounter: null,
     victorId: null,
   };
 }
@@ -104,7 +106,7 @@ export function getLegalEquipmentSwitches(
   catalog: CombatCatalog,
   actorId: CombatantId,
 ): readonly string[] {
-  if (state.phase !== "decision" || state.pending || state.activeActorId !== actorId) return [];
+  if (state.phase !== "decision" || state.pending || state.pendingCounter || state.activeActorId !== actorId) return [];
   const actor = state.actors[actorId];
   if (!actor || actor.hp <= 0 || actor.status !== "ready" ||
       actor.switchedOnTurn === state.turn) return [];
@@ -141,7 +143,7 @@ export function getLegalAttackMoves(
   distanceMeters: number,
 ): readonly string[] {
   if (!Number.isFinite(distanceMeters) || distanceMeters < 0 ||
-      state.phase !== "decision" || state.pending !== null) return [];
+      state.phase !== "decision" || state.pending !== null || state.pendingCounter !== null) return [];
   const actor = state.actors[state.activeActorId];
   const defender = state.actors[defenderId];
   if (!actor || actor.hp <= 0 || actor.status !== "ready" ||
@@ -346,6 +348,86 @@ export function endTurn(
   return transitionTurn(state, state.actors, nextId);
 }
 
+/** Authored perfect-reaction counter selected by the incoming and defensive moves. */
+function selectPerfectCounter(
+  state: EncounterState, catalog: CombatCatalog, defenseMoveId: string,
+  incomingMoveId: string, startedTick: number,
+): PendingCounter | null {
+  const incoming = catalog.attacks[incomingMoveId];
+  const defense = catalog.defenses[defenseMoveId];
+  if (!incoming || !defense || incoming.counterPolicy?.mode === "deny") return null;
+  const counterId = incoming.counterPolicy?.mode === "override"
+    ? incoming.counterPolicy.counterId : defense.perfectCounterId;
+  if (!counterId) return null;
+  const counter = catalog.counters?.[counterId];
+  if (!counter) throw new Error("Perfect counter references missing authored move.");
+  const pending = state.pending!;
+  return {
+    id: counter.id,
+    attackerId: pending.defenderId,
+    defenderId: pending.attackerId,
+    startedTick,
+    impactTick: startedTick + counter.impactOffsetTicks,
+    damage: counter.damage,
+    damageType: counter.damageType,
+    delivery: counter.delivery,
+    presentation: counter.presentation,
+  };
+}
+
+/**
+ * Exactly one reaction-generated counter, resolved on its own authored impact.
+ * Counters are not new attack actions and cannot be countered recursively.
+ */
+export function resolveCounter(
+  state: EncounterState,
+  resolvedTick: number,
+  catalog: CombatCatalog,
+): CounterResolution {
+  const pending = state.pendingCounter;
+  if (!pending) throw new Error("No pending counter.");
+  if (!validTick(resolvedTick) || resolvedTick < pending.impactTick) {
+    throw new Error("Counter cannot resolve before its impact.");
+  }
+  const attacker = getActor(state, pending.attackerId);
+  const defender = getActor(state, pending.defenderId);
+  if (attacker.hp <= 0 || defender.hp <= 0) throw new Error("Counter combatants must be alive.");
+  if (!catalog.counters?.[pending.id]) throw new Error("Missing counter definition.");
+  const breakdown = resolveRegionDamage({
+    attackerId: attacker.id,
+    defender,
+    moveId: pending.id,
+    hitId: "counter-impact",
+    baseDamage: pending.damage,
+    damageType: pending.damageType,
+    targeting: { mode: "actor" },
+    intendedRegionId: null,
+    actualRegionId: resolveDefaultRegion(defender, catalog),
+    reactionMultiplier: 1,
+    inReach: true,
+    contact: true,
+  }, catalog);
+  const updatedDefender = { ...defender, hp: defender.hp - breakdown.finalDamage };
+  const actors = { ...state.actors, [defender.id]: updatedDefender };
+  const remaining = Object.values(actors).filter(actor => actor.hp > 0);
+  const complete = remaining.length <= 1;
+  return {
+    state: {
+      ...state, actors, pendingCounter: null,
+      phase: complete ? "complete" : state.phase,
+      victorId: complete ? remaining[0]?.id ?? null : state.victorId,
+      activeActorId: complete ? remaining[0]?.id ?? attacker.id : state.activeActorId,
+    },
+    outcome: {
+      counterId: pending.id,
+      attackerId: attacker.id,
+      defenderId: defender.id,
+      damage: breakdown.finalDamage,
+      breakdown,
+    },
+  };
+}
+
 /**
  * Exactly one authoritative impact, with no user/AI branching.
  * The caller supplies observed distance and input timestamp; the domain
@@ -503,6 +585,13 @@ export function resolveReaction(
       nextState = transitionTurn(afterCompletion, nextActors, nextActor);
     }
   }
+  // Only final, successful perfect defenses may produce a retaliation.
+  const counter = finalHit && !complete && grade === "perfect" && chosen &&
+    damage === 0 && inReach && input.contact !== false &&
+    !breakdown.reasons.includes("region_miss")
+    ? selectPerfectCounter(state, catalog, chosen.moveId, pending.moveId, input.resolvedTick)
+    : null;
+  if (counter) nextState = { ...nextState, pendingCounter: counter };
   return {
     state: nextState,
     outcome: {
@@ -517,6 +606,7 @@ export function resolveReaction(
       damage,
       energySpent: defenseCost,
       energyRefunded,
+      counter,
       breakdown,
       result: !inReach ? "out_of_reach" :
         input.contact === false || breakdown.reasons.includes("region_miss") ? "missed" :

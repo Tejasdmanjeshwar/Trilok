@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { createWarrior, type WarriorRole } from "./warrior";
 import type { WeaponId } from "@trilok/combat";
 
-export type Motion = "idle" | "attack" | "melee" | "windup" | "parry" | "dodge" | "hit" | "victory";
+export type Motion = "idle" | "attack" | "melee" | "windup" | "parry" | "intercept" | "riposte" | "dodge" | "hit" | "victory";
 type Key = readonly [number, number, number, number];
 type Joint = "LeftArm" | "RightArm" | "Torso";
 type Pose = Partial<Record<Joint, readonly Key[]>>;
@@ -47,6 +47,18 @@ function clips(): Record<Motion, THREE.AnimationClip> {
       LeftArm: [[0,0,0,-.1],[.18,-1.35,0,-.5],[.43,-1.2,0,-.5],[.73,0,0,-.1]],
       RightArm: [[0,0,0,.1],[.2,-.95,0,.55],[.43,-.85,0,.45],[.73,0,0,.1]],
       Torso: [[0,0,0,0],[.24,-.2,0,-.12],[.73,0,0,0]],
+    }),
+    intercept: clip("intercept", .74, {
+      // Bow-hand rises and returns a fast release. It must not reuse sword parry.
+      LeftArm: [[0,0,0,-.1],[.16,-.65,-.08,-.38],[.37,-1.23,0,-.4],[.55,-.3,0,-.2],[.74,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.18,-.7,0,.35],[.38,-1.1,0,.6],[.50,-1.35,0,.1],[.74,0,0,.1]],
+      Torso: [[0,0,0,0],[.32,-.16,.12,0],[.74,0,0,0]],
+    }),
+    riposte: clip("riposte", .92, {
+      // Weapon recoils from the deflection then lunges into an immediate cut.
+      LeftArm: [[0,0,0,-.1],[.15,-.8,0,-.35],[.46,-.6,0,-.2],[.92,0,0,-.1]],
+      RightArm: [[0,0,0,.1],[.16,-1.3,0,.3],[.38,-2.4,0,.35],[.6,.75,0,-.15],[.92,0,0,.1]],
+      Torso: [[0,0,0,0],[.3,-.17,-.25,0],[.6,.22,.18,0],[.92,0,0,0]],
     }),
     dodge: clip("dodge", .73, {
       LeftArm: [[0,0,0,-.1],[.07,.54,0,-.48],[.18,.75,0,-.6],[.4,.42,0,-.48],[.73,0,0,-.1]],

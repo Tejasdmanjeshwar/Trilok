@@ -74,36 +74,6 @@ describe("v0.4-C rig-following precision impact", () => {
     expect(outcome.outcome.breakdown.critical).toBe(false);
   });
 
-  it("uses the actual screen crosshair ray, not a preselected region", () => {
-    const { rig, volumes } = fixture();
-    const head=volumes.worldCenter("head");
-    const camera=new THREE.PerspectiveCamera(45,1,0.1,120);
-    camera.position.copy(head).add(new THREE.Vector3(0,0,8));
-    camera.lookAt(head);
-    camera.updateMatrixWorld(true);
-    const from=head.clone().add(new THREE.Vector3(0,0,7));
-    const aimed=volumes.snapshotCameraAim(camera,0,0,from,36);
-    expect(aimed.regionId).toBe("head");
-    expect(volumes.impact(aimed).actualRegionId).toBe("head");
-    const air=volumes.snapshotCameraAim(camera,.95,.95,from,36);
-    expect(air.regionId).toBeNull();
-    expect(volumes.impact(air)).toMatchObject({contact:false,actualRegionId:null});
-    volumes.dispose(); rig.dispose();
-  });
-
-  it("preserves an unsnapped trajectory even when the target moves", () => {
-    const {rig,volumes}=fixture();
-    const head=volumes.worldCenter("head");
-    const camera=new THREE.PerspectiveCamera(45,1,0.1,120);
-    camera.position.copy(head).add(new THREE.Vector3(0,0,8));
-    camera.lookAt(head);
-    camera.updateMatrixWorld(true);
-    const snapshot=volumes.snapshotCameraAim(camera,0,0,camera.position,36);
-    rig.root.position.x+=7;
-    expect(volumes.impact(snapshot).contact).toBe(false);
-    volumes.dispose(); rig.dispose();
-  });
-
   it("selects target regions from a camera ray and rejects invalid pointer values", () => {
     const {rig,volumes} = fixture();
     const head = volumes.worldCenter("head");

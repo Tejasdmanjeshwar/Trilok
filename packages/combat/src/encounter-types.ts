@@ -118,6 +118,23 @@ export interface AttackSpec {
   /** Absent policy is legacy end-turn behavior. */
   readonly turnPolicy?: AttackTurnPolicy;
   readonly reactionPolicy?: ReactionPolicyOverride;
+  readonly counterPolicy?: CounterPolicy;
+}
+
+/** A pre-authored automatic retaliation. It cannot itself be defended or countered. */
+export interface CounterSpec {
+  readonly id: string;
+  readonly delivery: AttackDelivery;
+  readonly damage: number;
+  readonly damageType: DamageType;
+  readonly impactOffsetTicks: number;
+  readonly presentation: "bow_shot" | "sword_riposte";
+}
+/** Move-level override applied *after* the equipped defense's authored counter. */
+export interface CounterPolicy {
+  readonly mode: "allow" | "deny" | "override";
+  /** Required when mode=override; references CombatCatalog.counters. */
+  readonly counterId?: string;
 }
 
 export interface DefenseSpec {
@@ -133,6 +150,8 @@ export interface DefenseSpec {
   readonly timingOverrideProfileId?: string;
   readonly outcomeProfileId: string;
   readonly grantsAgainst?: readonly AttackDelivery[];
+  /** Only perfect and successful matching defenses can schedule this. */
+  readonly perfectCounterId?: string;
 }
 
 export interface EquipmentSpec {
@@ -176,6 +195,7 @@ export interface CombatCatalog {
   /** Optional delivery × technique defaults; defense fallback supports older catalogs. */
   readonly reactionTimingDefaults?: Partial<Record<AttackDelivery, Partial<Record<ReactionTechnique, string>>>>;
   readonly outcomes: Readonly<Record<string, OutcomeProfile>>;
+  readonly counters?: Readonly<Record<string, CounterSpec>>;
   readonly anatomies?: Readonly<Record<string, AnatomySpec>>;
   readonly armor?: Readonly<Record<string, ArmorSpec>>;
 }
@@ -220,6 +240,19 @@ export interface PendingAttack {
   readonly damageType: DamageType;
 }
 
+export interface PendingCounter {
+  readonly id: string;
+  /** Original defender automatically retaliates against original attacker. */
+  readonly attackerId: CombatantId;
+  readonly defenderId: CombatantId;
+  readonly startedTick: number;
+  readonly impactTick: number;
+  readonly damage: number;
+  readonly damageType: DamageType;
+  readonly delivery: AttackDelivery;
+  readonly presentation: CounterSpec["presentation"];
+}
+
 export interface EncounterState {
   readonly actors: Readonly<Record<CombatantId, EncounterActor>>;
   readonly turnOrder: readonly CombatantId[];
@@ -231,6 +264,7 @@ export interface EncounterState {
   readonly defenseUsesSinceTurn: Readonly<Record<CombatantId, number>>;
   readonly phase: "decision" | "reaction" | "complete";
   readonly pending: PendingAttack | null;
+  readonly pendingCounter: PendingCounter | null;
   readonly victorId: CombatantId | null;
 }
 
@@ -241,6 +275,17 @@ export interface ReactionOption {
   readonly timingProfileId: string;
   readonly timing: EffectiveTimingProfile;
   readonly outcomeProfileId: string;
+}
+
+export interface CounterResolution {
+  readonly state: EncounterState;
+  readonly outcome: {
+    readonly counterId: string;
+    readonly attackerId: CombatantId;
+    readonly defenderId: CombatantId;
+    readonly damage: number;
+    readonly breakdown: DamageBreakdown;
+  };
 }
 
 export interface ReactionResolution {
@@ -257,6 +302,8 @@ export interface ReactionResolution {
     readonly damage: number;
     readonly energySpent: number;
     readonly energyRefunded: number;
+    /** Queued automatic retaliation; damage is applied at its own impact marker. */
+    readonly counter: PendingCounter | null;
     readonly breakdown: DamageBreakdown;
     readonly result: "hit" | "countered" | "out_of_reach" | "missed";
   };

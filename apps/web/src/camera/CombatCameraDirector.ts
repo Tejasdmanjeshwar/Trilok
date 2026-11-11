@@ -10,7 +10,8 @@ export class CombatCameraDirector {
   private readonly scratch = new THREE.Vector3();
   private readonly heroPosition = new THREE.Vector3();
   private readonly enemyPosition = new THREE.Vector3();
-  // Aim stays player-side. A screen reticle, not a region lock, determines aim.
+  private readonly aimedPoint = new THREE.Vector3();
+  setAimPoint(point: THREE.Vector3): void { this.aimedPoint.copy(point); }
   private shot: CameraShot = "intro";
   private shake = 0;
   private elapsed = 0;
@@ -59,17 +60,16 @@ export class CombatCameraDirector {
         speed = 3.5;
         break;
       case "aim":
-        p.copy(hero).add(new THREE.Vector3(-1.0, 2.6, 4.3));
-        t.copy(enemy).add(new THREE.Vector3(0, 1.76, 0));
-        fov = 39;
+        p.copy(hero).add(new THREE.Vector3(-1.2, 2.5, 4.6));
+        t.copy(this.aimedPoint);
+        fov = 40;
         speed = 5.4;
         break;
       case "enemy_attack":
-        // Never cross behind the opponent: player remains foreground.
-        p.copy(hero).add(new THREE.Vector3(-2.3, 2.7, 5.25));
-        t.copy(enemy).lerp(hero, 0.22).add(new THREE.Vector3(0, 1.55, 0));
-        fov = 44;
-        speed = 5.2;
+        p.copy(enemy).add(new THREE.Vector3(2.2, 3.1, -5.4));
+        t.copy(hero).add(new THREE.Vector3(0, 1.55, 0));
+        fov = 45;
+        speed = 5.4;
         break;
       case "counter":
         p.copy(middle).add(new THREE.Vector3(1.1, 2.6, 4.7));
@@ -84,8 +84,8 @@ export class CombatCameraDirector {
         speed = 5.2;
         break;
       case "windup":
-        p.copy(hero).add(new THREE.Vector3(-2.2, 3.05, 6.0));
-        t.copy(enemy).lerp(hero, 0.30).add(new THREE.Vector3(0, 1.55, 0));
+        p.copy(middle).add(new THREE.Vector3(5.3, 3.2, 8.3));
+        t.copy(middle).add(new THREE.Vector3(0, 1.55, 0));
         fov = 48;
         speed = 4.6;
         break;

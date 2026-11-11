@@ -13,8 +13,7 @@
     "@trilok/core": "workspace:*",
     "@trilok/choreography": "workspace:*",
     "three": "^0.180.0",
-    "@trilok/combat-ai": "workspace:*",
-    "@trilok/input": "workspace:*"
+    "@trilok/combat-ai": "workspace:*"
   },
   "devDependencies": {
     "@types/three": "^0.180.0"

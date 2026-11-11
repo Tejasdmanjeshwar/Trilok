@@ -9,7 +9,7 @@ A reusable, TypeScript-based adventure RPG framework. **Ramayana** is the first 
 1. Open this repository in GitHub Codespaces (Code → Codespaces → Create codespace).
 2. Run `corepack enable` and `pnpm install` in the Codespaces terminal.
 3. Run `pnpm dev` and open the forwarded Vite port (5173).
-4. Select a move, then STRIKE or Space. Dodge (D) and weapon Parry (P) are free on the first valid defensive reaction since your previous turn; successive defenses cost Energy. For bow Arrow free aim: move mouse + left-click to shoot, drag in the 3D arena + STRIKE on touch, or use keyboard arrows + Space. Gamepad right stick/trigger is supported. The camera stays on the player's side during enemy attacks; Restart (R) resets the battle.
+4. Select a move, then STRIKE or Space. Dodge (D) and weapon Parry (P) are free on the first valid defensive reaction since your previous turn; successive defenses cost Energy. Use the aim selector or tap the enemy to target body regions with precision arrows; Restart (R) resets the battle.
 
 Run `pnpm typecheck`, `pnpm test`, and `pnpm build` before submitting a pull request.
 
@@ -35,6 +35,6 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
 
-The playable version is **v0.4.0-preview.4**, the combat engine version is **v0.4-C**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
+The playable version is **v0.4.0-preview.3**, the combat engine version is **v0.4-C**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
 
 See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.

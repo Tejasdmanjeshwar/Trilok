@@ -151,22 +151,3 @@
   .aim-marker span {font-size:25px;}
   .aim-marker small {font-size:.44rem;}
 }
-
-/* v0.4-C.1: free mouse/touch/keyboard/controller crosshair */
-.aim-controls { gap: 5px; max-width: 250px; }
-#aim-instructions { display: block; padding: 6px 9px; border: 1px solid #83b4a48b;
-  border-radius: 4px; background: #142e26e8; color: #d6eadb;
-  font-size: .55rem; text-align: right; line-height: 1.4; }
-.aim-marker { transition: none; color: #f5ddaa; }
-.aim-marker span { font-size: 39px; line-height: .9; font-weight: 600;
-  color: #e6d9b3; -webkit-text-stroke: 1px #285349; }
-.aim-marker small { font-size: .6rem; font-weight: 700; letter-spacing: .08em;
-  background: #59382fd6; border-color: #d7a68d9e; }
-.aim-marker.aim-on-target span { color: #a9f0cb; -webkit-text-stroke: 1px #1f563b; }
-.aim-marker.aim-on-target small { background: #17442ed9; border-color: #8bd3b0bf; }
-.viewport canvas { touch-action: none; }
-@media (max-width:760px) {
-  .aim-marker span { font-size: 35px; }
-  .aim-marker small { font-size: .49rem; }
-  #aim-instructions { font-size: .49rem; padding: 4px 7px; }
-}

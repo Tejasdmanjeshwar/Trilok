@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { ReactionResolution } from "@trilok/combat";
+import type { ReactionResolution, PendingCounter } from "@trilok/combat";
 import { EnemyCombatBrain, ENEMY_PROFILES, type DefenseIntent } from "@trilok/combat-ai";
 import { SequencePlayer } from "@trilok/choreography";
 import { createArena, type ArenaInstance, type ArenaQuality } from "./world/arena";
@@ -8,7 +8,10 @@ import { CombatCameraDirector, type CameraShot } from "./camera/CombatCameraDire
 import { CombatEffects } from "./effects/CombatEffects";
 import { CombatFeedback } from "./feedback/CombatFeedback";
 import { CombatAudio } from "./feedback/CombatAudio";
-import { ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
+import {
+  ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE,
+  BOW_INTERCEPT_COUNTER, SWORD_RIPOSTE_COUNTER, type CombatCue,
+} from "./combat/sequences";
 import { EncounterSession } from "./combat/EncounterSession";
 import {
   CombatHitVolumes, type AimSnapshot, type SpatialImpact,
@@ -176,7 +179,7 @@ const effectPoint = new THREE.Vector3();
 const choreography = new SequencePlayer<CombatCue>();
 type Presentation =
   | "intro" | "choice" | "attack" | "windup" | "reaction"
-  | "enemy_pause" | "victory" | "defeat";
+  | "enemy_pause" | "counter" | "victory" | "defeat";
 
 const session = new EncounterSession();
 const heroHitVolumes = new CombatHitVolumes(hero.root, session.state.actors.hero!, session.catalog);
@@ -501,8 +504,8 @@ function attemptDefense(kind: "dodge" | "parry"): void {
     movement.dodge(hero.root, enemy.root, now, 750);
     dust(hero, now);
   }
-  hero.play(kind);
-  sound.play(kind);
+  hero.play(option.technique === "projectile_intercept" ? "intercept" : kind);
+  sound.play(option.technique === "projectile_intercept" ? "intercept" : kind);
   notice((kind === "dodge" ? "DODGE" : "PARRY") +
     " TIMED · " + option.resourceCost + " ENERGY");
   updateHud();
@@ -570,7 +573,8 @@ function playOutcome(result: ReactionResolution, now: number): void {
   } else if (out.technique && out.grade !== "miss") {
     const kind = out.technique === "dodge" ? "dodge" :
       out.technique === "projectile_intercept" ? "intercept" : "parry";
-    target.play(kind === "dodge" ? "dodge" : "parry");
+    target.play(kind === "dodge" ? "dodge" :
+      kind === "intercept" ? "intercept" : "parry");
     director.setShot("counter");
     visualFeedback.emit(kind, targetPoint, now, out.damage, isHero);
     if (kind !== "dodge") effects.impact(targetPoint, now);
@@ -614,11 +618,62 @@ function applyEnemyDefense(now: number): number | undefined {
       movement.dodge(enemy.root, hero.root, now, 700);
       dust(enemy, now);
     }
-    enemy.play(chosen.technique === "dodge" ? "dodge" : "parry");
-    sound.play(chosen.technique === "dodge" ? "dodge" : "parry");
+    enemy.play(chosen.technique === "dodge" ? "dodge" :
+      chosen.technique === "projectile_intercept" ? "intercept" : "parry");
+    sound.play(chosen.technique === "dodge" ? "dodge" :
+      chosen.technique === "projectile_intercept" ? "intercept" : "parry");
     showEnemyIntent(chosen.technique === "dodge" ? "DODGING" : "PARRYING");
   }
   return undefined;
+}
+
+/**
+ * A perfect counter is authored gameplay with its own delayed impact.
+ * It is not a second player attack, costs no extra action and can never be
+ * dodged, intercepted or recursively countered.
+ */
+function beginPerfectCounter(counter: PendingCounter, now: number): void {
+  const fighter = counter.attackerId === "hero" ? hero : enemy;
+  const target = counter.defenderId === "hero" ? hero : enemy;
+  const ranged = counter.presentation === "bow_shot";
+  if (ranged && !counter.id.includes("bow")) throw new Error("Unrecognized bow counter.");
+  setPhase("counter", "counter", now);
+  fighter.face(target.root.position);
+  fighter.play(ranged ? "attack" : "riposte");
+  if (ranged) {
+    sound.play("draw");
+    choreography.start(BOW_INTERCEPT_COUNTER, now);
+  } else {
+    sound.play("slash");
+    effects.swing(fighter.root.position, fighter.root.rotation.y, now);
+    choreography.start(SWORD_RIPOSTE_COUNTER, now);
+  }
+  showEnemyIntent(counter.attackerId === "enemy" ? "AUTOMATIC COUNTER" : "COUNTERED");
+  lastMessage = ranged
+    ? "PERFECT INTERCEPT · Counter arrow launched automatically!"
+    : "PERFECT PARRY · Strong sword riposte!";
+  notice(ranged ? "PERFECT INTERCEPT · COUNTERSHOT" : "PERFECT PARRY · RIPOSTE");
+  updateHud();
+}
+
+function finishPerfectCounter(now: number): void {
+  const queued = session.state.pendingCounter;
+  if (!queued || presentation !== "counter" || now < queued.impactTick) return;
+  const result = session.counterIfReady(now);
+  if (!result) return;
+  const victim = result.outcome.defenderId === "hero" ? hero : enemy;
+  victim.root.getWorldPosition(targetPoint);
+  targetPoint.y += 1.65;
+  effects.impact(targetPoint, now);
+  visualFeedback.emit("critical", targetPoint, now,
+    result.outcome.damage, result.outcome.defenderId === "hero");
+  victim.play("hit");
+  director.impact(.20);
+  sound.play("hit");
+  notice("COUNTER STRIKE · " + result.outcome.damage + " DAMAGE");
+  lastMessage = "Automatic counter dealt " + result.outcome.damage +
+    " damage. The original attack was neutralized.";
+  updateHud();
 }
 
 function landPlayerHit(now: number): void {
@@ -639,6 +694,7 @@ function landPlayerHit(now: number): void {
   playOutcome(result, now);
   pendingSpatialImpact = null;
   plannedEnemyDefense = null;
+  if (result.outcome.counter) beginPerfectCounter(result.outcome.counter, now);
 }
 
 function finishEnemyImpact(now: number): void {
@@ -653,6 +709,10 @@ function finishEnemyImpact(now: number): void {
   if (!result) return; // Still inside the late-reaction grace period.
   playOutcome(result, now);
   pendingSpatialImpact = null;
+  if (result.outcome.counter) {
+    beginPerfectCounter(result.outcome.counter, now);
+    return;
+  }
   movement.retreat(enemy.root, now, ARCHERY_REACTION.durationMs);
   dust(enemy, now);
   enemyBrain.markRecovering();
@@ -664,6 +724,21 @@ function finishEnemyImpact(now: number): void {
 
 function onCue(cue: CombatCue, at: number, now: number): void {
   switch (cue) {
+    case "counter_release": {
+      const counter = session.state.pendingCounter;
+      if (!counter) break;
+      const attacker = counter.attackerId === "hero" ? hero : enemy;
+      const defender = counter.defenderId === "hero" ? hero : enemy;
+      attacker.socketWorld(heroSocket);
+      defender.root.getWorldPosition(targetPoint);
+      targetPoint.y += 1.65;
+      effects.launch(heroSocket, targetPoint, at, 410);
+      sound.play("release");
+      break;
+    }
+    case "counter_impact":
+      finishPerfectCounter(now);
+      break;
     case "camera_draw":
     case "melee_draw":
       director.setShot(session.state.pending?.attackerId === "enemy" ? "enemy_attack" : "attack");
@@ -790,6 +865,9 @@ function frame(now: number): void {
         finishEnemyImpact(now);
       } else if (presentation === "reaction") {
         enterNextTurn(now);
+      } else if (presentation === "counter") {
+        finishPerfectCounter(now);
+        if (!session.state.pendingCounter) enterNextTurn(now);
       }
     }
   }
@@ -801,6 +879,7 @@ function frame(now: number): void {
   if (presentation === "attack" && !choreography.running && session.state.pending === null) {
     enterNextTurn(now);
   }
+  if (presentation === "counter") finishPerfectCounter(now);
   if (presentation === "windup") {
     const pending = session.state.pending;
     const length = pending ? pending.impactTick - pending.startedTick : 1;
@@ -826,9 +905,13 @@ function frame(now: number): void {
     const attackerMove = session.state.pending?.moveId;
     const heroClipTime = presentation === "attack" && attackerMove === "heavy_crush"
       ? motionElapsed * 1450 / 1850 : motionElapsed;
-    hero.update(delta, presentation === "attack" || presentation === "reaction"
-      ? heroClipTime : undefined);
-    enemy.update(delta, presentation === "windup" ? motionElapsed : undefined);
+    const counter = session.state.pendingCounter;
+    hero.update(delta,
+      counter && counter.attackerId === "hero" ? motionElapsed :
+      presentation === "attack" || presentation === "reaction" ? heroClipTime : undefined);
+    enemy.update(delta,
+      counter && counter.attackerId === "enemy" ? motionElapsed :
+      presentation === "windup" ? motionElapsed : undefined);
   }
   movement.update(now);
   effects.update(now);

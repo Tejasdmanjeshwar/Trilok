@@ -64,6 +64,15 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
       throw new Error("Invalid attack range or impact timing: " + id);
     }
     validatePolicy(move.reactionPolicy);
+    const counterPolicy = move.counterPolicy;
+    if (counterPolicy) {
+      if (!["allow", "deny", "override"].includes(counterPolicy.mode) ||
+          (counterPolicy.mode === "override" && !counterPolicy.counterId) ||
+          (counterPolicy.mode !== "override" && counterPolicy.counterId !== undefined) ||
+          (counterPolicy.counterId && !catalog.counters?.[counterPolicy.counterId])) {
+        throw new Error("Invalid move-level perfect counter policy: " + id);
+      }
+    }
     if (move.turnPolicy) validateAttackTurnPolicy(move.turnPolicy);
     validateTimingReferences(move.timingProfileOverrides, catalog, "attack " + id);
     if (move.hits !== undefined) {
@@ -95,6 +104,9 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
     assertId(id);
     if (defense.id !== id || !known(defense.technique, TECHNIQUES)) throw new Error("Invalid defense definition: " + id);
     nonnegative(defense.resourceCost, "defense cost");
+    if (defense.perfectCounterId && !catalog.counters?.[defense.perfectCounterId]) {
+      throw new Error("Defense references an unknown perfect counter: " + defense.id);
+    }
     if (defense.perfectEnergyRefund !== undefined) {
       nonnegative(defense.perfectEnergyRefund, "perfect defense refund");
       if (!Number.isSafeInteger(defense.perfectEnergyRefund) || defense.perfectEnergyRefund > 20) {
@@ -111,6 +123,20 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
     const deliveries = defense.grantsAgainst ?? [];
     if (new Set(deliveries).size !== deliveries.length || deliveries.some(d => !known(d, DELIVERIES))) {
       throw new Error("Invalid granted defense delivery: " + id);
+    }
+  }
+  for (const [id, counter] of Object.entries(catalog.counters ?? {})) {
+    assertId(id);
+    if (counter.id !== id || !["ranged_projectile", "melee_contact"].includes(counter.delivery) ||
+        (counter.delivery === "ranged_projectile" && counter.presentation !== "bow_shot") ||
+        (counter.delivery === "melee_contact" && counter.presentation !== "sword_riposte") ||
+        !Number.isSafeInteger(counter.impactOffsetTicks) ||
+        counter.impactOffsetTicks < 100 || counter.impactOffsetTicks > 10_000 ||
+        !Number.isFinite(counter.damage) || counter.damage <= 0) {
+      throw new Error("Invalid authored counter: " + id);
+    }
+    if (!["pierce", "slash", "blunt", "divine"].includes(counter.damageType)) {
+      throw new Error("Unknown counter damage type: " + id);
     }
   }
   for (const [id, equipment] of Object.entries(catalog.equipment)) {
@@ -167,6 +193,7 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
       damageType: "blunt", targeting: { mode: "actor" },
       turnPolicy: { continuation: "end", maxUsesPerTurn: 1 },
       reactionPolicy: { mode: "inherit", deny: ["weapon_deflect"] },
+      counterPolicy: { mode: "deny" },
       timingProfileOverrides: { dodge: "heavy_dodge" },
     },
   },
@@ -174,6 +201,16 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
     evade: { id: "evade", technique: "dodge", resourceCost: 1, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "dodge" },
     blade_deflect: { id: "blade_deflect", technique: "weapon_deflect", resourceCost: 1, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry", perfectEnergyRefund: 0 },
     countershot: { id: "countershot", technique: "projectile_intercept", resourceCost: 2, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry", perfectEnergyRefund: 0 },
+  },
+  counters: {
+    sword_riposte: {
+      id: "sword_riposte", delivery: "melee_contact", damage: 30,
+      damageType: "slash", impactOffsetTicks: 560, presentation: "sword_riposte",
+    },
+    bow_countershot: {
+      id: "bow_countershot", delivery: "ranged_projectile", damage: 22,
+      damageType: "pierce", impactOffsetTicks: 710, presentation: "bow_shot",
+    },
   },
   timings: {
     // Fallback for authored content that does not yet select delivery defaults.

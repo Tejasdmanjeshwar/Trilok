@@ -21,6 +21,17 @@ export const PREVIEW_CATALOG: CombatCatalog = {
       switchCost: 2,
     },
   },
+  defenses: {
+    ...DEFAULT_COMBAT_CATALOG.defenses,
+    blade_deflect: {
+      ...DEFAULT_COMBAT_CATALOG.defenses.blade_deflect!,
+      perfectCounterId: "sword_riposte",
+    },
+    countershot: {
+      ...DEFAULT_COMBAT_CATALOG.defenses.countershot!,
+      perfectCounterId: "bow_countershot",
+    },
+  },
   attacks: {
     ...DEFAULT_COMBAT_CATALOG.attacks,
     overhead_slash: {
