@@ -71,7 +71,7 @@ describe("v0.4-D3 one continuous projectile clash",()=>{
     expect(result.state.actors.enemy!.hp).toBe(88);
   });
   it("partial: weaker intercept shatters, incoming arrow survives and may hit",()=>{
-    const result=intercept(pending(),PREVIEW_CATALOG,79);
+    const result=intercept(pending(),PREVIEW_CATALOG,-79);
     expect(result.outcome.grade).toBe("partial");
     const clash=result.outcome.projectileClash!;
     expect(clash.verdict).toBe("incoming_survives");
