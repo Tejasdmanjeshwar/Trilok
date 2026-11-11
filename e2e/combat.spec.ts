@@ -67,8 +67,16 @@ test("D13 sustains multiple enemy decisions without a soft-lock",async ({page})=
   for(let turn=0;turn<2;turn++){
     await expect(page.locator("#end-turn")).toBeEnabled({timeout:20000});
     await page.locator("#end-turn").click();
-    await expect(page.locator("#phase")).toContainText("YOUR ACTION",{timeout:30000});
+    // An undefended fighter may legitimately lose after repeated enemy turns.
+    // Victory/defeat are terminal game states, NOT runtime soft-locks.
+    await expect(page.locator("#phase")).toContainText(/YOUR ACTION|DEFEAT/,
+      {timeout:30000});
     await expect(page.locator("#runtime-fault")).toBeHidden();
+    if((await page.locator("#phase").textContent())?.includes("DEFEAT")){
+      await page.locator("#restart").click();
+      await expect(page.locator("#end-turn")).toBeEnabled();
+      await expect(page.locator("#hero-hp")).toContainText("100 / 100");
+    }
   }
   expect(errors).toEqual([]);
 });
