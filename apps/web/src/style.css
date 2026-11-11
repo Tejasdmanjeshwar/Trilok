@@ -356,3 +356,18 @@
 @media(prefers-reduced-motion:reduce){
   .move-card{transition:none}
 }
+
+/* v0.4-D4: physically feasible, timing-driven interception guidance. */
+.timing{overflow:visible;isolation:isolate}
+.timing #timing-fill{position:relative;z-index:1;max-width:100%;opacity:.72}
+.timing #timing-feasible,.timing #timing-perfect{
+  position:absolute;top:-5px;height:18px;right:auto;
+  pointer-events:none;border-radius:2px;box-shadow:none;
+}
+.timing #timing-feasible{background:#79dfb57a;
+  border-left:1px solid #85e5c9;border-right:1px solid #85e5c9;z-index:2}
+.timing #timing-perfect{background:linear-gradient(180deg,#ffe5a6,#d8a84d);
+  box-shadow:0 0 13px #efb95aaf;z-index:3;min-width:3px;}
+.timing #timing-feasible[hidden],.timing #timing-perfect[hidden]{display:none}
+#timing-title{font-family:Georgia,serif;font-variant:small-caps;letter-spacing:.12em}
+#telegraph small{display:block;line-height:1.55;max-width:100%}

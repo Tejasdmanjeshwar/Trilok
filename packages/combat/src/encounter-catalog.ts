@@ -109,6 +109,19 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
     if (defense.id !== id || !known(defense.technique, TECHNIQUES)) throw new Error("Invalid defense definition: " + id);
     nonnegative(defense.resourceCost, "defense cost");
     const clash = defense.projectileInterception;
+    if (clash?.flight) {
+      const flight=clash.flight;
+      if(!Number.isFinite(flight.minSpeed)||flight.minSpeed<0||
+         !Number.isFinite(flight.maxSpeed)||flight.maxSpeed<flight.minSpeed||
+         !Number.isSafeInteger(flight.releaseDelayTicks)||
+         flight.releaseDelayTicks<0||flight.releaseDelayTicks>2000||
+         !Number.isFinite(flight.gravity.x)||!Number.isFinite(flight.gravity.y)||
+         !Number.isFinite(flight.gravity.z)||
+         !Number.isFinite(flight.contactRadiusMeters)||flight.contactRadiusMeters<=0||
+         !Number.isFinite(flight.targetRadiusMeters)||flight.targetRadiusMeters<=0){
+        throw new Error("Invalid interception flight configuration: "+id);
+      }
+    }
     if (clash) {
       if (defense.technique !== "projectile_intercept" ||
           !Number.isFinite(clash.power) || clash.power <= 0 ||

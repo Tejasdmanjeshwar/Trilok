@@ -153,3 +153,5 @@ export { resolveRegionDamage, validateActorTargets, validateTargetCatalog, resol
 export { resolveEffectiveTiming, gradeReactionWindow, validateTimingProfile, validateTimingAdjustments } from "./encounter-timing";
 
 export { calculateProjectileClash } from "./encounter-clash";
+
+export * from "./projectile-motion";

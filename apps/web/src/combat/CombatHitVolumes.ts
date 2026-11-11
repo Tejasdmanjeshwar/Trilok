@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { sampleTrajectory, type ProjectileTrajectory } from "@trilok/combat";
 import type { CombatCatalog, EncounterActor } from "@trilok/combat";
 
 export interface AimSnapshot {
@@ -135,6 +136,43 @@ export class CombatHitVolumes {
       toward,
       maxRange,
     };
+  }
+
+  /**
+   * Continuous-enough fixed-substep contact query, using the SAME trajectory
+   * sampler as the renderer. Collision volumes follow the current rig pose.
+   * No hit is fabricated from an intended region or target position.
+   */
+  impactTrajectory(
+    trajectory:ProjectileTrajectory,startTick:number,endTick:number,
+  ):SpatialImpact {
+    if(!Number.isFinite(startTick)||!Number.isFinite(endTick)||
+       endTick<startTick)throw new Error("Invalid projectile contact interval.");
+    this.rig.updateWorldMatrix(true,true);
+    const previous=new THREE.Vector3();
+    const current=new THREE.Vector3();
+    const sample=sampleTrajectory(trajectory,startTick).position;
+    previous.set(sample.x,sample.y,sample.z);
+    const iterations=Math.max(1,Math.ceil((endTick-startTick)/12));
+    for(let i=1;i<=iterations;i++){
+      const tick=startTick+(endTick-startTick)*i/iterations;
+      const p=sampleTrajectory(trajectory,tick).position;
+      current.set(p.x,p.y,p.z);
+      this.rayDirection.copy(current).sub(previous);
+      const segmentLength=this.rayDirection.length();
+      if(segmentLength>1e-6){
+        this.caster.set(previous,this.rayDirection.multiplyScalar(1/segmentLength));
+        this.caster.near=.001;
+        this.caster.far=segmentLength;
+        const hit=this.firstVisibleHit();
+        if(hit)return {
+          actualRegionId:hit.object.userData.regionId as string,
+          contact:true,impactPoint:hit.point.clone(),
+        };
+      }
+      previous.copy(current);
+    }
+    return {actualRegionId:null,contact:false,impactPoint:current.clone()};
   }
 
   /** Contact is resolved at impact, NOT inferred from the intended region. */

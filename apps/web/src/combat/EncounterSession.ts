@@ -1,16 +1,19 @@
 import {
   endTurn, equipCombatant, getLegalAttackMoves, getLegalEquipmentSwitches,
-  getLegalReactions, gradeReactionV2, queueAttack, resolveReaction, resolveCounter,
+  getLegalReactions, getInterceptionPlan, gradeReactionV2,
+  queueAttack, resolveReaction, resolveCounter,
   resolveProjectileContinuation,
   type CombatCatalog, type EncounterState, type ReactionOption,
   type ReactionResolution, type ReactionTechnique, type CounterResolution,
   type ProjectileContinuationResolution,
+  type ProjectileAttackGeometry, type InterceptionPlan,
 } from "@trilok/combat";
 import { createPreviewEncounter, PREVIEW_CATALOG } from "./preview-encounter";
 
 export interface CapturedDefense {
   readonly moveId: string;
   readonly tick: number;
+  readonly plan?: InterceptionPlan;
 }
 export type DefenseCaptureResult =
   | { readonly accepted: true; readonly option: ReactionOption }
@@ -39,6 +42,9 @@ export class EncounterSession {
     this.state = this.factory();
   }
   get activeDefense(): CapturedDefense | null { return this.selectedDefense; }
+  get activeInterceptionPlan(): InterceptionPlan | null {
+    return this.selectedDefense?.plan ?? null;
+  }
   legalAttacks(targetId: string, distanceMeters: number): readonly string[] {
     return getLegalAttackMoves(this.state, this.catalog, targetId, distanceMeters);
   }
@@ -51,12 +57,14 @@ export class EncounterSession {
   }
   end(actorId: string): void { this.state = endTurn(this.state, actorId); }
   attack(attackerId: string, defenderId: string, moveId: string,
-    distanceMeters: number, nowMs: number, intendedRegionId: string | null = null): void {
+    distanceMeters: number, nowMs: number, intendedRegionId: string | null = null,
+    projectileGeometry?: ProjectileAttackGeometry): void {
     this.selectedDefense = null;
     this.state = queueAttack(this.state, {
       attackerId, defenderId, moveId,
       distanceAtStartMeters: distanceMeters, startedTick: Math.floor(nowMs),
       intendedRegionId,
+      ...(projectileGeometry ? { projectileGeometry } : {}),
     }, this.catalog);
   }
   /**
@@ -80,7 +88,14 @@ export class EncounterSession {
     if (offset > option.timing.lateTicks || gradeReactionV2(offset, option.timing) === "miss") {
       return { accepted: false, reason: "too_late" };
     }
-    this.selectedDefense = { moveId: option.moveId, tick };
+    const plan=option.feasibleWindow
+      ? getInterceptionPlan(this.state,this.catalog,option.moveId,tick)
+      : null;
+    if(option.feasibleWindow && !plan)
+      return {accepted:false,reason:"unavailable"};
+    this.selectedDefense = { moveId: option.moveId, tick,
+      ...(plan ? {plan}:{}),
+    };
     return { accepted: true, option };
   }
 
@@ -129,7 +144,9 @@ export class EncounterSession {
       : undefined;
     const isIntercept = option?.technique === "projectile_intercept" &&
       this.selectedDefense !== null;
-    if (tick < (isIntercept ? option!.clashTick : pending.impactTick)) return null;
+    if (tick < (isIntercept ?
+      this.selectedDefense?.plan?.clashTick ?? option!.clashTick :
+      pending.impactTick)) return null;
     if (!this.selectedDefense) {
       if (pending.defenderId === "hero") {
         const options = this.legalReactions();

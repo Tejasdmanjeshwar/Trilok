@@ -1,5 +1,9 @@
 import * as THREE from "three";
-import type { ProjectileClashVerdict } from "@trilok/combat";
+import {
+  aimBallisticAt, sampleTrajectory, type ProjectileTrajectory,
+  type ProjectileClashVerdict, type Vector3,
+} from "@trilok/combat";
+const plain=(v:THREE.Vector3):Vector3=>({x:v.x,y:v.y,z:v.z});
 
 interface Flight {
   id: string | null;
@@ -12,6 +16,7 @@ interface Flight {
   start: number;
   duration: number;
   flying: boolean;
+  trajectory: ProjectileTrajectory | null;
 }
 function createFlight(color: number): Flight {
   const material=new THREE.MeshStandardMaterial({
@@ -32,7 +37,7 @@ function createFlight(color: number): Flight {
   return {
     id:null,root,trail,from:new THREE.Vector3(),to:new THREE.Vector3(),
     point:new THREE.Vector3(),direction:new THREE.Vector3(),
-    start:0,duration:1,flying:false,
+    start:0,duration:1,flying:false,trajectory:null,
   };
 }
 /**
@@ -86,9 +91,21 @@ export class ProjectileClashEffects {
     const f=this.acquire(id);
     f.from.copy(from); f.to.copy(to);
     f.start=start; f.duration=duration; f.flying=true;
+    f.trajectory=null;
     f.root.visible=f.trail.visible=true;
     this.place(f,start);
   }
+  /** Renderer consumes the same mathematical trajectory as the combat domain. */
+  launchTrajectory(id:string,path:ProjectileTrajectory,now:number):void {
+    const f=this.acquire(id);
+    f.trajectory=path;
+    f.start=path.kind==="ballistic"?path.startTick:path.segments[0]!.startTick;
+    f.duration=1;
+    f.flying=true;
+    f.root.visible=f.trail.visible=true;
+    this.place(f,now);
+  }
+
   /**
    * Redirect a previously launched projectile from its current position.
    * This operation retains the same ID and mesh instance.
@@ -104,12 +121,17 @@ export class ProjectileClashEffects {
     const f=this.find(id);
     if(!f || !f.flying)throw new Error("No in-flight projectile: "+id);
     const t=Math.min(1,Math.max(0,(at-f.start)/f.duration));
+    if(f.trajectory){
+      const position=sampleTrajectory(f.trajectory,at).position;
+      return target.set(position.x,position.y,position.z);
+    }
     return target.copy(f.from).lerp(f.to,t);
   }
   stop(id:string):void{
     const f=this.find(id);
     if(!f)return;
-    f.flying=false;f.id=null;f.root.visible=f.trail.visible=false;
+    f.flying=false;f.id=null;f.trajectory=null;
+    f.root.visible=f.trail.visible=false;
   }
   clash(
     incomingId:string,interceptorId:string,
@@ -131,14 +153,23 @@ export class ProjectileClashEffects {
     }
   }
   clear():void{
-    for(const f of this.flights){f.id=null;f.flying=false;f.root.visible=f.trail.visible=false;}
+    for(const f of this.flights){
+      f.id=null;f.flying=false;f.trajectory=null;
+      f.root.visible=f.trail.visible=false;
+    }
     this.burstAt=-1;this.ring.visible=false;
     for(const shard of this.shards)shard.visible=false;
   }
   private place(f:Flight,now:number):void{
-    const t=Math.min(1,Math.max(0,(now-f.start)/f.duration));
-    f.root.position.copy(f.from).lerp(f.to,t);
-    f.direction.copy(f.to).sub(f.from).normalize();
+    if(f.trajectory){
+      const sample=sampleTrajectory(f.trajectory,now);
+      f.root.position.set(sample.position.x,sample.position.y,sample.position.z);
+      f.direction.set(sample.velocity.x,sample.velocity.y,sample.velocity.z).normalize();
+    }else{
+      const t=Math.min(1,Math.max(0,(now-f.start)/f.duration));
+      f.root.position.copy(f.from).lerp(f.to,t);
+      f.direction.copy(f.to).sub(f.from).normalize();
+    }
     f.root.quaternion.setFromUnitVectors(this.up,f.direction);
   }
   update(now:number):void{
@@ -149,7 +180,12 @@ export class ProjectileClashEffects {
       const positions=f.trail.geometry.getAttribute("position") as THREE.BufferAttribute;
       for(let i=0;i<9;i++){
         const t0=Math.max(0,t-(8-i)*.015);
-        f.point.copy(f.from).lerp(f.to,t0);
+        if(f.trajectory){
+          const pos=sampleTrajectory(f.trajectory,Math.max(f.start,now-(8-i)*14)).position;
+          f.point.set(pos.x,pos.y,pos.z);
+        }else{
+          f.point.copy(f.from).lerp(f.to,t0);
+        }
         positions.setXYZ(i,f.point.x,f.point.y,f.point.z);
       }
       positions.needsUpdate=true;

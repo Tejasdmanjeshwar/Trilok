@@ -37,6 +37,11 @@ export const PREVIEW_CATALOG: CombatCatalog = {
         continuationTicks: 460, continuationDamage: 22,
         deadband: 1,
         gradePower: { perfect: 1, good: .76, partial: .36, miss: 0 },
+        flight:{
+          minSpeed:6,maxSpeed:92,releaseDelayTicks:80,
+          gravity:{x:0,y:-9.81,z:0},
+          contactRadiusMeters:.16,targetRadiusMeters:.85,
+        },
       },
     },
   },

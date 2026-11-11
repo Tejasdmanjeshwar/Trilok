@@ -1,3 +1,4 @@
+import type { InterceptionPlan } from "./projectile-motion";
 import type {
   CombatCatalog, PendingAttack, DefenseSpec, ReactionGradeV2,
   ProjectileClash, PendingProjectileContinuation, AttackSpec,
@@ -21,6 +22,7 @@ export function calculateProjectileClash(
   grade: ReactionGradeV2,
   catalog: CombatCatalog,
   clashTick: number,
+  plan: InterceptionPlan | null = null,
 ): ProjectileClash {
   const spec = defense.projectileInterception;
   if (!spec || defense.technique !== "projectile_intercept" ||
@@ -60,6 +62,8 @@ export function calculateProjectileClash(
       damageType: pending.damageType,
       targeting: pending.targeting,
       intendedRegionId: pending.intendedRegionId,
+      ...(pending.projectileGeometry ?
+        {trajectory:pending.projectileGeometry.incoming}:{}),
     };
   } else if (verdict === "interceptor_survives" &&
       attack.counterPolicy?.mode !== "deny") {
@@ -75,12 +79,14 @@ export function calculateProjectileClash(
       defenderId: pending.attackerId,
       moveId: defense.id,
       startedTick: clashTick,
-      impactTick: clashTick + spec.continuationTicks,
+      impactTick: plan?.continuationClosestTick ??
+        clashTick + spec.continuationTicks,
       damage: Math.max(1, Math.round((override?.damage ?? spec.continuationDamage) *
         (.65 + .35 * Math.min(1.5, remainingPower / incomingPower)))),
       damageType: override?.damageType ?? "pierce",
       targeting: { mode: "actor" },
       intendedRegionId: null,
+      ...(plan ? {trajectory:plan.flight}:{}),
     };
   }
   return {
@@ -91,5 +97,6 @@ export function calculateProjectileClash(
     defenseMoveId: defense.id,
     clashTick, incomingPower, interceptorPower, remainingPower,
     verdict, survivingProjectileId, continuation,
+    ...(plan ? {interceptionPlan:plan}:{}),
   };
 }

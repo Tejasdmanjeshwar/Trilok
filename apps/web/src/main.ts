@@ -1,5 +1,10 @@
 import * as THREE from "three";
-import type { ReactionResolution, PendingCounter, ProjectileClash } from "@trilok/combat";
+import {
+  aimBallisticAt, sampleTrajectory,
+  type ProjectileTrajectory, type ProjectileAttackGeometry,
+  type InterceptionPlan,
+  type ReactionResolution, type PendingCounter, type ProjectileClash,
+} from "@trilok/combat";
 import { EnemyCombatBrain, ENEMY_PROFILES, type DefenseIntent } from "@trilok/combat-ai";
 import { SequencePlayer } from "@trilok/choreography";
 import { createArena, type ArenaInstance, type ArenaQuality } from "./world/arena";
@@ -44,7 +49,7 @@ host.innerHTML = [
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
   '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p></section>',
-  '<section id="telegraph" class="telegraph"><b>⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i></i></div><small>PARRY AT THE FLASH</small></section>',
+  '<section id="telegraph" class="telegraph"><b id="timing-title">⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i id="timing-feasible"></i><i id="timing-perfect"></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
   '<section class="command-panel" aria-label="Combat command deck">',
   '<div class="command-heading"><span class="command-ornament">✦</span><div><b>CHOOSE YOUR ACTION</b><small>THE WARRIOR’S DECREE</small></div><span class="command-key">Q · CYCLE</span></div>',
@@ -120,6 +125,9 @@ const enemyBar = query<HTMLElement>("#enemy-bar");
 const telegraph = query<HTMLElement>("#telegraph");
 const defenseHint = query<HTMLElement>("#telegraph small");
 const timingFill = query<HTMLElement>("#timing-fill");
+const timingFeasible = query<HTMLElement>("#timing-feasible");
+const timingPerfect = query<HTMLElement>("#timing-perfect");
+const timingTitle = query<HTMLElement>("#timing-title");
 const feedback = query<HTMLElement>("#feedback");
 const loading = query<HTMLElement>("#loading");
 
@@ -201,6 +209,8 @@ let pendingSpatialImpact: SpatialImpact | null = null;
 let followthroughAim: AimSnapshot | null = null;
 let incomingProjectileId: string | null = null;
 let interceptorProjectileId: string | null = null;
+let pendingInterceptRelease: { id:string; plan:InterceptionPlan } | null = null;
+let lastClashTick=0;
 const clashPoint = new THREE.Vector3();
 const projectileTarget = new THREE.Vector3();
 let impactWorldPoint: THREE.Vector3 | null = null;
@@ -327,7 +337,26 @@ function updateHud(): void {
     "ms · " + dodge.resourceCost + " EN");
   if (parry) hints.push(parryName + " " + (parry.timing.earlyTicks + parry.timing.lateTicks) +
     "ms · " + parry.resourceCost + " EN");
-  defenseHint.textContent = hints.length ? hints.join(" · ") + " AT IMPACT" : "NO LEGAL DEFENSE";
+  const window=parry?.feasibleWindow;
+  timingFeasible.hidden=!window;
+  timingPerfect.hidden=!window;
+  if(window&&state.pending){
+    const start=state.pending.startedTick;
+    const length=Math.max(1,state.pending.impactTick-start);
+    const percent=(tick:number)=>Math.max(0,Math.min(100,(tick-start)/length*100));
+    timingFeasible.style.left=percent(window.firstTick)+"%";
+    timingFeasible.style.width=(percent(window.lastTick)-percent(window.firstTick))+"%";
+    timingPerfect.style.left=percent(window.perfectStartTick)+"%";
+    timingPerfect.style.width=Math.max(1.2,
+      percent(window.perfectEndTick)-percent(window.perfectStartTick))+"%";
+    timingTitle.textContent="➶ INTERCEPT THE INCOMING ARROW";
+    defenseHint.textContent="FIRE INSIDE GOLD · "+(window.preferredDualTarget
+      ? "COUNTER TRAJECTORY POSSIBLE" : "INTERCEPT TRAJECTORY POSSIBLE")+
+      " · "+parry!.resourceCost+" ENERGY";
+  }else{
+    timingTitle.textContent="⚔ INCOMING STRIKE";
+    defenseHint.textContent=hints.length?hints.join(" · ")+" AT IMPACT":"NO LEGAL DEFENSE";
+  }
   telegraph.classList.toggle("show", presentation === "windup");
   hero.root.visible = true;
   enemy.root.visible = true;
@@ -340,6 +369,38 @@ function sequenceFor(moveId: string) {
     return ARCHERY_ATTACK;
   }
   return MELEE_ATTACK;
+}
+
+/** One immutable snapshot shared by the reaction planner, renderer and hit test. */
+function projectileGeometry(
+  attacker:AnimatedWarrior, defender:AnimatedWarrior,
+  startTick:number,aimAt?:THREE.Vector3,
+):ProjectileAttackGeometry {
+  const origin=attacker.socketWorld(new THREE.Vector3());
+  const defenderHit=defender===hero?heroHitVolumes:enemyHitVolumes;
+  const attackerHit=attacker===hero?heroHitVolumes:enemyHitVolumes;
+  const destination=aimAt ?? defenderHit.worldCenter("torso",new THREE.Vector3());
+  const stationaryTarget=attackerHit.worldCenter("torso",new THREE.Vector3());
+  const plain=(v:THREE.Vector3)=>({x:v.x,y:v.y,z:v.z});
+  return {
+    incoming:aimBallisticAt(startTick+715,plain(origin),plain(destination),
+      startTick+1150,{x:0,y:-9.81,z:0}),
+    defenderLaunchOrigin:plain(defender.socketWorld(new THREE.Vector3())),
+    attackerPosition:{
+      kind:"ballistic",startTick,
+      origin:plain(stationaryTarget),
+      velocity:{x:0,y:0,z:0},
+      acceleration:{x:0,y:0,z:0},
+    },
+  };
+}
+
+function releaseScheduledInterception(now:number):void {
+  const pending=pendingInterceptRelease;
+  if(!pending||now<pending.plan.releaseTick)return;
+  pendingInterceptRelease=null;
+  projectiles.launchTrajectory(pending.id,pending.plan.flight,now);
+  sound.play("release");
 }
 
 function startPlayerAttack(now = performance.now()): void {
@@ -361,7 +422,9 @@ function startPlayerAttack(now = performance.now()): void {
         : null;
     session.attack("hero", "enemy", moveId,
       movement.separation(hero.root, enemy.root), now,
-      manualAim ? candidate?.regionId ?? null : null);
+      manualAim ? candidate?.regionId ?? null : null,
+      move.delivery==="ranged_projectile" ?
+        projectileGeometry(hero,enemy,Math.floor(now),candidate?.toward) : undefined);
     shotSnapshot = candidate;
     impactWorldPoint = null;
     pendingSpatialImpact = null;
@@ -386,6 +449,7 @@ function startPlayerAttack(now = performance.now()): void {
   incomingProjectileId = null;
   interceptorProjectileId = null;
   followthroughAim = null;
+  pendingInterceptRelease=null;
   sound.play(move.delivery === "melee_contact" ? "step" : "draw");
   lastMessage = (MOVE_NAMES[moveId] ?? moveId) + " committed. " +
     move.resourceCost + " Energy spent.";
@@ -399,10 +463,13 @@ function showEnemyIntent(text: string): void {
 
 function beginEnemyAttack(moveId: string, now: number): void {
   const move = session.catalog.attacks[moveId]!;
-  session.attack("enemy", "hero", moveId, movement.separation(enemy.root, hero.root), now);
-  shotSnapshot = move.delivery === "ranged_projectile"
-    ? heroHitVolumes.snapshot(enemy.socketWorld(heroSocket), "torso", move.reachMeters)
+  const enemyShot=move.delivery==="ranged_projectile"
+    ? heroHitVolumes.snapshot(enemy.socketWorld(heroSocket),"torso",move.reachMeters)
     : null;
+  session.attack("enemy", "hero", moveId,
+    movement.separation(enemy.root, hero.root), now, null,
+    enemyShot?projectileGeometry(enemy,hero,Math.floor(now),enemyShot.toward):undefined);
+  shotSnapshot=enemyShot;
   impactWorldPoint = null;
   pendingSpatialImpact = null;
   enemyBrain.markCommitted();
@@ -411,6 +478,7 @@ function beginEnemyAttack(moveId: string, now: number): void {
   incomingProjectileId = null;
   interceptorProjectileId = null;
   followthroughAim = null;
+  pendingInterceptRelease=null;
   setPhase("windup", "defense", now);
   const sequence = moveId === "overhead_slash" ? ENEMY_STRIKE : sequenceFor(moveId);
   choreography.start(sequence, now);
@@ -504,34 +572,17 @@ function activeIncomingId(): string | null {
  * once, from its actual bow socket, aimed at the incoming flight's projected
  * clash location. No animation or arrow is created after a perfect clash.
  */
-function launchInterception(defenderId: "hero" | "enemy", releaseTick: number): void {
-  const pending = session.state.pending;
-  const incomingId = activeIncomingId();
-  if (!pending || !incomingId) return;
-  const option = session.legalReactions().find(x => x.technique === "projectile_intercept");
-  if (!option) return;
-  const actor = defenderId === "hero" ? hero : enemy;
-  interceptorProjectileId = "intercept:" + defenderId + ":" +
-    pending.startedTick + ":" + pending.hits[pending.hitIndex]!.id;
-  // The incoming arrow was released earlier in its attack choreography.
-  // Using the SAME world position for both flights guarantees a visual clash.
-  try {
-    projectiles.position(incomingId,option.clashTick,clashPoint);
-  } catch {
-    // If a frame skips the original release cue, reconstruct from known endpoints.
-    const attacker = pending.attackerId === "hero" ? hero : enemy;
-    attacker.socketWorld(heroSocket);
-    const defender = defenderId === "hero" ? hero : enemy;
-    defender.root.getWorldPosition(targetPoint);targetPoint.y += 1.7;
-    const originalRelease = pending.startedTick + 715;
-    projectiles.launch(incomingId,heroSocket,targetPoint,originalRelease,
-      Math.max(1,pending.impactTick-originalRelease));
-    projectiles.position(incomingId,option.clashTick,clashPoint);
-  }
-  actor.socketWorld(heroSocket);
-  projectiles.launch(interceptorProjectileId,heroSocket,clashPoint,
-    releaseTick,Math.max(1,option.clashTick-releaseTick));
-  sound.play("release");
+function launchInterception(defenderId:"hero"|"enemy",inputTick:number):void {
+  const pending=session.state.pending;
+  const plan=session.activeInterceptionPlan;
+  const incomingId=activeIncomingId();
+  if(!pending||!plan||!incomingId)return;
+  interceptorProjectileId="intercept:"+defenderId+":"+
+    pending.startedTick+":"+pending.hits[pending.hitIndex]!.id;
+  // The original arrow is already moving along the exact ballistic model.
+  // The defender's one authored release will follow this solved intercept arc.
+  pendingInterceptRelease={id:interceptorProjectileId,plan};
+  releaseScheduledInterception(inputTick);
 }
 
 function attemptDefense(kind: "dodge" | "parry"): void {
@@ -599,6 +650,7 @@ function reset(): void {
   incomingProjectileId = null;
   interceptorProjectileId = null;
   followthroughAim = null;
+  pendingInterceptRelease=null;
   visualFeedback.reset();
   movement.reset();
   session.reset();
@@ -627,7 +679,13 @@ function reset(): void {
  */
 function playProjectileClash(clash: ProjectileClash, now: number): void {
   const time=clash.clashTick;
-  projectiles.position(clash.incomingProjectileId,time,clashPoint);
+  lastClashTick=time;
+  const computedPoint=clash.interceptionPlan?.clashPoint;
+  if(computedPoint){
+    clashPoint.set(computedPoint.x,computedPoint.y,computedPoint.z);
+  }else{
+    projectiles.position(clash.incomingProjectileId,time,clashPoint);
+  }
   projectiles.clash(clash.incomingProjectileId,clash.interceptorProjectileId,
     clash.verdict,clashPoint,now);
   visualFeedback.emit("intercept",clashPoint,now,0,false);
@@ -639,12 +697,17 @@ function playProjectileClash(clash: ProjectileClash, now: number): void {
     const hitVolumes=continued.defenderId==="hero" ? heroHitVolumes : enemyHitVolumes;
     target.root.getWorldPosition(projectileTarget);
     projectileTarget.y+=1.7;
-    followthroughAim=continued.source==="incoming"
-      ? shotSnapshot
-      : hitVolumes.snapshot(clashPoint,"torso",36);
-    const destination=followthroughAim?.toward ?? projectileTarget;
-    projectiles.continue(continued.projectileId,destination,
-      time,Math.max(1,continued.impactTick-time));
+    // Solved projectile flight continues unchanged, with the SAME object,
+    // velocity, gravity and ID. Never redirect to the opponent after clash.
+    if(continued.trajectory){
+      followthroughAim=null;
+    }else{
+      followthroughAim=continued.source==="incoming"
+        ? shotSnapshot : hitVolumes.snapshot(clashPoint,"torso",36);
+      const destination=followthroughAim?.toward ?? projectileTarget;
+      projectiles.continue(continued.projectileId,destination,
+        time,Math.max(1,continued.impactTick-time));
+    }
     setPhase("projectile","counter",now);
     choreography.cancel();
     lastMessage=continued.source==="interceptor"
@@ -673,7 +736,9 @@ function finishSurvivingProjectile(now:number):void {
   const pending=session.state.pendingProjectile;
   if(!pending || presentation!=="projectile" || now<pending.impactTick)return;
   const hitVolumes=pending.defenderId==="hero" ? heroHitVolumes : enemyHitVolumes;
-  const spatial=followthroughAim ? hitVolumes.impact(followthroughAim) : undefined;
+  const spatial=pending.trajectory
+    ? hitVolumes.impactTrajectory(pending.trajectory,lastClashTick,pending.impactTick)
+    : followthroughAim ? hitVolumes.impact(followthroughAim) : undefined;
   const from=pending.attackerId==="hero" ? hero : enemy;
   const to=pending.defenderId==="hero" ? hero : enemy;
   const result=session.projectileIfReady(now,{
@@ -831,7 +896,8 @@ function landPlayerHit(now: number): void {
   const intercept=session.activeDefense
     ? session.legalReactions().find(x=>x.moveId===session.activeDefense!.moveId &&
         x.technique==="projectile_intercept") : undefined;
-  if (now < (intercept?.clashTick ?? pending.impactTick)) return;
+  if (now < (session.activeInterceptionPlan?.clashTick ??
+    intercept?.clashTick ?? pending.impactTick)) return;
   const move = session.catalog.attacks[pending.moveId]!;
   const waitingForDefense = applyEnemyDefense(now);
   const distance = movement.separationForHit(hero.root, enemy.root);
@@ -859,7 +925,8 @@ function finishEnemyImpact(now: number): void {
   const intercept=session.activeDefense
     ? session.legalReactions().find(x=>x.moveId===session.activeDefense!.moveId &&
         x.technique==="projectile_intercept") : undefined;
-  if(now < (intercept?.clashTick ?? pending.impactTick)) return;
+  if(now < (session.activeInterceptionPlan?.clashTick ??
+    intercept?.clashTick ?? pending.impactTick)) return;
   const distance = movement.separationForHit(enemy.root, hero.root);
   if (!intercept && !pendingSpatialImpact && shotSnapshot)
     pendingSpatialImpact = heroHitVolumes.impact(shotSnapshot);
@@ -904,8 +971,12 @@ function onCue(cue: CombatCue, at: number, now: number): void {
       const id=activeIncomingId();
       if(!id)break;
       incomingProjectileId=id;
-      projectiles.launch(id,heroSocket,shotSnapshot?.toward ?? targetPoint,
-        at,Math.max(1,pending.impactTick-at));
+      if(pending.projectileGeometry){
+        projectiles.launchTrajectory(id,pending.projectileGeometry.incoming,at);
+      }else{
+        projectiles.launch(id,heroSocket,shotSnapshot?.toward ?? targetPoint,
+          at,Math.max(1,pending.impactTick-at));
+      }
       sound.play("release");
       break;
     }
@@ -1001,6 +1072,7 @@ function frame(now: number): void {
     enterNextTurn(now);
   }
   movement.update(now);
+  releaseScheduledInterception(now);
   const sequenceId = choreography.sequenceId;
   const sample = choreography.advance(now);
   if (sample) {
@@ -1031,6 +1103,7 @@ function frame(now: number): void {
   if (presentation === "attack" && session.state.pending?.attackerId === "hero") {
     // The enemy's arrow must launch BEFORE the clash, not when damage is due.
     applyEnemyDefense(now);
+    releaseScheduledInterception(now);
     landPlayerHit(now);
   }
   if (presentation === "attack" && !choreography.running && session.state.pending === null) {
@@ -1043,6 +1116,7 @@ function frame(now: number): void {
     const length = pending ? pending.impactTick - pending.startedTick : 1;
     timingFill.style.width = Math.min(100, Math.max(0,
       (now - phaseAt) / length * 100)) + "%";
+    releaseScheduledInterception(now);
     finishEnemyImpact(now);
   } else {
     timingFill.style.width = "0%";

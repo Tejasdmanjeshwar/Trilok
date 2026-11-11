@@ -2,12 +2,16 @@ import type {
   AttackDelivery, CombatCatalog, CombatantId, EncounterActor, EncounterState,
   ReactionOption, ReactionPolicyOverride, ReactionResolution, ReactionTechnique,
   TimingAdjustments, PendingHit, AttackHitSpec, EncounterRules, DamageType,
-  PendingCounter, CounterResolution, ProjectileContinuationResolution,
+  PendingCounter, CounterResolution, ProjectileContinuationResolution, ProjectileAttackGeometry,
 } from "./encounter-types";
 import { validateCombatCatalog } from "./encounter-catalog";
 import { gradeReactionWindow, resolveEffectiveTiming, validateTimingAdjustments } from "./encounter-timing";
 import { resolveDefaultRegion, resolveRegionDamage, validateActorTargets } from "./encounter-damage";
 import { calculateProjectileClash } from "./encounter-clash";
+import {
+  findInterceptionWindow, planInterception, sampleTrajectory,
+  type InterceptionMove, type InterceptionPlan, type InterceptionWindow,
+} from "./projectile-motion";
 import {
   emptyTurnBudget, LEGACY_ENCOUNTER_RULES, mayContinueTurn, recordAttackAction,
   transitionTurn, validateEncounterRules,
@@ -174,6 +178,8 @@ export interface QueueAttackInput {
   readonly reactionTiming?: TimingAdjustments;
   /** Stable desired target; never inferred to be the actual impacted region. */
   readonly intendedRegionId?: string | null;
+  /** Pure snapshots supplied by a spatial adapter, optional for legacy matches. */
+  readonly projectileGeometry?: ProjectileAttackGeometry;
 }
 
 /**
@@ -220,17 +226,47 @@ export function queueAttack(
     const impactTick = input.startedTick + hit.offsetTicks;
     if (!validTick(impactTick)) throw new Error("Invalid attack impact tick.");
     const timingByDefenseId: Record<string, ReturnType<typeof resolveEffectiveTiming>> = {};
+    const interceptionWindows: Record<string, InterceptionWindow> = {};
     for (const defenseId of defenseIds) {
       const defense = catalog.defenses[defenseId];
       if (!defense) throw new Error("Equipped defense is absent from the catalog.");
       timingByDefenseId[defenseId] =
         resolveEffectiveTiming(move, defense, catalog, adjustments, hit);
+      const flight = defense.projectileInterception?.flight;
+      if (flight && input.projectileGeometry && move.delivery === "ranged_projectile") {
+        const geometry = input.projectileGeometry;
+        const config: InterceptionMove = {
+          minSpeed: flight.minSpeed, maxSpeed: flight.maxSpeed,
+          releaseDelayTicks: flight.releaseDelayTicks,
+          acceleration: flight.gravity,
+          earliestClashTick: input.startedTick + 720,
+          latestClashTick: impactTick - 30,
+          continuationHorizonTicks: 900,
+          targetRadiusMeters: flight.targetRadiusMeters,
+          contactRadiusMeters: flight.contactRadiusMeters,
+        };
+        const window = findInterceptionWindow({
+          attackStartedTick: input.startedTick, attackImpactTick: impactTick,
+          earliestInputTick: input.startedTick + 700,
+          latestInputTick: impactTick - flight.releaseDelayTicks - 38,
+          inputStepTicks: 6,
+          base: {
+            incoming: geometry.incoming,
+            launchOrigin: geometry.defenderLaunchOrigin,
+            targetAtTick: tick => sampleTrajectory(geometry.attackerPosition,tick).position,
+            move: config,
+          },
+        });
+        if (window) interceptionWindows[defenseId] = window;
+      }
     }
     return {
       id: hit.id,
       impactTick,
       damageMultiplier: hit.damageMultiplier ?? 1,
       timingByDefenseId,
+      ...(Object.keys(interceptionWindows).length ?
+        { interceptionWindows } : {}),
     };
   });
   const next = withActor(state, { ...attacker, resource: attacker.resource - move.resourceCost });
@@ -249,6 +285,7 @@ export function queueAttack(
       targeting: { ...targeting },
       intendedRegionId,
       damageType: (move.damageType ?? "blunt") as DamageType,
+      ...(input.projectileGeometry ? { projectileGeometry: input.projectileGeometry } : {}),
       impactTick: hits[0]!.impactTick,
     },
   };
@@ -303,20 +340,80 @@ export function getLegalReactions(
     if (!timing) throw new Error("Missing snapshotted timing for equipped reaction.");
     const clash = move.technique === "projectile_intercept" && attack.delivery === "ranged_projectile"
       ? move.projectileInterception : undefined;
-    const targetTick = hit!.impactTick - (clash?.launchLeadTicks ?? 0);
-    const clashTick = hit!.impactTick - (clash?.clashLeadTicks ?? 0);
+    const computedWindow = clash?.flight && pending.projectileGeometry
+      ? hit?.interceptionWindows?.[move.id] : undefined;
+    if (clash?.flight && pending.projectileGeometry && !computedWindow) return [];
+    const targetTick = computedWindow?.recommendedTick ??
+      hit!.impactTick - (clash?.launchLeadTicks ?? 0);
+    const recommendedPlan = computedWindow && clash?.flight && pending.projectileGeometry
+      ? solveInterceptionPlan(pending, move, targetTick, hit!.impactTick)
+      : null;
+    const clashTick = recommendedPlan?.clashTick ??
+      hit!.impactTick - (clash?.clashLeadTicks ?? 0);
     if (clash && (targetTick < pending.startedTick || clashTick <= targetTick)) return [];
+    const effectiveTiming = computedWindow ? {
+      ...timing,
+      earlyTicks: targetTick-computedWindow.firstTick,
+      lateTicks: computedWindow.lastTick-targetTick,
+      perfectTicks: Math.max(0,Math.min(
+        targetTick-computedWindow.perfectStartTick,
+        computedWindow.perfectEndTick-targetTick,
+      )),
+      goodTicks: Math.max(0,Math.min(70,
+        Math.max(targetTick-computedWindow.firstTick,
+          computedWindow.lastTick-targetTick))),
+    } : timing;
     return [{
       moveId: move.id,
       technique: move.technique,
       resourceCost: uses === 0 ? 0 : move.resourceCost,
       timingProfileId: timing.sourceProfileId,
-      timing,
+      timing: effectiveTiming,
       targetTick,
       clashTick,
+      ...(computedWindow ? {feasibleWindow:computedWindow} : {}),
       outcomeProfileId: move.outcomeProfileId,
     }];
   });
+}
+
+/** Shared by the core, browser and AI: exact planning for a committed input tick. */
+function solveInterceptionPlan(
+  pending: NonNullable<EncounterState["pending"]>,
+  move: NonNullable<CombatCatalog["defenses"][string]>,
+  inputTick: number,
+  impactTick: number,
+): InterceptionPlan | null {
+  const spec=move.projectileInterception?.flight;
+  const geometry=pending.projectileGeometry;
+  if(!spec||!geometry)return null;
+  return planInterception({
+    incoming:geometry.incoming,inputTick,
+    launchOrigin:geometry.defenderLaunchOrigin,
+    targetAtTick: tick=>sampleTrajectory(geometry.attackerPosition,tick).position,
+    move:{
+      minSpeed:spec.minSpeed,maxSpeed:spec.maxSpeed,
+      acceleration:spec.gravity,releaseDelayTicks:spec.releaseDelayTicks,
+      earliestClashTick:pending.startedTick+720,
+      latestClashTick:impactTick-30,
+      continuationHorizonTicks:900,
+      contactRadiusMeters:spec.contactRadiusMeters,
+      targetRadiusMeters:spec.targetRadiusMeters,
+    },
+  });
+}
+export function getInterceptionPlan(
+  state: EncounterState,catalog:CombatCatalog,
+  defenseMoveId:string,inputTick:number,
+): InterceptionPlan|null {
+  const pending=state.pending;
+  const move=catalog.defenses[defenseMoveId];
+  if(!pending||!move?.projectileInterception?.flight ||
+    !pending.projectileGeometry)return null;
+  const option=getLegalReactions(state,catalog).find(x=>x.moveId===defenseMoveId);
+  if(!option?.feasibleWindow||inputTick<option.feasibleWindow.firstTick||
+     inputTick>option.feasibleWindow.lastTick)return null;
+  return solveInterceptionPlan(pending,move,inputTick,pending.impactTick);
 }
 
 export interface ResolveReactionInput {
@@ -543,13 +640,20 @@ export function resolveReaction(
     if (!chosen) throw new Error("Unavailable or illegal defense move.");
     if (input.reactionTick === null) throw new Error("Selected defense requires an input timestamp.");
   }
+  const trajectoryPlan = chosen && input.reactionTick!==null
+    ? getInterceptionPlan(state,catalog,chosen.moveId,input.reactionTick)
+    : null;
+  if(chosen?.feasibleWindow && !trajectoryPlan){
+    throw new Error("Reaction trajectory is not physically feasible at input time.");
+  }
   const grade = chosen
     ? gradeReactionWindow(input.reactionTick! - chosen.targetTick, chosen.timing)
     : "miss";
   const isClash = chosen?.technique === "projectile_intercept" &&
     attack.delivery === "ranged_projectile" && grade !== "miss" &&
     catalog.defenses[chosen.moveId]?.projectileInterception !== undefined;
-  const earliestResolution = isClash ? chosen!.clashTick : pending.impactTick;
+  const earliestResolution = isClash ?
+    trajectoryPlan?.clashTick ?? chosen!.clashTick : pending.impactTick;
   if (input.resolvedTick < earliestResolution) {
     throw new Error("Attack cannot resolve before its clash or impact tick.");
   }
@@ -579,7 +683,7 @@ export function resolveReaction(
   }, catalog);
   const clash = isClash ? calculateProjectileClash(
     pending, attack, catalog.defenses[chosen!.moveId]!, grade,
-    catalog, chosen!.clashTick,
+    catalog, trajectoryPlan?.clashTick ?? chosen!.clashTick,trajectoryPlan,
   ) : null;
   const breakdown = clash ? {
     ...rawBreakdown, reasons: ["projectile_clash", clash.verdict],
