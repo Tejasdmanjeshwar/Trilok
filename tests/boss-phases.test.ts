@@ -31,9 +31,10 @@ describe("D14 miniboss phase transitions",()=>{
     expect(director.advance({...ready,activeActorId:"hero"})).toBeNull();
     expect(director.advance({...ready,phase:"reaction"})).toBeNull();
     expect(director.advance({...ready,pendingCounter:{
-      attackerId:"hero",defenderId:"enemy",moveId:"sword_riposte",
-      startedTick:100,impactTick:400,
-    } as EncounterState["pendingCounter"]})).toBeNull();
+      id:"test-riposte",attackerId:"hero",defenderId:"enemy",
+      startedTick:100,impactTick:400,damage:12,damageType:"slash",
+      delivery:"melee_contact",presentation:"sword_riposte",
+    }})).toBeNull();
     expect(director.advance({...ready,pendingProjectile:{
       projectileId:"arrow",attackerId:"hero",defenderId:"enemy",impactTick:400,
     } as EncounterState["pendingProjectile"]})).toBeNull();
