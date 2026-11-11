@@ -20,6 +20,7 @@ import { ImpactEffectDirector, type ImpactVisualContext } from "./feedback/Impac
 import { CombatAudio } from "./feedback/CombatAudio";
 import { ARCHERY_REACTION, SWORD_RIPOSTE_COUNTER, type CombatCue } from "./combat/sequences";
 import { presentationForAttack } from "./combat/attack-presentation";
+import { meleeHitStopMs, type MeleeStyle } from "./combat/MeleeFeel";
 import { BufferedDefense } from "./combat/BufferedDefense";
 import { CombatRuntimeGuard, type RuntimeSnapshot } from "./combat/CombatRuntimeGuard";
 import { EncounterSession } from "./combat/EncounterSession";
@@ -493,6 +494,7 @@ function startPlayerAttack(now = performance.now()): void {
     session.state, session.catalog, "enemy", Math.floor(now));
   enemyIntent = plannedEnemyDefense ? "DEFENSE READY" : "WATCHING ATTACK";
   const presentationPlan = presentationForAttack(move);
+  if (presentationPlan.feel) director.anticipate(presentationPlan.feel.cameraFocus);
   setPhase("attack", "attack", now);
   choreography.start(presentationPlan.sequence, now);
   if (move.delivery === "melee_contact") {
@@ -508,7 +510,7 @@ function startPlayerAttack(now = performance.now()): void {
   interceptorProjectileId = null;
   followthroughAim = null;
   pendingInterceptRelease=null;
-  sound.play(move.delivery === "melee_contact" ? "slash" : "draw");
+  sound.play(presentationPlan.feel?.windupSound ?? "draw");
   lastMessage = (MOVE_NAMES[moveId] ?? moveId) + " committed. " +
     move.resourceCost + " Energy spent.";
   updateHud();
@@ -540,13 +542,14 @@ function beginEnemyAttack(moveId: string, now: number): void {
   followthroughAim = null;
   pendingInterceptRelease=null;
   const presentationPlan = presentationForAttack(move);
+  if (presentationPlan.feel) director.anticipate(presentationPlan.feel.cameraFocus);
   setPhase("windup", "defense", now);
   choreography.start(presentationPlan.sequence, now);
   if (move.delivery === "melee_contact") {
     movement.approach(enemy.root, hero.root, move.reachMeters, now,
       presentationPlan.approachDurationMs);
     dust(enemy, now);
-    sound.play("slash");
+    sound.play(presentationPlan.feel?.windupSound ?? "melee_ready");
     enemy.play(presentationPlan.motion);
     showEnemyIntent("MELEE · " + moveId.replaceAll("_", " ").toUpperCase());
     lastMessage = "Rakshasa melee attack incoming. React at the impact!";
@@ -723,6 +726,7 @@ function reset(): void {
   runtimeGuard.reset();
   defenseBuffer.clear();
   choreography.cancel();
+  director.resetAccents();
   effects.clear();
   projectiles.clear();
   surfaceMarks.clear();
@@ -778,10 +782,16 @@ function presentConfirmedHit(
   target.play(breakdown.critical?"hit_heavy":
     region==="head"?"hit_head":
     region==="left_arm"||region==="right_arm"?"hit_arm":"hit");
-  const heavy = breakdown.moveId === "heavy_crush" ||
-    breakdown.moveId === "rakshasa_heavy";
-  sound.play(heavy ? "clash" : "hit");
-  director.impact(heavy ? .30 : breakdown.critical ? .23 : isHero ? .15 : .12);
+  const move=session.catalog.attacks[breakdown.moveId];
+  const feel=move?.delivery==="melee_contact" ? presentationForAttack(move).feel : null;
+  if(feel){
+    sound.play(feel.contactSound);
+    visualFeedback.holdImpact(now,meleeHitStopMs(feel,breakdown.critical,false,reduceMotion));
+    director.impact(feel.cameraShake+(breakdown.critical?.03:0),feel.cameraFocus);
+  }else{
+    sound.play("hit");
+    director.impact(breakdown.critical?.23:isHero?.15:.12);
+  }
   const context:ImpactVisualContext={
     projectileId,point:targetPoint.clone(),
     normal:spatial?.contactNormal?.clone()??new THREE.Vector3(0,1,0),
@@ -944,7 +954,14 @@ function playOutcome(result: ReactionResolution, now: number): void {
     if (kind !== "dodge") effects.impact(targetPoint, now);
     notice((isHero ? "" : "ENEMY ") +
       kind.toUpperCase() + " · " + out.grade.toUpperCase());
-    sound.play(kind);
+    const incoming=session.catalog.attacks[out.breakdown.moveId];
+    const guardedFeel=incoming?.delivery==="melee_contact"
+      ?presentationForAttack(incoming).feel:null;
+    if(guardedFeel && kind==="parry"){
+      sound.play("guard_clash");
+      visualFeedback.holdImpact(now,meleeHitStopMs(guardedFeel,false,true,reduceMotion));
+      director.impact(guardedFeel.cameraShake*.6,guardedFeel.cameraFocus*.45);
+    }else sound.play(kind);
   } else if (out.damage > 0) {
     presentConfirmedHit(out.breakdown,pendingSpatialImpact,projectileId,now);
     notice((out.breakdown.critical?"PRECISION CRITICAL · ":"")+
@@ -1022,7 +1039,7 @@ function finishPerfectCounter(now: number): void {
     result.outcome.damage, result.outcome.defenderId === "hero");
   victim.play("hit");
   director.impact(.20);
-  sound.play("hit");
+  sound.play("impact_body");
   notice("COUNTER STRIKE · " + result.outcome.damage + " DAMAGE");
   lastMessage = "Automatic counter dealt " + result.outcome.damage +
     " damage. The original attack was neutralized.";
@@ -1053,8 +1070,6 @@ function landPlayerHit(now: number): void {
     pendingSpatialImpact??undefined);
   if(!result)return;
   enemyBrain.observeAttack(result.outcome.attackerId,result.outcome.breakdown.intendedRegionId??result.outcome.breakdown.actualRegionId);
-  if(move.delivery==="melee_contact")
-    effects.swing(hero.root.position,hero.root.rotation.y,now);
   playOutcome(result,now);
   pendingSpatialImpact=null;
   plannedEnemyDefense=null;
@@ -1133,6 +1148,17 @@ function onCue(cue: CombatCue, at: number, now: number): void {
       sound.play("release");
       break;
     }
+    case "melee_swing": {
+      const pending=session.state.pending;
+      if(!pending)break;
+      const actor=pending.attackerId==="enemy"?enemy:hero;
+      const feel=presentationForAttack(session.catalog.attacks[pending.moveId]!).feel;
+      if(feel){
+        effects.swing(actor.root.position,actor.root.rotation.y,at,feel.style);
+        sound.play(feel.swingSound);
+      }
+      break;
+    }
     case "melee_impact":
       if (session.state.pending?.attackerId === "enemy") finishEnemyImpact(now);
       else landPlayerHit(now);
@@ -1156,12 +1182,19 @@ function onCue(cue: CombatCue, at: number, now: number): void {
     case "camera_defense":
       director.setShot("defense");
       break;
-    case "enemy_swing":
+    case "enemy_swing": {
       director.setShot("windup");
-      sound.play("slash");
+      const pending=session.state.pending;
+      if(pending){
+        const feel=presentationForAttack(session.catalog.attacks[pending.moveId]!).feel;
+        if(feel){
+          effects.swing(enemy.root.position,enemy.root.rotation.y,at,feel.style);
+          sound.play(feel.swingSound);
+        }
+      }
       break;
+    }
     case "enemy_impact":
-      effects.swing(enemy.root.position, enemy.root.rotation.y, now);
       finishEnemyImpact(now);
       break;
     case "reaction_close":

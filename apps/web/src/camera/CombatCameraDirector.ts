@@ -13,6 +13,8 @@ export class CombatCameraDirector {
   // Aim stays player-side. A screen reticle, not a region lock, determines aim.
   private shot: CameraShot = "intro";
   private shake = 0;
+  private strikeFocus = 0;
+  private windupTension = 0;
   private elapsed = 0;
   private readonly reduceMotion: boolean;
 
@@ -29,8 +31,17 @@ export class CombatCameraDirector {
     this.shot = shot;
   }
 
-  impact(strength = 0.12): void {
-    if (!this.reduceMotion) this.shake = Math.max(this.shake, strength);
+  impact(strength = 0.12,focus = 0): void {
+    if (this.reduceMotion) return;
+    this.shake = Math.max(this.shake, Math.min(.35,strength));
+    this.strikeFocus=Math.max(this.strikeFocus,Math.min(1.5,focus));
+  }
+  anticipate(weight:number):void {
+    if(!this.reduceMotion)this.windupTension=Math.max(this.windupTension,
+      Math.min(1.5,Math.max(0,weight)));
+  }
+  resetAccents():void {
+    this.shake=0;this.strikeFocus=0;this.windupTension=0;
   }
 
   update(delta: number, immediate = false): void {
@@ -121,6 +132,11 @@ export class CombatCameraDirector {
       this.camera.position.x += Math.sin(this.elapsed * 97) * this.shake;
       this.camera.position.y += Math.cos(this.elapsed * 71) * this.shake * 0.4;
       this.shake *= Math.exp(-11 * delta);
+    }
+    if(!this.reduceMotion){
+      fov-=this.windupTension*1.1+this.strikeFocus*2.2;
+      this.windupTension*=Math.exp(-6*Math.max(0,delta));
+      this.strikeFocus*=Math.exp(-10*Math.max(0,delta));
     }
     this.camera.fov += (fov - this.camera.fov) * factor;
     this.camera.updateProjectionMatrix();

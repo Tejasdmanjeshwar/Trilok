@@ -11,7 +11,7 @@ Trilok shows a playable version, a combat engine version, and an automatically g
 ## In-game verification
 
 1. Open https://trilok.tejasdmjr996.workers.dev/.
-2. Look for COMBAT ARENA · V0.4.0-preview.15, with combat engine v0.4-D10. These labels should match `apps/web/build-version.json`.
+2. Look for COMBAT ARENA · V0.4.0-preview.16, with combat engine v0.4-D11. These labels should match `apps/web/build-version.json`.
 3. Directly below the title, look for BUILD <8-character-commit> · <HH:MM> UTC.
 4. Tap the BUILD badge to expand the playable version, combat engine, full commit, UTC timestamp and unique build ID. Use Copy details to share a report.
 5. Compare the commit with the latest commit at https://github.com/Tejasdmanjeshwar/Trilok/commits/main.
@@ -88,3 +88,11 @@ If the BUILD badge remains old, inspect the Cloudflare deployment first, then re
 - Try an early defense input about 110ms before its true window. The input may be queued, but its reaction grade must still be based on the real execution tick. Late or stale inputs must never be resurrected.
 - If a phase stalls or a render callback fails, the user-facing recovery overlay must offer restart and a copyable local diagnostic. Unit checks cover guard/fault reporting; manual and future browser fault-injection checks should exercise the recovery overlay.
 - Full 1,000-seed headless replay verifies domain invariants; e2e complements it with actual browser UI and WebGL rendering. Additional real-device GPU, touch latency, and WCAG accessibility testing remain necessary before production sign-off.
+
+### D11: cinematic melee smoke checks
+
+- Compare rapid, standard and heavy melee attacks. Each strike must show a swing trail **before** its authoritative impact tick, separate recovery, and escalating audible/camera weight. Heavy strike should read as windup → acceleration → impact → follow-through.
+- Perfect parries against melee should produce a guarded metallic clash and shorter hit-stop without delaying counters or modifying reaction grades.
+- Run with reduced-motion enabled: disable impact freeze and camera punch but retain gameplay timing, status updates and essential feedback.
+- Verify multiple rapid strikes cannot bypass turn economy and that the original D8.1 720ms first melee regression remains passing. The new authored cues must always agree with domain impact markers.
+- The WebAudio engine is optional/muted by default; unblocking audio should never interrupt combat. Continue actual device audio/visual tuning in subsequent art integration.

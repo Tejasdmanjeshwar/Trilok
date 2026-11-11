@@ -1,5 +1,6 @@
 import type { AttackSpec } from "@trilok/combat";
 import type { Motion } from "../actors/AnimatedWarrior";
+import { MELEE_FEEL, type MeleeFeelProfile, type MeleeStyle } from "./MeleeFeel";
 import type { Sequence } from "@trilok/choreography";
 import {
   ARCHERY_ATTACK, RAPID_MELEE_ATTACK, MELEE_ATTACK, HEAVY_ATTACK,
@@ -9,16 +10,17 @@ import {
 export interface AttackPresentationPlan {
   readonly sequence: Sequence<CombatCue>;
   readonly motion: Motion;
+  readonly feel: MeleeFeelProfile | null;
   /** Finish closing to melee reach before the authored impact marker. */
   readonly approachDurationMs: number;
 }
 
 const meleeOverrides: Readonly<Record<string, {
-  sequence: Sequence<CombatCue>; motion: Motion;
+  sequence: Sequence<CombatCue>; motion: Motion; style: MeleeStyle;
 }>> = {
-  overhead_slash: { sequence: ENEMY_STRIKE, motion: "windup" },
-  heavy_crush: { sequence: HEAVY_ATTACK, motion: "heavy_melee" },
-  rakshasa_heavy: { sequence: HEAVY_ATTACK, motion: "heavy_melee" },
+  overhead_slash: { sequence: ENEMY_STRIKE, motion: "windup", style:"heavy" },
+  heavy_crush: { sequence: HEAVY_ATTACK, motion: "heavy_melee", style:"heavy" },
+  rakshasa_heavy: { sequence: HEAVY_ATTACK, motion: "heavy_melee", style:"heavy" },
 };
 
 /**
@@ -38,8 +40,11 @@ export function presentationForAttack(move: AttackSpec): AttackPresentationPlan 
   if (impact?.atMs !== move.impactOffsetTicks) {
     throw new Error("Combat presentation must match authored impact tick: " + move.id);
   }
+  const style: MeleeStyle = authored?.style ??
+    (move.turnPolicy?.freeAction ? "rapid" : "standard");
   return {
     sequence, motion,
+    feel:move.delivery === "melee_contact" ? MELEE_FEEL[style] : null,
     approachDurationMs: Math.max(100, Math.min(1100, move.impactOffsetTicks - 100)),
   };
 }
