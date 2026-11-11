@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { CombatCatalog, EncounterActor } from "@trilok/combat";
 
 export interface AimSnapshot {
-  readonly regionId: string;
+  readonly regionId: string | null;
   readonly from: THREE.Vector3;
   readonly toward: THREE.Vector3;
   readonly maxRange: number;
@@ -22,6 +22,7 @@ export class CombatHitVolumes {
   private readonly proxies: THREE.Mesh[] = [];
   private readonly byRegion = new Map<string, THREE.Mesh>();
   private readonly caster = new THREE.Raycaster();
+  private readonly screenPoint = new THREE.Vector2();
   private readonly worldPoint = new THREE.Vector3();
   private readonly rayDirection = new THREE.Vector3();
   constructor(
@@ -84,7 +85,7 @@ export class CombatHitVolumes {
       return null;
     }
     this.rig.updateWorldMatrix(true,true);
-    this.caster.setFromCamera(new THREE.Vector2(nx,ny), camera);
+    this.caster.setFromCamera(this.screenPoint.set(nx,ny), camera);
     const hit = this.firstVisibleHit();
     return hit ? (hit.object.userData.regionId as string) : null;
   }
@@ -96,6 +97,42 @@ export class CombatHitVolumes {
       regionId,
       from: from.clone(),
       toward: point.clone(),
+      maxRange,
+    };
+  }
+
+  /**
+   * Manual screen-space aim. No auto-snap: the cursor ray either intersects a
+   * visible region or aims into empty space. Weapon-origin impact is resolved
+   * later, so an intended headshot is not automatically a successful headshot.
+   */
+  snapshotCameraAim(camera: THREE.Camera, nx: number, ny: number,
+    weaponOrigin: THREE.Vector3, maxRange: number): AimSnapshot {
+    if (![nx,ny,maxRange].every(Number.isFinite) ||
+        nx < -1 || nx > 1 || ny < -1 || ny > 1 || maxRange <= 0) {
+      throw new Error("Invalid screen aim or range.");
+    }
+    this.rig.updateWorldMatrix(true,true);
+    this.caster.setFromCamera(this.screenPoint.set(nx,ny),camera);
+    const hit=this.firstVisibleHit();
+    const toward=new THREE.Vector3();
+    if (hit) {
+      toward.copy(hit.point);
+    } else {
+      const center=this.rig.getWorldPosition(new THREE.Vector3())
+        .add(new THREE.Vector3(0,1.6,0));
+      const normal=camera.getWorldDirection(new THREE.Vector3());
+      const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(normal,center);
+      if (!this.caster.ray.intersectPlane(plane,toward)) {
+        toward.copy(this.caster.ray.origin)
+          .addScaledVector(this.caster.ray.direction,
+            Math.max(4,this.caster.ray.origin.distanceTo(center)));
+      }
+    }
+    return {
+      regionId: hit ? (hit.object.userData.regionId as string) : null,
+      from: weaponOrigin.clone(),
+      toward,
       maxRange,
     };
   }

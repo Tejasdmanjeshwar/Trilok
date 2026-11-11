@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   createEncounter, getLegalAttackMoves, getLegalReactions,
   queueAttack, resolveCounter, resolveReaction, validateCombatCatalog,
-  type CombatCatalog, type EncounterActor,
+  type CombatCatalog, type EncounterState,
 } from "../packages/combat/src/index";
 import { createPreviewEncounter, PREVIEW_CATALOG } from "../apps/web/src/combat/preview-encounter";
 
 function fresh(heroEquipped: "bow" | "sword" = "bow",
-  enemyEquipped: "rakshasa_bow" | "rakshasa_sword" = "rakshasa_sword") {
+  enemyEquipped: "rakshasa_bow" | "rakshasa_sword" = "rakshasa_sword"): EncounterState {
   const original=createPreviewEncounter();
   return { ...original,actors:{
     ...original.actors,
