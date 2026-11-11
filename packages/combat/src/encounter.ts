@@ -117,6 +117,32 @@ export function equipCombatant(
   });
 }
 
+/** Authoritative affordable-move query, shared by UI, scripted opponents and AI. */
+export function getLegalAttackMoves(
+  state: EncounterState,
+  catalog: CombatCatalog,
+  defenderId: CombatantId,
+  distanceMeters: number,
+): readonly string[] {
+  if (!Number.isFinite(distanceMeters) || distanceMeters < 0 ||
+      state.phase !== "decision" || state.pending !== null) return [];
+  const actor = state.actors[state.activeActorId];
+  const defender = state.actors[defenderId];
+  if (!actor || actor.hp <= 0 || actor.status !== "ready" ||
+      !defender || defender.hp <= 0 || defender.id === actor.id ||
+      state.turnBudget.actionsUsed >= state.rules.maxActionsPerTurn) return [];
+  const equipment = catalog.equipment[actor.equippedId];
+  if (!equipment) return [];
+  return equipment.attackMoveIds.filter(id => {
+    const move = catalog.attacks[id];
+    if (!move) return false;
+    return move.resourceCost <= actor.resource &&
+      distanceMeters <= move.engageRangeMeters &&
+      (move.turnPolicy?.maxUsesPerTurn === undefined ||
+        (state.turnBudget.moveUses[id] ?? 0) < move.turnPolicy.maxUsesPerTurn);
+  });
+}
+
 export interface QueueAttackInput {
   readonly attackerId: string;
   readonly defenderId: string;
@@ -144,15 +170,12 @@ export function queueAttack(
   if (defender.hp <= 0) throw new Error("Cannot target a defeated combatant.");
   if (!validTick(input.startedTick)) throw new Error("Invalid attack start tick.");
   assertDistance(input.distanceAtStartMeters);
-  const equipment = catalog.equipment[attacker.equippedId];
   const move = catalog.attacks[input.moveId];
-  if (!equipment || !move || !equipment.attackMoveIds.includes(move.id)) {
-    throw new Error("Attack move is not equipped.");
+  if (!move || !getLegalAttackMoves(
+    state, catalog, input.defenderId, input.distanceAtStartMeters,
+  ).includes(input.moveId)) {
+    throw new Error("Attack unavailable: equipment, Energy, range or action budget.");
   }
-  if (input.distanceAtStartMeters > move.engageRangeMeters) {
-    throw new Error("Target is too far to engage.");
-  }
-  if (attacker.resource < move.resourceCost) throw new Error("Insufficient attack resources.");
   const targeting = move.targeting ?? { mode: "actor" as const };
   const intendedRegionId = input.intendedRegionId ?? null;
   if (intendedRegionId !== null) {
@@ -162,14 +185,7 @@ export function queueAttack(
       throw new Error("Invalid or hidden aimed region.");
     }
   }
-  if (state.turnBudget.actionsUsed >= state.rules.maxActionsPerTurn) {
-    throw new Error("No offensive actions remain this turn.");
-  }
   const policy = move.turnPolicy ?? { continuation: "end" as const };
-  if (policy.maxUsesPerTurn !== undefined &&
-      (state.turnBudget.moveUses[move.id] ?? 0) >= policy.maxUsesPerTurn) {
-    throw new Error("Attack move has reached its per-turn use limit.");
-  }
   const adjustments = input.reactionTiming ?? {};
   validateTimingAdjustments(adjustments);
   const rawHits: readonly AttackHitSpec[] = move.hits ??

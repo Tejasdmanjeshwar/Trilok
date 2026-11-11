@@ -1,13 +1,15 @@
 import * as THREE from "three";
-import { beginBattle, gradeReaction, resolveEnemyTurn, strike, equipWeapon, equippedWeapon, availableDefenses, WEAPONS, type BattleState, type DefenseAction, type WeaponId } from "@trilok/combat";
-import { ReactionBuffer, SequencePlayer } from "@trilok/choreography";
+import type { ReactionResolution, ReactionTechnique } from "@trilok/combat";
+import { SequencePlayer } from "@trilok/choreography";
 import { createArena, type ArenaInstance, type ArenaQuality } from "./world/arena";
-import { createAnimatedWarrior, type AnimatedWarrior, type Motion } from "./actors/AnimatedWarrior";
+import { createAnimatedWarrior, type AnimatedWarrior } from "./actors/AnimatedWarrior";
 import { CombatCameraDirector, type CameraShot } from "./camera/CombatCameraDirector";
 import { CombatEffects } from "./effects/CombatEffects";
 import { CombatFeedback } from "./feedback/CombatFeedback";
 import { CombatAudio } from "./feedback/CombatAudio";
-import { ARCHERY_ATTACK, MELEE_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
+import { ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
+import { EncounterSession } from "./combat/EncounterSession";
+import { SCRIPTED_ENEMY_MOVE } from "./combat/preview-encounter";
 import { CombatMovementController } from "./movement/CombatMovementController";
 import { getBuildIdentity, compactBuildLabel, formatBuildReport } from "./build-info";
 import "./style.css";
@@ -30,14 +32,18 @@ host.innerHTML = [
   '<div class="tools"><span id="fps">— FPS</span><label>QUALITY <select id="quality"><option value="high">HIGH</option><option value="low">MOBILE</option></select></label>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
-  '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p></section>',
+  '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · SCRIPTED PREVIEW</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p></section>',
   '<section id="telegraph" class="telegraph"><b>⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
+  '<section class="command-panel"><label for="move">MOVE <select id="move" aria-label="Choose combat move"></select></label><span id="move-hint"></span></section>',
   '<footer class="hud"><section class="hero"><div class="sigil">✶</div><div><strong>TRIAL WARRIOR</strong><small>WEAPON <select id="weapon" aria-label="Equipped weapon"><option value="bow">LONGBOW</option><option value="sword">SWORD</option></select> <span class="weapon-keys">[1/2]</span></small>',
-  '<div class="bar hero-bar"><span id="hero-bar"></span></div><p id="hero-hp"></p></div></section>',
+  '<div class="bar hero-bar"><span id="hero-bar"></span></div><p id="hero-hp"></p>',
+  '<div class="energy-info"><b id="hero-energy-label">ENERGY</b><span id="actions-left"></span></div>',
+  '<div class="energy-track"><span id="hero-energy-bar"></span></div></div></section>',
   '<div class="actions"><button id="attack" class="primary">➶ <span>STRIKE<small>SPACE</small></span></button>',
   '<button id="react">✦ <span>PARRY<small>P</small></span></button>',
   '<button id="dodge">↝ <span>DODGE<small>D</small></span></button>',
+  '<button id="end-turn">✓ <span>END TURN<small>E</small></span></button>',
   '<button id="restart">↻ <span>RESTART<small>R</small></span></button></div></footer>',
   '<aside class="status"><b id="phase">THE DUEL BEGINS</b><span id="message">Select STRIKE to begin.</span></aside>',
   '<div id="loading" class="loading">✦ <span>ENTERING THE SHRINE</span></div></main>',
@@ -72,6 +78,13 @@ const attackButton = query<HTMLButtonElement>("#attack");
 const parryButton = query<HTMLButtonElement>("#react");
 const dodgeButton = query<HTMLButtonElement>("#dodge");
 const weaponSelect = query<HTMLSelectElement>("#weapon");
+const moveSelect = query<HTMLSelectElement>("#move");
+const moveHint = query<HTMLElement>("#move-hint");
+const endTurnButton = query<HTMLButtonElement>("#end-turn");
+const heroEnergyBar = query<HTMLElement>("#hero-energy-bar");
+const heroEnergyLabel = query<HTMLElement>("#hero-energy-label");
+const enemyEnergyLabel = query<HTMLElement>("#enemy-energy");
+const actionsLeftLabel = query<HTMLElement>("#actions-left");
 const restartButton = query<HTMLButtonElement>("#restart");
 const audioButton = query<HTMLButtonElement>("#audio");
 const fpsDisplay = query<HTMLElement>("#fps");
@@ -146,186 +159,348 @@ const heroSocket = new THREE.Vector3();
 const targetPoint = new THREE.Vector3();
 const effectPoint = new THREE.Vector3();
 const choreography = new SequencePlayer<CombatCue>();
-type Presentation = "intro" | "choice" | "attack" | "windup" | "reaction" | "victory" | "defeat";
+type Presentation =
+  | "intro" | "choice" | "attack" | "windup" | "reaction"
+  | "enemy_pause" | "victory" | "defeat";
+
+const session = new EncounterSession();
 let presentation: Presentation = "intro";
 let phaseAt = performance.now();
-let battle: BattleState = beginBattle();
-let reaction: ReactionBuffer | null = null;
-let chosenDefense: DefenseAction | null = null;
 let noticeUntil = 0;
+let enemyPauseUntil = 0;
+let lastMessage = "Choose a move. Energy and actions determine whether you may continue.";
 const INTRO_MS = reduceMotion ? 250 : 1500;
 
 function dust(actor: AnimatedWarrior, now: number): void {
-  effectPoint.set(actor.root.position.x, 0.18, actor.root.position.z);
+  effectPoint.set(actor.root.position.x, .18, actor.root.position.z);
   visualFeedback.emit("step", effectPoint, now);
+}
+
+function notice(message: string, warning = false): void {
+  feedback.textContent = message;
+  feedback.className = warning ? "feedback visible warning" : "feedback visible";
+  noticeUntil = performance.now() + 1250;
 }
 
 function setPhase(next: Presentation, shot: CameraShot, now = performance.now()): void {
   presentation = next;
   phaseAt = now;
   director.setShot(shot);
-  if (next !== "attack" && next !== "windup" && next !== "reaction") choreography.cancel();
+  if (next === "choice" || next === "victory" || next === "defeat" || next === "enemy_pause") {
+    choreography.cancel();
+  }
   updateHud();
 }
-function notice(message: string, warning = false): void {
-  feedback.textContent = message;
-  feedback.className = warning ? "feedback visible warning" : "feedback visible";
-  noticeUntil = performance.now() + 1150;
+
+function isPlayerDecision(): boolean {
+  return presentation === "choice" &&
+    session.state.phase === "decision" && session.state.activeActorId === "hero";
 }
+
+const MOVE_NAMES: Readonly<Record<string, string>> = {
+  arrow: "Arrow",
+  recover_shot: "Recovery shot",
+  slash: "Quick slash",
+  heavy_crush: "Heavy crush",
+};
+function moveDescription(moveId: string): string {
+  const move = session.catalog.attacks[moveId]!;
+  const cost = move.resourceCost === 0 ? "FREE" : move.resourceCost + " EN";
+  const policy = move.turnPolicy?.continuation === "continue" ? "CONTINUE" : "ENDS TURN";
+  const gain = move.turnPolicy?.energyGainOnCompletion
+    ? " · +" + move.turnPolicy.energyGainOnCompletion + " EN"
+    : "";
+  return cost + " · " + policy + gain;
+}
+
+/** Use the same domain legality query as the scripted opponent and future AI. */
+function updateMovePicker(): void {
+  const hero = session.state.actors.hero!;
+  const equipped = session.catalog.equipment[hero.equippedId]!;
+  const previous = moveSelect.value;
+  const available = isPlayerDecision()
+    ? session.legalAttacks("enemy", movement.separation(heroRig().root, enemy.root))
+    : [];
+  const options = equipped.attackMoveIds.map(moveId => {
+    const entry = document.createElement("option");
+    entry.value = moveId;
+    entry.textContent = (MOVE_NAMES[moveId] ?? moveId.replaceAll("_", " ")) +
+      " · " + session.catalog.attacks[moveId]!.resourceCost + " EN";
+    entry.disabled = !available.includes(moveId);
+    return entry;
+  });
+  moveSelect.replaceChildren(...options);
+  const selected = available.includes(previous) ? previous : available[0] ?? equipped.attackMoveIds[0] ?? "";
+  moveSelect.value = selected;
+  const move = session.catalog.attacks[selected];
+  moveSelect.disabled = !isPlayerDecision() || available.length === 0;
+  moveHint.textContent = move ? moveDescription(selected) :
+    "No move available. End turn to recover Energy.";
+  attackButton.disabled = !isPlayerDecision() || !available.includes(selected);
+}
+
+function heroRig(): AnimatedWarrior { return hero; }
+
 function updateHud(): void {
-  heroHp.textContent = battle.hero.hp + " / " + battle.hero.maxHp;
-  enemyHp.textContent = battle.enemy.hp + " / " + battle.enemy.maxHp;
-  heroBar.style.width = (battle.hero.hp / battle.hero.maxHp * 100) + "%";
-  enemyBar.style.width = (battle.enemy.hp / battle.enemy.maxHp * 100) + "%";
-  phaseDisplay.textContent = battle.phase === "victory" ? "VICTORY" : battle.phase === "defeat" ? "DEFEAT" : "ROUND " + battle.round;
-  messageDisplay.textContent = battle.message;
-  attackButton.disabled = presentation !== "choice";
-  const defenses = availableDefenses(battle.hero);
-  defenseHint.textContent = defenses.includes("parry") ? "PARRY OR DODGE AT IMPACT" : "DODGE AT IMPACT";
-  parryButton.disabled = presentation !== "windup" || !defenses.includes("parry") || reaction?.captured === true;
-  dodgeButton.disabled = presentation !== "windup" || !defenses.includes("dodge") || reaction?.captured === true;
-  weaponSelect.value = battle.hero.weaponId;
-  weaponSelect.disabled = presentation !== "choice";
+  const state = session.state;
+  const player = state.actors.hero!;
+  const opponent = state.actors.enemy!;
+  heroHp.textContent = player.hp + " / " + player.maxHp + " HP";
+  enemyHp.textContent = opponent.hp + " / " + opponent.maxHp + " HP";
+  heroBar.style.width = 100 * player.hp / player.maxHp + "%";
+  enemyBar.style.width = 100 * opponent.hp / opponent.maxHp + "%";
+  heroEnergyBar.style.width = 100 * player.resource / player.maxResource + "%";
+  heroEnergyLabel.textContent = "ENERGY " + player.resource + " / " + player.maxResource;
+  enemyEnergyLabel.textContent = "ENERGY " + opponent.resource + " / " + opponent.maxResource;
+  const remaining = state.rules.maxActionsPerTurn - state.turnBudget.actionsUsed;
+  actionsLeftLabel.textContent = remaining + " / " + state.rules.maxActionsPerTurn + " ACTIONS";
+  phaseDisplay.textContent = state.phase === "complete"
+    ? state.victorId === "hero" ? "VICTORY" : "DEFEAT"
+    : "TURN " + state.turn + (state.activeActorId === "hero" ? " · YOUR ACTION" : " · ENEMY");
+  messageDisplay.textContent = lastMessage;
+  weaponSelect.value = player.equippedId;
+  weaponSelect.disabled = !isPlayerDecision() ||
+    player.switchedOnTurn === state.turn ||
+    player.resource < session.catalog.equipment[
+      player.equippedId === "bow" ? "sword" : "bow"
+    ]!.switchCost;
+  endTurnButton.disabled = !isPlayerDecision();
+  const reactions = presentation === "windup" ? session.legalReactions() : [];
+  const parry = reactions.find(option => option.technique !== "dodge");
+  const dodge = reactions.find(option => option.technique === "dodge");
+  const already = session.activeDefense !== null;
+  parryButton.disabled = !parry || already || presentation !== "windup";
+  dodgeButton.disabled = !dodge || already || presentation !== "windup";
+  const parryName = parry?.technique === "projectile_intercept" ? "INTERCEPT" : "PARRY";
+  query<HTMLElement>("#react span").firstChild!.textContent = parryName;
+  const hints: string[] = [];
+  if (dodge) hints.push("DODGE " + (dodge.timing.earlyTicks + dodge.timing.lateTicks) + "ms");
+  if (parry) hints.push(parryName + " " + (parry.timing.earlyTicks + parry.timing.lateTicks) + "ms");
+  defenseHint.textContent = hints.length ? hints.join(" · ") + " AT IMPACT" : "NO LEGAL DEFENSE";
   telegraph.classList.toggle("show", presentation === "windup");
-  enemy.root.visible = battle.enemy.hp > 0;
-  hero.root.visible = battle.hero.hp > 0;
+  hero.root.visible = true;
+  enemy.root.visible = true;
+  updateMovePicker();
 }
-function startAttack(now = performance.now()): void {
-  if (presentation !== "choice" || battle.phase !== "player_turn") return;
-  setPhase("attack", "attack", now);
-  const weapon = equippedWeapon(battle.hero);
-  const melee = weapon.weaponClass === "melee";
-  choreography.start(melee ? MELEE_ATTACK : ARCHERY_ATTACK, now);
-  if (melee) {
-    movement.approach(hero.root, enemy.root, weapon.reachMeters, now, 1080);
-    dust(hero, now);
-  }
-  hero.play(melee ? "melee" : "attack");
-  enemy.play("idle");
-  effects.clear();
-  sound.play(melee ? "step" : "draw");
-}
-function startEnemy(now: number): void {
-  if (battle.phase !== "enemy_windup") return;
-  setPhase("windup", "defense", now);
-  choreography.start(ENEMY_STRIKE, now);
-  reaction = new ReactionBuffer(now + 1850);
-  chosenDefense = null;
-  const enemyWeapon = equippedWeapon(battle.enemy);
-  if (enemyWeapon.weaponClass === "melee") {
-    movement.approach(enemy.root, hero.root, enemyWeapon.reachMeters, now, 1060);
-    dust(enemy, now);
-    sound.play("step");
-  }
-  hero.play("idle");
-  enemy.play("windup");
-}
-function resolveDefense(now: number): void {
-  if (presentation !== "windup" || battle.phase !== "enemy_windup") return;
-  const grade = gradeReaction(reaction?.offsetMs ?? null);
-  const defense = chosenDefense ?? "dodge";
-  const previousHp = battle.hero.hp;
-  battle = resolveEnemyTurn(battle, grade, defense);
-  director.impact(grade === "perfect" ? .09 : .15);
-  const defenseLabel = defense === "dodge"
-    ? { perfect: "PERFECT DODGE", parry: "DODGED", guard: "GLANCING DODGE", miss: "HIT!" }
-    : { perfect: "PERFECT PARRY", parry: "PARRIED", guard: "GUARDED", miss: "HIT!" };
-  notice(defenseLabel[grade], grade === "miss");
-  const response = grade === "miss" ? "miss" : defense;
-  sound.play(response);
-  movement.retreat(enemy.root, now, ARCHERY_REACTION.durationMs);
-  dust(enemy, now);
 
-  hero.root.getWorldPosition(effectPoint);
-  effectPoint.y += 1.5;
-  visualFeedback.emit(response, effectPoint, now, previousHp - battle.hero.hp, true);
-  if (grade !== "miss" && defense === "parry") effects.impact(effectPoint, now);
-
-  setPhase("reaction", "reaction", now);
-  choreography.start(ARCHERY_REACTION, now);
-  reaction = null;
-  chosenDefense = null;
-  hero.play(grade === "miss" ? "hit" : defense === "dodge" ? "dodge" : "parry");
-  enemy.play("idle");
-  updateHud();
+function sequenceFor(moveId: string) {
+  if (moveId === "heavy_crush") return HEAVY_ATTACK;
+  if (session.catalog.attacks[moveId]?.delivery === "ranged_projectile") {
+    return ARCHERY_ATTACK;
+  }
+  return MELEE_ATTACK;
 }
-function attemptDefense(kind: DefenseAction): void {
-  if (presentation !== "windup" || !reaction) return;
-  if (!availableDefenses(battle.hero).includes(kind)) return;
-  const now = performance.now();
-  if (!reaction.capture(now)) {
-    if (!reaction.captured) notice(now < reaction.impactAtMs ? "TOO EARLY" : "TOO LATE", true);
+
+function startPlayerAttack(now = performance.now()): void {
+  if (!isPlayerDecision()) return;
+  const moveId = moveSelect.value;
+  const move = session.catalog.attacks[moveId];
+  if (!move) return;
+  try {
+    session.attack("hero", "enemy", moveId,
+      movement.separation(hero.root, enemy.root), now);
+  } catch (error) {
+    notice(error instanceof Error ? error.message : "Attack unavailable", true);
+    updateHud();
     return;
   }
-  chosenDefense = kind;
+  setPhase("attack", "attack", now);
+  choreography.start(sequenceFor(moveId), now);
+  if (move.delivery === "melee_contact") {
+    movement.approach(hero.root, enemy.root, move.reachMeters, now, 1080);
+    dust(hero, now);
+  }
+  hero.play(move.delivery === "melee_contact" ? "melee" : "attack");
+  enemy.play("idle");
+  effects.clear();
+  sound.play(move.delivery === "melee_contact" ? "step" : "draw");
+  lastMessage = (MOVE_NAMES[moveId] ?? moveId) + " committed. " +
+    move.resourceCost + " Energy spent.";
+  updateHud();
+}
+
+function beginScriptedEnemyAttack(now: number): void {
+  if (session.state.phase !== "decision" || session.state.activeActorId !== "enemy") return;
+  if (!session.legalAttacks("hero", movement.separation(enemy.root, hero.root))
+    .includes(SCRIPTED_ENEMY_MOVE)) {
+    session.end("enemy");
+    lastMessage = "The rakshasa recovers its stance. Your turn.";
+    enemyPauseUntil = now + 430;
+    setPhase("enemy_pause", "decision", now);
+    return;
+  }
+  const move = session.catalog.attacks[SCRIPTED_ENEMY_MOVE]!;
+  session.attack("enemy", "hero", SCRIPTED_ENEMY_MOVE,
+    movement.separation(enemy.root, hero.root), now);
+  setPhase("windup", "defense", now);
+  choreography.start(ENEMY_STRIKE, now);
+  movement.approach(enemy.root, hero.root, move.reachMeters, now, 1060);
+  dust(enemy, now);
+  enemy.play("windup");
+  hero.play("idle");
+  sound.play("step");
+  lastMessage = "Incoming sword strike. Dodge or parry at impact!";
+  updateHud();
+}
+
+function showEnding(now: number): void {
+  if (session.state.phase !== "complete") return;
+  const won = session.state.victorId === "hero";
+  lastMessage = won ? "Victory! The guardian has fallen." : "Defeat. Restart to try again.";
+  setPhase(won ? "victory" : "defeat", won ? "victory" : "reaction", now);
+  if (won) hero.play("victory");
+  else hero.play("hit");
+  updateHud();
+}
+
+function enterNextTurn(now: number): void {
+  if (session.state.phase === "complete") {
+    showEnding(now);
+  } else if (session.state.activeActorId === "enemy") {
+    beginScriptedEnemyAttack(now);
+  } else {
+    hero.play("idle");
+    enemy.play("idle");
+    lastMessage = "Your turn. Choose another move or end your turn.";
+    setPhase("choice", "decision", now);
+  }
+}
+
+function attemptDefense(kind: "dodge" | "parry"): void {
+  if (presentation !== "windup" || session.state.pending?.defenderId !== "hero") return;
+  const now = performance.now();
+  const available = session.legalReactions();
+  const option = kind === "dodge"
+    ? available.find(o => o.technique === "dodge")
+    : available.find(o => o.technique !== "dodge");
+  if (!option) {
+    notice("DEFENSE UNAVAILABLE · CHECK EQUIPMENT/ENERGY", true);
+    return;
+  }
+  const capture = session.captureDefense(option.technique, now);
+  if (!capture.accepted) {
+    if (capture.reason !== "already_selected") {
+      notice(capture.reason === "too_early" ? "TOO EARLY" :
+        capture.reason === "too_late" ? "TOO LATE" : "DEFENSE UNAVAILABLE", true);
+    }
+    return;
+  }
   if (kind === "dodge") {
     movement.dodge(hero.root, enemy.root, now, 750);
     dust(hero, now);
   }
   hero.play(kind);
-  notice(kind === "dodge" ? "DODGE TIMED" : "PARRY TIMED");
   sound.play(kind);
+  notice(kind === "dodge" ? "DODGE TIMED" : "PARRY TIMED");
   updateHud();
-  if (now >= reaction.impactAtMs) resolveDefense(now);
+  if (now >= session.state.pending!.impactTick) finishEnemyImpact(now);
 }
-function changeWeapon(id: WeaponId): void {
-  if (presentation !== "choice" || battle.phase !== "player_turn") return;
-  battle = equipWeapon(battle, id);
+
+function changeWeapon(id: string): void {
+  if (!isPlayerDecision() || (id !== "bow" && id !== "sword")) return;
+  try {
+    session.equip("hero", id);
+  } catch (error) {
+    notice(error instanceof Error ? error.message : "Cannot equip weapon", true);
+    updateHud();
+    return;
+  }
   hero.equip(id);
+  lastMessage = "Equipped " + session.catalog.equipment[id]!.label +
+    ". Switch cost paid from Energy.";
+  sound.play("ui");
   updateHud();
 }
+
+function playerEndTurn(): void {
+  if (!isPlayerDecision()) return;
+  session.end("hero");
+  lastMessage = "Turn ended. The rakshasa prepares an attack.";
+  beginScriptedEnemyAttack(performance.now());
+}
+
 function reset(): void {
   choreography.cancel();
   effects.clear();
   visualFeedback.reset();
-  reaction = null;
-  chosenDefense = null;
   movement.reset();
-  battle = beginBattle();
-  hero.equip(battle.hero.weaponId);
+  session.reset();
+  hero.equip("bow");
+  enemy.equip("sword");
   hero.play("idle");
   enemy.play("idle");
   feedback.classList.remove("visible");
   noticeUntil = 0;
+  lastMessage = "Choose a move. Energy and actions determine whether you may continue.";
+  loading.classList.add("hidden");
   setPhase("choice", "decision");
 }
-/** Both ranged and melee contact use the same authoritative damage path. */
-function landHeroHit(at: number, attack: "ranged" | "melee"): void {
-  if (presentation !== "attack" || battle.phase !== "player_turn") return;
-  const weapon = equippedWeapon(battle.hero);
-  if (weapon.weaponClass !== attack) return;
-  const distance = movement.separation(hero.root, enemy.root);
-  if (distance > weapon.reachMeters + .0001) {
-    notice("OUT OF REACH", true);
-    return;
-  }
-  enemy.root.getWorldPosition(targetPoint);
+
+function playOutcome(result: ReactionResolution, now: number): void {
+  const out = result.outcome;
+  const target = out.defenderId === "hero" ? hero : enemy;
+  const isHero = out.defenderId === "hero";
+  target.root.getWorldPosition(targetPoint);
   targetPoint.y += 1.7;
-  const previousHp = battle.enemy.hp;
-  if (attack === "melee") effects.swing(hero.root.position, hero.root.rotation.y, at);
-  battle = strike(battle, distance);
-  effects.impact(targetPoint, at);
-  visualFeedback.emit("hit", targetPoint, at, previousHp - battle.enemy.hp);
-  director.impact(attack === "melee" ? .14 : .11);
-  enemy.play("hit");
-  notice(battle.phase === "victory" ? "VICTORY" : attack === "melee" ? "MELEE STRIKE" : "PRECISION STRIKE");
-  sound.play(battle.phase === "victory" ? "victory" : "hit");
+  if (out.result === "out_of_reach" || out.result === "missed") {
+    notice(out.result === "out_of_reach" ? "OUT OF REACH" : "MISSED", true);
+    sound.play("miss");
+  } else if (out.technique && out.grade !== "miss") {
+    const kind = out.technique === "dodge" ? "dodge" : "parry";
+    visualFeedback.emit(kind, targetPoint, now, out.damage, isHero);
+    if (kind === "parry") effects.impact(targetPoint, now);
+    notice((kind === "parry" ? "PARRY" : "DODGE") + " · " + out.grade.toUpperCase());
+    sound.play(kind);
+  } else if (out.damage > 0) {
+    effects.impact(targetPoint, now);
+    visualFeedback.emit("hit", targetPoint, now, out.damage, isHero);
+    target.play("hit");
+    director.impact(isHero ? .15 : .12);
+    sound.play("hit");
+    notice(out.damage + " DAMAGE");
+  }
+  const trace = out.breakdown.reasons;
+  const mitigation = trace.some(reason => reason.startsWith("armor:"))
+    ? " · ARMOR" : "";
+  lastMessage = out.damage + " damage" + mitigation + ". " +
+    (session.state.phase === "complete" ? "Encounter complete." :
+     out.attackerId === "hero" ? "Continue if you have actions." : "Recover and respond.");
   updateHud();
 }
 
-function onCue(cue: CombatCue, at: number): void {
+function landPlayerHit(now: number): void {
+  const pending = session.state.pending;
+  if (!pending || pending.attackerId !== "hero" || presentation !== "attack") return;
+  const move = session.catalog.attacks[pending.moveId]!;
+  const distance = movement.separationForHit(hero.root, enemy.root);
+  const result = session.resolveIfReady(now, distance);
+  if (!result) return;
+  if (move.delivery === "melee_contact") {
+    effects.swing(hero.root.position, hero.root.rotation.y, now);
+  }
+  playOutcome(result, now);
+}
+
+function finishEnemyImpact(now: number): void {
+  const pending = session.state.pending;
+  if (!pending || pending.attackerId !== "enemy" || presentation !== "windup") return;
+  const distance = movement.separationForHit(enemy.root, hero.root);
+  const result = session.resolveIfReady(now, distance);
+  if (!result) return; // Still inside the late-reaction grace period.
+  playOutcome(result, now);
+  movement.retreat(enemy.root, now, ARCHERY_REACTION.durationMs);
+  dust(enemy, now);
+  setPhase("reaction", "reaction", now);
+  choreography.start(ARCHERY_REACTION, now);
+  if (result.outcome.grade === "miss") hero.play("hit");
+  enemy.play("idle");
+}
+
+function onCue(cue: CombatCue, at: number, now: number): void {
   switch (cue) {
     case "camera_draw":
     case "melee_draw":
       director.setShot("attack");
-      break;
-    case "melee_impact":
-      landHeroHit(at, "melee");
-      break;
-    case "melee_recover":
-      movement.retreat(hero.root, at, 675);
-      dust(hero, at);
-      director.setShot("decision");
       break;
     case "bow_release":
       hero.socketWorld(heroSocket);
@@ -334,8 +509,14 @@ function onCue(cue: CombatCue, at: number): void {
       effects.launch(heroSocket, targetPoint, at, 435);
       sound.play("release");
       break;
+    case "melee_impact":
     case "arrow_hit":
-      landHeroHit(at, "ranged");
+      landPlayerHit(now);
+      break;
+    case "melee_recover":
+      movement.retreat(hero.root, now, 675);
+      dust(hero, now);
+      director.setShot("decision");
       break;
     case "camera_defense":
       director.setShot("defense");
@@ -345,30 +526,34 @@ function onCue(cue: CombatCue, at: number): void {
       sound.play("slash");
       break;
     case "enemy_impact":
-      effects.swing(enemy.root.position, enemy.root.rotation.y, at);
-      if (reaction?.captured) resolveDefense(at);
+      effects.swing(enemy.root.position, enemy.root.rotation.y, now);
+      finishEnemyImpact(now);
       break;
     case "reaction_close":
-      resolveDefense(at);
+      finishEnemyImpact(now);
       break;
     case "camera_recover":
       director.setShot("decision");
       break;
   }
 }
+
 function keyDown(event: KeyboardEvent): void {
   if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-  if (event.code === "Space") { event.preventDefault(); startAttack(); }
+  if (event.code === "Space") { event.preventDefault(); startPlayerAttack(); }
   if (event.code === "KeyP") attemptDefense("parry");
   if (event.code === "KeyD") attemptDefense("dodge");
+  if (event.code === "KeyE") playerEndTurn();
   if (event.code === "Digit1") changeWeapon("bow");
   if (event.code === "Digit2") changeWeapon("sword");
   if (event.code === "KeyR") reset();
 }
-attackButton.addEventListener("click", () => startAttack());
+attackButton.addEventListener("click", () => startPlayerAttack());
 parryButton.addEventListener("click", () => attemptDefense("parry"));
 dodgeButton.addEventListener("click", () => attemptDefense("dodge"));
-weaponSelect.addEventListener("change", () => changeWeapon(weaponSelect.value as WeaponId));
+endTurnButton.addEventListener("click", playerEndTurn);
+moveSelect.addEventListener("change", updateHud);
+weaponSelect.addEventListener("change", () => changeWeapon(weaponSelect.value));
 restartButton.addEventListener("click", reset);
 audioButton.addEventListener("click", () => {
   const enabled = sound.toggle();
@@ -395,55 +580,49 @@ const observer = new ResizeObserver(resize);
 observer.observe(viewport);
 resize();
 updateHud();
+
 let previous = performance.now();
 let frames = 0;
 let frameSeconds = 0;
-
 function frame(now: number): void {
   const delta = Math.min(.05, Math.max(0, (now - previous) / 1000));
   previous = now;
   if (presentation === "intro" && now - phaseAt >= INTRO_MS) {
     loading.classList.add("hidden");
-    setPhase("choice", "decision", now);
+    enterNextTurn(now);
   }
-
-  // Capture the sequence ID before callbacks, because callbacks can start a new sequence.
+  if (presentation === "enemy_pause" && now >= enemyPauseUntil) {
+    enterNextTurn(now);
+  }
   movement.update(now);
-  const activeSequence = choreography.sequenceId;
+  const sequenceId = choreography.sequenceId;
   const sample = choreography.advance(now);
   if (sample) {
-    const baseTime = now - sample.elapsedMs;
+    const base = now - sample.elapsedMs;
     for (const cue of sample.cues) {
-      // Stop processing stale events if a cue transitioned to a new sequence.
-      if (activeSequence !== choreography.sequenceId && choreography.sequenceId !== null) break;
-      if (presentation === "reaction" && activeSequence !== ARCHERY_REACTION.id) break;
-      onCue(cue.type, baseTime + cue.atMs);
+      if (choreography.sequenceId !== null &&
+          choreography.sequenceId !== sequenceId) break;
+      onCue(cue.type, base + cue.atMs, now);
     }
     if (sample.finished && choreography.sequenceId === null) {
       if (presentation === "attack") {
-        if (battle.phase === "victory") {
-          setPhase("victory", "victory", now);
-          hero.play("victory");
-        } else if (battle.phase === "enemy_windup") {
-          startEnemy(now);
-        } else {
-          // A melee attack blocked by invalid geometry returns control safely.
-          setPhase("choice", "decision", now);
-          hero.play("idle");
-        }
+        // Normal attacks resolve on their authored impact cue.
+        // This fallback handles an interrupted/very slow render callback.
+        landPlayerHit(now);
+        enterNextTurn(now);
       } else if (presentation === "windup") {
-        resolveDefense(now);
+        finishEnemyImpact(now);
       } else if (presentation === "reaction") {
-        setPhase(battle.phase === "defeat" ? "defeat" : "choice",
-          battle.phase === "defeat" ? "victory" : "decision", now);
-        hero.play("idle");
-        enemy.play("idle");
+        enterNextTurn(now);
       }
     }
   }
   if (presentation === "windup") {
-    const progress = Math.min(100, (now - phaseAt) / 1850 * 100);
-    timingFill.style.width = progress + "%";
+    const pending = session.state.pending;
+    const length = pending ? pending.impactTick - pending.startedTick : 1;
+    timingFill.style.width = Math.min(100, Math.max(0,
+      (now - phaseAt) / length * 100)) + "%";
+    finishEnemyImpact(now);
   } else {
     timingFill.style.width = "0%";
   }
@@ -458,12 +637,14 @@ function frame(now: number): void {
                      movement.activity(hero.root) === "retreat");
   enemy.setLocomotion(movement.activity(enemy.root) === "approach" ||
                       movement.activity(enemy.root) === "retreat");
-  // Short presentation-only hit stop; combat timeline and input stay authoritative.
   const frozen = now < visualFeedback.frozenUntil;
-  const motionDelta = frozen ? 0 : delta;
   if (!frozen) {
-    hero.update(motionDelta, presentation === "attack" || presentation === "reaction" ? motionElapsed : undefined);
-    enemy.update(motionDelta, presentation === "windup" ? motionElapsed : undefined);
+    const attackerMove = session.state.pending?.moveId;
+    const heroClipTime = presentation === "attack" && attackerMove === "heavy_crush"
+      ? motionElapsed * 1450 / 1850 : motionElapsed;
+    hero.update(delta, presentation === "attack" || presentation === "reaction"
+      ? heroClipTime : undefined);
+    enemy.update(delta, presentation === "windup" ? motionElapsed : undefined);
   }
   movement.update(now);
   effects.update(now);

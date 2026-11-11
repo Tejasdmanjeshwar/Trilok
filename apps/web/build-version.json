@@ -1,5 +1,5 @@
 {
-  "playableVersion": "0.3.2",
+  "playableVersion": "0.4.0-preview.1",
   "combatEngineVersion": "0.4-A.3",
-  "channel": "prototype"
+  "channel": "preview"
 }

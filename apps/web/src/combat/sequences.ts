@@ -25,6 +25,16 @@ export const MELEE_ATTACK: Sequence<CombatCue> = {
   ],
 };
 
+/** Heavy move uses its own 1850ms hit marker from the core catalog. */
+export const HEAVY_ATTACK: Sequence<CombatCue> = {
+  id: "hero_heavy_crush", durationMs: 2750,
+  cues: [
+    { id: "heavy-approach", atMs: 0, type: "melee_draw" },
+    { id: "heavy-impact", atMs: 1850, type: "melee_impact" },
+    { id: "heavy-retreat", atMs: 2060, type: "melee_recover" },
+  ],
+};
+
 export const ENEMY_STRIKE: Sequence<CombatCue> = {
   id: "rakshasa_overhead_strike", durationMs: 2180,
   cues: [

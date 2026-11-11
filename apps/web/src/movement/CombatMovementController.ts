@@ -115,4 +115,18 @@ export class CombatMovementController {
   separation(a: THREE.Object3D, b: THREE.Object3D): number {
     return Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
   }
+
+  /**
+   * Root sidesteps are presentation, not a second damage/evade rule.
+   * Evaluate attack reach against the defender's original committed position
+   * when an authored dodge is playing; the domain grades that dodge itself.
+   */
+  separationForHit(a: THREE.Object3D, b: THREE.Object3D): number {
+    const p = (actor: THREE.Object3D) => {
+      const motion = this.moves.get(actor);
+      return motion?.kind === "dodge" ? motion.from : actor.position;
+    };
+    const pa = p(a), pb = p(b);
+    return Math.hypot(pa.x - pb.x, pa.z - pb.z);
+  }
 }

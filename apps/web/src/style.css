@@ -68,3 +68,47 @@
   .build-picker summary{font-size:.53rem;padding:4px 7px}
   .build-popover{width:min(300px,88vw);padding:11px}
 }
+
+/* v0.4-B0: move and Energy HUD, designed to remain visible on mobile. */
+.command-panel {
+  position: absolute; z-index: 5;
+  bottom: clamp(158px, 19vh, 210px);
+  right: clamp(16px, 4vw, 65px);
+  display: flex; flex-direction: column; align-items: end; gap: 5px;
+  max-width: min(390px, 48vw);
+  color: #f4e5c6; font-size: .7rem; letter-spacing: .06em;
+  text-shadow: 0 2px 9px #000c;
+}
+.command-panel label {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: #183629d9;
+  border: 1px solid #d9bf8c91; border-radius: 5px;
+}
+.command-panel select {
+  min-width: 160px; max-width: 255px;
+  color: #f6e6c6; font-size: .71rem;
+  background: #29483b; border: 1px solid #c7b37d78;
+  padding: 7px; border-radius: 4px;
+}
+.command-panel select:disabled { opacity: .55; }
+#move-hint {font-size: .59rem; opacity: .92; text-align: right;}
+.energy-info {display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-top: 7px; font-size: .63rem;}
+.energy-info b {color: #9ed5e2; font-size: .63rem; letter-spacing: .11em;}
+.energy-info span {color: #ebd5ae; font-size: .56rem;}
+.energy-track {height: 6px; border: 1px solid #9ac5d19e; background: #152f37; overflow: hidden; margin-top: 5px;}
+.energy-track span {display: block; width: 50%; height: 100%; background: linear-gradient(90deg, #528aab, #b2e5e3); transition: width .2s;}
+#enemy-energy {color: #accdd2; font-size: .57rem;}
+.actions button#end-turn {border-color: #aac7ad94;}
+@media (max-width: 760px) {
+  .command-panel {bottom: 173px; right: 12px; max-width: 66vw; gap: 3px;}
+  .command-panel label {padding: 4px 5px; font-size: .53rem; gap: 5px;}
+  .command-panel select {font-size: .58rem; min-width: 98px; max-width: 45vw; padding: 4px;}
+  #move-hint {font-size: .48rem;}
+  .energy-info {margin-top: 4px; font-size: .53rem;}
+  .energy-info b,.energy-info span {font-size: .51rem;}
+  .actions button#end-turn {min-width: 0;}
+}
+@media (max-height: 640px) and (orientation: landscape) {
+  .command-panel {bottom: 97px; right: 12px; }
+  .command-panel label {padding: 3px 5px;}
+}

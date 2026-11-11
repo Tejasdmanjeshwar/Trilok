@@ -269,7 +269,7 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 5. [ ] Tune damage types, armor/vulnerability coefficients and weak-point balance with real encounters (v0.4-D).
 
 ### v0.4-B — Enemy decisions and counterplay
-1. Migrate the browser encounter to the shared v0.4 domain (including Energy/actions/targeting) and retire the temporary legacy duel adapter after integration tests; implement seeded HFSM + utility EnemyCombatPolicy using the same legal-action and timing queries.
+1. [x] v0.4-B0: migrate browser encounter HP, Energy, attack legality, turns and reaction timing to the v0.4 domain (actor-targeted hit mode; torso contact). [ ] v0.4-B1: implement seeded HFSM + utility EnemyCombatPolicy using the same legal queries; retire obsolete legacy domain exports after regression audit.
 2. Let enemy equip/switch between sword and bow on its own turn with costs/cooldowns.
 3. Allow enemy to parry or dodge a player attack using the same reaction scheduler and damage resolver.
 4. Tune enemy profiles (novice, capable, elite): perception delay, reaction variance, Energy budgeting, attack-chain constraints, target-region selection, visible armor information and risk appetite.
