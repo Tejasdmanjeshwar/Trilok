@@ -123,7 +123,7 @@ function closestTargetApproach(path:ProjectileTrajectory, startTick:number,
   let bestDistance=Number.POSITIVE_INFINITY,bestTick=startTick;
   const count=Math.max(1,Math.ceil((endTick-startTick)/step));
   for(let i=1;i<=count;i++){
-    const tick=startTick+(endTick-startTick)*i/count;
+    const tick=Math.round(startTick+(endTick-startTick)*i/count);
     const center=targetAtTick(tick);
     if(!finiteVec(center))throw new Error("Invalid predicted target position.");
     const d=distance(sampleTrajectory(path,tick).position,center);
