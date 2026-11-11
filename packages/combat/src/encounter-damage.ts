@@ -140,7 +140,7 @@ export function resolveRegionDamage(input: DamageInput, catalog: CombatCatalog):
   const offenseBonus=input.offenseMultiplier??1;
   if(!Number.isFinite(offenseBonus)||offenseBonus<1||offenseBonus>1.5)
     throw new Error("Invalid offensive damage multiplier.");
-  if(input.offenseGrade && input.offenseGrade!=="miss" && contacted)
+  if(input.offenseGrade && input.offenseGrade!=="miss" && contacted && input.reactionMultiplier>0)
     reasons.push("offensive_"+input.offenseGrade);
   const vulnerabilityMultiplier = region?.vulnerabilityMultiplier ?? 1;
   let armorMultiplier = 1;
@@ -177,7 +177,7 @@ export function resolveRegionDamage(input: DamageInput, catalog: CombatCatalog):
   if (suppressCritical) reasons.push("critical_suppressed");
   if (input.reactionMultiplier === 0) reasons.push("defense_countered");
   const armorAbsorbed = contacted
-    ? Math.max(0, baseDamage * input.reactionMultiplier * weakness * (1 - armorMultiplier)) : 0;
+    ? Math.max(0, baseDamage * input.reactionMultiplier * offenseBonus * weakness * (1 - armorMultiplier)) : 0;
   const raw = contacted ? baseDamage * input.reactionMultiplier * offenseBonus * weakness *
     armorMultiplier * criticalMultiplier : 0;
   const finalDamage = Math.min(defender.hp, Math.max(0, Math.round(raw)));
