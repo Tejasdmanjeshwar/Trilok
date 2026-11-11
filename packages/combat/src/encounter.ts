@@ -9,7 +9,7 @@ import { gradeReactionWindow, resolveEffectiveTiming, validateTimingAdjustments 
 import { resolveDefaultRegion, resolveRegionDamage, validateActorTargets } from "./encounter-damage";
 import { calculateProjectileClash } from "./encounter-clash";
 import {
-  findInterceptionWindow, planInterception, sampleTrajectory,
+  findInterceptionWindow, planInterception, sampleTrajectory, validateTrajectory,
   type InterceptionMove, type InterceptionPlan, type InterceptionWindow,
 } from "./projectile-motion";
 import {
@@ -207,6 +207,10 @@ export function queueAttack(
     }
     throw new Error("Attack unavailable: equipment, Energy, range or action budget.");
   }
+  if(input.projectileGeometry){
+    validateTrajectory(input.projectileGeometry.incoming);
+    validateTrajectory(input.projectileGeometry.attackerPosition);
+  }
   const targeting = move.targeting ?? { mode: "actor" as const };
   const intendedRegionId = input.intendedRegionId ?? null;
   if (intendedRegionId !== null) {
@@ -235,20 +239,25 @@ export function queueAttack(
       const flight = defense.projectileInterception?.flight;
       if (flight && input.projectileGeometry && move.delivery === "ranged_projectile") {
         const geometry = input.projectileGeometry;
+        const incomingStart=geometry.incoming.kind==="ballistic"
+          ? geometry.incoming.startTick : geometry.incoming.segments[0]!.startTick;
         const config: InterceptionMove = {
           minSpeed: flight.minSpeed, maxSpeed: flight.maxSpeed,
           releaseDelayTicks: flight.releaseDelayTicks,
           acceleration: flight.gravity,
-          earliestClashTick: input.startedTick + 720,
+          earliestClashTick: incomingStart + 18,
           latestClashTick: impactTick - 30,
           continuationHorizonTicks: 900,
           targetRadiusMeters: flight.targetRadiusMeters,
           contactRadiusMeters: flight.contactRadiusMeters,
         };
-        const window = findInterceptionWindow({
+        const earliestInput=Math.max(input.startedTick,
+          incomingStart-flight.releaseDelayTicks);
+        const latestInput=impactTick-flight.releaseDelayTicks-38;
+        const window = earliestInput<=latestInput ? findInterceptionWindow({
           attackStartedTick: input.startedTick, attackImpactTick: impactTick,
-          earliestInputTick: input.startedTick + 700,
-          latestInputTick: impactTick - flight.releaseDelayTicks - 38,
+          earliestInputTick: earliestInput,
+          latestInputTick: latestInput,
           inputStepTicks: 6,
           base: {
             incoming: geometry.incoming,
@@ -256,7 +265,7 @@ export function queueAttack(
             targetAtTick: tick => sampleTrajectory(geometry.attackerPosition,tick).position,
             move: config,
           },
-        });
+        }) : null;
         if (window) interceptionWindows[defenseId] = window;
       }
     }
@@ -387,6 +396,8 @@ function solveInterceptionPlan(
   const spec=move.projectileInterception?.flight;
   const geometry=pending.projectileGeometry;
   if(!spec||!geometry)return null;
+  const incomingStart=geometry.incoming.kind==="ballistic"
+    ? geometry.incoming.startTick : geometry.incoming.segments[0]!.startTick;
   return planInterception({
     incoming:geometry.incoming,inputTick,
     launchOrigin:geometry.defenderLaunchOrigin,
@@ -394,7 +405,7 @@ function solveInterceptionPlan(
     move:{
       minSpeed:spec.minSpeed,maxSpeed:spec.maxSpeed,
       acceleration:spec.gravity,releaseDelayTicks:spec.releaseDelayTicks,
-      earliestClashTick:pending.startedTick+720,
+      earliestClashTick:incomingStart+18,
       latestClashTick:impactTick-30,
       continuationHorizonTicks:900,
       contactRadiusMeters:spec.contactRadiusMeters,
