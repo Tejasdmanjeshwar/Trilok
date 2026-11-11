@@ -85,6 +85,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
   const actions = Object.fromEntries(
     (Object.entries(library) as [Motion, THREE.AnimationClip][]).map(([key, value]) => [key, mixer.clipAction(value)]),
   ) as Record<Motion, THREE.AnimationAction>;
+  let equipped: WeaponId = role === "archer" ? "bow" : "sword";
   let current: Motion = "idle";
   let active = actions.idle;
   const leftLeg = rig.root.getObjectByName("LeftLeg");
@@ -99,7 +100,10 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
   return {
     root: rig.root,
     face: rig.face,
-    equip: rig.equip,
+    equip(weapon) {
+      equipped = weapon;
+      rig.equip(weapon);
+    },
     setLocomotion(value) { moving = value; },
     play(name) {
       if (current === name) return;
@@ -138,7 +142,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       }
     },
     socketWorld(out) {
-      const anchor = rig.root.getObjectByName(role === "archer" ? "LeftArm" : "RightArm");
+      const anchor = rig.root.getObjectByName(equipped === "bow" ? "LeftArm" : "RightArm");
       if (!anchor) return rig.root.getWorldPosition(out);
       rig.root.updateMatrixWorld(true);
       return anchor.localToWorld(out.set(0, -.78, .28));

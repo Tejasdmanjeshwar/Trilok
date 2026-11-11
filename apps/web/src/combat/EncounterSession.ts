@@ -1,6 +1,6 @@
 import {
-  endTurn, equipCombatant, getLegalAttackMoves, getLegalReactions,
-  gradeReactionV2, queueAttack, resolveReaction,
+  endTurn, equipCombatant, getLegalAttackMoves, getLegalEquipmentSwitches,
+  getLegalReactions, gradeReactionV2, queueAttack, resolveReaction,
   type CombatCatalog, type EncounterState, type ReactionOption,
   type ReactionResolution, type ReactionTechnique,
 } from "@trilok/combat";
@@ -15,15 +15,15 @@ export type DefenseCaptureResult =
   | { readonly accepted: false; readonly reason: "unavailable" | "too_early" | "too_late" | "already_selected" };
 
 /**
- * Browser-agnostic encounter controller. One immutable domain state, no
- * separate browser HP/Energy/turn arithmetic or gameplay logic in Three.js.
- * Enemy policy will call these same public methods in v0.4-B1.
+ * Shared browser-agnostic encounter controller.
+ * Both human and AI go through the same costs, legality and impact resolution.
+ * No copies of HP/Energy math or damage rules live here.
  */
 export class EncounterSession {
   state: EncounterState;
   private selectedDefense: CapturedDefense | null = null;
   readonly catalog: CombatCatalog;
-
+  private readonly factory: () => EncounterState;
   constructor(
     catalog: CombatCatalog = PREVIEW_CATALOG,
     create: () => EncounterState = createPreviewEncounter,
@@ -32,47 +32,39 @@ export class EncounterSession {
     this.factory = create;
     this.state = create();
   }
-  private readonly factory: () => EncounterState;
-
   reset(): void {
     this.selectedDefense = null;
     this.state = this.factory();
   }
-
   get activeDefense(): CapturedDefense | null { return this.selectedDefense; }
-
   legalAttacks(targetId: string, distanceMeters: number): readonly string[] {
     return getLegalAttackMoves(this.state, this.catalog, targetId, distanceMeters);
   }
-
-  legalReactions(): readonly ReactionOption[] {
-    return getLegalReactions(this.state, this.catalog);
+  legalSwitches(actorId: string): readonly string[] {
+    return getLegalEquipmentSwitches(this.state, this.catalog, actorId);
   }
-
+  legalReactions(): readonly ReactionOption[] { return getLegalReactions(this.state, this.catalog); }
   equip(actorId: string, weaponId: string): void {
     this.state = equipCombatant(this.state, actorId, weaponId, this.catalog);
   }
-
-  end(actorId: string): void {
-    this.state = endTurn(this.state, actorId);
-  }
-
+  end(actorId: string): void { this.state = endTurn(this.state, actorId); }
   attack(attackerId: string, defenderId: string, moveId: string,
     distanceMeters: number, nowMs: number): void {
     this.selectedDefense = null;
     this.state = queueAttack(this.state, {
       attackerId, defenderId, moveId,
-      distanceAtStartMeters: distanceMeters,
-      startedTick: Math.floor(nowMs),
-      // Explicit free aim/armor raycasts are introduced in v0.4-C.
+      distanceAtStartMeters: distanceMeters, startedTick: Math.floor(nowMs),
       intendedRegionId: null,
     }, this.catalog);
   }
-
-  /** The UI chooses an action, not a reaction grade. The domain grades it. */
-  captureDefense(technique: ReactionTechnique, nowMs: number): DefenseCaptureResult {
+  /**
+   * The caller submits its observed/scheduled tick. The same domain grade
+   * applies regardless of whether a player tapped or an AI policy scheduled it.
+   */
+  captureDefense(technique: ReactionTechnique, nowMs: number,
+    defenderId = "hero"): DefenseCaptureResult {
     const pending = this.state.pending;
-    if (!pending || this.state.phase !== "reaction" || pending.defenderId !== "hero") {
+    if (!pending || this.state.phase !== "reaction" || pending.defenderId !== defenderId) {
       return { accepted: false, reason: "unavailable" };
     }
     if (this.selectedDefense) return { accepted: false, reason: "already_selected" };
@@ -91,29 +83,30 @@ export class EncounterSession {
   }
 
   /**
-   * Player defenses wait until contact for pre-impact inputs, and allow late
-   * inputs before the authored grace closes. Enemy is scripted to take hits.
-   * Caller may be behind several render frames; a late call still resolves once.
+   * waitUntilTick lets the AI deliver a previously scheduled *late* reaction
+   * instead of being prematurely resolved at impact. No fake frame-based grades.
    */
-  resolveIfReady(nowMs: number, distanceAtImpactMeters: number): ReactionResolution | null {
+  resolveIfReady(nowMs: number, distanceAtImpactMeters: number,
+    waitUntilTick?: number): ReactionResolution | null {
     const pending = this.state.pending;
     if (!pending) return null;
     const tick = Math.floor(nowMs);
     if (tick < pending.impactTick) return null;
-    if (pending.defenderId === "hero" && !this.selectedDefense) {
-      const options = this.legalReactions();
-      const latest = Math.max(0, ...options.map(item => item.timing.lateTicks));
-      if (tick < pending.impactTick + latest) return null;
+    if (!this.selectedDefense) {
+      if (pending.defenderId === "hero") {
+        const options = this.legalReactions();
+        const latest = Math.max(0, ...options.map(item => item.timing.lateTicks));
+        if (tick < pending.impactTick + latest) return null;
+      } else if (waitUntilTick !== undefined && tick < waitUntilTick) {
+        return null;
+      }
     }
     const result = resolveReaction(this.state, {
-      defenderId: pending.defenderId,
-      hitId: pending.hits[pending.hitIndex]!.id,
+      defenderId: pending.defenderId, hitId: pending.hits[pending.hitIndex]!.id,
       defenseMoveId: this.selectedDefense?.moveId ?? null,
       reactionTick: this.selectedDefense?.tick ?? null,
       resolvedTick: tick,
       distanceAtImpactMeters,
-      // A normal actor-targeted shot hits the default torso region; precise
-      // raycast region/hit validation will be supplied by the v0.4-C adapter.
     }, this.catalog);
     this.state = result.state;
     this.selectedDefense = null;

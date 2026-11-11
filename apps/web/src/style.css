@@ -112,3 +112,16 @@
   .command-panel {bottom: 97px; right: 12px; }
   .command-panel label {padding: 3px 5px;}
 }
+
+/* v0.4-B1: clarify tactical enemy decisions without covering combat controls. */
+#enemy-weapon {
+  color:#f1dba9; font-size:.61rem; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase;
+}
+#enemy-intent {
+  color:#b8d8c4; font-size:.59rem; letter-spacing:.08em;
+  text-transform:uppercase; max-width:300px; margin-left:auto;
+}
+@media(max-width:760px){
+  #enemy-weapon,#enemy-intent { font-size:.52rem; }
+}

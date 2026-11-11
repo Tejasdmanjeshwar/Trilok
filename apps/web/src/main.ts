@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import type { ReactionResolution, ReactionTechnique } from "@trilok/combat";
+import type { ReactionResolution } from "@trilok/combat";
+import { EnemyCombatBrain, ENEMY_PROFILES, type DefenseIntent } from "@trilok/combat-ai";
 import { SequencePlayer } from "@trilok/choreography";
 import { createArena, type ArenaInstance, type ArenaQuality } from "./world/arena";
 import { createAnimatedWarrior, type AnimatedWarrior } from "./actors/AnimatedWarrior";
@@ -9,7 +10,7 @@ import { CombatFeedback } from "./feedback/CombatFeedback";
 import { CombatAudio } from "./feedback/CombatAudio";
 import { ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
 import { EncounterSession } from "./combat/EncounterSession";
-import { SCRIPTED_ENEMY_MOVE } from "./combat/preview-encounter";
+
 import { CombatMovementController } from "./movement/CombatMovementController";
 import { getBuildIdentity, compactBuildLabel, formatBuildReport } from "./build-info";
 import "./style.css";
@@ -32,7 +33,7 @@ host.innerHTML = [
   '<div class="tools"><span id="fps">— FPS</span><label>QUALITY <select id="quality"><option value="high">HIGH</option><option value="low">MOBILE</option></select></label>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
-  '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · SCRIPTED PREVIEW</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p></section>',
+  '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p></section>',
   '<section id="telegraph" class="telegraph"><b>⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
   '<section class="command-panel"><label for="move">MOVE <select id="move" aria-label="Choose combat move"></select></label><span id="move-hint"></span></section>',
@@ -84,6 +85,8 @@ const endTurnButton = query<HTMLButtonElement>("#end-turn");
 const heroEnergyBar = query<HTMLElement>("#hero-energy-bar");
 const heroEnergyLabel = query<HTMLElement>("#hero-energy-label");
 const enemyEnergyLabel = query<HTMLElement>("#enemy-energy");
+const enemyWeaponLabel = query<HTMLElement>("#enemy-weapon");
+const enemyIntentLabel = query<HTMLElement>("#enemy-intent");
 const actionsLeftLabel = query<HTMLElement>("#actions-left");
 const restartButton = query<HTMLButtonElement>("#restart");
 const audioButton = query<HTMLButtonElement>("#audio");
@@ -164,6 +167,9 @@ type Presentation =
   | "enemy_pause" | "victory" | "defeat";
 
 const session = new EncounterSession();
+let enemyBrain = new EnemyCombatBrain(ENEMY_PROFILES.capable, 119);
+let plannedEnemyDefense: DefenseIntent | null = null;
+let enemyIntent = "OBSERVING";
 let presentation: Presentation = "intro";
 let phaseAt = performance.now();
 let noticeUntil = 0;
@@ -252,6 +258,8 @@ function updateHud(): void {
   heroEnergyBar.style.width = 100 * player.resource / player.maxResource + "%";
   heroEnergyLabel.textContent = "ENERGY " + player.resource + " / " + player.maxResource;
   enemyEnergyLabel.textContent = "ENERGY " + opponent.resource + " / " + opponent.maxResource;
+  enemyWeaponLabel.textContent = session.catalog.equipment[opponent.equippedId]?.label ?? opponent.equippedId;
+  enemyIntentLabel.textContent = "AI · " + enemyIntent;
   const remaining = state.rules.maxActionsPerTurn - state.turnBudget.actionsUsed;
   actionsLeftLabel.textContent = remaining + " / " + state.rules.maxActionsPerTurn + " ACTIONS";
   phaseDisplay.textContent = state.phase === "complete"
@@ -284,7 +292,7 @@ function updateHud(): void {
 }
 
 function sequenceFor(moveId: string) {
-  if (moveId === "heavy_crush") return HEAVY_ATTACK;
+  if (moveId === "heavy_crush" || moveId === "rakshasa_heavy") return HEAVY_ATTACK;
   if (session.catalog.attacks[moveId]?.delivery === "ranged_projectile") {
     return ARCHERY_ATTACK;
   }
@@ -304,6 +312,9 @@ function startPlayerAttack(now = performance.now()): void {
     updateHud();
     return;
   }
+  plannedEnemyDefense = enemyBrain.planReaction(
+    session.state, session.catalog, "enemy", Math.floor(now));
+  enemyIntent = plannedEnemyDefense ? "DEFENSE READY" : "WATCHING ATTACK";
   setPhase("attack", "attack", now);
   choreography.start(sequenceFor(moveId), now);
   if (move.delivery === "melee_contact") {
@@ -319,28 +330,67 @@ function startPlayerAttack(now = performance.now()): void {
   updateHud();
 }
 
-function beginScriptedEnemyAttack(now: number): void {
+function showEnemyIntent(text: string): void {
+  enemyIntent = text;
+  enemyIntentLabel.textContent = "AI · " + enemyIntent;
+}
+
+function beginEnemyAttack(moveId: string, now: number): void {
+  const move = session.catalog.attacks[moveId]!;
+  session.attack("enemy", "hero", moveId, movement.separation(enemy.root, hero.root), now);
+  enemyBrain.markCommitted();
+  plannedEnemyDefense = null;
+  setPhase("windup", "defense", now);
+  const sequence = moveId === "overhead_slash" ? ENEMY_STRIKE : sequenceFor(moveId);
+  choreography.start(sequence, now);
+  if (move.delivery === "melee_contact") {
+    movement.approach(enemy.root, hero.root, move.reachMeters, now, 1050);
+    dust(enemy, now);
+    sound.play("step");
+    enemy.play(moveId === "overhead_slash" ? "windup" : "melee");
+    showEnemyIntent("MELEE · " + moveId.replaceAll("_", " ").toUpperCase());
+    lastMessage = "Rakshasa melee attack incoming. React at the impact!";
+  } else {
+    enemy.play("attack");
+    sound.play("draw");
+    showEnemyIntent("RANGED · " + moveId.replaceAll("_", " ").toUpperCase());
+    lastMessage = "Rakshasa arrow incoming. Ranged timing is tighter!";
+  }
+  hero.play("idle");
+  updateHud();
+}
+
+/** B1: bounded tactical HFSM + utility choice, never hardcoded attack IDs. */
+function beginEnemyDecision(now: number): void {
   if (session.state.phase !== "decision" || session.state.activeActorId !== "enemy") return;
-  if (!session.legalAttacks("hero", movement.separation(enemy.root, hero.root))
-    .includes(SCRIPTED_ENEMY_MOVE)) {
+  const intent = enemyBrain.decide({
+    state: session.state, catalog: session.catalog,
+    actorId: "enemy", targetId: "hero",
+    distanceMeters: movement.separation(enemy.root, hero.root),
+    tick: Math.floor(now),
+  });
+  if (intent.kind === "equip") {
+    session.equip("enemy", intent.equipmentId);
+    const newClass = intent.equipmentId === "rakshasa_bow" ? "bow" : "sword";
+    enemy.equip(newClass);
+    enemy.play("idle");
+    showEnemyIntent("SWITCHING TO " + newClass.toUpperCase());
+    lastMessage = "The guardian changes to " + newClass.toUpperCase() +
+      ". It costs Energy and is restricted to one switch per turn.";
+    enemyPauseUntil = now + 640;
+    setPhase("enemy_pause", "defense", now);
+    return;
+  }
+  if (intent.kind === "end_turn") {
     session.end("enemy");
-    lastMessage = "The rakshasa recovers its stance. Your turn.";
-    enemyPauseUntil = now + 430;
+    enemyBrain.markRecovering();
+    showEnemyIntent("RECOVERING");
+    lastMessage = "Guardian conserves Energy. Your turn.";
+    enemyPauseUntil = now + 470;
     setPhase("enemy_pause", "decision", now);
     return;
   }
-  const move = session.catalog.attacks[SCRIPTED_ENEMY_MOVE]!;
-  session.attack("enemy", "hero", SCRIPTED_ENEMY_MOVE,
-    movement.separation(enemy.root, hero.root), now);
-  setPhase("windup", "defense", now);
-  choreography.start(ENEMY_STRIKE, now);
-  movement.approach(enemy.root, hero.root, move.reachMeters, now, 1060);
-  dust(enemy, now);
-  enemy.play("windup");
-  hero.play("idle");
-  sound.play("step");
-  lastMessage = "Incoming sword strike. Dodge or parry at impact!";
-  updateHud();
+  beginEnemyAttack(intent.moveId, now);
 }
 
 function showEnding(now: number): void {
@@ -357,7 +407,12 @@ function enterNextTurn(now: number): void {
   if (session.state.phase === "complete") {
     showEnding(now);
   } else if (session.state.activeActorId === "enemy") {
-    beginScriptedEnemyAttack(now);
+    if (presentation === "enemy_pause") {
+      beginEnemyDecision(now);
+    } else {
+      enemyPauseUntil = now + enemyBrain.profile.minThinkTicks;
+      setPhase("enemy_pause", "defense", now);
+    }
   } else {
     hero.play("idle");
     enemy.play("idle");
@@ -415,8 +470,8 @@ function changeWeapon(id: string): void {
 function playerEndTurn(): void {
   if (!isPlayerDecision()) return;
   session.end("hero");
-  lastMessage = "Turn ended. The rakshasa prepares an attack.";
-  beginScriptedEnemyAttack(performance.now());
+  lastMessage = "Turn ended. The guardian considers its next move.";
+  enterNextTurn(performance.now());
 }
 
 function reset(): void {
@@ -425,6 +480,9 @@ function reset(): void {
   visualFeedback.reset();
   movement.reset();
   session.reset();
+  enemyBrain = new EnemyCombatBrain(ENEMY_PROFILES.capable, 119);
+  plannedEnemyDefense = null;
+  enemyIntent = "OBSERVING";
   hero.equip("bow");
   enemy.equip("sword");
   hero.play("idle");
@@ -447,9 +505,11 @@ function playOutcome(result: ReactionResolution, now: number): void {
     sound.play("miss");
   } else if (out.technique && out.grade !== "miss") {
     const kind = out.technique === "dodge" ? "dodge" : "parry";
+    target.play(kind);
     visualFeedback.emit(kind, targetPoint, now, out.damage, isHero);
     if (kind === "parry") effects.impact(targetPoint, now);
-    notice((kind === "parry" ? "PARRY" : "DODGE") + " · " + out.grade.toUpperCase());
+    notice((isHero ? "" : "ENEMY ") +
+      (kind === "parry" ? "PARRY" : "DODGE") + " · " + out.grade.toUpperCase());
     sound.play(kind);
   } else if (out.damage > 0) {
     effects.impact(targetPoint, now);
@@ -468,17 +528,40 @@ function playOutcome(result: ReactionResolution, now: number): void {
   updateHud();
 }
 
+/** AI reactions are scheduled from the telegraph, not granted at impact. */
+function applyEnemyDefense(now: number): number | undefined {
+  const pending = session.state.pending;
+  if (!pending || pending.defenderId !== "enemy" || !plannedEnemyDefense) return undefined;
+  const scheduled = plannedEnemyDefense.atTick;
+  if (Math.floor(now) < scheduled) return scheduled;
+  const chosen = plannedEnemyDefense;
+  plannedEnemyDefense = null;
+  const capture = session.captureDefense(chosen.technique, chosen.atTick, "enemy");
+  if (capture.accepted) {
+    if (chosen.technique === "dodge") {
+      movement.dodge(enemy.root, hero.root, now, 700);
+      dust(enemy, now);
+    }
+    enemy.play(chosen.technique === "dodge" ? "dodge" : "parry");
+    sound.play(chosen.technique === "dodge" ? "dodge" : "parry");
+    showEnemyIntent(chosen.technique === "dodge" ? "DODGING" : "PARRYING");
+  }
+  return undefined;
+}
+
 function landPlayerHit(now: number): void {
   const pending = session.state.pending;
   if (!pending || pending.attackerId !== "hero" || presentation !== "attack") return;
   const move = session.catalog.attacks[pending.moveId]!;
+  const waitingForDefense = applyEnemyDefense(now);
   const distance = movement.separationForHit(hero.root, enemy.root);
-  const result = session.resolveIfReady(now, distance);
+  const result = session.resolveIfReady(now, distance, waitingForDefense);
   if (!result) return;
   if (move.delivery === "melee_contact") {
     effects.swing(hero.root.position, hero.root.rotation.y, now);
   }
   playOutcome(result, now);
+  plannedEnemyDefense = null;
 }
 
 function finishEnemyImpact(now: number): void {
@@ -490,6 +573,7 @@ function finishEnemyImpact(now: number): void {
   playOutcome(result, now);
   movement.retreat(enemy.root, now, ARCHERY_REACTION.durationMs);
   dust(enemy, now);
+  enemyBrain.markRecovering();
   setPhase("reaction", "reaction", now);
   choreography.start(ARCHERY_REACTION, now);
   if (result.outcome.grade === "miss") hero.play("hit");
@@ -500,22 +584,32 @@ function onCue(cue: CombatCue, at: number, now: number): void {
   switch (cue) {
     case "camera_draw":
     case "melee_draw":
-      director.setShot("attack");
+      director.setShot(session.state.pending?.attackerId === "enemy" ? "defense" : "attack");
       break;
-    case "bow_release":
-      hero.socketWorld(heroSocket);
-      enemy.root.getWorldPosition(targetPoint);
+    case "bow_release": {
+      const enemyAttacks = session.state.pending?.attackerId === "enemy";
+      const attacker = enemyAttacks ? enemy : hero;
+      const defender = enemyAttacks ? hero : enemy;
+      attacker.socketWorld(heroSocket);
+      defender.root.getWorldPosition(targetPoint);
       targetPoint.y += 1.7;
       effects.launch(heroSocket, targetPoint, at, 435);
       sound.play("release");
       break;
+    }
     case "melee_impact":
     case "arrow_hit":
-      landPlayerHit(now);
+      if (session.state.pending?.attackerId === "enemy") finishEnemyImpact(now);
+      else landPlayerHit(now);
       break;
     case "melee_recover":
-      movement.retreat(hero.root, now, 675);
-      dust(hero, now);
+      if (session.state.pending?.attackerId === "enemy") {
+        movement.retreat(enemy.root, now, 675);
+        dust(enemy, now);
+      } else {
+        movement.retreat(hero.root, now, 675);
+        dust(hero, now);
+      }
       director.setShot("decision");
       break;
     case "camera_defense":
@@ -609,13 +703,21 @@ function frame(now: number): void {
         // Normal attacks resolve on their authored impact cue.
         // This fallback handles an interrupted/very slow render callback.
         landPlayerHit(now);
-        enterNextTurn(now);
+        if (!session.state.pending) enterNextTurn(now);
       } else if (presentation === "windup") {
         finishEnemyImpact(now);
       } else if (presentation === "reaction") {
         enterNextTurn(now);
       }
     }
+  }
+  // A late AI reaction may outlast the final animation cue. Keep the pending
+  // hit alive until the scheduled input resolves, not until a render frame.
+  if (presentation === "attack" && session.state.pending?.attackerId === "hero") {
+    landPlayerHit(now);
+  }
+  if (presentation === "attack" && !choreography.running && session.state.pending === null) {
+    enterNextTurn(now);
   }
   if (presentation === "windup") {
     const pending = session.state.pending;

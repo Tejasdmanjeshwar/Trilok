@@ -269,10 +269,10 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 5. [ ] Tune damage types, armor/vulnerability coefficients and weak-point balance with real encounters (v0.4-D).
 
 ### v0.4-B — Enemy decisions and counterplay
-1. [x] v0.4-B0: migrate browser encounter HP, Energy, attack legality, turns and reaction timing to the v0.4 domain (actor-targeted hit mode; torso contact). [ ] v0.4-B1: implement seeded HFSM + utility EnemyCombatPolicy using the same legal queries; retire obsolete legacy domain exports after regression audit.
-2. Let enemy equip/switch between sword and bow on its own turn with costs/cooldowns.
-3. Allow enemy to parry or dodge a player attack using the same reaction scheduler and damage resolver.
-4. Tune enemy profiles (novice, capable, elite): perception delay, reaction variance, Energy budgeting, attack-chain constraints, target-region selection, visible armor information and risk appetite.
+1. [x] v0.4-B0: migrate browser HP, Energy, attack legality, turns and reaction timing. [x] v0.4-B1: add pure seeded HFSM + Utility enemy decisions, legal equipment switching, attack chaining and scheduled reaction attempts. [ ] Remove obsolete v0.3.x domain exports after consumer audit.
+2. [x] Enemy can switch between a visible greatsword and warbow during its decision turn, paying the same Energy and once-per-turn cost as a player; switching is visibly announced.
+3. [x] Enemy can choose legal dodge, weapon deflection or projectile interception with deterministic seeded timing error and actual reaction costs; defaults can fail naturally.
+4. [x] Add novice, capable and elite profiles with configurable awareness, reaction variation, aggression, Energy management and switching preference. [ ] Balance all profiles by browser/mobile playtests, add actual aim-raycast visibility inputs and more nuanced weakness awareness.
 
 ### v0.4-C — Choreography and presentation
 1. Player and enemy share attack, defensive and weapon-swap animation interfaces.
@@ -313,4 +313,4 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 - **DIP:** AI and presentation depend on shared combat contracts/events, not on each other or on concrete browser objects.
 - **DRY:** shared legality/reaction, effective-timing, Energy/turn-policy and region-aware damage resolvers for player/NPC; one attack lifecycle, validated move-level overrides and one timing source. Avoid premature abstractions, subclass trees or duplicated browser-side rules.
 
-**Implementation status:** v0.4-A baseline and v0.4-A.1 **pure-domain timing and independent multi-hit impact resolution** are implemented. The deployed web duel remains on v0.3.2 until adapter migration. Energy/action chains are implemented in the pure domain but not yet deployed in the browser. The regional damage and armor domain is implemented but lacks live hit-zone raycasts/aim UI. Enemy HFSM/utility behavior and the new browser presentation are not implemented.
+**Implementation status:** v0.4-A baseline and v0.4-A.1 **pure-domain timing and independent multi-hit impact resolution** are implemented. The deployed web duel remains on v0.3.2 until adapter migration. Energy/action chains are implemented in the pure domain but not yet deployed in the browser. The regional damage and armor domain is implemented but lacks live hit-zone raycasts/aim UI. Enemy HFSM/utility behavior and the preview combat presentation are now implemented in v0.4.0-preview.2, but dedicated body-region raycast aiming and production enemy animation/camera polish remain v0.4-C.

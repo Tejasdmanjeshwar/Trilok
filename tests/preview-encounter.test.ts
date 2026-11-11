@@ -27,7 +27,7 @@ describe("v0.4-B0 playable encounter adapter", () => {
       if (i < 2) expect(session.state.activeActorId).toBe("hero");
     }
     expect(session.state.activeActorId).toBe("enemy");
-    expect(session.legalAttacks("hero", 3)).toEqual(["overhead_slash"]);
+    expect(session.legalAttacks("hero", 3)).toContain("overhead_slash");
   });
 
   it("uses domain timing window for both early parry and late dodge", () => {

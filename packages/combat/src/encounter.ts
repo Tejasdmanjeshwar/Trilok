@@ -97,6 +97,23 @@ export function createEncounter(
   };
 }
 
+/** Domain-authoritative legal equipment options for humans and AI. */
+export function getLegalEquipmentSwitches(
+  state: EncounterState,
+  catalog: CombatCatalog,
+  actorId: CombatantId,
+): readonly string[] {
+  if (state.phase !== "decision" || state.pending || state.activeActorId !== actorId) return [];
+  const actor = state.actors[actorId];
+  if (!actor || actor.hp <= 0 || actor.status !== "ready" ||
+      actor.switchedOnTurn === state.turn) return [];
+  return actor.loadoutIds.filter(id => {
+    const equipment = catalog.equipment[id];
+    return id !== actor.equippedId && equipment !== undefined &&
+      actor.resource >= equipment.switchCost;
+  });
+}
+
 export function equipCombatant(
   state: EncounterState,
   actorId: string,
@@ -104,13 +121,11 @@ export function equipCombatant(
   catalog: CombatCatalog,
 ): EncounterState {
   const actor = assertDecision(state, actorId);
-  if (!actor.loadoutIds.includes(equipmentId) || !catalog.equipment[equipmentId]) {
-    throw new Error("Equipment is not in the combatant's loadout.");
-  }
   if (actor.equippedId === equipmentId) return state;
-  if (actor.switchedOnTurn === state.turn) throw new Error("Already switched equipment this turn.");
+  if (!getLegalEquipmentSwitches(state, catalog, actorId).includes(equipmentId)) {
+    throw new Error("Equipment switch unavailable: loadout, turn limit or Energy.");
+  }
   const cost = catalog.equipment[equipmentId]!.switchCost;
-  if (actor.resource < cost) throw new Error("Insufficient resources for equipment switch.");
   return withActor(state, {
     ...actor, equippedId: equipmentId, resource: actor.resource - cost,
     switchedOnTurn: state.turn,

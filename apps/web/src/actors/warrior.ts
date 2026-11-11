@@ -84,6 +84,8 @@ export function createWarrior(role: WarriorRole): WarriorRig {
 
   let heroBow: THREE.Group | null = null;
   let heroSword: THREE.Group | null = null;
+  let enemyBow: THREE.Group | null = null;
+  let enemySword: THREE.Group | null = null;
   if (hero) {
     const bow = new THREE.Group();
     heroBow = bow;
@@ -116,6 +118,7 @@ export function createWarrior(role: WarriorRole): WarriorRig {
     heroSword.visible = false;
   } else {
     const sword = new THREE.Group();
+    enemySword = sword;
     sword.position.set(0.05, -0.8, 0.28);
     rightArm.add(sword);
     attach(sword, new THREE.CylinderGeometry(0.04, 0.06, 0.45, 7), leather, [0, -0.11, 0]);
@@ -125,6 +128,23 @@ export function createWarrior(role: WarriorRole): WarriorRig {
     shield.rotation.x = Math.PI / 2;
     attach(body, new THREE.ConeGeometry(0.18, 0.6, 7), ivory, [-0.31, 2.94, 0]);
     attach(body, new THREE.ConeGeometry(0.18, 0.6, 7), ivory, [0.31, 2.94, 0]);
+    // Low-cost alternate weapon, not an invisible equipment-state switch.
+    const bow = new THREE.Group();
+    enemyBow = bow;
+    bow.position.set(-0.12, -0.77, 0.2);
+    leftArm.add(bow);
+    const bowCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, -.9, .1),
+      new THREE.Vector3(-.35, -.48, .38),
+      new THREE.Vector3(-.45, 0, .52),
+      new THREE.Vector3(-.35, .48, .38),
+      new THREE.Vector3(0, .9, .1),
+    ]);
+    attach(bow, new THREE.TubeGeometry(bowCurve, 20, .06, 6, false), leather, [0, 0, 0]);
+    bow.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -.9, .1), new THREE.Vector3(0, .9, .1),
+    ]), new THREE.LineBasicMaterial({ color: 0xe8d8ae })));
+    enemyBow.visible = false;
   }
 
   return {
@@ -133,6 +153,8 @@ export function createWarrior(role: WarriorRole): WarriorRig {
     equip(weapon) {
       if (heroBow) heroBow.visible = weapon === "bow";
       if (heroSword) heroSword.visible = weapon === "sword";
+      if (enemyBow) enemyBow.visible = weapon === "bow";
+      if (enemySword) enemySword.visible = weapon === "sword";
     },
     face(position) {
       root.rotation.y = Math.atan2(position.x - root.position.x, position.z - root.position.z);
