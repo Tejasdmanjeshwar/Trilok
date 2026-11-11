@@ -653,13 +653,18 @@ function playProjectileClash(clash: ProjectileClash, now: number): void {
     notice(continued.source==="interceptor" ? "INTERCEPT SURVIVES · COUNTER!" :
       "INCOMING ARROW SURVIVES",continued.source==="incoming");
   } else {
+    // A move can win the clash yet suppress follow-through. Retire the visual
+    // survivor rather than leaving a frozen arrow hanging in the world.
+    if(clash.survivingProjectileId)projectiles.stop(clash.survivingProjectileId);
     followthroughAim=null;
     setPhase("reaction","reaction",now);
     choreography.start(ARCHERY_REACTION,now);
     lastMessage=clash.verdict==="mutual_destruction"
       ? "CLASH · Both projectiles shattered in midair."
-      : "CLASH · Offensive follow-through disabled by this move.";
-    notice("MID-AIR CLASH · BOTH ARROWS DESTROYED");
+      : "CLASH · Interception won, but this move prohibits follow-through.";
+    notice(clash.verdict==="mutual_destruction"
+      ? "MID-AIR CLASH · BOTH ARROWS DESTROYED"
+      : "PROJECTILE NEUTRALIZED · NO COUNTER");
   }
   updateHud();
 }
