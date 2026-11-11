@@ -274,11 +274,12 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 3. [x] Enemy can choose legal dodge, weapon deflection or projectile interception with deterministic seeded timing error and actual reaction costs; defaults can fail naturally.
 4. [x] Add novice, capable and elite profiles with configurable awareness, reaction variation, aggression, Energy management and switching preference. [ ] Balance all profiles by browser/mobile playtests, add actual aim-raycast visibility inputs and more nuanced weakness awareness.
 
-### v0.4-C — Choreography and presentation
-1. Player and enemy share attack, defensive and weapon-swap animation interfaces.
-2. Add countershot interception, weapon deflection, dodge and weapon switch VFX/audio; add aiming reticle, region-highlight feedback, projectile/body hit events and armor impact responses.
-3. Improve camera composition for mirrored roles, free-aim/body-region targeting, Energy/action HUD and readable per-move telegraphs with accessibility options.
-4. Preserve graceful mobile profile and keyboard/touch input accessibility.
+### v0.4-C — Choreography and presentation (prototype implementation)
+1. [x] Reuse player and enemy animation driver and visible weapon rigs; keep authored GLB animation polish as follow-up.
+2. [x] Add rig-linked coarse hit-volume proxies, pointer/menu region selection, snapshotted shot trajectories, impact spatial checks, armor/critical/weak-point feedback and shared defensive results.
+3. [x] Add aim, enemy attack and counter camera shots, region marker, Energy/action hints and defense-cost display.
+4. [x] Keep mobile/touch selection and existing quality presets; [ ] manually playtest mobile ergonomics, collision precision, animation and difficulty tuning.
+5. [x] Implement first free shared defense reaction, charging subsequent dodge/parry/intercept uses through the same authoritative domain resolver.
 
 ### v0.4-D — Reliability / balance
 1. Test both-direction attack resolution, equip/swap legality, range, costs, cooldowns, status constraints and move overrides.
@@ -313,4 +314,4 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 - **DIP:** AI and presentation depend on shared combat contracts/events, not on each other or on concrete browser objects.
 - **DRY:** shared legality/reaction, effective-timing, Energy/turn-policy and region-aware damage resolvers for player/NPC; one attack lifecycle, validated move-level overrides and one timing source. Avoid premature abstractions, subclass trees or duplicated browser-side rules.
 
-**Implementation status:** v0.4-A baseline and v0.4-A.1 **pure-domain timing and independent multi-hit impact resolution** are implemented. The deployed web duel remains on v0.3.2 until adapter migration. Energy/action chains are implemented in the pure domain but not yet deployed in the browser. The regional damage and armor domain is implemented but lacks live hit-zone raycasts/aim UI. Enemy HFSM/utility behavior and the preview combat presentation are now implemented in v0.4.0-preview.2, but dedicated body-region raycast aiming and production enemy animation/camera polish remain v0.4-C.
+**Implementation status (v0.4.0-preview.3):** v0.4-A core, v0.4-B0 browser migration, v0.4-B1 enemy HFSM+Utility and v0.4-C prototype region aiming/impact detection, armor/critical HUD and camera variants are implemented. Manual browser/mobile QA, authored GLB animation, detailed environment occlusion and balance remain outstanding. Defensive economy updated: first reaction free, later reactions cost Energy; no free perfect-parry Energy farming.

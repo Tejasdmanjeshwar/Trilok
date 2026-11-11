@@ -133,7 +133,7 @@ describe("v0.4-A.2 Energy action economy", () => {
     expect(() => equipCombatant(s, "hero", "bow", catalog)).toThrow();
   });
 
-  it("caps perfect parry refunds across all hits and never exceeds maxEnergy", () => {
+  it("grants one free defense, charges later hits and never refunds spent Energy", () => {
     const combo: CombatCatalog = {
       ...catalog,
       attacks: {
@@ -162,12 +162,13 @@ describe("v0.4-A.2 Energy action economy", () => {
       }, combo);
       expect(result.outcome.grade).toBe("perfect");
       expect(result.outcome.damage).toBe(0);
-      expect(result.outcome.energyRefunded).toBe(i < 2 ? 1 : 0);
-      expect(result.state.actors.enemy!.resource).toBe(before - 1 + (i < 2 ? 1 : 0));
+      expect(result.outcome.energyRefunded).toBe(0);
+      expect(result.outcome.energySpent).toBe(i === 0 ? 0 : 1);
+      expect(result.state.actors.enemy!.resource).toBe(before - (i === 0 ? 0 : 1));
       s = result.state;
     }
-    expect(s.turnBudget.perfectRefundUsedByActor.enemy).toBe(2);
-    expect(s.actors.enemy!.resource).toBe(3);
+    expect(s.defenseUsesSinceTurn.enemy).toBe(3);
+    expect(s.actors.enemy!.resource).toBe(2);
     expect(s.actors.hero!.resource).toBe(3);
     expect(s.activeActorId).toBe("hero");
   });

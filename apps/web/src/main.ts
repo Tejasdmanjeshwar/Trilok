@@ -10,6 +10,9 @@ import { CombatFeedback } from "./feedback/CombatFeedback";
 import { CombatAudio } from "./feedback/CombatAudio";
 import { ARCHERY_ATTACK, MELEE_ATTACK, HEAVY_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
 import { EncounterSession } from "./combat/EncounterSession";
+import {
+  CombatHitVolumes, normalizedPointer, type AimSnapshot, type SpatialImpact,
+} from "./combat/CombatHitVolumes";
 
 import { CombatMovementController } from "./movement/CombatMovementController";
 import { getBuildIdentity, compactBuildLabel, formatBuildReport } from "./build-info";
@@ -36,7 +39,10 @@ host.innerHTML = [
   '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p></section>',
   '<section id="telegraph" class="telegraph"><b>⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
-  '<section class="command-panel"><label for="move">MOVE <select id="move" aria-label="Choose combat move"></select></label><span id="move-hint"></span></section>',
+  '<section class="command-panel"><label for="move">MOVE <select id="move" aria-label="Choose combat move"></select></label>',
+  '<div id="aim-controls" class="aim-controls"><label for="aim-region">AIM AT <select id="aim-region" aria-label="Target body region"></select></label>',
+  '<span id="aim-armor-hint" role="status"></span></div><span id="move-hint"></span></section>',
+  '<div id="aim-marker" class="aim-marker" aria-hidden="true"><span>⊕</span><small id="aim-marker-label"></small></div>',
   '<footer class="hud"><section class="hero"><div class="sigil">✶</div><div><strong>TRIAL WARRIOR</strong><small>WEAPON <select id="weapon" aria-label="Equipped weapon"><option value="bow">LONGBOW</option><option value="sword">SWORD</option></select> <span class="weapon-keys">[1/2]</span></small>',
   '<div class="bar hero-bar"><span id="hero-bar"></span></div><p id="hero-hp"></p>',
   '<div class="energy-info"><b id="hero-energy-label">ENERGY</b><span id="actions-left"></span></div>',
@@ -81,6 +87,11 @@ const dodgeButton = query<HTMLButtonElement>("#dodge");
 const weaponSelect = query<HTMLSelectElement>("#weapon");
 const moveSelect = query<HTMLSelectElement>("#move");
 const moveHint = query<HTMLElement>("#move-hint");
+const aimControls = query<HTMLElement>("#aim-controls");
+const aimRegionSelect = query<HTMLSelectElement>("#aim-region");
+const aimArmorHint = query<HTMLElement>("#aim-armor-hint");
+const aimMarker = query<HTMLElement>("#aim-marker");
+const aimMarkerLabel = query<HTMLElement>("#aim-marker-label");
 const endTurnButton = query<HTMLButtonElement>("#end-turn");
 const heroEnergyBar = query<HTMLElement>("#hero-energy-bar");
 const heroEnergyLabel = query<HTMLElement>("#hero-energy-label");
@@ -167,6 +178,21 @@ type Presentation =
   | "enemy_pause" | "victory" | "defeat";
 
 const session = new EncounterSession();
+const heroHitVolumes = new CombatHitVolumes(hero.root, session.state.actors.hero!, session.catalog);
+const enemyHitVolumes = new CombatHitVolumes(enemy.root, session.state.actors.enemy!, session.catalog);
+const targetRegions = enemyHitVolumes.visibleRegionIds;
+aimRegionSelect.replaceChildren(...targetRegions.map(region => {
+  const item = document.createElement("option");
+  item.value = region;
+  item.textContent = region.replaceAll("_", " ").toUpperCase();
+  return item;
+}));
+aimRegionSelect.value = "torso";
+let shotSnapshot: AimSnapshot | null = null;
+let pendingSpatialImpact: SpatialImpact | null = null;
+let impactWorldPoint: THREE.Vector3 | null = null;
+const reticleWorld = new THREE.Vector3();
+const reticleProjected = new THREE.Vector3();
 let enemyBrain = new EnemyCombatBrain(ENEMY_PROFILES.capable, 119);
 let plannedEnemyDefense: DefenseIntent | null = null;
 let enemyIntent = "OBSERVING";
@@ -239,6 +265,26 @@ function updateMovePicker(): void {
   const selected = available.includes(previous) ? previous : available[0] ?? equipped.attackMoveIds[0] ?? "";
   moveSelect.value = selected;
   const move = session.catalog.attacks[selected];
+  const canAim = isPlayerDecision() &&
+    move?.targeting?.mode === "free_aim" && available.includes(selected);
+  aimControls.hidden = !canAim;
+  aimMarker.hidden = !canAim;
+  aimRegionSelect.disabled = !canAim;
+  if (canAim) {
+    if (!targetRegions.includes(aimRegionSelect.value)) aimRegionSelect.value = "torso";
+    const region = aimRegionSelect.value;
+    const armor = session.state.actors.enemy!.equippedArmorIds?.some(id =>
+      session.catalog.armor?.[id]?.coverage.some(cover =>
+        cover.regionId === region && cover.protection > 0)) ?? false;
+    const weakness = session.catalog.anatomies?.humanoid?.regions[region]?.criticalEligible;
+    aimArmorHint.textContent = armor ? "ARMOR COVERED · CRITICAL MAY BE BLOCKED" :
+      weakness ? "EXPOSED WEAK POINT · PRECISE AIM" : "UNARMORED REGION";
+    aimMarkerLabel.textContent = region.toUpperCase().replaceAll("_", " ");
+    director.setAimPoint(enemyHitVolumes.worldCenter(region,reticleWorld));
+    director.setShot("aim");
+  } else if (isPlayerDecision()) {
+    director.setShot("decision");
+  }
   moveSelect.disabled = !isPlayerDecision() || available.length === 0;
   moveHint.textContent = move ? moveDescription(selected) :
     "No move available. End turn to recover Energy.";
@@ -282,8 +328,10 @@ function updateHud(): void {
   const parryName = parry?.technique === "projectile_intercept" ? "INTERCEPT" : "PARRY";
   query<HTMLElement>("#react span").firstChild!.textContent = parryName;
   const hints: string[] = [];
-  if (dodge) hints.push("DODGE " + (dodge.timing.earlyTicks + dodge.timing.lateTicks) + "ms");
-  if (parry) hints.push(parryName + " " + (parry.timing.earlyTicks + parry.timing.lateTicks) + "ms");
+  if (dodge) hints.push("DODGE " + (dodge.timing.earlyTicks + dodge.timing.lateTicks) +
+    "ms · " + dodge.resourceCost + " EN");
+  if (parry) hints.push(parryName + " " + (parry.timing.earlyTicks + parry.timing.lateTicks) +
+    "ms · " + parry.resourceCost + " EN");
   defenseHint.textContent = hints.length ? hints.join(" · ") + " AT IMPACT" : "NO LEGAL DEFENSE";
   telegraph.classList.toggle("show", presentation === "windup");
   hero.root.visible = true;
@@ -305,8 +353,16 @@ function startPlayerAttack(now = performance.now()): void {
   const move = session.catalog.attacks[moveId];
   if (!move) return;
   try {
+    const intendedRegionId = move.targeting?.mode === "free_aim" ?
+      aimRegionSelect.value : null;
     session.attack("hero", "enemy", moveId,
-      movement.separation(hero.root, enemy.root), now);
+      movement.separation(hero.root, enemy.root), now, intendedRegionId);
+    shotSnapshot = move.delivery === "ranged_projectile"
+      ? enemyHitVolumes.snapshot(hero.socketWorld(heroSocket),
+          intendedRegionId ?? "torso", move.reachMeters)
+      : null;
+    impactWorldPoint = null;
+    pendingSpatialImpact = null;
   } catch (error) {
     notice(error instanceof Error ? error.message : "Attack unavailable", true);
     updateHud();
@@ -338,6 +394,11 @@ function showEnemyIntent(text: string): void {
 function beginEnemyAttack(moveId: string, now: number): void {
   const move = session.catalog.attacks[moveId]!;
   session.attack("enemy", "hero", moveId, movement.separation(enemy.root, hero.root), now);
+  shotSnapshot = move.delivery === "ranged_projectile"
+    ? heroHitVolumes.snapshot(enemy.socketWorld(heroSocket), "torso", move.reachMeters)
+    : null;
+  impactWorldPoint = null;
+  pendingSpatialImpact = null;
   enemyBrain.markCommitted();
   plannedEnemyDefense = null;
   setPhase("windup", "defense", now);
@@ -446,7 +507,8 @@ function attemptDefense(kind: "dodge" | "parry"): void {
   }
   hero.play(kind);
   sound.play(kind);
-  notice(kind === "dodge" ? "DODGE TIMED" : "PARRY TIMED");
+  notice((kind === "dodge" ? "DODGE" : "PARRY") +
+    " TIMED · " + option.resourceCost + " ENERGY");
   updateHud();
   if (now >= session.state.pending!.impactTick) finishEnemyImpact(now);
 }
@@ -480,6 +542,10 @@ function reset(): void {
   visualFeedback.reset();
   movement.reset();
   session.reset();
+  shotSnapshot = null;
+  pendingSpatialImpact = null;
+  impactWorldPoint = null;
+  aimRegionSelect.value = "torso";
   enemyBrain = new EnemyCombatBrain(ENEMY_PROFILES.capable, 119);
   plannedEnemyDefense = null;
   enemyIntent = "OBSERVING";
@@ -500,25 +566,34 @@ function playOutcome(result: ReactionResolution, now: number): void {
   const isHero = out.defenderId === "hero";
   target.root.getWorldPosition(targetPoint);
   targetPoint.y += 1.7;
+  if (impactWorldPoint) targetPoint.copy(impactWorldPoint);
   if (out.result === "out_of_reach" || out.result === "missed") {
     notice(out.result === "out_of_reach" ? "OUT OF REACH" : "MISSED", true);
     sound.play("miss");
   } else if (out.technique && out.grade !== "miss") {
-    const kind = out.technique === "dodge" ? "dodge" : "parry";
-    target.play(kind);
+    const kind = out.technique === "dodge" ? "dodge" :
+      out.technique === "projectile_intercept" ? "intercept" : "parry";
+    target.play(kind === "dodge" ? "dodge" : "parry");
+    director.setShot("counter");
     visualFeedback.emit(kind, targetPoint, now, out.damage, isHero);
-    if (kind === "parry") effects.impact(targetPoint, now);
+    if (kind !== "dodge") effects.impact(targetPoint, now);
     notice((isHero ? "" : "ENEMY ") +
-      (kind === "parry" ? "PARRY" : "DODGE") + " · " + out.grade.toUpperCase());
+      kind.toUpperCase() + " · " + out.grade.toUpperCase());
     sound.play(kind);
   } else if (out.damage > 0) {
     effects.impact(targetPoint, now);
-    visualFeedback.emit("hit", targetPoint, now, out.damage, isHero);
+    const kind = out.breakdown.critical ? "critical" :
+      out.breakdown.reasons.some(reason => reason.startsWith("armor:")) ? "armor" :
+      out.breakdown.reasons.includes("weak_point") ? "weakpoint" : "hit";
+    visualFeedback.emit(kind, targetPoint, now, out.damage, isHero);
     target.play("hit");
-    director.impact(isHero ? .15 : .12);
+    director.impact(kind === "critical" ? .23 : isHero ? .15 : .12);
     sound.play("hit");
-    notice(out.damage + " DAMAGE");
+    notice((kind === "critical" ? "PRECISION CRITICAL · " :
+      kind === "armor" ? "ARMOR ABSORBED · " :
+      kind === "weakpoint" ? "WEAK POINT · " : "") + out.damage + " DAMAGE");
   }
+  impactWorldPoint = null;
   const trace = out.breakdown.reasons;
   const mitigation = trace.some(reason => reason.startsWith("armor:"))
     ? " · ARMOR" : "";
@@ -551,26 +626,36 @@ function applyEnemyDefense(now: number): number | undefined {
 
 function landPlayerHit(now: number): void {
   const pending = session.state.pending;
-  if (!pending || pending.attackerId !== "hero" || presentation !== "attack") return;
+  if (!pending || pending.attackerId !== "hero" ||
+      presentation !== "attack" || now < pending.impactTick) return;
   const move = session.catalog.attacks[pending.moveId]!;
   const waitingForDefense = applyEnemyDefense(now);
   const distance = movement.separationForHit(hero.root, enemy.root);
-  const result = session.resolveIfReady(now, distance, waitingForDefense);
+  if (!pendingSpatialImpact && shotSnapshot) pendingSpatialImpact = enemyHitVolumes.impact(shotSnapshot);
+  if (pendingSpatialImpact) impactWorldPoint = pendingSpatialImpact.impactPoint;
+  const result = session.resolveIfReady(now, distance, waitingForDefense,
+    pendingSpatialImpact ?? undefined);
   if (!result) return;
   if (move.delivery === "melee_contact") {
     effects.swing(hero.root.position, hero.root.rotation.y, now);
   }
   playOutcome(result, now);
+  pendingSpatialImpact = null;
   plannedEnemyDefense = null;
 }
 
 function finishEnemyImpact(now: number): void {
   const pending = session.state.pending;
-  if (!pending || pending.attackerId !== "enemy" || presentation !== "windup") return;
+  if (!pending || pending.attackerId !== "enemy" ||
+      presentation !== "windup" || now < pending.impactTick) return;
   const distance = movement.separationForHit(enemy.root, hero.root);
-  const result = session.resolveIfReady(now, distance);
+  if (!pendingSpatialImpact && shotSnapshot) pendingSpatialImpact = heroHitVolumes.impact(shotSnapshot);
+  if (pendingSpatialImpact) impactWorldPoint = pendingSpatialImpact.impactPoint;
+  const result = session.resolveIfReady(now, distance, undefined,
+    pendingSpatialImpact ?? undefined);
   if (!result) return; // Still inside the late-reaction grace period.
   playOutcome(result, now);
+  pendingSpatialImpact = null;
   movement.retreat(enemy.root, now, ARCHERY_REACTION.durationMs);
   dust(enemy, now);
   enemyBrain.markRecovering();
@@ -584,7 +669,7 @@ function onCue(cue: CombatCue, at: number, now: number): void {
   switch (cue) {
     case "camera_draw":
     case "melee_draw":
-      director.setShot(session.state.pending?.attackerId === "enemy" ? "defense" : "attack");
+      director.setShot(session.state.pending?.attackerId === "enemy" ? "enemy_attack" : "attack");
       break;
     case "bow_release": {
       const enemyAttacks = session.state.pending?.attackerId === "enemy";
@@ -593,7 +678,7 @@ function onCue(cue: CombatCue, at: number, now: number): void {
       attacker.socketWorld(heroSocket);
       defender.root.getWorldPosition(targetPoint);
       targetPoint.y += 1.7;
-      effects.launch(heroSocket, targetPoint, at, 435);
+      effects.launch(heroSocket, shotSnapshot?.toward ?? targetPoint, at, 435);
       sound.play("release");
       break;
     }
@@ -647,6 +732,17 @@ parryButton.addEventListener("click", () => attemptDefense("parry"));
 dodgeButton.addEventListener("click", () => attemptDefense("dodge"));
 endTurnButton.addEventListener("click", playerEndTurn);
 moveSelect.addEventListener("change", updateHud);
+aimRegionSelect.addEventListener("change", updateHud);
+renderer.domElement.addEventListener("pointerdown", event => {
+  if (!isPlayerDecision() || aimControls.hidden) return;
+  const pointer = normalizedPointer(renderer.domElement, event.clientX, event.clientY);
+  if (!pointer) return;
+  const region = enemyHitVolumes.pickCamera(camera, pointer.x, pointer.y);
+  if (!region) return;
+  aimRegionSelect.value = region;
+  updateHud();
+  notice("TARGET LOCK · " + region.replaceAll("_", " ").toUpperCase());
+});
 weaponSelect.addEventListener("change", () => changeWeapon(weaponSelect.value));
 restartButton.addEventListener("click", reset);
 audioButton.addEventListener("click", () => {
@@ -751,6 +847,15 @@ function frame(now: number): void {
   movement.update(now);
   effects.update(now);
   director.update(frozen ? delta * .18 : delta);
+  if (!aimMarker.hidden) {
+    reticleProjected.copy(enemyHitVolumes.worldCenter(aimRegionSelect.value, reticleWorld));
+    reticleProjected.project(camera);
+    const visible = reticleProjected.z > -1 && reticleProjected.z < 1;
+    aimMarker.style.opacity = visible ? "1" : "0";
+    aimMarker.style.left = ((reticleProjected.x * .5 + .5) * viewport.clientWidth) + "px";
+    aimMarker.style.top = ((1 - (reticleProjected.y * .5 + .5)) *
+      viewport.clientHeight) + "px";
+  }
   visualFeedback.update(now, camera);
   renderer.render(scene, camera);
   frames++;
@@ -771,6 +876,8 @@ window.addEventListener("pagehide", () => {
   effects.dispose();
   visualFeedback.dispose();
   sound.dispose();
+  heroHitVolumes.dispose();
+  enemyHitVolumes.dispose();
   hero.dispose();
   enemy.dispose();
   renderer.dispose();

@@ -227,6 +227,8 @@ export interface EncounterState {
   readonly activeActorId: CombatantId;
   readonly rules: EncounterRules;
   readonly turnBudget: TurnBudget;
+  /** Defensive uses per actor since their last own turn; shared across dodge/parry/intercept. */
+  readonly defenseUsesSinceTurn: Readonly<Record<CombatantId, number>>;
   readonly phase: "decision" | "reaction" | "complete";
   readonly pending: PendingAttack | null;
   readonly victorId: CombatantId | null;
@@ -253,6 +255,7 @@ export interface ReactionResolution {
     readonly technique: ReactionTechnique | null;
     readonly grade: ReactionGradeV2;
     readonly damage: number;
+    readonly energySpent: number;
     readonly energyRefunded: number;
     readonly breakdown: DamageBreakdown;
     readonly result: "hit" | "countered" | "out_of_reach" | "missed";

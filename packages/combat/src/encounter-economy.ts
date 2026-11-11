@@ -85,6 +85,7 @@ export function transitionTurn(
     activeActorId: nextActorId,
     turn: state.turn + 1,
     turnBudget: emptyTurnBudget(),
+    defenseUsesSinceTurn: { ...state.defenseUsesSinceTurn, [nextActorId]: 0 },
     phase: "decision",
     pending: null,
   };

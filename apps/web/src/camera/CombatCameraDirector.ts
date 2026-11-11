@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-export type CameraShot = "intro" | "decision" | "attack" | "windup" | "defense" | "reaction" | "victory";
+export type CameraShot = "intro" | "decision" | "attack" | "aim" | "enemy_attack" | "counter" | "windup" | "defense" | "reaction" | "victory";
 
 /** Presentation-only director. Camera movement never determines combat outcomes. */
 export class CombatCameraDirector {
@@ -10,6 +10,8 @@ export class CombatCameraDirector {
   private readonly scratch = new THREE.Vector3();
   private readonly heroPosition = new THREE.Vector3();
   private readonly enemyPosition = new THREE.Vector3();
+  private readonly aimedPoint = new THREE.Vector3();
+  setAimPoint(point: THREE.Vector3): void { this.aimedPoint.copy(point); }
   private shot: CameraShot = "intro";
   private shake = 0;
   private elapsed = 0;
@@ -56,6 +58,24 @@ export class CombatCameraDirector {
         t.copy(enemy).lerp(hero, 0.16).add(new THREE.Vector3(0, 1.5, 0));
         fov = 44;
         speed = 3.5;
+        break;
+      case "aim":
+        p.copy(hero).add(new THREE.Vector3(-1.2, 2.5, 4.6));
+        t.copy(this.aimedPoint);
+        fov = 40;
+        speed = 5.4;
+        break;
+      case "enemy_attack":
+        p.copy(enemy).add(new THREE.Vector3(2.2, 3.1, -5.4));
+        t.copy(hero).add(new THREE.Vector3(0, 1.55, 0));
+        fov = 45;
+        speed = 5.4;
+        break;
+      case "counter":
+        p.copy(middle).add(new THREE.Vector3(1.1, 2.6, 4.7));
+        t.copy(middle).add(new THREE.Vector3(0, 1.55, 0));
+        fov = 43;
+        speed = 7.1;
         break;
       case "attack":
         p.copy(hero).add(new THREE.Vector3(-0.35, 2.15, 3.45));

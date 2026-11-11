@@ -49,12 +49,12 @@ export class EncounterSession {
   }
   end(actorId: string): void { this.state = endTurn(this.state, actorId); }
   attack(attackerId: string, defenderId: string, moveId: string,
-    distanceMeters: number, nowMs: number): void {
+    distanceMeters: number, nowMs: number, intendedRegionId: string | null = null): void {
     this.selectedDefense = null;
     this.state = queueAttack(this.state, {
       attackerId, defenderId, moveId,
       distanceAtStartMeters: distanceMeters, startedTick: Math.floor(nowMs),
-      intendedRegionId: null,
+      intendedRegionId,
     }, this.catalog);
   }
   /**
@@ -87,7 +87,9 @@ export class EncounterSession {
    * instead of being prematurely resolved at impact. No fake frame-based grades.
    */
   resolveIfReady(nowMs: number, distanceAtImpactMeters: number,
-    waitUntilTick?: number): ReactionResolution | null {
+    waitUntilTick?: number,
+    spatial?: { readonly actualRegionId: string | null; readonly contact: boolean },
+  ): ReactionResolution | null {
     const pending = this.state.pending;
     if (!pending) return null;
     const tick = Math.floor(nowMs);
@@ -107,6 +109,7 @@ export class EncounterSession {
       reactionTick: this.selectedDefense?.tick ?? null,
       resolvedTick: tick,
       distanceAtImpactMeters,
+      ...(spatial ? { actualRegionId: spatial.actualRegionId, contact: spatial.contact } : {}),
     }, this.catalog);
     this.state = result.state;
     this.selectedDefense = null;

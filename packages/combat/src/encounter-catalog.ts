@@ -172,8 +172,8 @@ export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
   },
   defenses: {
     evade: { id: "evade", technique: "dodge", resourceCost: 1, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "dodge" },
-    blade_deflect: { id: "blade_deflect", technique: "weapon_deflect", resourceCost: 1, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry", perfectEnergyRefund: 1 },
-    countershot: { id: "countershot", technique: "projectile_intercept", resourceCost: 2, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry", perfectEnergyRefund: 1 },
+    blade_deflect: { id: "blade_deflect", technique: "weapon_deflect", resourceCost: 1, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry", perfectEnergyRefund: 0 },
+    countershot: { id: "countershot", technique: "projectile_intercept", resourceCost: 2, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry", perfectEnergyRefund: 0 },
   },
   timings: {
     // Fallback for authored content that does not yet select delivery defaults.

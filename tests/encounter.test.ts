@@ -186,7 +186,7 @@ describe("symmetric, equipment-aware encounter domain", () => {
     expect(tooFar.outcome.damage).toBe(0);
   });
 
-  it("deducts defense resources, rejects unaffordable options, and tests timing thresholds", () => {
+  it("makes the first defense free, while later uses require Energy, and tests timing", () => {
     let state = attack(encounter("bow", "bow"), "hero", "enemy", "arrow", 12);
     const intercepted = resolveReaction(state, {
       defenderId: "enemy", defenseMoveId: "countershot", reactionTick: 2150,
@@ -194,7 +194,8 @@ describe("symmetric, equipment-aware encounter domain", () => {
     }, DEFAULT_COMBAT_CATALOG);
     expect(intercepted.outcome.technique).toBe("projectile_intercept");
     expect(intercepted.outcome.damage).toBe(0);
-    expect(intercepted.state.actors.enemy!.resource).toBe(8);
+    expect(intercepted.state.actors.enemy!.resource).toBe(10);
+    expect(intercepted.outcome.energySpent).toBe(0);
     expect(gradeReactionV2(-90, DEFAULT_COMBAT_CATALOG.timings.standard!)).toBe("perfect");
     expect(gradeReactionV2(170, DEFAULT_COMBAT_CATALOG.timings.standard!)).toBe("good");
     expect(gradeReactionV2(310, DEFAULT_COMBAT_CATALOG.timings.standard!)).toBe("miss");
@@ -202,7 +203,7 @@ describe("symmetric, equipment-aware encounter domain", () => {
       actor("hero", "bow"), { ...actor("enemy", "bow"), resource: 0 },
     ], DEFAULT_COMBAT_CATALOG);
     state = attack(zeroResource, "hero", "enemy", "arrow", 10);
-    expect(techniques(state)).toEqual([]);
+    expect(techniques(state)).toEqual(["dodge", "projectile_intercept"]);
   });
 
   it("rejects malformed catalog, negative resources, late frames and invalid targets", () => {

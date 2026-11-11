@@ -88,7 +88,8 @@ describe("v0.4-B1 deterministic HFSM + utility enemy intelligence", () => {
       defenderId: "enemy", grade: "perfect", damage: 0,
       technique: "weapon_deflect",
     });
-    expect(result?.outcome.energyRefunded).toBe(1);
+    expect(result?.outcome.energySpent).toBe(0);
+    expect(result?.outcome.energyRefunded).toBe(0);
   });
 
   it("does not parry a melee move with a ranged-only equipped weapon", () => {

@@ -91,6 +91,7 @@ export function createEncounter(
     activeActorId,
     rules: { ...rules },
     turnBudget: emptyTurnBudget(),
+    defenseUsesSinceTurn: {},
     phase: "decision",
     pending: null,
     victorId: null,
@@ -282,6 +283,7 @@ export function getLegalReactions(
   const attack = catalog.attacks[pending.moveId];
   if (!weapon || !attack) throw new Error("Pending attack references invalid content.");
   const permitted = permittedTechniques(attack.delivery, attack.reactionPolicy);
+  const uses = state.defenseUsesSinceTurn[defender.id] ?? 0;
   return weapon.defenseMoveIds.flatMap(moveId => {
     const move = catalog.defenses[moveId];
     if (!move) throw new Error("Unknown equipped reaction move.");
@@ -289,7 +291,7 @@ export function getLegalReactions(
     const hasException = move.grantsAgainst?.includes(attack.delivery) &&
       attack.reactionPolicy?.mode !== "replace";
     if (denied || (!permitted.has(move.technique) && !hasException) ||
-        defender.resource < move.resourceCost ||
+        defender.resource < (uses === 0 ? 0 : move.resourceCost) ||
         (defender.cooldownUntilTurn[move.id] ?? 0) > state.turn) return [];
     const hit = pending.hits[pending.hitIndex];
     const timing = hit?.timingByDefenseId[move.id];
@@ -297,7 +299,7 @@ export function getLegalReactions(
     return [{
       moveId: move.id,
       technique: move.technique,
-      resourceCost: move.resourceCost,
+      resourceCost: uses === 0 ? 0 : move.resourceCost,
       timingProfileId: timing.sourceProfileId,
       timing,
       outcomeProfileId: move.outcomeProfileId,
@@ -412,6 +414,8 @@ export function resolveReaction(
     contact: input.contact !== false,
   }, catalog);
   const damage = breakdown.finalDamage;
+  // One shared free first reaction per actor; any later dodge, deflect, or
+  // intercept pays the authored cost. Changing technique cannot reset it.
   const defenseCost = chosen?.resourceCost ?? 0;
   const requestedRefund = grade === "perfect" && chosen &&
     (chosen.technique === "weapon_deflect" || chosen.technique === "projectile_intercept")
@@ -419,7 +423,7 @@ export function resolveReaction(
   const refundedSoFar = state.turnBudget.perfectRefundUsedByActor[defender.id] ?? 0;
   const refundAllowance = Math.max(0, state.rules.maxPerfectDefenseRefundPerTurn - refundedSoFar);
   const energyRefunded = Math.max(0, Math.min(
-    requestedRefund, refundAllowance,
+    requestedRefund, refundAllowance, defenseCost,
     defender.maxResource - (defender.resource - defenseCost),
   ));
   const updatedDefender: EncounterActor = {
@@ -453,6 +457,10 @@ export function resolveReaction(
     ...state,
     actors,
     turnBudget: budget,
+    defenseUsesSinceTurn: chosen ? {
+      ...state.defenseUsesSinceTurn,
+      [defender.id]: (state.defenseUsesSinceTurn[defender.id] ?? 0) + 1,
+    } : state.defenseUsesSinceTurn,
     pending: finalHit ? null : {
       ...pending,
       hitIndex: nextIndex,
@@ -507,6 +515,7 @@ export function resolveReaction(
       technique: chosen?.technique ?? null,
       grade,
       damage,
+      energySpent: defenseCost,
       energyRefunded,
       breakdown,
       result: !inReach ? "out_of_reach" :

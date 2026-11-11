@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-export type FeedbackKind = "hit" | "parry" | "dodge" | "miss" | "step";
+export type FeedbackKind = "hit" | "parry" | "dodge" | "miss" | "step" | "armor" | "critical" | "weakpoint" | "intercept";
 
 interface Particle {
   activeUntil: number;
@@ -98,7 +98,10 @@ export class CombatFeedback {
     amount = 0,
     isHeroDamage = false,
   ): void {
-    const tint = kind === "parry" || kind === "dodge" ? 0x91dddc
+    const tint = kind === "parry" || kind === "dodge" || kind === "intercept" ? 0x91dddc
+      : kind === "armor" ? 0xa8c9df
+      : kind === "critical" ? 0xffe09c
+      : kind === "weakpoint" ? 0xf6a3a8
       : kind === "miss" ? 0xf19a76
       : kind === "step" ? 0xa1a18a : 0xffd18a;
     const count = kind === "step" ? 7 : kind === "dodge" ? 13 : 26;
@@ -126,10 +129,10 @@ export class CombatFeedback {
 
     if (kind !== "step") {
       this.flashAt = nowMs;
-      this.flashDuration = kind === "hit" || kind === "miss" ? 290 : 200;
-      this.flashStrength = kind === "hit" ? .44 : kind === "parry" ? .38 : .25;
+      this.flashDuration = kind === "critical" ? 390 : kind === "hit" || kind === "miss" ? 290 : 200;
+      this.flashStrength = kind === "critical" ? .55 : kind === "hit" ? .44 : kind === "parry" ? .38 : .25;
       this.overlay.className = "combat-impact-overlay " + kind;
-      if (!this.reducedMotion && (kind === "hit" || kind === "parry" || kind === "miss")) {
+      if (!this.reducedMotion && (kind === "hit" || kind === "critical" || kind === "parry" || kind === "miss")) {
         this.holdUntil = Math.max(this.holdUntil, nowMs + (kind === "parry" ? 55 : 45));
       }
     }
@@ -140,7 +143,9 @@ export class CombatFeedback {
       view.amount = amount;
       view.world.copy(position);
       view.element.textContent = String(amount);
-      view.element.className = "combat-damage-number " + (isHeroDamage ? "hero-damage" : "enemy-damage");
+      view.element.className = "combat-damage-number " +
+        (isHeroDamage ? "hero-damage" : "enemy-damage") +
+        (kind === "critical" ? " critical-damage" : kind === "armor" ? " armor-damage" : "");
     }
   }
 

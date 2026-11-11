@@ -163,7 +163,8 @@ describe("independent multi-hit windows", () => {
     });
     expect(first.state.phase).toBe("reaction");
     expect(first.state.turn).toBe(1);
-    expect(first.state.actors.enemy!.resource).toBe(before - 1);
+    expect(first.state.actors.enemy!.resource).toBe(before);
+    expect(first.outcome.energySpent).toBe(0);
 
     state = first.state;
     expect(() => resolveReaction(state, {

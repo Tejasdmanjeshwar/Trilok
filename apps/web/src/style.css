@@ -125,3 +125,29 @@
 @media(max-width:760px){
   #enemy-weapon,#enemy-intent { font-size:.52rem; }
 }
+
+/* v0.4-C: precise aim controls + localized feedback. */
+.aim-controls { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+.aim-controls[hidden], .aim-marker[hidden] { display:none !important; }
+.aim-controls label {background: #17392ef2; border-color:#86cfc4;}
+.aim-controls select {border-color:#92d2c2; min-width:144px;}
+#aim-armor-hint {font-size:.56rem;color:#bcded2;text-align:right;max-width:300px;}
+.aim-marker {position:absolute; z-index:4; transform:translate(-50%,-50%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  pointer-events:none; color:#dcf5d5; text-shadow:0 1px 7px #081912;
+  filter:drop-shadow(0 0 4px #083a29); transition:opacity .16s;}
+.aim-marker span {font-size:30px;line-height:1;font-weight:500;}
+.aim-marker small {font-size:.57rem;letter-spacing:.07em;background:#1b3729cf;
+  border:1px solid #8dbea7bb;padding:3px 6px;border-radius:3px;white-space:nowrap;}
+.combat-damage-number.critical-damage {color:#ffdb92;filter:drop-shadow(0 0 9px #b95a19);
+  font-weight:900; transform-origin:center;}
+.combat-damage-number.armor-damage {color:#bcd5e3;filter:drop-shadow(0 0 5px #416781);}
+.combat-impact-overlay.critical {background:radial-gradient(circle at center,#ffbb6e38,transparent 65%);}
+.combat-impact-overlay.armor {background:radial-gradient(circle at center,#8fb4df22,transparent 60%);}
+@media(max-width:760px){
+  .aim-controls label {font-size:.55rem; padding:4px 6px;}
+  .aim-controls select {min-width:98px;max-width:45vw;padding:4px;}
+  #aim-armor-hint {font-size:.48rem;max-width:55vw;}
+  .aim-marker span {font-size:25px;}
+  .aim-marker small {font-size:.44rem;}
+}

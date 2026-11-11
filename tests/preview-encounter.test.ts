@@ -43,7 +43,7 @@ describe("v0.4-B0 playable encounter adapter", () => {
     const outcome = session.resolveIfReady(3900, 1.8)!;
     expect(outcome.outcome).toMatchObject({ grade: "perfect", damage: 0, technique: "dodge" });
     expect(session.state.activeActorId).toBe("hero");
-    expect(session.state.actors.hero!.resource).toBe(4); // Dodge -1, regen +1
+    expect(session.state.actors.hero!.resource).toBe(5); // First dodge free, +1 own-turn regen
   });
 
   it("waits for late reaction grace before applying an undefended enemy hit", () => {
