@@ -42,3 +42,19 @@ test("the build and touch/keyboard combat controls remain interactive",async ({p
   await expect(page.locator("#runtime-fault")).toBeHidden();
   expect(pageErrors).toEqual([]);
 });
+
+test("D12 sword attacks expose an optional rhythmic execution prompt",async ({page})=>{
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/");
+  await expect(page.locator("#loading")).toBeHidden({timeout:15000});
+  await page.keyboard.press("Digit2");
+  await expect(page.locator("#weapon-deck .is-equipped")).toContainText("Sword");
+  await page.locator("#attack").click();
+  await expect(page.locator("#offense-rhythm")).toBeVisible();
+  await expect(page.locator("#rhythm-input")).toBeVisible();
+  // No beat is required to complete combat; input is an optional reward.
+  await expect(page.locator("#offense-rhythm")).toBeHidden({timeout:15000});
+  await expect(page.locator("#runtime-fault")).toBeHidden();
+  expect(errors).toEqual([]);
+});

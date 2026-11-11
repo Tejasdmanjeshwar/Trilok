@@ -389,3 +389,20 @@
 .fault-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:22px}
 .fault-actions button{padding:11px 15px;background:#365344;color:#f7e8d1;border:1px solid #d5b27c99;cursor:pointer;font-size:.78rem;letter-spacing:.07em}
 .fault-actions button:focus-visible{outline:3px solid #ffe2a3;outline-offset:3px}
+
+/* D12 offensive timing is optional; never masks incoming-defense UI. */
+.offense-rhythm[hidden]{display:none}
+.offense-rhythm{position:absolute;left:50%;transform:translateX(-50%);bottom:clamp(150px,24vh,255px);z-index:12;width:min(370px,80vw);text-align:center;padding:10px 15px;background:#101f20df;border:1px solid #c5a76c99;color:#f8e1b2;box-shadow:0 4px 22px #060d0d8c;pointer-events:auto}
+.offense-rhythm b{display:block;font:small-caps 700 .82rem Georgia,serif;letter-spacing:.12em}
+.rhythm-track{height:17px;position:relative;margin:11px 0;background:#192b2c;border:1px solid #837c60}
+.rhythm-track i{position:absolute;top:0;bottom:0;display:block;pointer-events:none}
+#rhythm-good{background:#6aa89866;border-inline:1px solid #9ce3cb}
+#rhythm-perfect{z-index:2;background:#f8d386aa;box-shadow:0 0 9px #f8cc83}
+#rhythm-progress{position:absolute;left:0;top:0;bottom:0;z-index:3;display:block;width:0;border-right:3px solid #f9f4d6;background:linear-gradient(90deg,transparent,#eef0ce27);pointer-events:none}
+#rhythm-input{padding:8px 19px;min-height:42px;background:#3c4d42;color:#fff0c9;border:1px solid #dfbc71;cursor:pointer;letter-spacing:.08em}
+#rhythm-input:disabled{opacity:.55;cursor:default}
+#rhythm-input small{color:#e7cb90}
+#rhythm-hint{font-size:.61rem;line-height:1.5;margin:7px 0 0;letter-spacing:.05em}
+#hero-chain{font-size:.64rem;color:#ffe09b;letter-spacing:.1em}
+@media(max-width:760px){.offense-rhythm{bottom:clamp(205px,31vh,290px);width:min(330px,86vw);padding:7px 12px}.offense-rhythm b{font-size:.69rem}#rhythm-hint{font-size:.54rem}}
+@media(max-height:640px) and (orientation:landscape){.offense-rhythm{bottom:88px;left:55%;width:240px;padding:5px 8px}.rhythm-track{margin:5px 0}#rhythm-input{min-height:34px;padding:4px 10px}#rhythm-hint{display:none}}

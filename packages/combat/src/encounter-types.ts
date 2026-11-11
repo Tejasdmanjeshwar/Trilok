@@ -3,6 +3,19 @@ import type { ProjectileTrajectory, Vector3, InterceptionWindow, InterceptionPla
 export type AttackDelivery = "melee_contact" | "ranged_projectile" | "area";
 export type ReactionTechnique = "dodge" | "weapon_deflect" | "projectile_intercept";
 export type ReactionGradeV2 = "perfect" | "good" | "partial" | "miss";
+export type OffenseGrade = "perfect" | "good" | "miss";
+
+/** Authored, deterministic, one-input offensive timing. */
+export interface OffensiveTimingSpec {
+  readonly targetOffsetTicks: number;
+  readonly goodWindowTicks: number;
+  readonly perfectWindowTicks: number;
+  readonly goodBonus: number;
+  readonly perfectBonus: number;
+  readonly chainBonusPerHit: number;
+  readonly maxChain: number;
+}
+
 export type CombatantId = string;
 export type DamageType = "pierce" | "slash" | "blunt" | "divine";
 export type TargetMode = "actor" | "free_aim";
@@ -51,6 +64,8 @@ export interface DamageBreakdown {
   readonly criticalMultiplier: number;
   readonly stagger: number;
   readonly finalDamage: number;
+  readonly offenseGrade?: OffenseGrade;
+  readonly offenseMultiplier?: number;
   readonly reasons: readonly string[];
 }
 
@@ -96,6 +111,7 @@ export interface EncounterRules {
 /** Current actor's budget; tracked separately from each actor's Energy pool. */
 export interface TurnBudget {
   readonly actionsUsed: number;
+  readonly rhythmChain: number;
   readonly moveUses: Readonly<Record<string, number>>;
   /** A defender may refund at most the global cap across a full combo/turn. */
   readonly perfectRefundUsedByActor: Readonly<Record<CombatantId, number>>;
@@ -124,6 +140,7 @@ export interface AttackSpec {
   readonly timingProfileOverrides?: Partial<Record<ReactionTechnique, string>>;
   /** Cost is paid once at action commitment, not per authored hit. */
   readonly resourceCost: number;
+  readonly offensiveTiming?: OffensiveTimingSpec;
   /** Absent policy is legacy end-turn behavior. */
   readonly turnPolicy?: AttackTurnPolicy;
   readonly reactionPolicy?: ReactionPolicyOverride;
@@ -291,6 +308,12 @@ export interface PendingAttack {
   readonly intendedRegionId: string | null;
   readonly damageType: DamageType;
   readonly projectileGeometry?: ProjectileAttackGeometry;
+  readonly offense?: {
+    readonly policy: OffensiveTimingSpec;
+    readonly grade: OffenseGrade | null;
+    readonly inputTick: number | null;
+    readonly connected: boolean;
+  };
 }
 
 export type ProjectileClashVerdict =
