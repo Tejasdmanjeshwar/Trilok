@@ -64,7 +64,9 @@ describe("D10 runtime phase supervision",()=>{
     const stuck=s({nowMs:7600});
     // 6600ms wall gap is interpreted as a tab suspension, not a freeze.
     expect(guard.inspect(stuck)).toBeNull();
-    expect(guard.inspect(s({nowMs:12700}))).toContain("stalled");
+    expect(guard.inspect(s({nowMs:10000}))).toBeNull();
+    expect(guard.inspect(s({nowMs:12500}))).toBeNull();
+    expect(guard.inspect(s({nowMs:13000}))).toContain("stalled");
     guard.fail(new Error("stalled"),stuck);
     const report=JSON.parse(guard.report("preview-test",stuck));
     expect(report.events.length).toBe(3);
@@ -81,6 +83,7 @@ describe("D10 runtime phase supervision",()=>{
   it("gives projectile and counter their own deadlines",()=>{
     const guard=new CombatRuntimeGuard();
     guard.inspect(s({presentation:"projectile",nowMs:1000,projectileImpactTick:2200}));
+    expect(guard.inspect(s({presentation:"projectile",nowMs:3000,projectileImpactTick:2200}))).toBeNull();
     expect(guard.inspect(s({presentation:"projectile",nowMs:5000,projectileImpactTick:2200}))).toBeNull();
     expect(guard.inspect(s({presentation:"projectile",nowMs:6000,projectileImpactTick:2200}))).toContain("stalled");
   });

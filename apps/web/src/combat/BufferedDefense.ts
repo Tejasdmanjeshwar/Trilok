@@ -21,8 +21,9 @@ export function defenseOpeningTick(pending: PendingAttack, option: ReactionOptio
 /**
  * Small, one-shot pre-window input buffer. It never moves a hit marker,
  * extends an authoritative defense window or grants a late input.
- * A buffered input is executed at the earliest legal tick; a slow frame
- * beyond the last accepted tick discards it instead of inventing a parry.
+ * A buffered input is eligible at the earliest legal tick. It executes
+ * using the actual clock rather than a fabricated earlier parry timestamp.
+ * Slow frames outside the real window discard it instead.
  */
 export class BufferedDefense {
   private queued: QueuedDefense | null = null;

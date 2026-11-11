@@ -1234,7 +1234,7 @@ function frame(now: number): void {
   movement.update(now);
   if (presentation === "windup") {
     const buffered=defenseBuffer.take(session.state.pending,now);
-    if (buffered) attemptDefense(buffered.kind,buffered.executeTick,true);
+    if (buffered) attemptDefense(buffered.kind,now,true);
   }
   releaseScheduledInterception(now);
   const sequenceId = choreography.sequenceId;
