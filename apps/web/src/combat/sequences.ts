@@ -2,7 +2,7 @@ import type { Sequence } from "@trilok/choreography";
 
 export type CombatCue =
   | "camera_draw" | "bow_release" | "arrow_hit"
-  | "melee_draw" | "melee_impact" | "melee_recover"
+  | "melee_draw" | "melee_swing" | "melee_impact" | "melee_recover"
   | "camera_defense" | "enemy_swing" | "enemy_impact"
   | "reaction_close" | "camera_recover"
   | "counter_impact";
@@ -21,6 +21,7 @@ export const RAPID_MELEE_ATTACK: Sequence<CombatCue> = {
   id: "rapid_melee_opener", durationMs: 1190,
   cues: [
     { id: "rapid-approach", atMs: 0, type: "melee_draw" },
+    { id: "rapid-swing", atMs: 560, type: "melee_swing" },
     { id: "rapid-impact", atMs: 720, type: "melee_impact" },
     { id: "rapid-retreat", atMs: 890, type: "melee_recover" },
   ],
@@ -29,6 +30,7 @@ export const MELEE_ATTACK: Sequence<CombatCue> = {
   id: "warrior_melee_lunge", durationMs: 2350,
   cues: [
     { id: "approach", atMs: 0, type: "melee_draw" },
+    { id: "sword-swing", atMs: 1240, type: "melee_swing" },
     { id: "strike", atMs: 1450, type: "melee_impact" },
     { id: "return", atMs: 1650, type: "melee_recover" },
   ],
@@ -39,6 +41,7 @@ export const HEAVY_ATTACK: Sequence<CombatCue> = {
   id: "hero_heavy_crush", durationMs: 2750,
   cues: [
     { id: "heavy-approach", atMs: 0, type: "melee_draw" },
+    { id: "heavy-swing", atMs: 1590, type: "melee_swing" },
     { id: "heavy-impact", atMs: 1850, type: "melee_impact" },
     { id: "heavy-retreat", atMs: 2060, type: "melee_recover" },
   ],
@@ -48,7 +51,7 @@ export const ENEMY_STRIKE: Sequence<CombatCue> = {
   id: "rakshasa_overhead_strike", durationMs: 2180,
   cues: [
     { id: "defense", atMs: 0, type: "camera_defense" },
-    { id: "swing", atMs: 1210, type: "enemy_swing" },
+    { id: "swing", atMs: 1590, type: "enemy_swing" },
     { id: "impact", atMs: 1850, type: "enemy_impact" },
     { id: "close", atMs: 2130, type: "reaction_close" },
   ],

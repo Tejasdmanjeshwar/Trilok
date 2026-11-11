@@ -1,4 +1,6 @@
-export type SoundCue = "ui" | "draw" | "release" | "slash" | "step" | "hit" | "parry" | "intercept" | "clash" | "dodge" | "miss" | "victory";
+export type SoundCue = "ui" | "draw" | "release" | "slash" | "step" | "hit" | "parry" | "intercept" | "clash" | "dodge" | "miss" | "victory" |
+  "melee_ready" | "heavy_charge" | "slash_fast" | "slash_heavy" |
+  "impact_light" | "impact_body" | "impact_heavy" | "guard_clash";
 
 interface Voice {
   readonly frequency: number;
@@ -19,6 +21,14 @@ const VOICES: Record<SoundCue, Voice> = {
   dodge:   { frequency: 360, duration: .12, wave: "sine", volume: .025 },
   miss:    { frequency: 94, duration: .27, wave: "sawtooth", volume: .035 },
   victory: { frequency: 760, duration: .38, wave: "sine", volume: .033 },
+  melee_ready: { frequency: 175, duration: .13, wave: "triangle", volume: .023 },
+  heavy_charge: { frequency: 118, duration: .35, wave: "sawtooth", volume: .032 },
+  slash_fast: { frequency: 365, duration: .14, wave: "sawtooth", volume: .03 },
+  slash_heavy: { frequency: 160, duration: .33, wave: "sawtooth", volume: .047 },
+  impact_light: { frequency: 220, duration: .14, wave: "triangle", volume: .051 },
+  impact_body: { frequency: 125, duration: .24, wave: "triangle", volume: .064 },
+  impact_heavy: { frequency: 87, duration: .39, wave: "triangle", volume: .084 },
+  guard_clash: { frequency: 1170, duration: .30, wave: "triangle", volume: .052 },
 };
 
 /**
@@ -55,12 +65,33 @@ export class CombatAudio {
       gain.connect(context.destination);
       oscillator.start(now);
       oscillator.stop(now + cue.duration + .01);
-      if (name === "slash" || name === "dodge" || name === "release" || name === "clash") {
+      if (name === "slash" || name === "dodge" || name === "release" || name === "clash" ||
+          name === "slash_fast" || name === "slash_heavy" || name === "guard_clash") {
         this.whoosh(context, cue.duration, now);
+      }
+      if(name === "impact_light" || name === "impact_body" ||
+          name === "impact_heavy" || name === "guard_clash"){
+        this.lowImpact(context,name,now);
       }
     } catch {
       // Unsupported or blocked audio must never interrupt combat.
     }
+  }
+
+  /** A short sub-bass body/guard layer, synchronized to confirmed contact only. */
+  private lowImpact(ctx:AudioContext,name:SoundCue,at:number):void {
+    const heavy=name==="impact_heavy";
+    const duration=heavy?.23:.13;
+    const tone=ctx.createOscillator();
+    const gain=ctx.createGain();
+    tone.type="sine";
+    tone.frequency.setValueAtTime(heavy?93:155,at);
+    tone.frequency.exponentialRampToValueAtTime(heavy?56:83,at+duration);
+    gain.gain.setValueAtTime(.0001,at);
+    gain.gain.exponentialRampToValueAtTime(heavy?.075:.038,at+.008);
+    gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+    tone.connect(gain);gain.connect(ctx.destination);
+    tone.start(at);tone.stop(at+duration+.01);
   }
 
   private whoosh(ctx: AudioContext, duration: number, at: number): void {

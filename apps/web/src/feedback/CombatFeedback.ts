@@ -152,6 +152,13 @@ export class CombatFeedback {
     }
   }
 
+  /** Presentation-only hit-stop: never blocks the authoritative combat clock. */
+  holdImpact(nowMs:number,durationMs:number):void {
+    if(this.reducedMotion)return;
+    if(!Number.isFinite(nowMs)||!Number.isFinite(durationMs)||durationMs<0||durationMs>120)
+      throw new Error("Invalid presentation-only hit stop.");
+    this.holdUntil=Math.max(this.holdUntil,nowMs+durationMs);
+  }
   get frozenUntil(): number { return this.holdUntil; }
 
   update(nowMs: number, camera: THREE.Camera): void {

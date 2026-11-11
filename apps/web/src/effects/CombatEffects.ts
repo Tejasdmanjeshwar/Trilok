@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import {createArrowVisual,ARROW_TIP_OFFSET} from "./ArrowVisual";
+import { MELEE_FEEL, type MeleeStyle } from "../combat/MeleeFeel";
 
 /** Reusable arrow, slash and impact geometry: no allocations during attack updates. */
 export class CombatEffects {
@@ -22,6 +23,8 @@ export class CombatEffects {
   private flightDuration = 1;
   private burstAt = -1;
   private slashAt = -1;
+  private slashDurationMs = 380;
+  private slashInitialOpacity = .82;
 
   constructor(scene: THREE.Scene) {
     this.arrow.add(createArrowVisual());
@@ -62,9 +65,15 @@ export class CombatEffects {
     this.ring.position.copy(at);
     this.ring.visible = true;
   }
-  swing(origin: THREE.Vector3, facingRadians: number, time: number): void {
+  swing(origin: THREE.Vector3, facingRadians: number, time: number,
+    style: MeleeStyle = "standard"): void {
+    const feel=MELEE_FEEL[style];
     this.slash.position.copy(origin);
     this.slash.rotation.y = facingRadians;
+    this.slash.scale.setScalar(feel.trailScale);
+    this.slashInitialOpacity=style==="heavy"?1:style==="rapid"?.68:.82;
+    this.slashDurationMs=feel.trailDurationMs;
+    this.slashMaterial.opacity=this.slashInitialOpacity;
     this.slash.visible = true;
     this.slashAt = time;
   }
@@ -93,9 +102,9 @@ export class CombatEffects {
       if(t>=1){this.flightAt=-1;this.arrow.visible=this.trail.visible=false;}
     }
     if(this.slashAt>=0){
-      const t=Math.min(1,Math.max(0,(now-this.slashAt)/380));
+      const t=Math.min(1,Math.max(0,(now-this.slashAt)/this.slashDurationMs));
       this.slash.visible=t<1;
-      this.slashMaterial.opacity=.82*Math.pow(1-t,2);
+      this.slashMaterial.opacity=this.slashInitialOpacity*Math.pow(1-t,1.65);
       if(t>=1)this.slashAt=-1;
     }
     if(this.burstAt>=0){
