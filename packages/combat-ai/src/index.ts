@@ -118,7 +118,10 @@ function equipmentClass(catalog: CombatCatalog, id: string): "ranged" | "melee" 
 }
 function averageExpectedDamage(actor: EncounterActor, catalog: CombatCatalog, weaponId: string): number {
   const moves = catalog.equipment[weaponId]?.attackMoveIds ?? [];
-  const attackValues = moves.map(id => catalog.attacks[id]).filter(a => a !== undefined && a.resourceCost <= actor.resource);
+  const attackValues = moves.flatMap(id => {
+    const move = catalog.attacks[id];
+    return move && move.resourceCost <= actor.resource ? [move] : [];
+  });
   if (!attackValues.length) return 0;
   return Math.max(...attackValues.map(move =>
     (move.damage + (move.turnPolicy?.energyGainOnCompletion ?? 0) * 2) /
