@@ -1,7 +1,7 @@
 # Trilok Combat v0.4 — Symmetric Combat, Reactive Timing, Energy, Precision Targeting and AI
 
-Status: **v0.4-A shared encounter domain implemented**. **v0.4-A.1 variable reaction windows and core multi-hit pending-hit resolution are now implemented in the pure domain. Energy multi-action turns are now implemented in the pure domain. Body-region targeting and armor damage are now implemented in the pure domain. Enemy AI and the browser adapter remain planned, not implemented.** Browser baseline remains playable v0.3.2 pending migration from the legacy duel adapter.
-Design revision: **2026-11-11 — post-audit update, documentation only**.
+Status: **v0.4.0-preview.3 implemented, pending mobile/browser playtests.** v0.4-A combat engine, v0.4-B0 browser migration, v0.4-B1 HFSM+Utility AI and v0.4-C coarse rig-linked precision aiming/impact feedback are implemented. First defense is free; subsequent reactions cost Energy. This remains a prototype; final authored animations, complete environment occlusion, and manual mobile QA are outstanding.
+Design revision: **2026-11-11 — v0.4-C prototype implementation.**
 Owner: combat domain + choreography + AI + presentation adapters.
 Priority: stabilize authoritative timing, multi-action resource economy and regional damage before scaling enemy content or replacing character art. Design inspiration: Expedition 33 combines AP-funded actions, repeated free-aim attacks, weak points and real-time reactions; Trilok will use its own cost, timing and damage balance.
 

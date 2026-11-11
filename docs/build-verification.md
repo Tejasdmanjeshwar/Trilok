@@ -11,7 +11,7 @@ Trilok shows a playable version, a combat engine version, and an automatically g
 ## In-game verification
 
 1. Open https://trilok.tejasdmjr996.workers.dev/.
-2. Look for COMBAT ARENA · V0.3.2 in the Trilok header. This version remains until browser gameplay is migrated.
+2. Look for COMBAT ARENA · V0.4.0-preview.3, with combat engine v0.4-C. These labels should match `apps/web/build-version.json`.
 3. Directly below the title, look for BUILD <8-character-commit> · <HH:MM> UTC.
 4. Tap the BUILD badge to expand the playable version, combat engine, full commit, UTC timestamp and unique build ID. Use Copy details to share a report.
 5. Compare the commit with the latest commit at https://github.com/Tejasdmanjeshwar/Trilok/commits/main.
@@ -21,7 +21,7 @@ Trilok shows a playable version, a combat engine version, and an automatically g
 
 - Build freshness: new commits yield a new commit prefix; a rebuild of the same commit yields a different UTC timestamp/build ID.
 - Semantics: playable version is not bumped just because unpublished combat-engine functionality advanced.
-- Gameplay: forest shrine renders, FPS counter works, sword/bow switching and strike work, dodge/parry behave according to the deployed demo rules, and Restart resets the encounter.
+- Gameplay: arena, FPS, weapons, Energy, turn actions, free first dodge/parry/interception, subsequent Energy costs, body-region arrow aiming, armor feedback and Restart work.
 - Mobile: BUILD badge is tappable, popup is readable, controls are unobstructed in portrait and landscape.
 - Performance: High/Mobile quality presets work without regression after repeated combat and restarts.
 - CI: GitHub Verify workflow passes typecheck, tests, build, and manifest-vs-commit validation.
