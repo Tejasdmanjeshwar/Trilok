@@ -174,6 +174,10 @@ export function queueAttack(
   if (!move || !getLegalAttackMoves(
     state, catalog, input.defenderId, input.distanceAtStartMeters,
   ).includes(input.moveId)) {
+    if (move?.turnPolicy?.maxUsesPerTurn !== undefined &&
+        (state.turnBudget.moveUses[input.moveId] ?? 0) >= move.turnPolicy.maxUsesPerTurn) {
+      throw new Error("Attack move has reached its per-turn use limit.");
+    }
     throw new Error("Attack unavailable: equipment, Energy, range or action budget.");
   }
   const targeting = move.targeting ?? { mode: "actor" as const };
