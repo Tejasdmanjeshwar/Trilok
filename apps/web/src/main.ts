@@ -20,6 +20,8 @@ import { ImpactEffectDirector, type ImpactVisualContext } from "./feedback/Impac
 import { CombatAudio } from "./feedback/CombatAudio";
 import { ARCHERY_REACTION, SWORD_RIPOSTE_COUNTER, type CombatCue } from "./combat/sequences";
 import { presentationForAttack } from "./combat/attack-presentation";
+import { BufferedDefense } from "./combat/BufferedDefense";
+import { CombatRuntimeGuard, type RuntimeSnapshot } from "./combat/CombatRuntimeGuard";
 import { EncounterSession } from "./combat/EncounterSession";
 import { CombatCommandDeck } from "./ui/CombatCommandDeck";
 import {
@@ -70,7 +72,8 @@ host.innerHTML = [
   '<button id="end-turn">✓ <span>END TURN<small>E</small></span></button>',
   '<button id="restart">↻ <span>RESTART<small>R</small></span></button></div></footer>',
   '<aside class="status"><b id="phase">THE DUEL BEGINS</b><span id="message">Select STRIKE to begin.</span></aside>',
-  '<div id="loading" class="loading">✦ <span>ENTERING THE SHRINE</span></div></main>',
+  '<div id="loading" class="loading">✦ <span>ENTERING THE SHRINE</span></div>',
+  '<section id="runtime-fault" class="runtime-fault" role="alert" hidden><div class="fault-panel"><b>COMBAT INTERRUPTED</b><p id="fault-description">A recoverable game error occurred.</p><small>The fight is paused to protect combat state. Restart the encounter or copy a local diagnostic report.</small><div class="fault-actions"><button id="fault-restart" type="button">RESTART ENCOUNTER</button><button id="fault-copy" type="button">COPY DIAGNOSTICS</button></div></div></section></main>',
 ].join("");
 
 function query<T extends HTMLElement>(selector: string): T {
@@ -134,6 +137,10 @@ const timingPerfect = query<HTMLElement>("#timing-perfect");
 const timingTitle = query<HTMLElement>("#timing-title");
 const feedback = query<HTMLElement>("#feedback");
 const loading = query<HTMLElement>("#loading");
+const runtimeFaultPanel = query<HTMLElement>("#runtime-fault");
+const faultDescription = query<HTMLElement>("#fault-description");
+const faultRestartButton = query<HTMLButtonElement>("#fault-restart");
+const faultCopyButton = query<HTMLButtonElement>("#fault-copy");
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let quality: ArenaQuality = /Android|iPhone|iPad/i.test(navigator.userAgent) ? "low" : "high";
@@ -220,6 +227,19 @@ type Presentation =
   | "enemy_pause" | "counter" | "projectile" | "victory" | "defeat";
 
 const session = new EncounterSession();
+const runtimeGuard = new CombatRuntimeGuard();
+const defenseBuffer = new BufferedDefense(110);
+let runtimeFault = false;
+function runtimeSnapshot(nowMs:number):RuntimeSnapshot {
+  return {
+    nowMs,phaseAtMs:phaseAt,presentation,domainPhase:session.state.phase,
+    turn:session.state.turn,actorId:session.state.activeActorId,
+    pendingImpactTick:session.state.pending?.impactTick ?? null,
+    counterImpactTick:session.state.pendingCounter?.impactTick ?? null,
+    projectileImpactTick:session.state.pendingProjectile?.impactTick ?? null,
+    sequenceId:choreography.sequenceId,
+  };
+}
 const commandDeck = new CombatCommandDeck(moveDeckRoot, weaponDeckRoot, {
   onMoveSelected: () => updateHud(),
   onEquip: id => changeWeapon(id),
@@ -267,6 +287,8 @@ function notice(message: string, warning = false): void {
 }
 
 function setPhase(next: Presentation, shot: CameraShot, now = performance.now()): void {
+  if (presentation !== next) defenseBuffer.clear();
+  runtimeGuard.record(now,"phase",presentation+" -> "+next+" (turn "+session.state.turn+")");
   presentation = next;
   phaseAt = now;
   director.setShot(shot);
@@ -277,7 +299,7 @@ function setPhase(next: Presentation, shot: CameraShot, now = performance.now())
 }
 
 function isPlayerDecision(): boolean {
-  return presentation === "choice" &&
+  return !runtimeFault && presentation === "choice" &&
     session.state.phase === "decision" && session.state.activeActorId === "hero";
 }
 
@@ -439,6 +461,7 @@ function releaseScheduledInterception(now:number):void {
 function startPlayerAttack(now = performance.now()): void {
   if (!isPlayerDecision()) return;
   const moveId = commandDeck.selectedMoveId;
+  runtimeGuard.record(now,"player-input","attack "+moveId);
   const move = session.catalog.attacks[moveId];
   if (!move) return;
   try {
@@ -502,6 +525,7 @@ function beginEnemyAttack(moveId: string, now: number): void {
   const enemyShot=move.delivery==="ranged_projectile"
     ? heroHitVolumes.snapshot(enemy.socketWorld(heroSocket),targetRegion??"torso",move.reachMeters)
     : null;
+  runtimeGuard.record(now,"enemy-attack",moveId);
   session.attack("enemy", "hero", moveId,
     movement.separation(enemy.root, hero.root), now, targetRegion,
     enemyShot?projectileGeometry(enemy,hero,Math.floor(now),enemyShot.toward):undefined);
@@ -622,9 +646,12 @@ function launchInterception(defenderId:"hero"|"enemy",inputTick:number):void {
   releaseScheduledInterception(inputTick);
 }
 
-function attemptDefense(kind: "dodge" | "parry"): void {
-  if (presentation !== "windup" || session.state.pending?.defenderId !== "hero") return;
+function attemptDefense(kind: "dodge" | "parry",
+  atTick?:number, fromBuffer=false): void {
+  if (runtimeFault || presentation !== "windup" ||
+      session.state.pending?.defenderId !== "hero") return;
   const now = performance.now();
+  const inputTime=atTick ?? now;
   const available = session.legalReactions();
   const option = kind === "dodge"
     ? available.find(o => o.technique === "dodge")
@@ -633,21 +660,30 @@ function attemptDefense(kind: "dodge" | "parry"): void {
     notice("DEFENSE UNAVAILABLE · CHECK EQUIPMENT/ENERGY", true);
     return;
   }
-  const capture = session.captureDefense(option.technique, now);
+  const capture = session.captureDefense(option.technique, inputTime);
   if (!capture.accepted) {
+    if (capture.reason === "too_early" && !fromBuffer &&
+        defenseBuffer.offer(kind,session.state.pending!,option,inputTime)) {
+      runtimeGuard.record(now,"input-buffer",kind+" queued for "+option.targetTick);
+      notice("DEFENSE QUEUED · READY AT THE WINDOW");
+      return;
+    }
     if (capture.reason !== "already_selected") {
       notice(capture.reason === "too_early" ? "TOO EARLY" :
         capture.reason === "too_late" ? "TOO LATE" : "DEFENSE UNAVAILABLE", true);
     }
     return;
   }
+  defenseBuffer.clear();
+  runtimeGuard.record(inputTime,fromBuffer?"buffered-defense":"defense",
+    kind+" / "+capture.option.moveId);
   if (kind === "dodge") {
     movement.dodge(hero.root, enemy.root, now, 750);
     dust(hero, now);
   }
   hero.play(option.technique === "projectile_intercept" ? "intercept" : kind);
   if (option.technique === "projectile_intercept") {
-    launchInterception("hero", now);
+    launchInterception("hero", inputTime);
   } else {
     sound.play(kind);
   }
@@ -675,12 +711,17 @@ function changeWeapon(id: string): void {
 
 function playerEndTurn(): void {
   if (!isPlayerDecision()) return;
+  runtimeGuard.record(performance.now(),"player-input","end-turn");
   session.end("hero");
   lastMessage = "Turn ended. The guardian considers its next move.";
   enterNextTurn(performance.now());
 }
 
 function reset(): void {
+  runtimeFault=false;
+  runtimeFaultPanel.hidden=true;
+  runtimeGuard.reset();
+  defenseBuffer.clear();
   choreography.cancel();
   effects.clear();
   projectiles.clear();
@@ -720,6 +761,8 @@ function presentConfirmedHit(
   now:number,
 ):void {
   const isHero=breakdown.defenderId==="hero";
+  runtimeGuard.record(now,"damage",breakdown.moveId+" / "+breakdown.defenderId+
+    " / "+breakdown.finalDamage+" / "+(breakdown.actualRegionId??"none"));
   const target=isHero?hero:enemy;
   if(spatial)targetPoint.copy(spatial.impactPoint);
   else{
@@ -1189,6 +1232,10 @@ function frame(now: number): void {
     enterNextTurn(now);
   }
   movement.update(now);
+  if (presentation === "windup") {
+    const buffered=defenseBuffer.take(session.state.pending,now);
+    if (buffered) attemptDefense(buffered.kind,now,true);
+  }
   releaseScheduledInterception(now);
   const sequenceId = choreography.sequenceId;
   const sample = choreography.advance(now);
@@ -1300,7 +1347,37 @@ function frame(now: number): void {
     frames = 0;
   }
 }
-renderer.setAnimationLoop(frame);
+/**
+ * The browser render loop must never fail silently. No arbitrary state repair:
+ * pause the encounter, keep diagnostic context, and offer a clean restart.
+ */
+function guardedFrame(now:number):void {
+  if(runtimeFault)return;
+  try {
+    frame(now);
+    const violation=runtimeGuard.inspect(runtimeSnapshot(now));
+    if(violation)throw new Error(violation);
+  }catch(error){
+    runtimeFault=true;
+    const message=runtimeGuard.fail(error,runtimeSnapshot(now));
+    console.error("[Trilok combat runtime]",error);
+    faultDescription.textContent=message;
+    runtimeFaultPanel.hidden=false;
+    defenseBuffer.clear();
+    choreography.cancel();
+    try { renderer.render(scene,camera); } catch { /* HTML recovery still works */ }
+  }
+}
+faultRestartButton.addEventListener("click",reset);
+faultCopyButton.addEventListener("click",async()=>{
+  const report=runtimeGuard.report(formatBuildReport(buildIdentity),
+    runtimeSnapshot(performance.now()));
+  try {
+    await navigator.clipboard.writeText(report);
+    faultCopyButton.textContent="REPORT COPIED";
+  } catch { faultCopyButton.textContent="COPY UNAVAILABLE"; }
+});
+renderer.setAnimationLoop(guardedFrame);
 window.addEventListener("pagehide", () => {
   renderer.setAnimationLoop(null);
   observer.disconnect();
