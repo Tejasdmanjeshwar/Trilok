@@ -123,6 +123,12 @@ export interface ImpactEffectSpec {
   readonly id: string;
   readonly when: "damage" | "critical";
 }
+/** AI-readable authored patterns; only actual hit markers deal damage. */
+export interface AttackPatternSpec {
+  readonly kind: "flurry" | "feint" | "delayed";
+  readonly feintAtTicks?: readonly number[];
+  readonly swingLeadTicks?: number;
+}
 export interface AttackSpec {
   readonly id: string;
   readonly delivery: AttackDelivery;
@@ -149,6 +155,7 @@ export interface AttackSpec {
   readonly projectilePower?: number;
   /** Data-driven visual reactions; e.g. blood, lodged arrow, burn, freeze. */
   readonly impactEffects?: readonly ImpactEffectSpec[];
+  readonly pattern?: AttackPatternSpec;
 }
 
 /** A pre-authored automatic retaliation. It cannot itself be defended or countered. */

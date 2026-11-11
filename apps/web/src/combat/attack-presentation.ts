@@ -1,4 +1,5 @@
 import type { AttackSpec } from "@trilok/combat";
+import { buildPatternSequence } from "./enemy-pattern-sequence";
 import type { Motion } from "../actors/AnimatedWarrior";
 import { MELEE_FEEL, type MeleeFeelProfile, type MeleeStyle } from "./MeleeFeel";
 import type { Sequence } from "@trilok/choreography";
@@ -31,16 +32,27 @@ const meleeOverrides: Readonly<Record<string, {
 export function presentationForAttack(move: AttackSpec): AttackPresentationPlan {
   const authored = meleeOverrides[move.id];
   const sequence = move.delivery === "ranged_projectile" ? ARCHERY_ATTACK
+    : move.pattern ? buildPatternSequence(move)
     : authored?.sequence ?? (move.turnPolicy?.freeAction ? RAPID_MELEE_ATTACK : MELEE_ATTACK);
   const motion: Motion = move.delivery === "ranged_projectile" ? "attack"
+    : move.pattern?.kind==="flurry" ? "flurry_melee"
+    : move.pattern?.kind==="feint" ? "feint_melee"
+    : move.pattern?.kind==="delayed" ? "delayed_melee"
     : authored?.motion ?? (move.turnPolicy?.freeAction ? "rapid_melee" : "melee");
-  const impact = sequence.cues.find(cue =>
+  const impacts=sequence.cues.filter(cue =>
     cue.type === "melee_impact" || cue.type === "enemy_impact" ||
     cue.type === "arrow_hit");
+  const impact = impacts[0];
+  const expected = move.hits?.map(hit=>hit.offsetTicks) ?? [move.impactOffsetTicks];
+  if(impacts.length!==expected.length ||
+     impacts.some((cue,i)=>cue.atMs!==expected[i])) {
+    throw new Error("Combat sequence must match every authored hit: "+move.id);
+  }
   if (impact?.atMs !== move.impactOffsetTicks) {
     throw new Error("Combat presentation must match authored impact tick: " + move.id);
   }
-  const style: MeleeStyle = authored?.style ??
+  const style: MeleeStyle = move.pattern?.kind==="delayed" ? "heavy"
+    : authored?.style ??
     (move.turnPolicy?.freeAction ? "rapid" : "standard");
   return {
     sequence, motion,

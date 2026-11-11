@@ -58,3 +58,17 @@ test("D12 sword attacks expose an optional rhythmic execution prompt",async ({pa
   await expect(page.locator("#runtime-fault")).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test("D13 sustains multiple enemy decisions without a soft-lock",async ({page})=>{
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/");
+  await expect(page.locator("#loading")).toBeHidden({timeout:15000});
+  for(let turn=0;turn<2;turn++){
+    await expect(page.locator("#end-turn")).toBeEnabled({timeout:20000});
+    await page.locator("#end-turn").click();
+    await expect(page.locator("#phase")).toContainText("YOUR ACTION",{timeout:30000});
+    await expect(page.locator("#runtime-fault")).toBeHidden();
+  }
+  expect(errors).toEqual([]);
+});

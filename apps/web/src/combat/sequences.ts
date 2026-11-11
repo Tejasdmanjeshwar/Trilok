@@ -2,7 +2,7 @@ import type { Sequence } from "@trilok/choreography";
 
 export type CombatCue =
   | "camera_draw" | "bow_release" | "arrow_hit"
-  | "melee_draw" | "melee_swing" | "melee_impact" | "melee_recover"
+  | "melee_draw" | "melee_swing" | "melee_impact" | "melee_recover" | "feint_flash"
   | "camera_defense" | "enemy_swing" | "enemy_impact"
   | "reaction_close" | "camera_recover"
   | "counter_impact";

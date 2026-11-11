@@ -10,7 +10,9 @@ export const PREVIEW_CATALOG: CombatCatalog = {
     ...DEFAULT_COMBAT_CATALOG.equipment,
     rakshasa_sword: {
       id: "rakshasa_sword", label: "Rakshasa Greatsword",
-      attackMoveIds: ["rakshasa_rapid_slash", "overhead_slash", "rakshasa_quick_slash", "rakshasa_heavy"],
+      attackMoveIds: ["rakshasa_rapid_slash", "overhead_slash", "rakshasa_quick_slash",
+        "rakshasa_crosscut", "rakshasa_deceiver", "rakshasa_delayed_heavy",
+        "rakshasa_heavy"],
       defenseMoveIds: ["evade", "blade_deflect"],
       switchCost: 2,
     },
@@ -87,6 +89,39 @@ export const PREVIEW_CATALOG: CombatCatalog = {
       id: "rakshasa_quick_slash", damage: 11,
       targeting:{mode:"free_aim",precisionCriticalMultiplier:1.2}, resourceCost: 2,
       turnPolicy: { continuation: "continue", maxUsesPerTurn: 2 },
+    },
+    /** Two real contacts, each independently defendable at its own marker. */
+    rakshasa_crosscut: {
+      ...DEFAULT_COMBAT_CATALOG.attacks.slash!,
+      id:"rakshasa_crosscut",damage:9,resourceCost:2,
+      impactOffsetTicks:1080,
+      hits:[
+        {id:"crosscut_left",offsetTicks:1080,damageMultiplier:.9},
+        {id:"crosscut_right",offsetTicks:1740,damageMultiplier:1.1},
+      ],
+      targeting:{mode:"free_aim",precisionCriticalMultiplier:1.15},
+      pattern:{kind:"flurry",swingLeadTicks:190},
+      turnPolicy:{continuation:"continue",maxUsesPerTurn:1},
+      offensiveTiming:undefined,
+    },
+    /** False movement is telegraphed, never an invented damage event. */
+    rakshasa_deceiver: {
+      ...DEFAULT_COMBAT_CATALOG.attacks.slash!,
+      id:"rakshasa_deceiver",damage:15,resourceCost:3,
+      impactOffsetTicks:2240,
+      targeting:{mode:"free_aim",precisionCriticalMultiplier:1.2},
+      pattern:{kind:"feint",feintAtTicks:[920],swingLeadTicks:210},
+      turnPolicy:{continuation:"end",maxUsesPerTurn:1},
+      offensiveTiming:undefined,
+    },
+    rakshasa_delayed_heavy: {
+      ...DEFAULT_COMBAT_CATALOG.attacks.heavy_crush!,
+      id:"rakshasa_delayed_heavy",damage:20,resourceCost:3,
+      impactOffsetTicks:2400,
+      targeting:{mode:"free_aim",precisionCriticalMultiplier:1.2},
+      pattern:{kind:"delayed",swingLeadTicks:230},
+      turnPolicy:{continuation:"end",maxUsesPerTurn:1},
+      offensiveTiming:undefined,
     },
     rakshasa_heavy: {
       ...DEFAULT_COMBAT_CATALOG.attacks.heavy_crush!,

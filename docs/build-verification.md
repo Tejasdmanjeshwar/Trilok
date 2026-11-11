@@ -11,7 +11,7 @@ Trilok shows a playable version, a combat engine version, and an automatically g
 ## In-game verification
 
 1. Open https://trilok.tejasdmjr996.workers.dev/.
-2. Look for COMBAT ARENA · V0.4.0-preview.17, with combat engine v0.4-D12. These labels should match `apps/web/build-version.json`.
+2. Look for COMBAT ARENA · V0.4.0-preview.18, with combat engine v0.4-D13. These labels should match `apps/web/build-version.json`.
 3. Directly below the title, look for BUILD <8-character-commit> · <HH:MM> UTC.
 4. Tap the BUILD badge to expand the playable version, combat engine, full commit, UTC timestamp and unique build ID. Use Copy details to share a report.
 5. Compare the commit with the latest commit at https://github.com/Tejasdmanjeshwar/Trilok/commits/main.
@@ -103,3 +103,10 @@ If the BUILD badge remains old, inspect the Cloudflare deployment first, then re
 - Perfect > good > skipped timing bonus, capped at 1.5×. Missed, parried, spatially missed or out-of-reach attacks never gain damage from the UI. A confirmed timed hit increments RHYTHM CHAIN on the current turn; an ungraded or missed action resets it.
 - Verify repeated taps cannot double-apply or extend the timing window. Reset must remove the active prompt and clear chains.
 - Validate keyboard and touch layouts; preserve AI opening melee and D10 browser recovery tests. With input omitted, baseline attack damage remains unchanged.
+
+### D13 manual gameplay acceptance
+
+- End your turn repeatedly. Confirm Crosscut gives two distinct dodge/parry opportunities and first contact never cancels the second.
+- Deceiver's false swing causes no damage; its final attack and Delayed Heavy have independently readable telegraphs.
+- Test an early defense on the feint, then a real dodge; no phantom hits, duplicated damage, soft-locks, or free extra reaction.
+- Retest D8.1 initial melee, D10 browser tests, and desktop/touch controls.
