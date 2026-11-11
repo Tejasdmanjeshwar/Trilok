@@ -9,13 +9,24 @@ import { CombatFeedback } from "./feedback/CombatFeedback";
 import { CombatAudio } from "./feedback/CombatAudio";
 import { ARCHERY_ATTACK, MELEE_ATTACK, ARCHERY_REACTION, ENEMY_STRIKE, type CombatCue } from "./combat/sequences";
 import { CombatMovementController } from "./movement/CombatMovementController";
+import { getBuildIdentity, compactBuildLabel, formatBuildReport } from "./build-info";
 import "./style.css";
 
+const buildIdentity = getBuildIdentity();
 const host = document.querySelector<HTMLDivElement>("#app");
 if (!host) throw new Error("Missing application element.");
 host.innerHTML = [
   '<main class="game"><div id="viewport" class="viewport"></div><div class="vignette"></div>',
-  '<header class="top"><div class="brand">✦ <strong>TRILOK</strong><span>COMBAT ARENA · V0.3.2</span></div>',
+  '<header class="top"><div class="brand-stack"><div class="brand">✦ <strong>TRILOK</strong><span id="playable-version"></span></div>',
+  '<details class="build-picker"><summary id="build-summary" aria-label="Show build version and commit details"></summary>',
+  '<div class="build-popover"><div class="build-field"><b>PLAYABLE</b><span id="build-playable"></span></div>',
+  '<div class="build-field"><b>COMBAT CORE</b><span id="build-core"></span></div>',
+  '<div class="build-field"><b>CHANNEL</b><span id="build-channel"></span></div>',
+  '<div class="build-field"><b>COMMIT</b><code id="build-commit"></code></div>',
+  '<div class="build-field"><b>BUILT (UTC)</b><span id="build-time"></span></div>',
+  '<div class="build-field"><b>BUILD ID</b><code id="build-id"></code></div>',
+  '<div class="build-actions"><button type="button" id="copy-build">COPY DETAILS</button><a href="/build-info.json" target="_blank" rel="noopener noreferrer">MANIFEST</a></div>',
+  '</div></details></div>',
   '<div class="tools"><span id="fps">— FPS</span><label>QUALITY <select id="quality"><option value="high">HIGH</option><option value="low">MOBILE</option></select></label>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
@@ -37,6 +48,24 @@ function query<T extends HTMLElement>(selector: string): T {
   if (!result) throw new Error("Missing element " + selector);
   return result;
 }
+query<HTMLElement>("#playable-version").textContent =
+  "COMBAT ARENA · V" + buildIdentity.playableVersion;
+query<HTMLElement>("#build-summary").textContent = compactBuildLabel(buildIdentity);
+query<HTMLElement>("#build-playable").textContent = "v" + buildIdentity.playableVersion;
+query<HTMLElement>("#build-core").textContent = "v" + buildIdentity.combatEngineVersion;
+query<HTMLElement>("#build-channel").textContent = buildIdentity.channel;
+query<HTMLElement>("#build-commit").textContent = buildIdentity.commitSha;
+query<HTMLElement>("#build-time").textContent = buildIdentity.builtAtUtc;
+query<HTMLElement>("#build-id").textContent = buildIdentity.buildId;
+const copyBuildButton = query<HTMLButtonElement>("#copy-build");
+copyBuildButton.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(formatBuildReport(buildIdentity));
+    copyBuildButton.textContent = "COPIED";
+  } catch {
+    copyBuildButton.textContent = "COPY UNAVAILABLE";
+  }
+});
 const viewport = query<HTMLDivElement>("#viewport");
 const qualitySelect = query<HTMLSelectElement>("#quality");
 const attackButton = query<HTMLButtonElement>("#attack");

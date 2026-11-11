@@ -16,3 +16,20 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - name: Verify compiled build identity
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          const metadata = JSON.parse(readFileSync("apps/web/dist/build-info.json", "utf8"));
+          if (metadata.commitSha !== process.env.GITHUB_SHA) {
+            throw new Error("Build commit does not match checked-out GitHub SHA");
+          }
+          const expected = JSON.parse(readFileSync("apps/web/build-version.json", "utf8"));
+          if (metadata.playableVersion !== expected.playableVersion || metadata.combatEngineVersion !== expected.combatEngineVersion || metadata.channel !== expected.channel) {
+            throw new Error("Unexpected playable or engine version");
+          }
+          if (!/^.{8}-\d{8}T\d{9}Z$/.test(metadata.buildId)) {
+            throw new Error("Invalid generated build ID");
+          }
+          console.log("Verified Trilok build:", metadata.buildId);
+          NODE

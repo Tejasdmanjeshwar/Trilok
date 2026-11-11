@@ -30,3 +30,11 @@ Strict TypeScript is enabled. The core has no global mutable state and combat up
 4. Prototype a Ramayana story region with scalable vegetation and rivers.
 
 Future console releases will need a separate porting strategy: Three.js web builds are not direct console exports.
+
+## How to verify the live build
+
+Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
+
+The **playable version** remains at v0.3.2 until the new combat system is actually connected to the browser. The **combat engine version** is v0.4-A.3. Both are managed in `apps/web/build-version.json`; the build ID is automatic and changes on each deployment.
+
+See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.
