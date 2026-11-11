@@ -4,6 +4,18 @@ import {
   sampleTrajectory, type ProjectileTrajectory, type ProjectileClashVerdict,
 } from "@trilok/combat";
 
+/** An embedded projectile belongs to a defender and may expire after a number of turns. */
+export interface EmbeddedArrowRetention {
+  readonly ownerId?: string;
+  /** Null/omitted means the arrow stays for the rest of the encounter. */
+  readonly expiresAtTurn?: number | null;
+}
+interface EmbeddedArrow {
+  readonly root: THREE.Group;
+  readonly ownerId: string | null;
+  readonly expiresAtTurn: number | null;
+}
+
 interface Flight {
   id: string | null;
   readonly root: THREE.Group;
@@ -33,9 +45,10 @@ function createFlight(color: number): Flight {
   };
 }
 /**
- * Two stable, pooled visual projectile identities. A surviving arrow
- * redirects the SAME mesh, instead of being respawned as an extra attack.
- * Pure domain chooses the outcome; Three.js only renders it.
+ * Two stable, pooled in-flight projectile identities; independent attached
+ * arrows are retained in a bounded wound history. A surviving interception
+ * continues with its SAME mesh and ID. Pure domain decides outcomes.
+ * Retiring a flight never discards a previously lodged wound.
  */
 export class ProjectileClashEffects {
   private readonly group=new THREE.Group();
@@ -52,8 +65,12 @@ export class ProjectileClashEffects {
   private burstAt=-1;
   private readonly burstPoint=new THREE.Vector3();
   private readonly temp=new THREE.Vector3();
-  private readonly embedded: THREE.Group[]=[];
-  private static readonly MAX_EMBEDDED=8;
+  private readonly embedded: EmbeddedArrow[]=[];
+  private static readonly MAX_EMBEDDED=16;
+  get embeddedCount():number { return this.embedded.length; }
+  embeddedCountFor(ownerId:string):number {
+    return this.embedded.filter(item=>item.ownerId===ownerId).length;
+  }
 
   constructor(scene: THREE.Scene) {
     for(const f of this.flights)this.group.add(f.root,f.trail);
@@ -127,7 +144,11 @@ export class ProjectileClashEffects {
    * visual is never a guessed replacement arrow or detached particle.
    */
   embed(id:string,anchor:THREE.Object3D,contact:THREE.Vector3,
-    velocity:THREE.Vector3,depth=.12):boolean {
+    velocity:THREE.Vector3,depth=.12,
+    retention:EmbeddedArrowRetention={}):boolean {
+    const expiresAtTurn=retention.expiresAtTurn??null;
+    if(expiresAtTurn!==null && (!Number.isSafeInteger(expiresAtTurn) ||
+        expiresAtTurn<1))throw new Error("Invalid lodged arrow expiry turn.");
     const index=this.flights.findIndex(f=>f.id===id && f.flying);
     if(index<0 || velocity.lengthSq()<.000001)return false;
     const flight=this.flights[index]!;
@@ -141,9 +162,15 @@ export class ProjectileClashEffects {
     flight.trail.removeFromParent();
     flight.trail.geometry.dispose();
     (flight.trail.material as THREE.Material).dispose();
-    this.embedded.push(flight.root);
+    this.embedded.push({
+      root:flight.root,ownerId:retention.ownerId??null,expiresAtTurn,
+    });
     if(this.embedded.length>ProjectileClashEffects.MAX_EMBEDDED){
-      this.disposeEmbedded(this.embedded.shift()!);
+      // Preserve severe wounds where possible: retire the oldest temporary
+      // arrow before an encounter-long trophy. The bound protects mobile GPUs.
+      const temporary=this.embedded.findIndex(item=>item.expiresAtTurn!==null);
+      const [oldest]=this.embedded.splice(temporary>=0?temporary:0,1);
+      this.disposeEmbedded(oldest!.root);
     }
     const replacement=createFlight(index===0?0xf2dcae:0x9de3d7);
     this.flights[index]=replacement;
@@ -158,8 +185,22 @@ export class ProjectileClashEffects {
     });
     root.removeFromParent();
   }
+  /** Called by the encounter clock. Expires only temporary arrows. */
+  expireTurn(turn:number):number {
+    if(!Number.isSafeInteger(turn)||turn<1)throw new Error("Invalid turn number.");
+    let removed=0;
+    for(let i=this.embedded.length-1;i>=0;i--){
+      const item=this.embedded[i]!;
+      if(item.expiresAtTurn!==null && turn>=item.expiresAtTurn){
+        this.disposeEmbedded(item.root);
+        this.embedded.splice(i,1);
+        removed++;
+      }
+    }
+    return removed;
+  }
   clearEmbedded():void {
-    for(const root of this.embedded)this.disposeEmbedded(root);
+    for(const item of this.embedded)this.disposeEmbedded(item.root);
     this.embedded.length=0;
   }
   stop(id:string):void{
@@ -187,14 +228,19 @@ export class ProjectileClashEffects {
       shard.rotation.set(i*.35,i*.7,0);
     }
   }
-  clear():void{
-    this.clearEmbedded();
+  /** New action: retire shots and clash sparks, but preserve old wounds. */
+  clearActive():void{
     for(const f of this.flights){
       f.id=null;f.flying=false;f.trajectory=null;
       f.root.visible=f.trail.visible=false;
     }
     this.burstAt=-1;this.ring.visible=false;
     for(const shard of this.shards)shard.visible=false;
+  }
+  /** Restart/dispose: forget both active shots and wound history. */
+  clear():void{
+    this.clearActive();
+    this.clearEmbedded();
   }
   private place(f:Flight,now:number):void{
     if(f.trajectory){

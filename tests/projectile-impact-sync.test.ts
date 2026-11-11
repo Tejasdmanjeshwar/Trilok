@@ -115,10 +115,13 @@ describe("v0.4-D6 extensible hit presentation",()=>{
     armorMultiplier:1,armorAbsorbed:0,critical,
     criticalMultiplier:critical?1.4:1,stagger:0,finalDamage,reasons:[],
   });
-  it("only authored critical precision arrows request blood and embedding",()=>{
+  it("all damaging precision arrows leave wounds, with blood reserved for criticals",()=>{
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(true)))
       .toEqual(["blood_splat","wound_mark","embed_arrow"]);
-    expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(false))).toEqual([]);
+    expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(false)))
+      .toEqual(["wound_mark","embed_arrow"]);
+    expect(effectsForAttack(PREVIEW_CATALOG,"rakshasa_arrow",damage(false)))
+      .toEqual(["wound_mark","embed_arrow"]);
     expect(effectsForAttack(PREVIEW_CATALOG,"recover_shot",damage(true))).toEqual([]);
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(true,0))).toEqual([]);
     const defensiveCatalog={...PREVIEW_CATALOG,defenses:{
@@ -146,7 +149,8 @@ describe("v0.4-D6 extensible hit presentation",()=>{
     const head=resolveRegionDamage({...input,intendedRegionId:"head",
       actualRegionId:"head"},PREVIEW_CATALOG);
     expect(head.critical).toBe(false);
-    expect(effectsForAttack(PREVIEW_CATALOG,"arrow",head)).toEqual([]);
+    expect(effectsForAttack(PREVIEW_CATALOG,"arrow",head))
+      .toEqual(["wound_mark","embed_arrow"]);
   });
   it("new effect IDs require no combat rule changes and duplicate contacts are ignored",()=>{
     const spec=[{id:"burn_fx",when:"damage" as const},

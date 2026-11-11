@@ -216,30 +216,6 @@ export class CombatHitVolumes {
       impactPoint:new THREE.Vector3(p.x,p.y,p.z)};
   }
 
-  /**
-   * Explicit spatial contact/miss for melee, regardless of approach timing.
-   * Even a swing fired before the actor reaches the target returns a real miss
-   * snapshot, never an omitted actualRegionId that would abort the render loop.
-   * The chosen region is an aim point, not a guaranteed hit.
-   */
-  meleeImpact(
-    weaponOrigin: THREE.Vector3, regionId: string,
-    reachMeters: number, separationMeters: number,
-  ): SpatialImpact {
-    if (![reachMeters, separationMeters].every(Number.isFinite) ||
-        reachMeters <= 0 || separationMeters < 0) {
-      throw new Error("Invalid melee range.");
-    }
-    const toward = this.worldCenter(regionId, new THREE.Vector3());
-    if (separationMeters > reachMeters + .0001) {
-      return { actualRegionId: null, contact: false, impactPoint: toward };
-    }
-    return this.impact({
-      regionId, from: weaponOrigin.clone(), toward,
-      maxRange: weaponOrigin.distanceTo(toward) + .65,
-    });
-  }
-
   /** Contact is resolved at impact, NOT inferred from the intended region. */
   impact(aim: AimSnapshot): SpatialImpact {
     this.rig.updateWorldMatrix(true,true);

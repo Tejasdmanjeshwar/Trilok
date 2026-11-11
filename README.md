@@ -35,7 +35,7 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
 
-The playable version is **v0.4.0-preview.13**, the combat engine version is **v0.4-D8.1**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
+The playable version is **v0.4.0-preview.14**, the combat engine version is **v0.4-D9**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
 
 See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.
 
@@ -65,3 +65,7 @@ Camera-selected regions now aim a shallow distance *inside the actual selected h
 ### D8 — Adaptive defense and satisfying melee
 
 The preview now includes a free first-action rapid melee attack (zero Energy, no ordinary action spent, once per turn) and one free equipment switch each turn. Enemy utility AI remembers targeted regions, scales awareness and reaction precision with intelligence tier, evaluates exposed body-region vulnerability and armor, and can target unprotected weak spots. The incoming defensive timing indicator turns red when a vulnerable player region is under attack. Distinct rapid/heavy clip timelines, heavier impact shake and layered slash/hit sounds improve sword feel. [D8 verification notes](docs/combat-v0.4D8-adaptive-melee.md).
+
+### D9 — Accumulating arrow wounds
+
+Every confirmed damaging precision or warbow arrow leaves its **original projectile** lodged in the struck animated body region and adds a surface wound mark. Minor injuries persist for two encounter turns, deeper wounds for three turns, and severe or critical impacts remain for the encounter. The combat HUD counts arrows lodged in each fighter. Active projectile cleanup never erases wounds; multiple arrows can coexist (bounded to 16 on screen), with temporary arrows preferred for eviction when at capacity. Restart and disposal clear all attached arrows and decals. The persistence policy is purely visual and does not change damage or introduce bleeding-over-time. See [D9 notes](docs/combat-v0.4D9-wound-history.md).
