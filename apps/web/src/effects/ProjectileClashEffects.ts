@@ -107,8 +107,9 @@ export class ProjectileClashEffects {
   continue(id:string,to:THREE.Vector3,at:number,duration:number):void{
     const f=this.find(id);
     if(!f || !f.flying)throw new Error("Cannot continue missing projectile: "+id);
-    this.place(f,at);
-    this.temp.copy(f.root.position);
+    // The visual mesh is shifted behind the tip. Continuation must use
+    // the trajectory's reference point, never its rendered shaft center.
+    this.position(id,at,this.temp);
     this.launch(id,this.temp,to,at,duration);
   }
   position(id:string,at:number,target=new THREE.Vector3()):THREE.Vector3{
