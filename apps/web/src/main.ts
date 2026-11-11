@@ -880,18 +880,6 @@ function finishEnemyImpact(now: number): void {
 
 function onCue(cue: CombatCue, at: number, now: number): void {
   switch (cue) {
-    case "counter_release": {
-      const counter = session.state.pendingCounter;
-      if (!counter) break;
-      const attacker = counter.attackerId === "hero" ? hero : enemy;
-      const defender = counter.defenderId === "hero" ? hero : enemy;
-      attacker.socketWorld(heroSocket);
-      defender.root.getWorldPosition(targetPoint);
-      targetPoint.y += 1.65;
-      effects.launch(heroSocket, targetPoint, at, 410);
-      sound.play("release");
-      break;
-    }
     case "counter_impact":
       finishPerfectCounter(now);
       break;
