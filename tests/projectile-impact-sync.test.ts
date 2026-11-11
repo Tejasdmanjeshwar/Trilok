@@ -117,7 +117,7 @@ describe("v0.4-D6 extensible hit presentation",()=>{
   });
   it("only authored critical precision arrows request blood and embedding",()=>{
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(true)))
-      .toEqual(["blood_splat","embed_arrow"]);
+      .toEqual(["blood_splat","wound_mark","embed_arrow"]);
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(false))).toEqual([]);
     expect(effectsForAttack(PREVIEW_CATALOG,"recover_shot",damage(true))).toEqual([]);
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",damage(true,0))).toEqual([]);
@@ -142,7 +142,7 @@ describe("v0.4-D6 extensible hit presentation",()=>{
     const critical=resolveRegionDamage(input,PREVIEW_CATALOG);
     expect(critical.critical).toBe(true);
     expect(effectsForAttack(PREVIEW_CATALOG,"arrow",critical))
-      .toEqual(["blood_splat","embed_arrow"]);
+      .toEqual(["blood_splat","wound_mark","embed_arrow"]);
     const head=resolveRegionDamage({...input,intendedRegionId:"head",
       actualRegionId:"head"},PREVIEW_CATALOG);
     expect(head.critical).toBe(false);

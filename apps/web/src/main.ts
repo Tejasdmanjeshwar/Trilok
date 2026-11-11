@@ -13,6 +13,7 @@ import { createAnimatedWarrior, type AnimatedWarrior } from "./actors/AnimatedWa
 import { CombatCameraDirector, type CameraShot } from "./camera/CombatCameraDirector";
 import { CombatEffects } from "./effects/CombatEffects";
 import { ProjectileClashEffects } from "./effects/ProjectileClashEffects";
+import { SurfaceMarks } from "./effects/SurfaceMarks";
 import { CombatFeedback } from "./feedback/CombatFeedback";
 import { ImpactEffectDirector, type ImpactVisualContext } from "./feedback/ImpactEffectDirector";
 import { CombatAudio } from "./feedback/CombatAudio";
@@ -187,12 +188,18 @@ hero.equip("bow");
 enemy.equip("sword");
 const effects = new CombatEffects(scene);
 const projectiles = new ProjectileClashEffects(scene);
+const surfaceMarks = new SurfaceMarks();
 const visualFeedback = new CombatFeedback(scene, host!, reduceMotion);
 const sound = new CombatAudio();
 const impactDirector = new ImpactEffectDirector();
 impactDirector
   .register("blood_splat", context => visualFeedback.emit(
     "blood",context.point,context.presentAtMs))
+  .register("wound_mark", context => {
+    if(context.attachment)surfaceMarks.add("wound",{
+      point:context.point,normal:context.normal,anchor:context.attachment,
+    });
+  })
   .register("embed_arrow", context => {
     if(context.projectileId && context.attachment)
       projectiles.embed(context.projectileId,context.attachment,
@@ -658,6 +665,7 @@ function reset(): void {
   choreography.cancel();
   effects.clear();
   projectiles.clear();
+  surfaceMarks.clear();
   incomingProjectileId = null;
   interceptorProjectileId = null;
   followthroughAim = null;
@@ -1272,6 +1280,7 @@ window.addEventListener("pagehide", () => {
   arena.dispose();
   effects.dispose();
   projectiles.dispose();
+  surfaceMarks.dispose();
   visualFeedback.dispose();
   sound.dispose();
   commandDeck.dispose();

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import {createArrowVisual,ARROW_TIP_OFFSET} from "./ArrowVisual";
 
 /** Reusable arrow, slash and impact geometry: no allocations during attack updates. */
 export class CombatEffects {
@@ -23,11 +24,7 @@ export class CombatEffects {
   private slashAt = -1;
 
   constructor(scene: THREE.Scene) {
-    const gold = new THREE.MeshStandardMaterial({ color: 0xf3d49e, emissive: 0x996b2a, emissiveIntensity: .65, roughness: .35, metalness: .45 });
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,1.1,5),gold);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(.09,.24,6),gold);
-    tip.position.y = .64;
-    this.arrow.add(shaft,tip);
+    this.arrow.add(createArrowVisual());
     this.arrow.visible = false;
     this.group.add(this.arrow);
     const geometry = new THREE.BufferGeometry();
@@ -78,13 +75,14 @@ export class CombatEffects {
   private interpolate(t:number):void {
     this.point.copy(this.start).lerp(this.end,t);
     this.point.y += Math.sin(t*Math.PI)*.6;
+    this.point.addScaledVector(this.direction,-ARROW_TIP_OFFSET);
   }
   update(now:number):void {
     if(this.flightAt >= 0) {
       const t=Math.min(1,Math.max(0,(now-this.flightAt)/this.flightDuration));
+      this.direction.copy(this.end).sub(this.start).normalize();
       this.interpolate(t);
       this.arrow.position.copy(this.point);
-      this.direction.copy(this.end).sub(this.start).normalize();
       this.arrow.quaternion.setFromUnitVectors(this.up,this.direction);
       const positions=this.trail.geometry.getAttribute("position") as THREE.BufferAttribute;
       for(let i=0;i<13;i++){

@@ -35,7 +35,7 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
 
-The playable version is **v0.4.0-preview.10**, the combat engine version is **v0.4-D6**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
+The playable version is **v0.4.0-preview.11**, the combat engine version is **v0.4-D7**, and the channel is **preview**. Versions are managed in `apps/web/build-version.json`; the build ID is automatic for each compiled deployment.
 
 See [Build verification](docs/build-verification.md) for deployment checks and mobile smoke tests.
 
@@ -56,3 +56,7 @@ Incoming and defensive arrows now use the **same deterministic ballistic traject
 ### D5 / D6 — Contact-synchronized impact and persistent critical wounds
 
 A ballistic arrow now resolves on the **first swept body contact**, not at an independently scheduled impact timestamp. Damage, recoil, sound, camera impact, numbers and authored effects share the same contact event. Precision-arrow criticals may spawn brief blood particles and **transfer the original projectile into the struck animated body part**; low-impact recovery shots cannot leave an embedded arrow. Criticals are still armor-aware: the rakshasa's helmet suppresses headshot criticals, while its exposed neck is a smaller, targetable precision weak point. Impacts select effect IDs through a reusable pure-combat move policy, supporting future burn/freeze visual handlers without changing damage math. Real gameplay status effects remain a separate future system. [D5 / D6 technical design](docs/combat-v0.4D5-D6-hit-feedback.md).
+
+### D7 — Reliable bow aiming, fletched arrows and anatomical wound marks
+
+Camera-selected regions now aim a shallow distance *inside the actual selected hit volume*, mitigating bow-camera parallax and surface-grazing misses without turning off deterministic collision or granting hits on empty space. The arrow visual's **tip**, not its shaft center, follows the authoritative trajectory; arrows now include a metal head, wooden shaft, nock and three feather vanes. Critical-hit preview arrows author a persistent `wound_mark` effect along with blood and optional arrow embedding. The wound is attached at the confirmed contact position to the moving anatomical rig and is pooled independently from arrows. The renderer supports configurable surface mark styles (wound, scorch and frost) without implementing unrequested gameplay statuses. See [D7 design and verification](docs/combat-v0.4D7-aim-wounds.md).

@@ -1,3 +1,5 @@
+> Extended by [D7 aiming, fletched arrows and persistent anatomical wound marks](combat-v0.4D7-aim-wounds.md).
+
 # Trilok v0.4-D5 / D6 — Synchronized impacts and extensible wound effects
 
 Status: Playable prototype, subject to manual browser/mobile validation. Both slices share a single authoritative contact contract.

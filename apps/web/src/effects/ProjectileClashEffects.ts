@@ -1,9 +1,8 @@
 import * as THREE from "three";
+import { createArrowVisual, ARROW_TIP_OFFSET } from "./ArrowVisual";
 import {
-  aimBallisticAt, sampleTrajectory, type ProjectileTrajectory,
-  type ProjectileClashVerdict, type Vector3,
+  sampleTrajectory, type ProjectileTrajectory, type ProjectileClashVerdict,
 } from "@trilok/combat";
-const plain=(v:THREE.Vector3):Vector3=>({x:v.x,y:v.y,z:v.z});
 
 interface Flight {
   id: string | null;
@@ -19,14 +18,7 @@ interface Flight {
   trajectory: ProjectileTrajectory | null;
 }
 function createFlight(color: number): Flight {
-  const material=new THREE.MeshStandardMaterial({
-    color, emissive:color, emissiveIntensity:.25, roughness:.42, metalness:.28,
-  });
-  const root=new THREE.Group();
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.023,.023,1.05,6),material);
-  const tip=new THREE.Mesh(new THREE.ConeGeometry(.074,.20,6),material);
-  tip.position.y=.6;
-  root.add(shaft,tip);
+  const root=createArrowVisual({feathers:color===0x9de3d7?0x8ac6ba:0xe2d8bc});
   root.visible=false;
   const geo=new THREE.BufferGeometry();
   geo.setAttribute("position",new THREE.BufferAttribute(new Float32Array(9*3),3));
@@ -139,7 +131,8 @@ export class ProjectileClashEffects {
     if(index<0 || velocity.lengthSq()<.000001)return false;
     const flight=this.flights[index]!;
     const direction=velocity.clone().normalize();
-    flight.root.position.copy(contact).addScaledVector(direction,-.52+depth);
+    flight.root.position.copy(contact).addScaledVector(direction,
+      -(ARROW_TIP_OFFSET-depth));
     flight.root.quaternion.setFromUnitVectors(this.up,direction);
     flight.root.updateWorldMatrix(true,false);
     anchor.updateWorldMatrix(true,false);
@@ -205,12 +198,14 @@ export class ProjectileClashEffects {
   private place(f:Flight,now:number):void{
     if(f.trajectory){
       const sample=sampleTrajectory(f.trajectory,now);
-      f.root.position.set(sample.position.x,sample.position.y,sample.position.z);
       f.direction.set(sample.velocity.x,sample.velocity.y,sample.velocity.z).normalize();
+      f.root.position.set(sample.position.x,sample.position.y,sample.position.z)
+        .addScaledVector(f.direction,-ARROW_TIP_OFFSET);
     }else{
       const t=Math.min(1,Math.max(0,(now-f.start)/f.duration));
-      f.root.position.copy(f.from).lerp(f.to,t);
       f.direction.copy(f.to).sub(f.from).normalize();
+      f.root.position.copy(f.from).lerp(f.to,t)
+        .addScaledVector(f.direction,-ARROW_TIP_OFFSET);
     }
     f.root.quaternion.setFromUnitVectors(this.up,f.direction);
   }

@@ -127,7 +127,18 @@ export class CombatHitVolumes {
     const hit=this.firstVisibleHit();
     const toward=new THREE.Vector3();
     if (hit) {
-      toward.copy(hit.point);
+      // The camera ray hits the *front surface*, whereas the arrow launches
+      // from a different point (the bow). Target a shallow point INSIDE the
+      // actually selected region to make that converging ballistic path robust.
+      // No selected collider => no assistance and no fabricated hit.
+      const sphere=hit.object as THREE.Mesh;
+      const center=sphere.getWorldPosition(new THREE.Vector3());
+      const radius=sphere.geometry instanceof THREE.SphereGeometry
+        ? sphere.geometry.parameters.radius *
+          sphere.getWorldScale(new THREE.Vector3()).x : .18;
+      const inset=Math.min(.14,Math.max(.035,radius*.60));
+      toward.copy(hit.point).addScaledVector(
+        center.clone().sub(hit.point).normalize(),inset);
     } else {
       const center=this.rig.getWorldPosition(new THREE.Vector3())
         .add(new THREE.Vector3(0,1.6,0));

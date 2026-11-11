@@ -51,6 +51,7 @@ export const PREVIEW_CATALOG: CombatCatalog = {
       ...DEFAULT_COMBAT_CATALOG.attacks.arrow!,
       impactEffects: [
         { id:"blood_splat", when:"critical" },
+        { id:"wound_mark", when:"critical" },
         { id:"embed_arrow", when:"critical" },
       ],
     },
