@@ -39,6 +39,23 @@ describe("v0.4-B1 deterministic HFSM + utility enemy intelligence", () => {
     expect(choices(119)).toEqual(choices(119));
   });
 
+  it("transitions across parent/substate hierarchy without combat-rule side effects", () => {
+    const brain = new EnemyCombatBrain(easyProfile, 119);
+    expect(brain.path).toEqual({ parent: "outside", branch: null, leaf: "observe" });
+    const state = readyEnemy();
+    brain.onEncounter(state, "enemy");
+    expect(brain.path).toEqual({ parent: "engaged", branch: "offense", leaf: "decide" });
+    brain.markCommitted();
+    expect(brain.path).toEqual({ parent: "engaged", branch: "offense", leaf: "commit" });
+    brain.markRecovering();
+    expect(brain.path).toEqual({ parent: "engaged", branch: "recovery", leaf: "recover" });
+    brain.onEncounter({ ...state, phase: "complete", victorId: "hero" }, "enemy");
+    expect(brain.path).toEqual({ parent: "terminal", branch: null, leaf: "defeated" });
+    expect(() => brain.markCommitted()).toThrow();
+    brain.reset();
+    expect(brain.path.parent).toBe("outside");
+  });
+
   it("switches to bow when the target is out of melee engagement range", () => {
     const brain = new EnemyCombatBrain(easyProfile, 119);
     const state = readyEnemy();
