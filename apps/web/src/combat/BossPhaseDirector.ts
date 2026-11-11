@@ -48,6 +48,7 @@ export const RAKSHASA_PHASES:readonly BossPhase[]=[
  */
 export class BossPhaseDirector {
   private index=0;
+  private lastTransitionTurn=-1;
   constructor(
     private readonly bossId="enemy",
     readonly phases:readonly BossPhase[]=RAKSHASA_PHASES,
@@ -70,7 +71,7 @@ export class BossPhaseDirector {
   get current():BossPhase {return this.phases[this.index]!;}
   get next():BossPhase|null {return this.phases[this.index+1]??null;}
   get isFinal():boolean {return this.index===this.phases.length-1;}
-  reset():void {this.index=0;}
+  reset():void {this.index=0;this.lastTransitionTurn=-1;}
   /**
    * Even if one critical strike crosses two thresholds, a living boss can
    * advance only one stage at each safe enemy decision, never skip a stage.
@@ -79,7 +80,8 @@ export class BossPhaseDirector {
   canAdvance(state:EncounterState):boolean {
     const next=this.next;
     const boss=state.actors[this.bossId];
-    return !!next && !!boss && boss.hp>0 && boss.maxHp>0 &&
+    return !!next && state.turn!==this.lastTransitionTurn &&
+      !!boss && boss.hp>0 && boss.maxHp>0 &&
       boss.hp/boss.maxHp<=next.enterAtOrBelow &&
       state.phase==="decision" && state.activeActorId===this.bossId &&
       state.pending===null && state.pendingCounter===null &&
@@ -88,6 +90,7 @@ export class BossPhaseDirector {
   advance(state:EncounterState):BossPhase|null {
     if(!this.canAdvance(state))return null;
     this.index++;
+    this.lastTransitionTurn=state.turn;
     return this.current;
   }
 }

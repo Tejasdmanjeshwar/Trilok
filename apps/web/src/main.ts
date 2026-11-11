@@ -24,6 +24,7 @@ import { meleeHitStopMs, type MeleeStyle } from "./combat/MeleeFeel";
 import { BufferedDefense } from "./combat/BufferedDefense";
 import { CombatRuntimeGuard, type RuntimeSnapshot } from "./combat/CombatRuntimeGuard";
 import { EncounterSession } from "./combat/EncounterSession";
+import { BossPhaseDirector, type BossPhase } from "./combat/BossPhaseDirector";
 import { CombatCommandDeck } from "./ui/CombatCommandDeck";
 import {
   CombatHitVolumes, type AimSnapshot, type SpatialImpact,
@@ -53,7 +54,8 @@ host.innerHTML = [
   '<div class="tools"><span id="fps">— FPS</span><button id="quality" type="button" aria-label="Toggle graphics quality">⚙ HIGH</button>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
-  '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p><p id="enemy-wounds"></p></section>',
+  '<section class="enemy"><div>RAKSHASA <small>THE GUARDIAN · HFSM + UTILITY AI</small></div><div id="boss-phase-name" class="boss-phase-name" role="status">PHASE I · SENTINEL</div><div class="bar"><span id="enemy-bar"></span></div><p id="enemy-hp"></p><p id="enemy-energy"></p><p id="enemy-weapon"></p><p id="enemy-intent"></p><p id="enemy-wounds"></p></section>',
+  '<section id="boss-transition" class="boss-transition" role="status" aria-live="assertive" aria-atomic="true" hidden><small id="boss-transition-index">PHASE II</small><b id="boss-transition-name">VEIL OF DECEIT</b><p id="boss-transition-subtitle"></p></section>',
   '<section id="telegraph" class="telegraph"><b id="timing-title">⚔ INCOMING STRIKE</b><div class="timing"><span id="timing-fill"></span><i id="timing-feasible"></i><i id="timing-perfect"></i></div><small>PARRY AT THE FLASH</small></section>',
   '<div id="feedback" class="feedback" role="status" aria-live="polite"></div>',
   '<section id="offense-rhythm" class="offense-rhythm" aria-label="Offensive rhythm timing" hidden><b id="rhythm-title">STRIKE RHYTHM</b><div class="rhythm-track" aria-hidden="true"><i id="rhythm-good"></i><i id="rhythm-perfect"></i><span id="rhythm-progress"></span></div><button id="rhythm-input" type="button">✦ STRIKE BEAT <small>F</small></button><p id="rhythm-hint">TIME YOUR STRIKE AT THE GOLD FLASH</p></section>',
@@ -121,6 +123,11 @@ const enemyWeaponLabel = query<HTMLElement>("#enemy-weapon");
 const enemyWoundsLabel = query<HTMLElement>("#enemy-wounds");
 const heroWoundsLabel = query<HTMLElement>("#hero-wounds");
 const enemyIntentLabel = query<HTMLElement>("#enemy-intent");
+const bossPhaseName=query<HTMLElement>("#boss-phase-name");
+const bossTransition=query<HTMLElement>("#boss-transition");
+const bossTransitionIndex=query<HTMLElement>("#boss-transition-index");
+const bossTransitionName=query<HTMLElement>("#boss-transition-name");
+const bossTransitionSubtitle=query<HTMLElement>("#boss-transition-subtitle");
 const actionsLeftLabel = query<HTMLElement>("#actions-left");
 const restartButton = query<HTMLButtonElement>("#restart");
 const audioButton = query<HTMLButtonElement>("#audio");
@@ -234,9 +241,10 @@ const effectPoint = new THREE.Vector3();
 const choreography = new SequencePlayer<CombatCue>();
 type Presentation =
   | "intro" | "choice" | "attack" | "windup" | "reaction"
-  | "enemy_pause" | "counter" | "projectile" | "victory" | "defeat";
+  | "enemy_pause" | "boss_transition" | "counter" | "projectile" | "victory" | "defeat";
 
 const session = new EncounterSession();
+const bossPhases=new BossPhaseDirector();
 const runtimeGuard = new CombatRuntimeGuard();
 const defenseBuffer = new BufferedDefense(110);
 let runtimeFault = false;
@@ -420,6 +428,10 @@ function updateHud(): void {
   heroEnergyLabel.textContent = "ENERGY " + player.resource + " / " + player.maxResource;
   enemyEnergyLabel.textContent = "ENERGY " + opponent.resource + " / " + opponent.maxResource;
   enemyWeaponLabel.textContent = session.catalog.equipment[opponent.equippedId]?.label ?? opponent.equippedId;
+  const bossPhase=bossPhases.current;
+  bossPhaseName.textContent="PHASE "+bossPhase.roman+" · "+bossPhase.name;
+  host!.querySelector(".game")?.setAttribute("data-boss-phase",String(bossPhase.id));
+  bossTransition.hidden=presentation!=="boss_transition";
   const enemyArrows = projectiles.embeddedCountFor("enemy");
   const heroArrows = projectiles.embeddedCountFor("hero");
   enemyWoundsLabel.textContent = enemyArrows ? "➶ " + enemyArrows + " ARROWS LODGED" : "";
@@ -631,14 +643,40 @@ function beginEnemyAttack(moveId: string, now: number): void {
   updateHud();
 }
 
-/** B1: bounded tactical HFSM + utility choice, never hardcoded attack IDs. */
+/** A stage transition is a readable non-combat beat, never a free attack.
+ * It only begins between actions and is constrained by the phase director. */
+function beginBossTransition(stage:BossPhase,now:number):void {
+  runtimeGuard.record(now,"boss-stage","phase "+stage.roman+" / "+stage.name);
+  enemyBrain.setBattleStage(stage.fightingStyle,
+    stage.aggressionBonus,stage.awarenessBonus);
+  bossTransitionIndex.textContent="PHASE "+stage.roman;
+  bossTransitionName.textContent=stage.name;
+  bossTransitionSubtitle.textContent=stage.subtitle;
+  enemy.play("idle");
+  hero.play("idle");
+  director.resetAccents();
+  director.impact(stage.id===3?.23:.14,stage.id===3?1:.6);
+  sound.play(stage.id===3?"boss_enrage":"boss_awaken");
+  showEnemyIntent("TRANSFORMING · "+stage.name);
+  lastMessage=stage.subtitle+" · Prepare for a new fighting style.";
+  notice("RAKSHASA · PHASE "+stage.roman);
+  setPhase("boss_transition","enemy_attack",now);
+}
+
+/** B1: bounded tactical HFSM + utility choice with stage-aware attack choices. */
 function beginEnemyDecision(now: number): void {
   if (session.state.phase !== "decision" || session.state.activeActorId !== "enemy") return;
+  const nextStage=bossPhases.advance(session.state);
+  if(nextStage){beginBossTransition(nextStage,now);return;}
+  const stage=bossPhases.current;
+  enemyBrain.setBattleStage(stage.fightingStyle,
+    stage.aggressionBonus,stage.awarenessBonus);
   const intent = enemyBrain.decide({
     state: session.state, catalog: session.catalog,
     actorId: "enemy", targetId: "hero",
     distanceMeters: movement.separation(enemy.root, hero.root),
     tick: Math.floor(now),
+    attackAllowlist:stage.attackAllowlist,
   });
   if (intent.kind === "equip") {
     session.equip("enemy", intent.equipmentId);
@@ -678,7 +716,7 @@ function enterNextTurn(now: number): void {
   if (session.state.phase === "complete") {
     showEnding(now);
   } else if (session.state.activeActorId === "enemy") {
-    if (presentation === "enemy_pause") {
+    if (presentation === "enemy_pause" || presentation === "boss_transition") {
       beginEnemyDecision(now);
     } else {
       enemyPauseUntil = now + enemyBrain.profile.minThinkTicks;
@@ -806,6 +844,7 @@ function reset(): void {
   visualFeedback.reset();
   movement.reset();
   session.reset();
+  bossPhases.reset();
   shotSnapshot = null;
   aimCursor.recenter();
   hoveredRegion = null;
@@ -1362,6 +1401,10 @@ function frame(now: number): void {
     enterNextTurn(now);
   }
   if (presentation === "enemy_pause" && now >= enemyPauseUntil) {
+    enterNextTurn(now);
+  }
+  if (presentation === "boss_transition" && now - phaseAt >=
+      (reduceMotion?600:1750)) {
     enterNextTurn(now);
   }
   movement.update(now);

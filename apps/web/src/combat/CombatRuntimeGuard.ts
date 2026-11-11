@@ -1,6 +1,6 @@
 export type CombatPresentation =
   | "intro" | "choice" | "attack" | "windup" | "reaction"
-  | "enemy_pause" | "counter" | "projectile" | "victory" | "defeat";
+  | "enemy_pause" | "boss_transition" | "counter" | "projectile" | "victory" | "defeat";
 export interface RuntimeSnapshot {
   readonly nowMs:number;
   readonly phaseAtMs:number;
@@ -76,7 +76,8 @@ export class CombatRuntimeGuard {
     else if(snapshot.presentation==="counter")
       deadline=Math.max(entered+4200,(snapshot.counterImpactTick??entered)+3000);
     else if(snapshot.presentation==="reaction")deadline=entered+5000;
-    else if(snapshot.presentation==="enemy_pause")deadline=entered+5000;
+    else if(snapshot.presentation==="enemy_pause"||snapshot.presentation==="boss_transition")
+      deadline=entered+5000;
     if(snapshot.nowMs>deadline)
       return "Combat stalled in "+snapshot.presentation+" beyond its recovery deadline.";
     return null;
