@@ -2,6 +2,7 @@ import type {
   AttackDelivery, CombatCatalog, ReactionPolicyOverride, ReactionTechnique,
 } from "./encounter-types";
 import { validateTimingProfile } from "./encounter-timing";
+import { validateAttackTurnPolicy } from "./encounter-economy";
 
 const TECHNIQUES: readonly ReactionTechnique[] = ["dodge", "weapon_deflect", "projectile_intercept"];
 const DELIVERIES: readonly AttackDelivery[] = ["melee_contact", "ranged_projectile", "area"];
@@ -61,6 +62,7 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
       throw new Error("Invalid attack range or impact timing: " + id);
     }
     validatePolicy(move.reactionPolicy);
+    if (move.turnPolicy) validateAttackTurnPolicy(move.turnPolicy);
     validateTimingReferences(move.timingProfileOverrides, catalog, "attack " + id);
     if (move.hits !== undefined) {
       if (move.hits.length < 1 || move.hits.length > 16) {
@@ -91,6 +93,12 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
     assertId(id);
     if (defense.id !== id || !known(defense.technique, TECHNIQUES)) throw new Error("Invalid defense definition: " + id);
     nonnegative(defense.resourceCost, "defense cost");
+    if (defense.perfectEnergyRefund !== undefined) {
+      nonnegative(defense.perfectEnergyRefund, "perfect defense refund");
+      if (!Number.isSafeInteger(defense.perfectEnergyRefund) || defense.perfectEnergyRefund > 20) {
+        throw new Error("Invalid perfect defense Energy refund.");
+      }
+    }
     nonnegative(defense.cooldownTurns, "cooldown");
     if (!Number.isInteger(defense.cooldownTurns)) throw new Error("Cooldown must be an integer.");
     if (!catalog.timings[defense.timingProfileId] || !catalog.outcomes[defense.outcomeProfileId] ||
@@ -138,23 +146,28 @@ export function validateCombatCatalog(catalog: CombatCatalog): void {
  */
 export const DEFAULT_COMBAT_CATALOG: CombatCatalog = {
   equipment: {
-    bow: { id: "bow", label: "Longbow", attackMoveIds: ["arrow"], defenseMoveIds: ["evade", "countershot"], switchCost: 2 },
+    bow: { id: "bow", label: "Longbow", attackMoveIds: ["arrow", "recover_shot"], defenseMoveIds: ["evade", "countershot"], switchCost: 2 },
     sword: { id: "sword", label: "Sword", attackMoveIds: ["slash", "heavy_crush"], defenseMoveIds: ["evade", "blade_deflect"], switchCost: 2 },
   },
   attacks: {
-    arrow: { id: "arrow", delivery: "ranged_projectile", damage: 18, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 0 },
-    slash: { id: "slash", delivery: "melee_contact", damage: 22, reachMeters: 1.9, engageRangeMeters: 15, impactOffsetTicks: 1450, resourceCost: 0 },
+    arrow: { id: "arrow", delivery: "ranged_projectile", damage: 18, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 1,
+      turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 } },
+    recover_shot: { id: "recover_shot", delivery: "ranged_projectile", damage: 8, reachMeters: 36, engageRangeMeters: 36, impactOffsetTicks: 1150, resourceCost: 0,
+      turnPolicy: { continuation: "end", maxUsesPerTurn: 1, energyGainOnCompletion: 2 } },
+    slash: { id: "slash", delivery: "melee_contact", damage: 22, reachMeters: 1.9, engageRangeMeters: 15, impactOffsetTicks: 1450, resourceCost: 2,
+      turnPolicy: { continuation: "continue", maxUsesPerTurn: 3 } },
     heavy_crush: {
       id: "heavy_crush", delivery: "melee_contact", damage: 26,
-      reachMeters: 2, engageRangeMeters: 15, impactOffsetTicks: 1850, resourceCost: 2,
+      reachMeters: 2, engageRangeMeters: 15, impactOffsetTicks: 1850, resourceCost: 4,
+      turnPolicy: { continuation: "end", maxUsesPerTurn: 1 },
       reactionPolicy: { mode: "inherit", deny: ["weapon_deflect"] },
       timingProfileOverrides: { dodge: "heavy_dodge" },
     },
   },
   defenses: {
     evade: { id: "evade", technique: "dodge", resourceCost: 1, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "dodge" },
-    blade_deflect: { id: "blade_deflect", technique: "weapon_deflect", resourceCost: 1, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry" },
-    countershot: { id: "countershot", technique: "projectile_intercept", resourceCost: 2, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry" },
+    blade_deflect: { id: "blade_deflect", technique: "weapon_deflect", resourceCost: 1, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry", perfectEnergyRefund: 1 },
+    countershot: { id: "countershot", technique: "projectile_intercept", resourceCost: 2, cooldownTurns: 0, timingProfileId: "standard", outcomeProfileId: "parry", perfectEnergyRefund: 1 },
   },
   timings: {
     // Fallback for authored content that does not yet select delivery defaults.

@@ -21,6 +21,34 @@ export interface AttackHitSpec {
   readonly timingProfileOverrides?: Partial<Record<ReactionTechnique, string>>;
 }
 
+/** Whether a finished attack preserves control of the current actor. */
+export type TurnContinuation = "continue" | "end";
+
+export interface AttackTurnPolicy {
+  readonly continuation: TurnContinuation;
+  /** Optional per-turn move cap, separate from the global action budget. */
+  readonly maxUsesPerTurn?: number;
+  /** Awarded once when the full attack completes; recovery moves must end the turn. */
+  readonly energyGainOnCompletion?: number;
+}
+
+export interface EncounterRules {
+  /** Maximum attacks per actor turn, independent from remaining Energy. */
+  readonly maxActionsPerTurn: number;
+  /** Credited only at the start of an actor's next own turn. */
+  readonly energyRegenPerTurn: number;
+  /** Combined cap on perfect-defense Energy refunds per combat turn. */
+  readonly maxPerfectDefenseRefundPerTurn: number;
+}
+
+/** Current actor's budget; tracked separately from each actor's Energy pool. */
+export interface TurnBudget {
+  readonly actionsUsed: number;
+  readonly moveUses: Readonly<Record<string, number>>;
+  /** A defender may refund at most the global cap across a full combo/turn. */
+  readonly perfectRefundUsedByActor: Readonly<Record<CombatantId, number>>;
+}
+
 export interface AttackSpec {
   readonly id: string;
   readonly delivery: AttackDelivery;
@@ -34,7 +62,10 @@ export interface AttackSpec {
   readonly hits?: readonly AttackHitSpec[];
   /** Per-technique move-level timing overrides, layered over delivery defaults. */
   readonly timingProfileOverrides?: Partial<Record<ReactionTechnique, string>>;
+  /** Cost is paid once at action commitment, not per authored hit. */
   readonly resourceCost: number;
+  /** Absent policy is legacy end-turn behavior. */
+  readonly turnPolicy?: AttackTurnPolicy;
   readonly reactionPolicy?: ReactionPolicyOverride;
 }
 
@@ -42,6 +73,8 @@ export interface DefenseSpec {
   readonly id: string;
   readonly technique: ReactionTechnique;
   readonly resourceCost: number;
+  /** Granted only for perfect weapon deflection / projectile interception. */
+  readonly perfectEnergyRefund?: number;
   readonly cooldownTurns: number;
   /** Backwards-compatible fallback when catalog has no delivery × technique profile. */
   readonly timingProfileId: string;
@@ -124,6 +157,8 @@ export interface PendingAttack {
   readonly impactTick: number;
   readonly hitIndex: number;
   readonly hits: readonly PendingHit[];
+  /** Snapshotted policy prevents authored content edits mid-attack. */
+  readonly turnPolicy: AttackTurnPolicy;
 }
 
 export interface EncounterState {
@@ -131,6 +166,8 @@ export interface EncounterState {
   readonly turnOrder: readonly CombatantId[];
   readonly turn: number;
   readonly activeActorId: CombatantId;
+  readonly rules: EncounterRules;
+  readonly turnBudget: TurnBudget;
   readonly phase: "decision" | "reaction" | "complete";
   readonly pending: PendingAttack | null;
   readonly victorId: CombatantId | null;
@@ -157,6 +194,7 @@ export interface ReactionResolution {
     readonly technique: ReactionTechnique | null;
     readonly grade: ReactionGradeV2;
     readonly damage: number;
+    readonly energyRefunded: number;
     readonly result: "hit" | "countered" | "out_of_reach";
   };
 }

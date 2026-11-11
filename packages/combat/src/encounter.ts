@@ -1,10 +1,14 @@
 import type {
   AttackDelivery, CombatCatalog, CombatantId, EncounterActor, EncounterState,
   ReactionOption, ReactionPolicyOverride, ReactionResolution, ReactionTechnique,
-  TimingAdjustments, PendingHit, AttackHitSpec,
+  TimingAdjustments, PendingHit, AttackHitSpec, EncounterRules,
 } from "./encounter-types";
 import { validateCombatCatalog } from "./encounter-catalog";
 import { gradeReactionWindow, resolveEffectiveTiming, validateTimingAdjustments } from "./encounter-timing";
+import {
+  emptyTurnBudget, LEGACY_ENCOUNTER_RULES, mayContinueTurn, recordAttackAction,
+  transitionTurn, validateEncounterRules,
+} from "./encounter-economy";
 export { gradeReactionWindow as gradeReactionV2 } from "./encounter-timing";
 
 const DEFAULT_BY_DELIVERY: Readonly<Record<AttackDelivery, readonly ReactionTechnique[]>> = {
@@ -41,8 +45,10 @@ export function createEncounter(
   actors: readonly EncounterActor[],
   catalog: CombatCatalog,
   activeActorId: CombatantId = actors[0]?.id ?? "",
+  rules: EncounterRules = LEGACY_ENCOUNTER_RULES,
 ): EncounterState {
   validateCombatCatalog(catalog);
+  validateEncounterRules(rules);
   if (actors.length < 2) throw new Error("An encounter requires at least two combatants.");
   const ids = new Set<string>();
   const map: Record<string, EncounterActor> = {};
@@ -79,6 +85,8 @@ export function createEncounter(
     turnOrder: actors.map(actor => actor.id),
     turn: 1,
     activeActorId,
+    rules: { ...rules },
+    turnBudget: emptyTurnBudget(),
     phase: "decision",
     pending: null,
     victorId: null,
@@ -139,6 +147,14 @@ export function queueAttack(
     throw new Error("Target is too far to engage.");
   }
   if (attacker.resource < move.resourceCost) throw new Error("Insufficient attack resources.");
+  if (state.turnBudget.actionsUsed >= state.rules.maxActionsPerTurn) {
+    throw new Error("No offensive actions remain this turn.");
+  }
+  const policy = move.turnPolicy ?? { continuation: "end" as const };
+  if (policy.maxUsesPerTurn !== undefined &&
+      (state.turnBudget.moveUses[move.id] ?? 0) >= policy.maxUsesPerTurn) {
+    throw new Error("Attack move has reached its per-turn use limit.");
+  }
   const adjustments = input.reactionTiming ?? {};
   validateTimingAdjustments(adjustments);
   const rawHits: readonly AttackHitSpec[] = move.hits ??
@@ -164,6 +180,7 @@ export function queueAttack(
   const next = withActor(state, { ...attacker, resource: attacker.resource - move.resourceCost });
   return {
     ...next,
+    turnBudget: recordAttackAction(next.turnBudget, move.id),
     phase: "reaction",
     pending: {
       attackerId: input.attackerId,
@@ -172,6 +189,7 @@ export function queueAttack(
       startedTick: input.startedTick,
       hitIndex: 0,
       hits,
+      turnPolicy: { ...policy },
       impactTick: hits[0]!.impactTick,
     },
   };
@@ -257,6 +275,19 @@ function nextLivingActor(state: EncounterState, currentId: string, actors: Reado
 }
 
 /**
+ * Explicit turn completion is needed when an actor chooses not to spend all
+ * of its possible actions. A move cannot be abandoned midway through impact.
+ */
+export function endTurn(
+  state: EncounterState,
+  actorId: CombatantId,
+): EncounterState {
+  assertDecision(state, actorId);
+  const nextId = nextLivingActor(state, actorId, state.actors);
+  return transitionTurn(state, state.actors, nextId);
+}
+
+/**
  * Exactly one authoritative impact, with no user/AI branching.
  * The caller supplies observed distance and input timestamp; the domain
  * validates them against move reach, timing and equipped capabilities.
@@ -304,10 +335,20 @@ export function resolveReaction(
   const damage = inReach
     ? Math.min(defender.hp, Math.round(attack.damage * hit.damageMultiplier * (outcome?.[grade] ?? 1)))
     : 0;
+  const defenseCost = chosen?.resourceCost ?? 0;
+  const requestedRefund = grade === "perfect" && chosen &&
+    (chosen.technique === "weapon_deflect" || chosen.technique === "projectile_intercept")
+    ? (catalog.defenses[chosen.moveId]?.perfectEnergyRefund ?? 0) : 0;
+  const refundedSoFar = state.turnBudget.perfectRefundUsedByActor[defender.id] ?? 0;
+  const refundAllowance = Math.max(0, state.rules.maxPerfectDefenseRefundPerTurn - refundedSoFar);
+  const energyRefunded = Math.max(0, Math.min(
+    requestedRefund, refundAllowance,
+    defender.maxResource - (defender.resource - defenseCost),
+  ));
   const updatedDefender: EncounterActor = {
     ...defender,
     hp: Math.max(0, defender.hp - damage),
-    resource: defender.resource - (chosen?.resourceCost ?? 0),
+    resource: defender.resource - defenseCost + energyRefunded,
     cooldownUntilTurn: chosen ? {
       ...defender.cooldownUntilTurn,
       // A zero-turn cooldown permits independent reactions to each combo hit.
@@ -322,21 +363,61 @@ export function resolveReaction(
   const nextIndex = pending.hitIndex + 1;
   const nextHit = pending.hits[nextIndex];
   const finalHit = !nextHit || complete;
-  const nextState: EncounterState = {
+  const budget = energyRefunded > 0
+    ? {
+      ...state.turnBudget,
+      perfectRefundUsedByActor: {
+        ...state.turnBudget.perfectRefundUsedByActor,
+        [defender.id]: refundedSoFar + energyRefunded,
+      },
+    }
+    : state.turnBudget;
+  const continuing: EncounterState = {
     ...state,
     actors,
-    turn: finalHit ? state.turn + 1 : state.turn,
-    activeActorId: finalHit && !complete
-      ? nextLivingActor(state, attacker.id, actors)
-      : complete ? (remaining[0]?.id ?? attacker.id) : state.activeActorId,
-    phase: complete ? "complete" : finalHit ? "decision" : "reaction",
+    turnBudget: budget,
     pending: finalHit ? null : {
       ...pending,
       hitIndex: nextIndex,
       impactTick: nextHit!.impactTick,
     },
-    victorId: complete ? (remaining[0]?.id ?? null) : null,
   };
+  let nextState: EncounterState;
+  if (complete) {
+    nextState = {
+      ...continuing,
+      phase: "complete",
+      pending: null,
+      victorId: remaining[0]?.id ?? null,
+      activeActorId: remaining[0]?.id ?? attacker.id,
+      turn: state.turn + 1,
+    };
+  } else if (!finalHit) {
+    nextState = continuing;
+  } else {
+    const completedGain = pending.turnPolicy.energyGainOnCompletion ?? 0;
+    // Recovery is awarded once, after the final impact, even on a miss.
+    const currentAttacker = continuing.actors[attacker.id]!;
+    const updatedAttacker: EncounterActor = {
+      ...currentAttacker,
+      resource: Math.min(currentAttacker.maxResource, currentAttacker.resource + completedGain),
+    };
+    const nextActors = {
+      ...continuing.actors,
+      [attacker.id]: updatedAttacker,
+    };
+    const afterCompletion = { ...continuing, actors: nextActors };
+    if (mayContinueTurn(afterCompletion, pending.turnPolicy)) {
+      nextState = {
+        ...afterCompletion,
+        phase: "decision",
+        pending: null,
+      };
+    } else {
+      const nextActor = nextLivingActor(state, attacker.id, nextActors);
+      nextState = transitionTurn(afterCompletion, nextActors, nextActor);
+    }
+  }
   return {
     state: nextState,
     outcome: {
@@ -349,6 +430,7 @@ export function resolveReaction(
       technique: chosen?.technique ?? null,
       grade,
       damage,
+      energyRefunded,
       result: !inReach ? "out_of_reach" : damage === 0 ? "countered" : "hit",
     },
   };

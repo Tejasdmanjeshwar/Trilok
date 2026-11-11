@@ -1,6 +1,6 @@
 # Trilok Combat v0.4 — Symmetric Combat, Reactive Timing, Energy, Precision Targeting and AI
 
-Status: **v0.4-A shared encounter domain implemented**. **v0.4-A.1 variable reaction windows and core multi-hit pending-hit resolution are now implemented in the pure domain. Energy multi-action turns, body-region targeting, armor damage, enemy AI and the new browser adapter remain planned, not implemented.** Browser baseline remains playable v0.3.2 pending migration from the legacy duel adapter.
+Status: **v0.4-A shared encounter domain implemented**. **v0.4-A.1 variable reaction windows and core multi-hit pending-hit resolution are now implemented in the pure domain. Energy multi-action turns are now implemented in the pure domain. Body-region targeting, armor damage, enemy AI and the new browser adapter remain planned, not implemented.** Browser baseline remains playable v0.3.2 pending migration from the legacy duel adapter.
 Design revision: **2026-11-11 — post-audit update, documentation only**.
 Owner: combat domain + choreography + AI + presentation adapters.
 Priority: stabilize authoritative timing, multi-action resource economy and regional damage before scaling enemy content or replacing character art. Design inspiration: Expedition 33 combines AP-funded actions, repeated free-aim attacks, weak points and real-time reactions; Trilok will use its own cost, timing and damage balance.
@@ -147,7 +147,7 @@ For multi-hit skills, each impact gets a stable unique hit ID, timestamp, timing
 
 **Recommendation: one primary combat resource, Energy** (possible lore label Prana), not simultaneous Mana + Energy + Stamina + AP pools. Action-cost/turn-continuation rules must be independent of Energy balance. A character with unused Energy may still have ended its turn; a free action must not grant infinite attacks.
 
-**Provisional balance targets (not final or implemented):**
+**Provisional balance targets (implemented as opt-in domain defaults; not yet playable or playtested):**
 
 | Parameter or move | Energy | Turn action rule |
 | --- | ---: | --- |
@@ -254,10 +254,12 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 4. [ ] Migrate the **browser presentation** to generic encounter timelines; telegraph/commit/release/recovery markers remain owned by choreography until integration.
 5. [ ] Validate timing accessibility and perceived reaction fairness through actual mobile playtesting.
 
-### v0.4-A.2 — Energy and action economy (planned)
-1. Implement one authoritative Energy balance, per-turn regeneration and independent action budget.
-2. Support multiple aimed/quick attacks per turn, explicit end-turn moves, defense costs, bounded rewards and weapon-switch commitments.
-3. Test no free-energy loops, exhaustion, refunds, interrupted attacks, action caps and symmetric player/NPC rules.
+### v0.4-A.2 — Energy and action economy (pure-domain implementation)
+1. [x] Implement immutable Energy, own-turn regeneration and an independent configurable offensive action budget.
+2. [x] Add multi-attack continuation, explicit end-turn, finishing moves, bounded recovery effects, existing defense costs, perfect-defense refunds capped across a turn, and once-per-turn equipment switching.
+3. [x] Test Energy/action limits, multi-hit single charge, recovery, regen boundaries, resource/refund caps, move use counts and symmetric actor transitions.
+4. [ ] Integrate the new state and Energy HUD into the playable browser encounter with a compatible presentation controller. Legacy encounter creation defaults to one action/no regen until migrated.
+5. [ ] Balance actual Energy/turn profiles with AI difficulty and mobile encounter tests.
 
 ### v0.4-A.3 — Precision regions, armor and damage (planned)
 1. Define authored region IDs, armor coverage, damage types, critical eligibility and current weak-point exposure.
@@ -309,4 +311,4 @@ Do **not** implement full ballistic simulation, individual plate physics, wound 
 - **DIP:** AI and presentation depend on shared combat contracts/events, not on each other or on concrete browser objects.
 - **DRY:** shared legality/reaction, effective-timing, Energy/turn-policy and region-aware damage resolvers for player/NPC; one attack lifecycle, validated move-level overrides and one timing source. Avoid premature abstractions, subclass trees or duplicated browser-side rules.
 
-**Implementation status:** v0.4-A baseline and v0.4-A.1 **pure-domain timing and independent multi-hit impact resolution** are implemented. The deployed web duel remains on v0.3.2 until adapter migration. Energy/action chains, aiming/armor, enemy HFSM/utility behavior and new browser presentation are not implemented.
+**Implementation status:** v0.4-A baseline and v0.4-A.1 **pure-domain timing and independent multi-hit impact resolution** are implemented. The deployed web duel remains on v0.3.2 until adapter migration. Energy/action chains are implemented in the pure domain but not yet deployed in the browser. Aiming/armor, enemy HFSM/utility behavior and new browser presentation are not implemented.

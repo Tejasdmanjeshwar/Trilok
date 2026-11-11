@@ -148,4 +148,5 @@ export function resolveEnemyTurn(
 export * from "./encounter-types";
 export * from "./encounter-catalog";
 export * from "./encounter";
+export * from "./encounter-economy";
 export { resolveEffectiveTiming, gradeReactionWindow, validateTimingProfile, validateTimingAdjustments } from "./encounter-timing";
