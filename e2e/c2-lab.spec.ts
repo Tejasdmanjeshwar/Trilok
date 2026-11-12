@@ -244,6 +244,7 @@ test("C2.5 empirical import timings and repeated owned-surface lifecycle",async(
   await page.goto("/c2-lab.html");
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
   const results:string[]=[];
+  mkdirSync("test-results/c2",{recursive:true});
   for(let cycle=0;cycle<3;cycle++){
     await expect(page.locator("#c25-metrics")).toContainText("total-instantiation");
     const metrics=await page.locator("#c25-metrics").innerText();
