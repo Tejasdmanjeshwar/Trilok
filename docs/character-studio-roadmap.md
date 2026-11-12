@@ -1,6 +1,6 @@
 # Trilok Character Studio — Browser-Native Character System Roadmap (C0–C9)
 
-**Status:** approved C0–C9 planning baseline; the [C0 audited architecture specification](character-studio-c0-architecture.md) is proposed separately. No character generator, Character Studio, or C1 implementation is present.  
+**Status:** approved C0–C9 planning baseline; the [C0 audited architecture specification](character-studio-c0-architecture.md) is proposed separately. C1 contract implementation is documented in [C1 contracts](character-studio-c1-contracts.md). No anatomical mesh, playable Character Studio, or combat migration is present.  
 **Repository baseline at planning time:** main @ db8348bd296a412262781d20a9f444fea474c692; playable 0.4.0-preview.19; combat 0.4-D14.  
 **Scope:** shared, reusable character technology for Ramayana and subsequent campaigns.  
 **First implementation phase:** C0 architecture audit/specification. Review the [C0 ADR](character-studio-c0-architecture.md) and its verification before starting C1.  
@@ -119,7 +119,7 @@ Implement tested, strict-TS versioned rig/anatomy/socket schemas; canonical huma
 
 **Gate:** existing combat tests/replays and browser behavior preserved; human and representative Rakshasa/wing-extension rigs validate. Do not claim visual deform quality yet.
 
-### C2 — Continuous procedural skinned human
+**C1 implementation note:** the pure character-core, semantic runtime and test-only legacy bridge are in [C1 contract notes](character-studio-c1-contracts.md). C1 has not implemented skinning, a renderable model or a Studio page.\n\n### C2 — Continuous procedural skinned human
 
 Adopt or generate first deformation-friendly human topology, UVs, normals, normalized skin weights and calibrated bind pose. Evaluate Rakshasa proportions. Add pose stress-test harness now (shoulder raise, bow draw, elbow/forearm twist, crouch, torso rotation) and inspect renders. Reserve sever-compatible topology.
 
