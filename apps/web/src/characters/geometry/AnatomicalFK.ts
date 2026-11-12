@@ -137,12 +137,19 @@ export class AnatomicalFK {
           const indexBase = at(fingerId(graph, handSide, "index", 0));
           const towardIndex = indexBase ? indexBase.clone().sub(current) :
             new THREE.Vector3(handSide === "left" ? 1 : -1, 0, 0);
+          // Sweep the thumb *across* the palm plane toward the index base.
+          // The flexion axis above tips it through the palm plane; these
+          // independent motions must not collapse into the same hinge.
+          const towardPalm = towardIndex.sub(direction.clone().multiplyScalar(
+            towardIndex.dot(direction)));
           add("opposition",
-            safeUnit(direction.clone().cross(towardIndex), sideAxis(handSide)),
-            0, 1.0);
+            safeUnit(direction.clone().cross(towardPalm), palmNormals.get(handSide)!),
+            0, 1.25);
         }
         if (digit.index === 0 && digit.digit !== "thumb") {
-          add("abduction", safeUnit(palmar.clone().cross(direction), yaw), -.22, .22);
+          // Digital spread is rotation *within* the palm plane: its axis
+          // must be the palm normal, not the finger flexion hinge.
+          add("abduction", palmar, -.22, .22);
         }
       } else if (role.startsWith("clavicle_") && side) {
         add("abduction", sideAxis(side), -.12, .48);
