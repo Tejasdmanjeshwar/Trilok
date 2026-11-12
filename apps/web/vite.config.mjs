@@ -36,6 +36,15 @@ const build = Object.freeze({
 
 // One object is embedded in the UI and emitted as an inspectable manifest.
 export default defineConfig({
+  // C2 pose lab is a separate document: no import into the combat entry chunk.
+  build: {
+    rollupOptions: {
+      input: {
+        combat: fileURLToPath(new URL("./index.html", import.meta.url)),
+        c2Preview: fileURLToPath(new URL("./c2-preview.html", import.meta.url)),
+      },
+    },
+  },
   define: {
     __TRILOK_BUILD_INFO__: JSON.stringify(build),
   },
