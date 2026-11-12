@@ -297,13 +297,11 @@ export class AnatomicalFK {
         bone.quaternion.multiply(delta);
         // The proximal forearm follows bend, but excludes pronation.
         // The semantic elbow + wrist remain fully rotated, preserving C2.3.
-        // Half of elbow flexion softens the hinge-region skin fold. The
-        // proximal helper still excludes pronation; the true C1 elbow
-        // continues to receive the full bounded bend and axial rotation.
-        if (helper && motion === "flexion")
-          helper.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
-            frame.freedoms.get(motion)!.axis, angle * 0.5));
-        else if (helper && motion !== "rotation") helper.quaternion.multiply(delta);
+        // The pinned source lowerarm01 weights extend into 162/248 wrist
+        // vertices on each side. Partial elbow flexion drags that same skin
+        // away from the fully flexed lowerarm02/wrist chain. Share FULL
+        // elbow bend (as before PR #26); omit only axial pronation here.
+        if (helper && motion !== "rotation") helper.quaternion.multiply(delta);
       }
       if (shoulderSkin) {
         // Source shoulder01 is an intermediate skin connector between the
