@@ -4,7 +4,8 @@ import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanProto
 import { loadAnatomicalHuman, type AnatomicalHuman, type AnatomicalLoadStage } from "../geometry/AnatomicalTemplate";
 import { validateSkinningSpike, type SkinningSpike } from "../geometry/SkinningSpike";
 import { AnatomicalFK } from "../geometry/AnatomicalFK";
-import { ANATOMICAL_POSE_MATRIX, anatomicalPoseById, resolveAnatomicalPose } from "../geometry/AnatomicalPoseMatrix";
+import { anatomicalPoseById, resolveAnatomicalPose } from "../geometry/AnatomicalPoseMatrix";
+import { createCharacterLabControls } from "./CharacterLabControls";
 import { BoneInspector } from "./BoneInspector";
 
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
@@ -25,6 +26,7 @@ let renderer:THREE.WebGLRenderer|undefined;
 let frame=0;
 let surface="template";
 let currentPose="neutral";
+let currentView="front";
 const performancePanel=document.querySelector<HTMLElement>("#c25-metrics");
 const stageTimings=new Map<AnatomicalLoadStage,number>();
 let lastPoseApplyMs:number|undefined;
@@ -224,6 +226,8 @@ try{
     inspector?.dispose();inspector=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
+    const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
+    if(sourceSelect)sourceSelect.value=name;
     stageTimings.clear();
     if(name==="template")for(const [stage,ms] of sampleTimings)stageTimings.set(stage,ms);
     frameIntervals=[];
@@ -256,24 +260,13 @@ try{
   for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
       button.setAttribute("aria-pressed",String(button.dataset.surface===name));
     applyPose(currentPose);applyDebug();
+    applyView(currentView);
     document.documentElement.dataset.c2Ready="true";
     document.documentElement.dataset.c2Source=name;
   }
-  // Populate extended C2.5 matrix from the same definitions headless tests use.
-  const poseToolbar=document.querySelector<HTMLElement>('[aria-label="Deformation stress pose"]');
-  if(!poseToolbar)throw new Error("Missing C2 diagnostic pose controls");
-  for(const pose of ANATOMICAL_POSE_MATRIX){
-    if(poseToolbar.querySelector('[data-pose="'+pose.id+'"]'))continue;
-    const button=document.createElement("button");
-    button.type="button";button.dataset.pose=pose.id;
-    button.textContent=pose.label;button.setAttribute("aria-pressed","false");
-    button.title=pose.expected;
-    poseToolbar.append(button);
-  }
   // Register camera controls once, not once per template/implicit surface swap.
-  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
-    button.addEventListener("click",()=>{
-      const selectedView=button.dataset.view;
+  function applyView(selectedView:string):void {
+      currentView=selectedView;
       if(selectedView==="front")camera.position.set(0,1.45,3.2);
       if(selectedView==="side")camera.position.set(3.2,1.45,0);
       if(selectedView==="rear")camera.position.set(0,1.45,-3.2);
@@ -341,17 +334,21 @@ try{
         }
       }
       camera.lookAt(target);controls.target.copy(target);controls.update();
-      for(const item of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
-        item.setAttribute("aria-pressed",String(item===button));
-    });
-  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-pose]"))
-    button.addEventListener("click",()=>{
-      applyPose(button.dataset.pose??"neutral");
-      for(const b of document.querySelectorAll<HTMLButtonElement>("[data-pose]"))
-        b.setAttribute("aria-pressed",String(b===button));
-    });
-  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
-    button.addEventListener("click",()=>void switchSurface(button.dataset.surface??"implicit"));
+  }
+  const labControls=createCharacterLabControls(applyPose,applyView);
+  const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
+  sourceSelect?.addEventListener("change",()=>{
+    void switchSurface(sourceSelect.value);
+  });
+  const inspectorToggle=document.querySelector<HTMLButtonElement>("#bone-inspector-toggle");
+  const inspectorContent=document.querySelector<HTMLElement>("#bone-inspector-content");
+  inspectorToggle?.addEventListener("click",()=>{
+    if(!inspectorContent)return;
+    const show=inspectorContent.hidden;
+    inspectorContent.hidden=!show;
+    inspectorToggle.setAttribute("aria-expanded",String(show));
+    inspectorToggle.textContent=show?"Hide inspector":"Inspect bones";
+  });
   for(const toggle of document.querySelectorAll<HTMLInputElement>("[data-debug]"))
     toggle.addEventListener("change",applyDebug);
   const render=()=>{
@@ -380,6 +377,7 @@ try{
     overlay?.removeFromParent();overlay?.geometry.dispose();
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     inspector?.dispose();inspector=undefined;
+    labControls.dispose();
     controls.dispose();active?.dispose();fk=undefined;scene.clear();
     renderer?.dispose();renderer?.domElement.remove();
   },{once:true});
