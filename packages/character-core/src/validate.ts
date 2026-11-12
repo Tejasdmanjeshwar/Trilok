@@ -144,7 +144,7 @@ export function validateAnatomicalGraph(graph: AnatomicalGraphV1,
     }
   }
   for(const socket of graph.sockets) {
-    check(nonEmpty(socket.id) && purposes.has(socket.purpose), "socket ID/purpose");
+    check(socket.id.startsWith(socket.ownerSegmentId+"/socket/") &&\n      nonEmpty(socket.id.slice((socket.ownerSegmentId+"/socket/").length)) &&\n      purposes.has(socket.purpose), "socket ID/purpose");
     const joint=joints.get(socket.parentJointId);
     check(joint?.segmentId===socket.ownerSegmentId, "socket owner must match parent joint segment");
     vector(socket.localTranslation,"socket translation");
