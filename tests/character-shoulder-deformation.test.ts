@@ -108,57 +108,77 @@ function measure(human: ReturnType<typeof makeRig>["human"],
     p95: +(errors[Math.floor(errors.length * .95)]! * 100).toFixed(3),
     max: +(errors.at(-1)! * 100).toFixed(3) };
 }
-function connectorPose(human: ReturnType<typeof makeRig>["human"],
-  fraction: number, anchored: boolean) {
-  for (const side of SIDES) {
-    const joint = human.spike.graph.joints.find(j => j.role === "shoulder_" + side)!;
-    const shoulder = human.spike.bones.get(joint.id)!;
-    const helper = human.spike.shoulderSkinBones!.get(side)!;
-    const rest = new THREE.Quaternion();
-    const delta = shoulder.quaternion.clone();
-    const partial = rest.clone().slerp(delta, fraction);
-    const restPos = new THREE.Vector3(
-      // calibrated source shoulder01 is the bind position, not the posed one
-      ...helper.userData["shoulderAuditRestPosition"] as [number,number,number]);
-    helper.quaternion.copy(partial);
-    helper.position.copy(restPos);
-    if (anchored) {
-      const offset = shoulder.position.clone().sub(restPos);
-      helper.position.add(offset.clone().sub(offset.applyQuaternion(partial)));
-    }
-  }
-  human.spike.character.root.updateMatrixWorld(true);
-}
-
-describe("C2.4 experimental CC0 shoulder skinning geometry audit", () => {
-  it("measures source shoulder-girdle surface strain across connector pivots", () => {
+/** Headless CPU-skinned shoulder patch acceptance. A targeted mutation reverts
+ * the connector translation while leaving its quaternion and source weights
+ * unchanged, reproducing the old mismatched-pivot implementation. */
+describe("C2.4 pinned CC0 shoulder/axilla geometry", () => {
+  it("maintains a shared humeral pivot and measurably reduces peak surface tearing", () => {
     const { human, fk, rig, weights } = makeRig();
     try {
+      const bands = new Map(SIDES.map(side => [side, region(human, weights, side)]));
+      const neutral = human.mesh.geometry.getAttribute("position");
+      const neutralSamples = new Map(SIDES.map(side => {
+        const edge = bands.get(side)![0]!;
+        return [side, { index:edge.a,
+          rest:new THREE.Vector3().fromBufferAttribute(neutral,edge.a) }] as const;
+      }));
       for (const side of SIDES) {
         const suffix = side === "left" ? ".R" : ".L";
         expect(rig.bones["shoulder01" + suffix]?.parent).toBe("clavicle" + suffix);
         expect(rig.bones["upperarm01" + suffix]?.parent).toBe("shoulder01" + suffix);
-        const h = human.spike.shoulderSkinBones!.get(side)!;
-        h.userData["shoulderAuditRestPosition"] = h.position.toArray();
+        expect(bands.get(side)!.length).toBe(716);
       }
-      const bands = new Map(SIDES.map(side => [side, region(human, weights, side)]));
-      console.info("SHOULDER AUDIT source patch edges",
-        [...bands].map(([side, edges]) => side + ":" + edges.length).join(" "));
-      for (const name of ["neutral","tpose","raise","overhead","forward","adduct","elbow","torso","combined"]) {
+      const restPositions = new Map(SIDES.map(side =>
+        [side, human.spike.shoulderSkinBones!.get(side)!.position.clone()] as const));
+      for (const name of ["tpose","raise","overhead","forward","adduct","elbow","torso","combined"]) {
         fk.apply(pose(human, name));
-        for (const fraction of [0, .25, .5, .75, 1]) {
-          for (const anchored of [false,true]) {
-            connectorPose(human, fraction, anchored);
-            const results = SIDES.map(side => measure(human, bands.get(side)!));
-            console.info("SHOULDER AUDIT", JSON.stringify({name,fraction,anchored,
-              left:results[0],right:results[1]}));
+        const corrected = new Map(SIDES.map(side =>
+          [side, measure(human, bands.get(side)!)] as const));
+        const helperPositions = new Map(SIDES.map(side =>
+          [side, human.spike.shoulderSkinBones!.get(side)!.position.clone()] as const));
+        // Deliberate mutation: restore PR #24-style connector self-pivot,
+        // without changing FK, helpers' quaternions, source weights, or mesh.
+        for (const side of SIDES)
+          human.spike.shoulderSkinBones!.get(side)!.position.copy(restPositions.get(side)!);
+        human.spike.character.root.updateMatrixWorld(true);
+        const mutated = new Map(SIDES.map(side =>
+          [side, measure(human, bands.get(side)!)] as const));
+        for (const side of SIDES)
+          human.spike.shoulderSkinBones!.get(side)!.position.copy(helperPositions.get(side)!);
+        human.spike.character.root.updateMatrixWorld(true);
+        for (const side of SIDES) {
+          const after = measure(human, bands.get(side)!);
+          expect(after).toEqual(corrected.get(side));
+          expect(Number.isFinite(after.max) && Number.isFinite(after.rms)).toBe(true);
+          if (["raise","overhead","combined"].includes(name)) {
+            // Source-geometry baseline: relative peak edge stretch decreases
+            // when connector and semantic shoulder rotate about one pivot.
+            expect(after.max, name+" "+side+" vs mismatched-pivot mutation")
+              .toBeLessThan(mutated.get(side)!.max * .995);
           }
+          // These are measured diagnostics, NOT a claim of visually
+          // acceptable muscle volume or absence of self-intersections.
+          expect(after.p95, name+" "+side+" edge p95").toBeLessThan(105);
         }
+        expect(Math.abs(corrected.get("left")!.max -
+          corrected.get("right")!.max), name+" bilateral peak").toBeLessThan(.1);
       }
       fk.apply([]);
-      connectorPose(human, .5, false);
-      for (const side of SIDES)
-        expect(measure(human, bands.get(side)!).max).toBeLessThan(.001);
+      for (const side of SIDES) {
+        const helper = human.spike.shoulderSkinBones!.get(side)!;
+        expect(helper.position.distanceTo(restPositions.get(side)!)).toBeLessThan(1e-8);
+        const sample = neutralSamples.get(side)!;
+        expect(human.mesh.getVertexPosition(sample.index,new THREE.Vector3())
+          .distanceTo(sample.rest)).toBeLessThan(1e-6);
+        const metrics = measure(human,bands.get(side)!);
+        expect(metrics.p95).toBeLessThan(.001);
+        expect(metrics.max).toBeLessThan(.002);
+      }
+      const poses = pose(human,"combined");
+      fk.apply(poses);
+      const first = SIDES.map(side => measure(human,bands.get(side)!));
+      fk.apply([...poses].reverse());
+      expect(SIDES.map(side => measure(human,bands.get(side)!))).toEqual(first);
     } finally { human.dispose(); }
   });
 });
