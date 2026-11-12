@@ -94,6 +94,7 @@
     .bone-marker-label { position:absolute; transform:translate(8px,-50%);
       background:#101820e8; color:#e8f2ff; padding:2px 5px; font-size:10px;
       white-space:nowrap; border-radius:4px; max-width:170px; overflow:hidden; text-overflow:ellipsis }
+    body:not(.inspector-open) .bone-marker-label:not(.selected) { display:none!important }
     .bone-marker-label.selected { background:#554b1f; color:#fff7a2; font-weight:700; z-index:2 }
     .bottom-details { margin-top:10px; border:1px solid var(--line); border-radius:10px;
       padding:10px 14px; background:#18222d }
@@ -223,7 +224,7 @@
           <div class="controls" role="group" aria-label="Geometry overlays">
             <label><input type="checkbox" data-debug="skeleton"> Skeleton</label>
             <label><input type="checkbox" data-debug="wireframe"> Wireframe topology</label>
-            <label><input type="checkbox" id="bone-markers" checked> Bone markers &amp; labels</label>
+            <label><input type="checkbox" id="bone-markers" checked> Bone markers and labels</label>
             <label><input type="checkbox" id="bone-connections" checked> Parent connections</label>
           </div>
         </details>
