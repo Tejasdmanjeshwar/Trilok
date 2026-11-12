@@ -60,6 +60,8 @@ export interface AnatomicalGraphV1 {
   readonly schemaVersion: typeof CHARACTER_SCHEMA_VERSION;
   readonly coordinates: typeof CHARACTER_COORDINATES;
   readonly topologyFamilyId: string;
+  /** Head vertex topology family is distinct from the body family. */
+  readonly headTopologyFamilyId: string;
   readonly modules: readonly AnatomyModuleV1[];
   readonly segments: readonly AnatomySegmentV1[];
   readonly joints: readonly SemanticJointV1[];
