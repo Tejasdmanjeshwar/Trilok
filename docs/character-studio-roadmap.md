@@ -203,3 +203,22 @@ Start the next session with **C0 only**, using [C0 handoff](character-studio-c0-
 - docs/build-verification.md — how to compare GitHub and Cloudflare deployed build identities.
 
 **Planning note:** this document records design decisions and required future work. It does not claim C0 or C1 implementation, CI, rendered quality, or deployment.
+
+
+## C2.4 wrist transition regression / inspector diagnostic slice
+
+The continuing wrist misalignment was outside PR #27's exclusively wrist/metacarpal
+vertex sample. The pinned MakeHuman source has 248 weighted wrist vertices per
+side; **162 also carry lowerarm01 weights**, 176 also carry lowerarm02. The
+previous half-elbow-flexion helper (PR #26) therefore moves visible forearm/wrist
+skin differently from the semantic elbow/wrist chain. The focused repair restores
+full elbow flexion on the proximal forearm skin reference while continuing to
+omit its axial pronation. A CPU-skinned mixed-ownership patch oracle checks
+rigid elbow transportation under wrist flexion, deviation, fist and thumb pose;
+a half-flexion mutation must fail. C2.4 visual acceptance remains pending a
+focused rendered wrist inspection; remaining regions and C2.5 are not signed off.
+
+The lab Bone Inspector exposes live canonical C1 markers, parent links, regional
+search, a selected joint, full canonical ID, side, parent and copyable report,
+using the same posed skeleton. It does not expose skin-only helper bones as
+semantic joints or implement C4 editing.

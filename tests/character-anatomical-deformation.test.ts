@@ -212,3 +212,280 @@ describe("C2.4 pinned CC0 wrist geometric regression (no browser)",()=>{
     }finally{human.dispose();}
   },60_000);
 });
+
+
+/** The real wrist band is not wrist-only: source lowerarm01 and lowerarm02
+ * overlap wrist/metacarpals. The elbow-flexion parent transform MUST move
+ * every descendant vertex rigidly even when wrist and fingers are posed.
+ * PR #27's exclusive wrist/metacarpal selection excluded this failure area.
+ */
+function elbowWristTransitionVertices(
+  human: ReturnType<typeof loadRealHuman>["human"],
+  weights: SourceWeights, side: Side,
+): number[] {
+  const suffix = side === "left" ? ".R" : ".L";
+  const wrist = new Set((weights.weights["wrist" + suffix] ?? [])
+    .filter(([, w]) => w > 0).map(([id]) => id));
+  const forearm = new Set((weights.weights["lowerarm01" + suffix] ?? [])
+    .filter(([, w]) => w > 0).map(([id]) => id));
+  const candidate = new Set([...wrist].filter(id => forearm.has(id)));
+  // Only include vertices whose entire source owner chain is beneath the
+  // semantic elbow (or its proximal sibling). No upper-arm owner can satisfy
+  // the rigid-elbow oracle.
+  const owners = new Map<number, string[]>();
+  for (const [name, entries] of Object.entries(weights.weights)) {
+    for (const [id, w] of entries) {
+      if (w <= 0 || !candidate.has(id)) continue;
+      const list = owners.get(id) ?? [];
+      list.push(name); owners.set(id, list);
+    }
+  }
+  const allowed = /^(lowerarm01|lowerarm02|wrist|metacarpal[1-4]|finger[1-5]-[1-3])\.(L|R)$/;
+  const ids = new Set([...candidate].filter(id =>
+    (owners.get(id) ?? []).every(name => allowed.test(name) && name.endsWith(suffix))));
+  const vertices: number[] = [];
+  human.template.sourceVertexIds.forEach((id, renderIndex) => {
+    if (ids.has(id)) vertices.push(renderIndex);
+  });
+  return vertices;
+}
+
+describe("C2.4 full CC0 forearm/wrist transition geometry", () => {
+  it("matches the independent rigid elbow oracle throughout both wrist bands and finger poses", () => {
+    const { human, fk, weights } = loadRealHuman();
+    try {
+      const { spike, mesh } = human;
+      const sides = (["left", "right"] as const).map(side => {
+        const joint = spike.graph.joints.find(j => j.role === "elbow_" + side)!;
+        const wrist = spike.graph.joints.find(j => j.role === "wrist_" + side)!;
+        const vertices = elbowWristTransitionVertices(human, weights, side);
+        expect(vertices.length, side + " real CC0 mixed forearm/wrist skin")
+          .toBeGreaterThanOrEqual(30);
+        return { side, elbow: joint, wrist, bone: spike.bones.get(joint.id)!,
+          vertices, helper: spike.forearmSkinBones!.get(side)! };
+      });
+      const target = (id: string, motion: JointTarget["motion"],
+        radians: number): JointTarget => ({ jointId: id, motion, radians });
+      const finger = (side: Side, digit: string, index: number,
+        motion: JointTarget["motion"], radians: number): JointTarget => {
+        const joint = spike.graph.joints.find(j =>
+          j.role === "finger_" + digit + "_" + index &&
+          j.id.includes("arm[" + side + ","))!;
+        return target(joint.id, motion, radians);
+      };
+      const cases = [
+        { name: "neutral wrist", commands: [] as JointTarget[] },
+        { name: "flexion and deviation", commands: sides.flatMap(s => [
+          target(s.wrist.id, "flexion", s.side === "left" ? .65 : -.65),
+          target(s.wrist.id, "abduction", s.side === "left" ? .22 : -.22),
+        ]) },
+        { name: "wrist, fist and thumb opposition", commands: [
+          ...sides.flatMap(s => [
+            target(s.wrist.id, "flexion", .55),
+            target(s.wrist.id, "abduction", s.side === "left" ? .2 : -.2),
+            finger(s.side, "thumb", 0, "opposition", .65),
+            finger(s.side, "thumb", 0, "flexion", .3),
+            finger(s.side, "index", 0, "flexion", 1.1),
+            finger(s.side, "index", 1, "flexion", 1.1),
+            finger(s.side, "middle", 0, "flexion", 1.1),
+          ]),
+        ] },
+      ];
+      const point = (i: number) => mesh.getVertexPosition(i, new THREE.Vector3());
+      for (const testCase of cases) {
+        fk.apply(testCase.commands);
+        spike.character.root.updateWorldMatrix(true, true);
+        const baseline = sides.map(s => ({
+          ...s, world: s.bone.matrixWorld.clone(),
+          positions: s.vertices.map(i => point(i)),
+        }));
+        const flexCommands = [
+          ...testCase.commands,
+          ...sides.map(s => target(s.elbow.id, "flexion", 1.1)),
+        ];
+        fk.apply(flexCommands);
+        spike.character.root.updateWorldMatrix(true, true);
+        for (const s of baseline) {
+          // Source lowerarm01 and distal wrist are both children of shoulder;
+          // bend applied *only* to elbow must rigidly transport the entire
+          // skin patch. This is independent of the weighting implementation.
+          const delta = s.bone.matrixWorld.clone().multiply(s.world.clone().invert());
+          let worst = 0;
+          let actualMotion = 0;
+          for (let k = 0; k < s.vertices.length; k++) {
+            const predicted = s.positions[k]!.clone().applyMatrix4(delta);
+            const actual = point(s.vertices[k]!);
+            worst = Math.max(worst, predicted.distanceTo(actual));
+            actualMotion = Math.max(actualMotion, actual.distanceTo(s.positions[k]!));
+          }
+          expect(worst, s.side + " " + testCase.name + " wrist-to-forearm alignment")
+            .toBeLessThan(.00015);
+          expect(actualMotion).toBeGreaterThan(.005);
+        }
+      }
+      // A mutation recreating the exact PR #26 class of error (50% elbow
+      // flexion on the mixed lowerarm01 region) must fail the geometric test.
+      fk.apply([]);
+      spike.character.root.updateWorldMatrix(true, true);
+      const left = sides[0]!;
+      const rest = left.bone.matrixWorld.clone();
+      const restPoints = left.vertices.map(i => point(i));
+      fk.apply([target(left.elbow.id, "flexion", 1.1)]);
+      spike.character.root.updateWorldMatrix(true, true);
+      const transform = left.bone.matrixWorld.clone().multiply(rest.invert());
+      const oldQuaternion = left.helper.quaternion.clone();
+      try {
+        left.helper.quaternion.copy(fk.frames.get(left.elbow.id)!.rest)
+          .slerp(left.bone.quaternion, .5);
+        spike.character.root.updateWorldMatrix(true, true);
+        let error = 0;
+        for (let k = 0; k < left.vertices.length; k++)
+          error = Math.max(error, point(left.vertices[k]!).distanceTo(
+            restPoints[k]!.clone().applyMatrix4(transform)));
+        expect(error, "half-elbow-flexion regression must move actual CC0 wrist skin")
+          .toBeGreaterThan(.002);
+      } finally {
+        left.helper.quaternion.copy(oldQuaternion);
+      }
+      fk.apply([]);
+      spike.character.root.updateWorldMatrix(true, true);
+      for (let k = 0; k < left.vertices.length; k++)
+        expect(point(left.vertices[k]!).distanceTo(restPoints[k]!))
+          .toBeLessThan(.00015);
+    } finally { human.dispose(); }
+  }, 60_000);
+
+  it("retains finite, deterministic CPU-skinned surfaces for bilateral twist and wrist poses", () => {
+    const { human, fk, weights } = loadRealHuman();
+    try {
+      const { spike, mesh } = human;
+      const samples = (["left", "right"] as const).flatMap(side =>
+        elbowWristTransitionVertices(human, weights, side));
+      expect(samples.length).toBeGreaterThanOrEqual(60);
+      const pose = (role: string, side: Side, motion: JointTarget["motion"],
+        radians: number): JointTarget => ({
+          jointId: spike.graph.joints.find(j => j.role === role + "_" + side)!.id,
+          motion, radians,
+        });
+      for (const angle of [-.85, .85]) {
+        const commands = (["left", "right"] as const).flatMap(side => [
+          pose("elbow", side, "rotation", angle),
+          pose("wrist", side, "flexion", .55),
+          pose("wrist", side, "abduction", .22),
+        ]);
+        fk.apply(commands);
+        spike.character.root.updateWorldMatrix(true, true);
+        const once = samples.map(i => mesh.getVertexPosition(i, new THREE.Vector3()).clone());
+        fk.apply([...commands].reverse());
+        spike.character.root.updateWorldMatrix(true, true);
+        samples.forEach((i, n) => {
+          const p = mesh.getVertexPosition(i, new THREE.Vector3());
+          expect(p.toArray().every(Number.isFinite)).toBe(true);
+          expect(p.distanceTo(once[n]!)).toBeLessThan(1e-7);
+        });
+      }
+      fk.apply([]);
+      spike.character.root.updateWorldMatrix(true, true);
+      for (const i of samples) {
+        const actual = mesh.getVertexPosition(i, new THREE.Vector3());
+        const rest = new THREE.Vector3().fromBufferAttribute(
+          mesh.geometry.getAttribute("position"), i);
+        expect(actual.distanceTo(rest)).toBeLessThan(.00015);
+      }
+    } finally { human.dispose(); }
+  }, 60_000);
+});
+
+
+describe("C2.4 CC0 palm/finger continuity on the original indexed body", () => {
+  it("preserves bounded surface edge lengths at wrist-to-palm and palm-to-finger-base seams", () => {
+    const { human, fk, weights } = loadRealHuman();
+    try {
+      const { spike, mesh, template } = human;
+      const source = template.sourceVertexIds;
+      const geometry = mesh.geometry;
+      const index = geometry.getIndex()!;
+      const owners = new Map<number, Set<string>>();
+      for (const [name, entries] of Object.entries(weights.weights)) {
+        if (!/^(wrist|metacarpal[1-4]|finger[1-5]-1)\.(L|R)$/.test(name)) continue;
+        for (const [id, w] of entries) {
+          if (w <= .02) continue;
+          const set = owners.get(id) ?? new Set<string>();
+          set.add(name); owners.set(id, set);
+        }
+      }
+      const category = (id: number, prefix: string, suffix: string): boolean =>
+        [...(owners.get(id) ?? [])].some(n => n.startsWith(prefix) && n.endsWith(suffix));
+      const edges = new Map<string, { a: number; b: number; band: string; rest: number }>();
+      const neutral = (i: number) =>
+        new THREE.Vector3().fromBufferAttribute(geometry.getAttribute("position"), i);
+      for (let t = 0; t < index.count; t += 3) {
+        const triangle = [index.getX(t), index.getX(t + 1), index.getX(t + 2)];
+        for (const edge of [
+          [triangle[0]!, triangle[1]!],
+          [triangle[1]!, triangle[2]!],
+          [triangle[2]!, triangle[0]!],
+        ]) {
+          const a = edge[0]!, b = edge[1]!;
+          const s0 = source[a]!, s1 = source[b]!;
+          const key = Math.min(s0, s1) + "|" + Math.max(s0, s1);
+          if (edges.has(key)) continue;
+          let band: string | undefined;
+          for (const suffix of [".L", ".R"]) {
+            const wristPalm =
+              category(s0, "wrist", suffix) && category(s1, "metacarpal", suffix) ||
+              category(s1, "wrist", suffix) && category(s0, "metacarpal", suffix);
+            const palmDigit =
+              category(s0, "metacarpal", suffix) && category(s1, "finger", suffix) ||
+              category(s1, "metacarpal", suffix) && category(s0, "finger", suffix);
+            if (wristPalm) band = "wrist-palm" + suffix;
+            else if (palmDigit) band = "palm-finger" + suffix;
+          }
+          if (!band) continue;
+          const rest = neutral(a).distanceTo(neutral(b));
+          if (rest < .00005) continue;
+          edges.set(key, { a, b, band, rest });
+        }
+      }
+      const bands = new Map<string, number>();
+      for (const edge of edges.values())
+        bands.set(edge.band, (bands.get(edge.band) ?? 0) + 1);
+      for (const side of [".L", ".R"])
+        for (const band of ["wrist-palm", "palm-finger"])
+          expect(bands.get(band + side) ?? 0,
+            "source-index real CC0 surface edges " + band + side)
+            .toBeGreaterThanOrEqual(8);
+      const joint = (side: Side, role: string, motion: JointTarget["motion"],
+        radians: number): JointTarget => ({
+          jointId: spike.graph.joints.find(j => j.role === role + "_" + side)!.id,
+          motion, radians,
+        });
+      const finger = (side: Side, digit: string, motion: JointTarget["motion"],
+        radians: number): JointTarget => ({
+          jointId: spike.graph.joints.find(j => j.role === "finger_" + digit + "_0" &&
+            j.id.includes("arm[" + side + ","))!.id, motion, radians,
+        });
+      for (const variation of [1, -1]) {
+        fk.apply((["left", "right"] as const).flatMap(side => [
+          joint(side, "elbow", "rotation", variation * 1.0),
+          joint(side, "wrist", "flexion", .6),
+          joint(side, "wrist", "abduction", .25),
+          finger(side, "index", "flexion", 1.15),
+          finger(side, "thumb", "opposition", .65),
+        ]));
+        spike.character.root.updateWorldMatrix(true, true);
+        let maxStretch = 0;
+        for (const { a, b, rest } of edges.values()) {
+          const pa = mesh.getVertexPosition(a, new THREE.Vector3());
+          const pb = mesh.getVertexPosition(b, new THREE.Vector3());
+          expect(pa.toArray().every(Number.isFinite)).toBe(true);
+          expect(pb.toArray().every(Number.isFinite)).toBe(true);
+          const stretch = pa.distanceTo(pb) / rest;
+          maxStretch = Math.max(maxStretch, stretch);
+          expect(stretch).toBeLessThan(4.5);
+        }
+        expect(maxStretch).toBeGreaterThan(.2);
+      }
+    } finally { human.dispose(); }
+  }, 60_000);
+});
