@@ -33,7 +33,7 @@ Future console releases will need a separate porting strategy: Three.js web buil
 
 ## Character Studio roadmap (C0–C9)
 
-The upcoming [browser-native Character Studio roadmap](docs/character-studio-roadmap.md) defines an in-Trilok Three.js workflow for procedural anatomical humanoids, rigs, customizable human/Rakshasa/Vanara/winged-humanoid archetypes, validated baking and eventual anatomy-aware disfigurement/dismemberment. No Blender, separate authoring platform, or manual sculpting by the user is required. This is a **planned** system, not an implemented feature. The next development task is **C0 architecture and feasibility**, using the [C0 new-session handoff](docs/character-studio-c0-handoff.md). Existing D14 combat is preserved.
+The upcoming [browser-native Character Studio roadmap](docs/character-studio-roadmap.md) defines an in-Trilok Three.js workflow for procedural anatomical humanoids, rigs, customizable human/Rakshasa/Vanara/winged-humanoid archetypes, validated baking and eventual anatomy-aware disfigurement/dismemberment. No Blender, separate authoring platform, or manual sculpting by the user is required. This is a **planned** system, not an implemented feature. The [C0 audited architecture and feasibility ADR](docs/character-studio-c0-architecture.md) specifies semantic skeletal and segment IDs, no-sculpt topology feasibility, injury/severing metadata, browser-only baking, migration boundaries, quality gates and the separately scoped C1 contracts. The [C0 new-session handoff](docs/character-studio-c0-handoff.md) records the original audit assignment. C0 is documentation, **not** a playable Character Studio. Existing D14 combat is preserved.
 
 ## How to verify the live build
 
