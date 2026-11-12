@@ -189,6 +189,87 @@ describe("C2.2 CC0 source skeleton and weight retarget",()=>{
     validateSkinningSpike(spike);
     template.geometry.dispose();spike.dispose();
   });
+  it("keeps CC0 shoulder01 skin distinct from clavicle and upperarm without changing UV seams",()=>{
+    const template=parseAnatomicalOBJ(meshSource);
+    const rig=createSkinningSpike({forearmSkinning:true,shoulderSkinning:true});
+    const graph=rig.graph;
+    const shoulders=rig.shoulderSkinBones!;
+    const first=graph.joints.length+2;
+    expect(rig.skeleton.bones[first]).toBe(shoulders.get("left"));
+    expect(rig.skeleton.bones[first+1]).toBe(shoulders.get("right"));
+    const sources=Array.from(template.sourceVertexIds);
+    const uv=Array.from(template.geometry.getAttribute("uv").array);
+    const index=Array.from(template.geometry.getIndex()!.array);
+    const position=Array.from(template.geometry.getAttribute("position").array);
+    const weights:SourceWeights={license:"CC0",weights:{
+      "clavicle.L":[[0,.3],[1,.6]],
+      "shoulder01.L":[[0,.7],[1,.4]],
+      "shoulder01.R":[[2,.8],[3,.5]],
+      "upperarm01.R":[[2,.2],[3,.5]],
+    }};
+    const forearmIndices=new Map<"left"|"right",number>([
+      ["left",graph.joints.length],["right",graph.joints.length+1]]);
+    const shoulderIndices=new Map<"left"|"right",number>([
+      ["left",first],["right",first+1]]);
+    const diagnostics=applyOfficialSkinWeights(template,graph,fixtureRig,
+      weights,forearmIndices,shoulderIndices);
+    expect(diagnostics.unweightedVertices).toBe(0);
+    const ids=template.geometry.getAttribute("skinIndex");
+    const sw=template.geometry.getAttribute("skinWeight");
+    const role=(name:string)=>graph.joints.findIndex(j=>j.role===name);
+    const expected=[
+      [[first+1,.7],[role("clavicle_right"),.3]],
+      [[role("clavicle_right"),.6],[first+1,.4]],
+      [[first,.8],[role("shoulder_left"),.2]],
+      [[first,.5],[role("shoulder_left"),.5]],
+    ] as const;
+    for(let i=0;i<sources.length;i++){
+      const want=expected[sources[i]!]!;
+      const actual=new Map<number,number>();
+      let sum=0;
+      for(let k=0;k<4;k++){
+        const bone=ids.getComponent(i,k),w=sw.getComponent(i,k);
+        if(w>0)actual.set(bone,w);
+        sum+=w;
+      }
+      for(const [bone,w] of want)
+        expect(actual.get(bone)).toBeCloseTo(w,5);
+      expect(sum).toBeCloseTo(1,5);
+    }
+    expect(Array.from(template.sourceVertexIds)).toEqual(sources);
+    expect(Array.from(template.geometry.getAttribute("uv").array)).toEqual(uv);
+    expect(Array.from(template.geometry.getIndex()!.array)).toEqual(index);
+    expect(Array.from(template.geometry.getAttribute("position").array)).toEqual(position);
+    rig.mesh.geometry=template.geometry;
+    validateSkinningSpike(rig);
+    // Template and diagnostic geometry are independent owned resources.
+    rig.dispose();
+  });
+  it("calibrates shoulder skin connectors to the original source landmark",()=>{
+    const rig=createSkinningSpike({shoulderSkinning:true});
+    const template=parseAnatomicalOBJ(meshSource);
+    const original=rig.graph.joints.map(j=>j.id);
+    const landmarks=new Map<string,THREE.Vector3>();
+    for(const side of ["left","right"] as const){
+      const shoulder=rig.graph.joints.find(j=>j.role==="shoulder_"+side)!;
+      const elbow=rig.bones.get(shoulder.id)!;
+      const p=elbow.getWorldPosition(new THREE.Vector3());
+      landmarks.set("shoulder01"+(side==="left"?".R":".L"),
+        p.add(new THREE.Vector3(side==="left"?-.02:.02,.015,0)));
+    }
+    calibrateHumanBones(rig.graph,rig.bones,rig.skeleton,rig.character.root,
+      landmarks,undefined,rig.shoulderSkinBones);
+    for(const side of ["left","right"] as const){
+      const key="shoulder01"+(side==="left"?".R":".L");
+      const helper=rig.shoulderSkinBones!.get(side)!;
+      const actual=helper.getWorldPosition(new THREE.Vector3());
+      expect(actual.distanceTo(landmarks.get(key)!)).toBeLessThan(1e-6);
+      expect(rig.skeleton.boneInverses[rig.skeleton.bones.indexOf(helper)]!
+        .elements.every(Number.isFinite)).toBe(true);
+    }
+    expect(rig.graph.joints.map(j=>j.id)).toEqual(original);
+    template.geometry.dispose();rig.dispose();
+  });
   it("rejects unlicensed or malformed source weight assignments",()=>{
     const template=parseAnatomicalOBJ(meshSource);
     const graph=createAnatomyPreset();

@@ -65,10 +65,13 @@ export class AnatomicalFK {
   private readonly graph: AnatomicalGraphV1;
   private readonly bones: ReadonlyMap<string, THREE.Bone>;
   private readonly proximalForearmSkin: ReadonlyMap<string, THREE.Bone>;
+  private readonly shoulderConnectorSkin: ReadonlyMap<string,
+    { bone: THREE.Bone; rest: THREE.Quaternion }>;
 
   constructor(graph: AnatomicalGraphV1, bones: ReadonlyMap<string, THREE.Bone>,
     options: { readonly jawTipWorldRest?: THREE.Vector3;
-      readonly forearmSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone> } = {}) {
+      readonly forearmSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone>;
+      readonly shoulderSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone> } = {}) {
     this.graph = graph;
     this.bones = bones;
     const helpers = new Map<string, THREE.Bone>();
@@ -84,6 +87,20 @@ export class AnatomicalFK {
     if (options.forearmSkinBones && helpers.size !== 2)
       throw new Error("Incomplete forearm skin helpers");
     this.proximalForearmSkin = helpers;
+    const shoulderSkin = new Map<string,
+      { bone: THREE.Bone; rest: THREE.Quaternion }>();
+    for (const side of ["left", "right"] as const) {
+      const helper = options.shoulderSkinBones?.get(side);
+      if (!helper) continue;
+      const joint = graph.joints.find(j => j.role === "shoulder_" + side);
+      const shoulder = joint ? bones.get(joint.id) : undefined;
+      if (!shoulder || helper.parent !== shoulder.parent)
+        throw new Error("Invalid shoulder skin-only connector " + side);
+      shoulderSkin.set(joint!.id, { bone: helper, rest: helper.quaternion.clone() });
+    }
+    if (options.shoulderSkinBones && shoulderSkin.size !== 2)
+      throw new Error("Incomplete shoulder skin connectors");
+    this.shoulderConnectorSkin = shoulderSkin;
     const restPositions = new Map<string, THREE.Vector3>();
     const worldQuaternions = new Map<string, THREE.Quaternion>();
     for (const joint of graph.joints) {
@@ -268,6 +285,8 @@ export class AnatomicalFK {
       bone.quaternion.copy(frame.rest);
       const helper = this.proximalForearmSkin.get(joint.id);
       if (helper) helper.quaternion.copy(frame.rest);
+      const shoulderSkin = this.shoulderConnectorSkin.get(joint.id);
+      if (shoulderSkin) shoulderSkin.bone.quaternion.copy(shoulderSkin.rest);
       const motions = commands.get(joint.id);
       if (!motions) continue;
       for (const motion of order) {
@@ -279,6 +298,14 @@ export class AnatomicalFK {
         // The proximal forearm follows bend, but excludes pronation.
         // The semantic elbow + wrist remain fully rotated, preserving C2.3.
         if (helper && motion !== "rotation") helper.quaternion.multiply(delta);
+      }
+      if (shoulderSkin) {
+        // Source shoulder01 is an intermediate skin connector between the
+        // clavicle and upperarm01. Distribute the current shoulder motion
+        // equally in its rest-local frame, without modifying any semantic FK.
+        const localDelta = frame.rest.clone().invert().multiply(bone.quaternion);
+        const partial = new THREE.Quaternion().slerp(localDelta, 0.5);
+        shoulderSkin.bone.quaternion.copy(shoulderSkin.rest).multiply(partial);
       }
     }
     this.bones.get(this.graph.joints[0]!.id)!.updateWorldMatrix(true, true);
