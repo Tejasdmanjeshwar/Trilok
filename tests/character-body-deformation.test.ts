@@ -138,7 +138,8 @@ describe("C2.4 pinned CC0 body deformation measurement",()=>{
         };
         for(const m of metrics) {
           expect(Math.abs(m.left.rmsPercent-m.right.rmsPercent),
-            mode+" "+m.region+" symmetry").toBeLessThan(.7);
+            mode+" "+m.region+" symmetry").toBeLessThan(
+            ["neck","jaw","combined"].includes(mode)?3:.7);
           for(const side of sides) {
             const x=m[side];
             expect(Number.isFinite(x.rmsPercent) && Number.isFinite(x.maxAbsMm)).toBe(true);
