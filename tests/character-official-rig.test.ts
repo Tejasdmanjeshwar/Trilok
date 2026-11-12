@@ -318,7 +318,7 @@ describe("C2.2 CC0 source skeleton and weight retarget",()=>{
     rig.dispose();
   });
   it("calibrates the real semantic wrist bind origin without a partial wrist helper",()=>{
-    const rig=createSkinningSpike({forearmSkinning:true,shoulderSkinning:true});
+    const rig=createSkinningSpike({forearmSkinning:true});
     const landmarks=new Map<string,THREE.Vector3>();
     for(const side of ["left","right"] as const){
       const joint=rig.graph.joints.find(j=>j.role==="wrist_"+side)!;
