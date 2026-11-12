@@ -25,9 +25,12 @@ pose mutation. Targets use C1 semantic IDs, not an implicit left/right bone inde
 ## C2.3 implementation boundary
 
 - For fingers, flexion axes are built from the measured finger-shaft direction
-  and knuckle-plane normal (with +Z as provisional palmar anterior). Individual
+  and knuckle-plane normal. The palmar sign on each imported hand is determined
+  by the distal thumb landmark relative to the wrist/knuckle plane, not by
+  global +Z (the tilted MakeHuman palm plane is nearly orthogonal to +Z). Individual
   proximal and distal phalanges receive their own bounded target angles.
-  Thumb opposition uses the thumb direction relative to the index base.
+  Thumb opposition uses the thumb direction relative to the opposing ring MCP,
+  projected orthogonally to its shaft, for a cross-palm sweep.
 - For the forearm, axial rotation is an independent elbow control oriented by
   the rest-pose elbow-to-wrist landmarks. Wrist flexion and deviation are
   separate degrees of freedom. This **does not yet distribute twist** along the
@@ -51,3 +54,25 @@ intersection defects. The FK mathematics alone is not proof of visual quality.
 
 **Next:** C2.4 weight and twist quality, including source lowerarm02 transfer,
 followed by C2.5 stress-pose validation and C3 readiness.
+
+## C2.3 direction correction (follow-up to PR #19)
+
+The prior +Z choice could select a dorsal rather than volar palm normal on the
+mirrored, obliquely oriented source hands. This inverted the sign of the
+shaft-cross-palmar flexion frame and made the fist and isolated index curl
+bend away from the palm. The original thumb target aimed at the *adjacent*
+index MCP rather than traversing the palm toward the opposing fingers.
+
+The follow-up calibration identifies the volar half-space independently on
+each hand using the imported thumb landmark and knuckle-plane normal; it
+rejects an ambiguous landmark instead of arbitrarily selecting a sign.
+MCP/PIP/DIP axes are still normalized bone-local quaternion frames and retain
+the same limits and semantic joint IDs. Mirrored tilted-hand regression
+fixtures assert signed volar displacement for each non-thumb phalanx and
+cross-palm thumb opposition, not merely nonzero movement or proximity to a
+palm joint. The synthetic C1 prototype has a schematic palm-plane fallback.
+
+**Acceptance condition:** C2.3 remains under review until the follow-up PR's
+CI and actual CC0 WebGL desktop/mobile screenshot inspection confirm the
+correction. Numeric motion tests alone do not establish satisfactory fist
+closure, surface contact, or skin deformation; the latter remains C2.4.
