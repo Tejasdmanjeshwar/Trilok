@@ -270,6 +270,91 @@ describe("C2.2 CC0 source skeleton and weight retarget",()=>{
     expect(rig.graph.joints.map(j=>j.id)).toEqual(original);
     template.geometry.dispose();rig.dispose();
   });
+  it("retains exact CC0 wrist-band source weights across UV seams and both hands",()=>{
+    const template=parseAnatomicalOBJ(meshSource);
+    const rig=createSkinningSpike({forearmSkinning:true,
+      shoulderSkinning:true,wristSkinning:true});
+    const sourceVertices=Array.from(template.sourceVertexIds);
+    const originalPosition=Array.from(template.geometry.getAttribute("position").array);
+    const originalUV=Array.from(template.geometry.getAttribute("uv").array);
+    const originalIndex=Array.from(template.geometry.getIndex()!.array);
+    const start=rig.graph.joints.length;
+    const proximal=new Map<"left"|"right",number>([
+      ["left",start],["right",start+1]]);
+    const shoulder=new Map<"left"|"right",number>([
+      ["left",start+2],["right",start+3]]);
+    const wrist=new Map<"left"|"right",number>([
+      ["left",start+4],["right",start+5]]);
+    expect(rig.skeleton.bones[start+4]).toBe(rig.wristSkinBones!.get("left"));
+    expect(rig.skeleton.bones[start+5]).toBe(rig.wristSkinBones!.get("right"));
+    const weights:SourceWeights={license:"CC0",weights:{
+      "wrist.L":[[0,.7],[1,.45]],
+      "metacarpal1.L":[[0,.3],[1,.55]],
+      "wrist.R":[[2,.6],[3,.25]],
+      "metacarpal2.R":[[2,.4],[3,.75]],
+    }};
+    const diagnostics=applyOfficialSkinWeights(template,rig.graph,fixtureRig,
+      weights,proximal,shoulder,wrist);
+    expect(diagnostics.unweightedVertices).toBe(0);
+    const ids=template.geometry.getAttribute("skinIndex");
+    const sw=template.geometry.getAttribute("skinWeight");
+    const palmLeft=rig.graph.joints.findIndex(j=>j.role==="palm_left");
+    const palmRight=rig.graph.joints.findIndex(j=>j.role==="palm_right");
+    const expected=[
+      [[start+5,.7],[palmRight,.3]],
+      [[palmRight,.55],[start+5,.45]],
+      [[start+4,.6],[palmLeft,.4]],
+      [[palmLeft,.75],[start+4,.25]],
+    ] as const;
+    for(let i=0;i<sourceVertices.length;i++){
+      const actual=new Map<number,number>();
+      let total=0;
+      for(let k=0;k<4;k++){
+        const id=ids.getComponent(i,k),weight=sw.getComponent(i,k);
+        if(weight>0)actual.set(id,weight);
+        expect(Number.isFinite(weight)).toBe(true);
+        total+=weight;
+      }
+      expect(total).toBeCloseTo(1,5);
+      for(const [bone,weight] of expected[sourceVertices[i]!]!)
+        expect(actual.get(bone)).toBeCloseTo(weight,5);
+    }
+    expect(Array.from(template.sourceVertexIds)).toEqual(sourceVertices);
+    expect(Array.from(template.geometry.getAttribute("position").array)).toEqual(originalPosition);
+    expect(Array.from(template.geometry.getAttribute("uv").array)).toEqual(originalUV);
+    expect(Array.from(template.geometry.getIndex()!.array)).toEqual(originalIndex);
+    rig.mesh.geometry=template.geometry;
+    validateSkinningSpike(rig);
+    rig.dispose();
+  });
+  it("copies calibrated wrist bind origins to skin-only references",()=>{
+    const rig=createSkinningSpike({wristSkinning:true});
+    const landmarks=new Map<string,THREE.Vector3>();
+    for(const side of ["left","right"] as const){
+      const joint=rig.graph.joints.find(j=>j.role==="wrist_"+side)!;
+      const wrist=rig.bones.get(joint.id)!;
+      landmarks.set("wrist"+(side==="left"?".R":".L"),
+        wrist.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,.015,0)));
+    }
+    const semanticIds=rig.graph.joints.map(j=>j.id);
+    calibrateHumanBones(rig.graph,rig.bones,rig.skeleton,rig.character.root,
+      landmarks,undefined,undefined,rig.wristSkinBones);
+    for(const side of ["left","right"] as const){
+      const key="wrist"+(side==="left"?".R":".L");
+      const wristJoint=rig.graph.joints.find(j=>j.role==="wrist_"+side)!;
+      const wrist=rig.bones.get(wristJoint.id)!;
+      const bridge=rig.wristSkinBones!.get(side)!;
+      expect(bridge.getWorldPosition(new THREE.Vector3())
+        .distanceTo(wrist.getWorldPosition(new THREE.Vector3()))).toBeLessThan(1e-7);
+      expect(wrist.getWorldPosition(new THREE.Vector3())
+        .distanceTo(landmarks.get(key)!)).toBeLessThan(1e-7);
+      expect(rig.skeleton.boneInverses[rig.skeleton.bones.indexOf(bridge)]!
+        .elements.every(Number.isFinite)).toBe(true);
+    }
+    expect(rig.graph.joints.map(j=>j.id)).toEqual(semanticIds);
+    validateSkinningSpike(rig);
+    rig.dispose();
+  });
   it("rejects unlicensed or malformed source weight assignments",()=>{
     const template=parseAnatomicalOBJ(meshSource);
     const graph=createAnatomyPreset();
