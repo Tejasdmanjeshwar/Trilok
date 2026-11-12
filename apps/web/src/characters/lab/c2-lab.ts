@@ -101,7 +101,7 @@ try{
   const details=()=>{
     if(!active)return;
     const t=active.template;
-    status!.textContent="Anatomical diagnostic ready · "+surface+" · "+currentPose+" · "+
+    status!.textContent="C2 diagnostic ready · "+surface+" · "+currentPose+" · "+
       "morphology "+(morphologySelect?.value??"neutral")+" · "+
       active.vertexCount.toLocaleString()+" vertices · "+
       active.triangleCount.toLocaleString()+" triangles"+
