@@ -8,7 +8,7 @@
     "dev": "pnpm --filter @trilok/web dev",
     "build": "pnpm --filter @trilok/web build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run tests/",
+    "test": "node scripts/fetch-makehuman-core.mjs && vitest run tests/",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
