@@ -20,7 +20,7 @@ let surface="template";
 let currentPose="neutral";
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x242b34);
 const camera=new THREE.PerspectiveCamera(42,1,.1,80);
-camera.position.set(3.2,2.05,4.9);camera.lookAt(0,1,0);
+camera.position.set(1.75,1.55,2.9);camera.lookAt(0,1,0);
 try{
   renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:"low-power"});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
@@ -55,7 +55,7 @@ try{
       active.vertexCount.toLocaleString()+" vertices · "+
       active.triangleCount.toLocaleString()+" triangles"+
       (t?" · "+t.sourceVertexCount.toLocaleString()+" source vertices · "+
-       t.connectedComponents+" topology components · "+t.boundaryEdgeCount+
+       t.connectedComponents+" topology components · "+t.sourceHeight.toFixed(3)+" source height units · "+t.boundaryEdgeCount
        " boundary / "+t.nonManifoldEdgeCount+" non-manifold edges":" · implicit fallback");
   };
   function applyPose(name:string):void {
