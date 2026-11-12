@@ -1,12 +1,14 @@
 import * as THREE from "three";
 import { validateHumanMorphologyRecipe, type CharacterRecipeV1,
-  type HumanMorphologyV1 } from "@trilok/character-core";
+  type HumanMorphologyV1, HUMAN_LOCAL_GENERATOR_VERSION,
+  validateHumanLocalRecipe } from "@trilok/character-core";
+import { makeHumanLocalTransform, recomputeSourceNormals } from "./HumanLocalDeformation";
 import type { AnatomicalHuman } from "./AnatomicalTemplate";
 import { inspectAnatomicalMorphologyBaseline } from "./AnatomicalMorphologyContract";
 import { validateSkinningSpike } from "./SkinningSpike";
 
 /**
- * C3.1 opt-in, deterministic, rest-space human shape pass. All source IDs,
+ * C3.1/C3.2 opt-in, deterministic, rest-space human shape pass. All source IDs,
  * indexed faces, UV seams, skin ownership and semantic C1 joints are retained.
  * This first narrow affine body model is not a sculpt, corrective morph, head
  * generator, segmented severable mesh, or general-purpose re-targeting API.
@@ -32,7 +34,9 @@ export function applyHumanMorphology(
   human: AnatomicalHuman,
   recipe: CharacterRecipeV1,
 ): AppliedHumanMorphologyV1 {
-  const shape = validateHumanMorphologyRecipe(recipe);
+  const localShape = recipe.generatorVersion === HUMAN_LOCAL_GENERATOR_VERSION
+    ? validateHumanLocalRecipe(recipe) : undefined;
+  const shape = localShape ?? validateHumanMorphologyRecipe(recipe);
   if (applied.has(human)) throw new Error("C3 morphology already applied: rebuild from the source");
   inspectAnatomicalMorphologyBaseline(human);
   const {spike, mesh, template} = human;
@@ -66,7 +70,9 @@ export function applyHumanMorphology(
           normal.getX(i), normal.getY(i), normal.getZ(i)].every(Number.isFinite))
       throw new Error("Nonfinite C3 rest surface");
   }
-  const nextBonePositions = oldLocalPositions.map(p => transform(p.clone(), shape));
+  const localTransform = localShape ? makeHumanLocalTransform(human, localShape) : undefined;
+  const nextBonePositions = oldLocalPositions.map((p, i) =>
+    localTransform ? localTransform.joint(p.clone(), i) : transform(p.clone(), shape));
   const restWorld = root.matrixWorld.clone();
   // The Three.js scale stays exactly one. Bone translations and inverse binds
   // follow the same mapping as surface positions; no root scaling shortcuts.
@@ -84,20 +90,26 @@ export function applyHumanMorphology(
   const p = new THREE.Vector3();
   for (let i = 0; i < pos.count; i++) {
     p.fromBufferAttribute(pos, i);
-    transform(p, shape);
-    pos.setXYZ(i, p.x, p.y, p.z);
-    // Inverse transpose of the positive, diagonal anatomical rest transform:
-    p.set(normal.getX(i) / shape.breadth,
-      normal.getY(i) / shape.stature, normal.getZ(i) / shape.breadth).normalize();
-    normal.setXYZ(i, p.x, p.y, p.z);
+    const mapped = localTransform ? localTransform.vertex(p, i) : transform(p, shape);
+    pos.setXYZ(i, mapped.x, mapped.y, mapped.z);
+    if (!localTransform) {
+      // Inverse transpose of the positive, diagonal anatomical rest transform.
+      p.set(normal.getX(i) / shape.breadth,
+        normal.getY(i) / shape.stature, normal.getZ(i) / shape.breadth).normalize();
+      normal.setXYZ(i, p.x, p.y, p.z);
+    }
   }
   pos.needsUpdate = true;
-  normal.needsUpdate = true;
+  if (localTransform) recomputeSourceNormals(human);
+  else normal.needsUpdate = true;
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   if (human.jawTipWorldRest) {
     const original = human.jawTipWorldRest.clone().applyMatrix4(rootInverse);
-    human.jawTipWorldRest.copy(transform(original, shape).applyMatrix4(restWorld));
+    const headIndex = spike.graph.joints.findIndex(j => j.role === "head");
+    human.jawTipWorldRest.copy((localTransform ?
+      localTransform.joint(original, headIndex) : transform(original, shape))
+      .applyMatrix4(restWorld));
   }
   validateSkinningSpike(spike);
   applied.add(human);
