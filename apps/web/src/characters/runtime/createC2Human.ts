@@ -63,30 +63,62 @@ function bindWeights(geometry:THREE.BufferGeometry,graph:AnatomicalGraphV1,
   const positions=geometry.getAttribute("position");
   const indices=new Uint16Array(positions.count*4);
   const weights=new Float32Array(positions.count*4);
-  const left=["clavicle_left","shoulder_left","elbow_left","wrist_left","palm_left","chest"];
-  const right=["clavicle_right","shoulder_right","elbow_right","wrist_right","palm_right","chest"];
+  const left=["clavicle_left","shoulder_left","elbow_left","wrist_left","palm_left"];
+  const right=["clavicle_right","shoulder_right","elbow_right","wrist_right","palm_right"];
   const legLeft=["pelvis","hip_left","knee_left","ankle_left","foot_left","toe_left"];
   const legRight=["pelvis","hip_right","knee_right","ankle_right","foot_right","toe_right"];
   const torso=["pelvis","spine_lower","chest","neck","head","clavicle_left","clavicle_right"];
   const head=["head","neck","chest"];
   const point=new THREE.Vector3();
+  const smooth=(start:number,end:number,value:number):number=>{
+    const t=Math.max(0,Math.min(1,(value-start)/(end-start)));
+    return t*t*(3-2*t);
+  };
   for(let v=0;v<positions.count;v++) {
     point.fromBufferAttribute(positions,v);
     const ax=Math.abs(point.x);
-    const roles=point.y>1.51 && ax<.19 ?head:
-      ax>.235 && point.y>.86 && point.y<1.6?(point.x<0?left:right):
-      point.y<.86?(point.x<0?legLeft:legRight):torso;
-    const candidates=roles.map(role=>{
-      const entry=palette.get(role);
-      if(!entry)throw new Error("Missing C2 bone role: "+role);
-      const distance=point.distanceTo(entry.point);
-      return {index:entry.index,score:1/Math.pow(distance+.055,2.8)};
-    }).sort((a,b)=>b.score-a.score).slice(0,4);
+    // Soft continuous anatomical field masks replace abrupt y/x cutoffs:
+    // the previous hard leg/torso and arm/torso boundaries visibly sheared
+    // the skin under crouch and shoulder elevation.
+    const h=smooth(1.40,1.64,point.y)*(1-smooth(.15,.29,ax));
+    const a=smooth(.16,.34,ax)*smooth(.94,1.12,point.y)*
+      (1-smooth(1.51,1.69,point.y));
+    const l=1-smooth(.77,1.10,point.y);
+    const rest=1-h;
+    const armMix=rest*a;
+    const legMix=rest*(1-a)*l;
+    const torsoMix=rest*(1-a)*(1-l);
+    const split=smooth(-.09,.09,point.x);
+    const groups:readonly {readonly factor:number;readonly roles:readonly string[]}[]=[
+      {factor:h,roles:head},
+      {factor:armMix,roles:point.x<0?left:right},
+      {factor:legMix*(1-split),roles:legLeft},
+      {factor:legMix*split,roles:legRight},
+      {factor:torsoMix,roles:torso},
+    ];
+    const blended=new Map<number,number>();
+    for(const group of groups) {
+      if(group.factor<1e-8)continue;
+      const local=group.roles.map(role=>{
+        const entry=palette.get(role);
+        if(!entry)throw new Error("Missing C2 bone role: "+role);
+        const distance=point.distanceTo(entry.point);
+        return {index:entry.index,score:1/Math.pow(distance+.055,2.8)};
+      });
+      const denominator=local.reduce((sum,c)=>sum+c.score,0);
+      if(!Number.isFinite(denominator)||denominator<=0)
+        throw new Error("Invalid C2 anatomical weight field");
+      for(const candidate of local) {
+        blended.set(candidate.index,(blended.get(candidate.index)??0)+
+          group.factor*candidate.score/denominator);
+      }
+    }
+    const candidates=[...blended].map(([index,score])=>({index,score}))
+      .sort((a,b)=>b.score-a.score || a.index-b.index).slice(0,4);
     const total=candidates.reduce((sum,c)=>sum+c.score,0);
     if(!Number.isFinite(total)||total<=0)throw new Error("Invalid skin candidate sum");
-    // Store a bounded, normalized Float32 palette. When the candidate
-    // list contains fewer than four bones, leave unused slots at zero;
-    // the rounding residual belongs to the *last real* influence.
+    // Truncate to a WebGL2/glTF-compatible four bones, normalize in Float32,
+    // and assign the rounding residual to the last *real* influence.
     let allocated=0;
     candidates.forEach((c,i)=>{
       indices[v*4+i]=c.index;
@@ -99,6 +131,7 @@ function bindWeights(geometry:THREE.BufferGeometry,graph:AnatomicalGraphV1,
   geometry.setAttribute("skinIndex",new THREE.Uint16BufferAttribute(indices,4));
   geometry.setAttribute("skinWeight",new THREE.Float32BufferAttribute(weights,4));
 }
+
 export function createC2Human(objText:string):C2Human {
   const graph=calibratedRestGraph();
   const {geometry,stats}=parseHm08HumanOBJ(objText);
