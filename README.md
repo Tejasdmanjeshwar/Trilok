@@ -46,6 +46,19 @@ Strict TypeScript is enabled. The core has no global mutable state and combat up
 
 Future console releases will need a separate porting strategy: Three.js web builds are not direct console exports.
 
+## Character Studio C2.4 targeted deformation milestone
+
+C2.4's pinned-CC0 anatomical skinning and source-weight corrections include
+headless real-asset shape, seam, articulation, ownership, rest-pose and
+determinism regression checks. The project owner reports no major visually
+obvious deformation defects in Character Lab and accepts the appearance at
+this intermediate scope. **C2.4 is not the full C2 completion gate.** The
+follow-up **C2.5** still requires complete desktop/mobile pose renders,
+performance/disposal validation, and manually triggered C2 Phase Acceptance
+before C3 or production-quality claims. See
+[Character Studio roadmap](docs/character-studio-roadmap.md) and
+[CC0 source/deformation evidence](docs/character-studio-c2-anatomical-import.md).
+
 ## Switching between laboratories
 
 The Combat Arena header includes a **Character Lab** link to the isolated
