@@ -12,7 +12,8 @@ if(!viewport||!status||!error)throw new Error("Missing laboratory controls");
 
 type Preview = {spike:SkinningSpike;mesh:THREE.SkinnedMesh;vertexCount:number;
   triangleCount:number;dispose():void;template?:AnatomicalHuman["template"];
-  rigDiagnostics?:AnatomicalHuman["rigDiagnostics"]};
+  rigDiagnostics?:AnatomicalHuman["rigDiagnostics"];
+  jawTipWorldRest?:AnatomicalHuman["jawTipWorldRest"]};
 let stopping=false;
 let active:Preview|undefined;
 let fk:AnatomicalFK|undefined;
@@ -107,6 +108,29 @@ try{
         throw new Error("Imported "+side+" thumb does not oppose across palm");
     }
     document.documentElement.dataset.c2Directions="passed";
+  }
+  /** Probe the source-defined chin tip after mandibular rotation. The
+   * imported jaw may not visibly open despite nonzero quaternion rotation,
+   * so require actual downward movement relative to a stable head. */
+  function verifyCalibratedJawOpening():void {
+    if(!active||!fk||!active.jawTipWorldRest)return;
+    const jawJoint=active.spike.graph.joints.find(j=>j.role==="jaw");
+    const headJoint=active.spike.graph.joints.find(j=>j.role==="head");
+    if(!jawJoint||!headJoint)throw new Error("Missing CC0 jaw/head semantic joints");
+    const jawBone=active.spike.bones.get(jawJoint.id)!;
+    const headBone=active.spike.bones.get(headJoint.id)!;
+    const chin=active.jawTipWorldRest.clone();
+    const local=jawBone.worldToLocal(chin.clone());
+    const restHead=headBone.getWorldPosition(new THREE.Vector3());
+    fk.apply([{jointId:jawJoint.id,motion:"flexion",radians:.4}]);
+    const openedChin=jawBone.localToWorld(local.clone());
+    const openedHead=headBone.getWorldPosition(new THREE.Vector3());
+    fk.apply([]);
+    if(openedChin.y>=chin.y-.001)
+      throw new Error("Imported jaw closure instead of opening: chin did not descend");
+    if(openedHead.distanceTo(restHead)>1e-7)
+      throw new Error("Opening jaw also moved the cranial hinge/head");
+    document.documentElement.dataset.c2JawDirection="passed";
   }
   function applyPose(name:string):void {
     if(!active||!fk)return;
@@ -219,9 +243,15 @@ try{
     overlay=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
-    fk=new AnatomicalFK(preview.spike.graph,preview.spike.bones);
-    if(name==="template")verifyCalibratedHandMotions();
-    else delete document.documentElement.dataset.c2Directions;
+    fk=new AnatomicalFK(preview.spike.graph,preview.spike.bones,
+      {jawTipWorldRest:preview.jawTipWorldRest});
+    if(name==="template"){
+      verifyCalibratedHandMotions();
+      verifyCalibratedJawOpening();
+    }else{
+      delete document.documentElement.dataset.c2Directions;
+      delete document.documentElement.dataset.c2JawDirection;
+    }
     scene.add(preview.spike.character.root);
     for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
     button.addEventListener("click",()=>{
@@ -230,6 +260,17 @@ try{
       if(selectedView==="side")camera.position.set(3.2,1.45,0);
       if(selectedView==="rear")camera.position.set(0,1.45,-3.2);
       let target=new THREE.Vector3(0,.95,0);
+      if(selectedView==="head-front"||selectedView==="head-side"){
+        const headJoint=active!.spike.graph.joints.find(j=>j.role==="head");
+        const head=headJoint?active!.spike.bones.get(headJoint.id):undefined;
+        if(head){
+          active!.spike.character.root.updateWorldMatrix(true,true);
+          target=head.getWorldPosition(new THREE.Vector3());
+          target.y-=.07;
+          camera.position.copy(target).add(selectedView==="head-front"?
+            new THREE.Vector3(0,.04,.38):new THREE.Vector3(.38,.04,0));
+        }
+      }
       if(selectedView==="hand-left"||selectedView==="hand-right"){
         const role=selectedView==="hand-left"?"palm_left":"palm_right";
         const joint=active!.spike.graph.joints.find(j=>j.role===role);
