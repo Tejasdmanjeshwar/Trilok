@@ -1,6 +1,6 @@
 # Trilok Character Studio — Browser-Native Character System Roadmap (C0–C9)
 
-**Status:** approved C0–C9 planning baseline; the [C0 audited architecture specification](character-studio-c0-architecture.md) is proposed separately. C1 contract implementation is documented in [C1 contracts](character-studio-c1-contracts.md). No anatomical mesh, playable Character Studio, or combat migration is present.  
+**Status:** C0 architecture and C1 contracts implemented; C2 research now includes a skinned implicit prototype and an experimental, checksum-verified MakeHuman core anatomical source import ([C2 implementation notes](character-studio-c2-anatomical-import.md)). Neither mesh has passed full anatomical/visual/deformation gates. No playable Character Studio, procedural customization, or combat migration is present.  
 **Repository baseline at planning time:** main @ db8348bd296a412262781d20a9f444fea474c692; playable 0.4.0-preview.19; combat 0.4-D14.  
 **Scope:** shared, reusable character technology for Ramayana and subsequent campaigns.  
 **First implementation phase:** C0 architecture audit/specification. Review the [C0 ADR](character-studio-c0-architecture.md) and its verification before starting C1.  
