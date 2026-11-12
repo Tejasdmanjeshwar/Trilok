@@ -186,6 +186,22 @@ try{
         pose("spine_lower","rotation",.3);pose("chest","rotation",.35);break;
       case "elbow":
         pose("elbow_left","flexion",1.7);pose("elbow_right","flexion",1.7);break;
+      case "elbow-stress":
+        pose("shoulder_left","flexion",.6);pose("shoulder_right","flexion",.6);
+        pose("elbow_left","flexion",1.9);pose("elbow_right","flexion",1.9);
+        pose("elbow_left","rotation",.9);pose("elbow_right","rotation",-.9);break;
+      case "hip-stress":
+        pose("hip_left","flexion",1.5);pose("hip_right","flexion",1.5);
+        pose("hip_left","abduction",.45);pose("hip_right","abduction",.45);
+        pose("spine_lower","rotation",.25);break;
+      case "knee-stress":
+        pose("hip_left","flexion",.7);pose("hip_right","flexion",.7);
+        pose("knee_left","flexion",1.9);pose("knee_right","flexion",1.9);break;
+      case "ankle-stress":
+        pose("ankle_left","flexion",.45);pose("ankle_right","flexion",.45);break;
+      case "neck-jaw":
+        pose("neck","rotation",.55);pose("head","flexion",.3);
+        pose("jaw","flexion",.5);break;
       case "crouch":
         pose("hip_left","flexion",1);pose("hip_right","flexion",1);
         pose("knee_left","flexion",1.45);pose("knee_right","flexion",1.45);
@@ -304,7 +320,14 @@ try{
       graph:preview.spike.graph,bones:preview.spike.bones,scene,camera,
       viewport:viewport!,panel,labels,markerToggle,connectionToggle,
     });
-    for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
+  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
+      button.setAttribute("aria-pressed",String(button.dataset.surface===name));
+    applyPose(currentPose);applyDebug();
+    document.documentElement.dataset.c2Ready="true";
+    document.documentElement.dataset.c2Source=name;
+  }
+  // Register camera controls once, not once per template/implicit surface swap.
+  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
     button.addEventListener("click",()=>{
       const selectedView=button.dataset.view;
       if(selectedView==="front")camera.position.set(0,1.45,3.2);
@@ -323,6 +346,19 @@ try{
           camera.position.copy(target).add(selectedView.startsWith("axilla")?
             new THREE.Vector3(side==="left"?.36:-.36,-.18,.27):
             new THREE.Vector3(side==="left"?.24:-.24,.12,.43));
+        }
+      }
+      if(/^(elbow|hip|knee|ankle)-(left|right)$/.test(selectedView??"")){
+        const match=/^(elbow|hip|knee|ankle)-(left|right)$/.exec(selectedView!);
+        const role=match![1]+"_"+match![2];
+        const joint=active!.spike.graph.joints.find(j=>j.role===role);
+        const bone=joint?active!.spike.bones.get(joint.id):undefined;
+        if(bone){
+          active!.spike.character.root.updateWorldMatrix(true,true);
+          target=bone.getWorldPosition(new THREE.Vector3());
+          // Joint-anchored cameras follow the live FK pose, including crouch.
+          camera.position.copy(target).add(new THREE.Vector3(
+            match![2]==="left"?.22:-.22,.07,.38));
         }
       }
       if(selectedView==="head-front"||selectedView==="head-side"){
@@ -364,12 +400,6 @@ try{
       for(const item of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
         item.setAttribute("aria-pressed",String(item===button));
     });
-  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
-      button.setAttribute("aria-pressed",String(button.dataset.surface===name));
-    applyPose(currentPose);applyDebug();
-    document.documentElement.dataset.c2Ready="true";
-    document.documentElement.dataset.c2Source=name;
-  }
   for(const button of document.querySelectorAll<HTMLButtonElement>("[data-pose]"))
     button.addEventListener("click",()=>{
       applyPose(button.dataset.pose??"neutral");
