@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { applyOfficialSkinWeights, calibrateHumanBones, makeSourceLandmarks, type SourceRig, type SourceWeights, type RigDiagnostics } from "./OfficialHumanRig";
 import { createSkinningSpike, validateSkinningSpike, type SkinningSpike } from "./SkinningSpike";
+import { AnatomicalFK, type AnatomicalMotion, type JointTarget } from "./AnatomicalFK";
 
 /**
  * Deterministic OBJ adapter for verified core MakeHuman geometry. Face-corner UV
@@ -189,6 +190,58 @@ export function parseAnatomicalOBJ(
     connectedComponents:components};
 }
 
+/** Evaluates the actual C2 FK matrices for a small immutable, measurable
+ * pose envelope before assigning GPU weights. No WebGL and no extra C1 bones.
+ * Sampling is local to importing the verified CC0 template and restores rest. */
+function calibratedSkinMotionSamples(spike:SkinningSpike,
+  jawTipWorldRest:THREE.Vector3):readonly (readonly THREE.Matrix4[])[] {
+  const fk=new AnatomicalFK(spike.graph,spike.bones,{
+    jawTipWorldRest,forearmSkinBones:spike.forearmSkinBones,
+    shoulderSkinBones:spike.shoulderSkinBones,
+  });
+  const target=(role:string,motion:AnatomicalMotion,radians:number):JointTarget=>{
+    const joint=spike.graph.joints.find(j=>j.role===role);
+    if(!joint||!fk.frames.get(joint.id)?.freedoms.has(motion))
+      throw new Error("Unsupported imported CC0 skin sampling role "+role+"/"+motion);
+    return {jointId:joint.id,motion,radians};
+  };
+  const sides=["left","right"] as const;
+  const both=(role:string,motion:AnatomicalMotion,radians:number):JointTarget[] =>
+    sides.map(side=>target(role+"_"+side,motion,radians));
+  const samples:JointTarget[][]=[
+    [...both("clavicle","abduction",.22),
+     ...both("shoulder","abduction",1.5),
+     ...both("shoulder","flexion",.6)],
+    [...both("shoulder","abduction",2.35)],
+    [...both("shoulder","flexion",1.5)],
+    [...both("shoulder","abduction",-.3)],
+    [...both("shoulder","abduction",1.35),
+     ...both("shoulder","flexion",.75),
+     ...both("elbow","flexion",1.5)],
+    [...both("shoulder","abduction",1.5),
+     target("chest","rotation",.35),
+     target("spine_lower","rotation",.3)],
+    [target("neck","rotation",.55),
+     target("head","flexion",.3)],
+    [target("jaw","flexion",.5)],
+    [...both("clavicle","abduction",.22),
+     ...both("shoulder","abduction",1.5),
+     ...both("shoulder","flexion",.6),
+     ...both("elbow","flexion",1.8),
+     ...both("hip","flexion",1.5),
+     ...both("knee","flexion",1.9),
+     target("chest","rotation",.32),
+     target("spine_lower","rotation",.3)],
+  ];
+  try{
+    return samples.map(targets=>{
+      fk.apply(targets);
+      return spike.skeleton.bones.map((bone,index)=>
+        bone.matrixWorld.clone().multiply(spike.skeleton.boneInverses[index]!));
+    });
+  }finally{fk.apply([]);}
+}
+
 /** The official weights are mandatory for the deployed template, while synthetic
  * OBJ unit fixtures retain the explicit provisional heuristic for parser tests. */
 export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
@@ -224,8 +277,9 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
           throw new Error("Missing C2 shoulder skin connector "+side);
         shoulderIndices.set(side,index);
       }
+      const sampledMotions=calibratedSkinMotionSamples(spike,jawTipWorldRest);
       diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,
-        official.weights,proximalIndices,shoulderIndices);
+        official.weights,proximalIndices,shoulderIndices,sampledMotions);
       if(diagnostic.unweightedVertices||diagnostic.unmappedBones.length)
         throw new Error("Official rig incomplete: "+diagnostic.unweightedVertices+" unweighted render vertices; "+diagnostic.unmappedBones.join(","));
       spike.mesh.geometry=geometry;
