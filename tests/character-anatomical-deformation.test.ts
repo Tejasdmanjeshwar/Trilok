@@ -135,7 +135,7 @@ describe("C2.4 pinned CC0 wrist geometric regression (no browser)",()=>{
       let largestWristMotion=0;
       for(const testCase of cases){
         fk.apply(testCase.commands);
-        spike.character.root.updateMatrixWorld(true,true);
+        spike.character.root.updateWorldMatrix(true,true);
         for(const [side,{vertexIndices,bone,restMatrix}] of wrists){
           // Independent geometric oracle: the entire wrist/metacarpal-only
           // source patch must follow the current *semantic wrist* rigidly.
@@ -156,7 +156,7 @@ describe("C2.4 pinned CC0 wrist geometric regression (no browser)",()=>{
       // Repeated neutral commands must restore the original *surface*, not
       // merely the per-bone quaternions and inverse bind matrices.
       fk.apply([]);
-      spike.character.root.updateMatrixWorld(true,true);
+      spike.character.root.updateWorldMatrix(true,true);
       for(const [i,point]of neutral){
         const restored=mesh.getVertexPosition(i,new THREE.Vector3());
         expect(restored.distanceTo(point),"neutral skin recovery "+i)
@@ -179,7 +179,7 @@ describe("C2.4 pinned CC0 wrist geometric regression (no browser)",()=>{
       const neutral=vertices.map(i=>mesh.getVertexPosition(i,new THREE.Vector3()).clone());
       const rest=bone.matrixWorld.clone();
       fk.apply([{jointId:joint.id,motion:"flexion",radians:.75}]);
-      spike.character.root.updateMatrixWorld(true,true);
+      spike.character.root.updateWorldMatrix(true,true);
       const transform=bone.matrixWorld.clone().multiply(rest.invert());
       const skinIndex=mesh.geometry.getAttribute("skinIndex");
       const skinWeight=mesh.geometry.getAttribute("skinWeight");
