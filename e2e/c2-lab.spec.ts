@@ -11,6 +11,8 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true");
   // The imported CC0 topology must render; silently falling back is a regression in CI.
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
+  // Signed directions are evaluated against the pinned imported CC0 skeleton.
+  await expect(page.locator("html")).toHaveAttribute("data-c2-directions","passed");
   await expect(page.locator("#status")).toContainText("source vertices");
   await expect(page.locator("#status")).toContainText("CC0 rig");
   await expect(page.locator("#status")).toContainText("0 unweighted vertices");
@@ -38,6 +40,10 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await page.locator('[data-pose="crouch"]').click();
   await expect(page.locator("#status")).toContainText("crouch");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-crouch.png"});
+  await page.locator('[data-view="hand-left"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-neutral-hand-left.png"});
+  await page.locator('[data-view="hand-right"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-neutral-hand-right.png"});
   await page.locator('[data-pose="fist"]').click();
   await expect(page.locator("#status")).toContainText("fist");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist.png"});
@@ -47,8 +53,13 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist-hand-right.png"});
   await page.locator('[data-pose="index"]').click();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-index-hand-right.png"});
+  await page.locator('[data-view="hand-left"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-index-hand-left.png"});
+  await page.locator('[data-view="hand-right"]').click();
   await page.locator('[data-pose="thumb"]').click();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-thumb-hand-right.png"});
+  await page.locator('[data-view="hand-left"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-thumb-hand-left.png"});
   await page.locator('[data-view="front"]').click();
   await page.locator('[data-pose="forearm"]').click();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-forearm.png"});
