@@ -161,10 +161,75 @@ describe("C2.4 pinned source-weight fidelity across all anatomical regions",()=>
         console.info("CC0_UNPRUNED_REFERENCE",JSON.stringify({pose,data}));
         for(const item of data)for(const side of ["left","right"] as const){
           const d=item[side];
+          if(item.region==="shoulder"){
+            // Source-measured motion-sample fidelity gate. This threshold
+            // only covers loss caused by GPU four-influence compaction.
+            expect(d.maxMm,pose+" "+side+" shoulder source error")
+              .toBeLessThan(5.7);
+          }
           expect(d.n).toBeGreaterThan(100);
           expect(Number.isFinite(d.maxMm)&&Number.isFinite(d.rmsMm)).toBe(true);
         }
       }
     } finally{s.body.dispose();}
   });
+
+  it("rejects the original largest-four shoulder loss on actual deformed CC0 vertices",()=>{
+    const s=fixture();
+    try{
+      s.fk.apply(targets(s,"shoulder"));
+      const skeleton=s.body.spike.skeleton;
+      const transforms=skeleton.bones.map((bone,i)=>
+        bone.matrixWorld.clone().multiply(skeleton.boneInverses[i]!));
+      const position=s.body.mesh.geometry.getAttribute("position");
+      const skinIndex=s.body.mesh.geometry.getAttribute("skinIndex");
+      const skinWeight=s.body.mesh.geometry.getAttribute("skinWeight");
+      let worst:{render:number;before:number;after:number;
+        top:readonly (readonly [number,number])[]}|undefined;
+      for(const id of sourcePatch(s,"shoulder","right")){
+        const render=s.firstRender.get(id)!;
+        const p=new THREE.Vector3().fromBufferAttribute(position,render);
+        const influence=new Map<number,number>();
+        for(const {name,weight} of s.original.get(id)!){
+          const index=s.index.get(name)!;
+          influence.set(index,(influence.get(index)??0)+weight);
+        }
+        if(influence.size<=4)continue;
+        const total=[...influence.values()].reduce((a,b)=>a+b,0);
+        const full=new THREE.Vector3();
+        for(const [index,weight] of influence)
+          full.addScaledVector(p.clone().applyMatrix4(transforms[index]!),weight/total);
+        const top=[...influence].sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,4);
+        const largestSum=top.reduce((sum,[,w])=>sum+w,0);
+        const old=new THREE.Vector3();
+        for(const [index,weight] of top)
+          old.addScaledVector(p.clone().applyMatrix4(transforms[index]!),weight/largestSum);
+        const before=old.distanceTo(full);
+        const after=s.body.mesh.getVertexPosition(render,new THREE.Vector3())
+          .distanceTo(full);
+        if(!worst || before-after>worst.before-worst.after)
+          worst={render,before,after,top};
+      }
+      expect(worst,"source shoulder patch must include overloaded rendered CC0 vertices")
+        .toBeDefined();
+      const measured=worst!;
+      expect(measured.before,"old four-largest source loss").toBeGreaterThan(.012);
+      expect(measured.before-measured.after,"retained moving shoulder influence")
+        .toBeGreaterThan(.006);
+      const oldIndices=[0,1,2,3].map(k=>skinIndex.getComponent(measured.render,k));
+      const oldWeights=[0,1,2,3].map(k=>skinWeight.getComponent(measured.render,k));
+      const sum=measured.top.reduce((a,[,w])=>a+w,0);
+      const selected=measured.top.map(([index])=>index);
+      const values=measured.top.map(([,w])=>w/sum);
+      skinIndex.setXYZW(measured.render,...selected as [number,number,number,number]);
+      skinWeight.setXYZW(measured.render,...values as [number,number,number,number]);
+      const mutated=s.body.mesh.getVertexPosition(measured.render,new THREE.Vector3());
+      skinIndex.setXYZW(measured.render,...oldIndices as [number,number,number,number]);
+      skinWeight.setXYZW(measured.render,...oldWeights as [number,number,number,number]);
+      const corrected=s.body.mesh.getVertexPosition(measured.render,new THREE.Vector3());
+      expect(mutated.distanceTo(corrected)).toBeGreaterThan(.006);
+      expect(corrected.distanceTo(mutated)).toBeGreaterThan(.006);
+    }finally{s.body.dispose();}
+  });
+
 });
