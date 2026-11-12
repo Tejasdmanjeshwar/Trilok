@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { AnatomicalGraphV1 } from "@trilok/character-core";
 import type { AnatomicalTemplate } from "./AnatomicalTemplate";
+import { compactMotionCompatibleInfluences } from "./SkinInfluenceCompaction";
 
 /**
  * Adapter for the official CC0 MakeHuman default rig/weights DATA, not its
@@ -213,6 +214,8 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
   proximalForearmIndices?:ReadonlyMap<Side,number>,
   /** Indices for the imported CC0 shoulder01 skin-only connectors. */
   shoulderConnectorIndices?:ReadonlyMap<Side,number>,
+  /** Calibrated FK samples for source-weight fidelity in CC0 shoulder patches. */
+  motionSamples?:readonly (readonly THREE.Matrix4[])[],
 ):RigDiagnostics {
   if(rig.license!=="CC0"||data.license!=="CC0")
     throw new Error("Source skin data must be CC0");
@@ -289,6 +292,19 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
       throw new Error("Passive palm must be wrist child");
     return {wrist,palm};
   });
+  // Only the pinned shoulder01 patch currently has source-measured severe
+  // four-influence loss (up to 15.7mm under raised-arm stress); retain all
+  // other regions' previous weight policy, including the repaired thumb web.
+  const shoulderSourceIds=new Set<number>();
+  for(const side of ["L","R"] as const)
+    for(const [id,weight] of data.weights["shoulder01."+side]??[])
+      if(weight>0)shoulderSourceIds.add(id);
+  const renderForSource=new Map<number,number>();
+  template.sourceVertexIds.forEach((sourceId,renderId)=>{
+    if(!renderForSource.has(sourceId))renderForSource.set(sourceId,renderId);
+  });
+  const selected=new Map<number,ReadonlyMap<number,number>>();
+  const positions=template.geometry.getAttribute("position");
   const indices:number[]=[],weights:number[]=[];
   let unweighted=0;
   const fallback=roles.get("pelvis");
@@ -303,6 +319,18 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
         compact.set(palm,palmWeight+wristWeight);
         compact.delete(wrist);
         if(compact.size<=4)break;
+      }
+    }
+    if(compact.size>4&&motionSamples?.length&&shoulderSourceIds.has(sourceId)){
+      const previous=selected.get(sourceId);
+      if(previous){compact.clear();for(const [index,weight] of previous)compact.set(index,weight);}
+      else{
+        const render=renderForSource.get(sourceId);
+        if(render===undefined)throw new Error("Missing original shoulder render vertex");
+        const chosen=compactMotionCompatibleInfluences(compact,
+          new THREE.Vector3().fromBufferAttribute(positions,render),motionSamples);
+        selected.set(sourceId,chosen);
+        compact.clear();for(const [index,weight] of chosen)compact.set(index,weight);
       }
     }
     const ordered=[...compact]
