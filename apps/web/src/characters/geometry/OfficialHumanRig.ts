@@ -138,8 +138,11 @@ function semanticRoles(graph:AnatomicalGraphV1):Map<string,number> {
   }
   return roles;
 }
-/** MakeHuman's proximal weighted bones have extra twist chains; these are
- * collapsed to C1 roles, which remain stable for future semantic extensions. */
+/** Retarget source segment weights to the C1 joint at that segment's
+ * proximal articulation (the same landmarks used by sourceBoneForRole).
+ * The official rig has intermediate shoulder and shin helpers: do not assign
+ * those helpers to a distal joint simply because the names look similar.
+ * Full independent twist bones remain outside this C2.4 ownership repair. */
 export function sourceWeightRole(sourceName:string):string|undefined {
   const center:Record<string,string>={
     root:"pelvis","spine05":"pelvis","spine04":"spine_lower",
@@ -153,10 +156,10 @@ export function sourceWeightRole(sourceName:string):string|undefined {
   if(part==="pelvis")return "pelvis";
   if(part==="breast")return "chest";
   const basic:Record<string,string>={
-    clavicle:"clavicle",shoulder01:"shoulder",upperarm01:"shoulder",
+    clavicle:"clavicle",shoulder01:"clavicle",upperarm01:"shoulder",
     upperarm02:"shoulder",lowerarm01:"elbow",lowerarm02:"elbow",
     wrist:"wrist",upperleg01:"hip",upperleg02:"hip",
-    lowerleg01:"knee",lowerleg02:"ankle",foot:"foot",
+    lowerleg01:"knee",lowerleg02:"knee",foot:"ankle",
   };
   if(basic[part])return basic[part]+"_"+side;
   if(/^metacarpal[1-4]$/.test(part))return "palm_"+side;
@@ -167,7 +170,11 @@ export function sourceWeightRole(sourceName:string):string|undefined {
     const n=Math.min(Number(finger[2])-1,digit===0?1:2);
     return "finger_"+digits[digit]+"_"+n+"_"+side;
   }
-  if(/^toe[1-5]-[1-3]$/.test(part))return "toe_"+side;
+  // C1 foot is calibrated at source toe1-1; its toe hinge is toe1-2.
+  // All five source toes share those simplified joints until a later
+  // anatomical extension supplies independent toe chains.
+  const toe=/^toe[1-5]-([1-3])$/.exec(part);
+  if(toe)return (toe[1]==="1"?"foot_":"toe_")+side;
   return undefined;
 }
 export function applyOfficialSkinWeights(template:AnatomicalTemplate,

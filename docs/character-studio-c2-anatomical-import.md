@@ -61,6 +61,12 @@ The body-only surface is a single connected closed manifold by the tested *edge-
 
 **Repeatable screenshot review:** The CI workflow uploads the `c2-pose-screenshots` artifact for 14 days. This review used the viewport-only screenshots from run 43182529817, not the earlier unusably cropped full-page captures. Future releases need more complete pose/device/budget gates.
 
+## C2.4 targeted skin-weight ownership audit (in progress)
+
+The pinned 163-bone MakeHuman source rig contains intermediate articulated segments absent from the C1 semantic graph. An explicit cross-check of the source hierarchy and skin-weight tables found three segment-boundary assignment errors: `shoulder01` weights were driving upper-arm elevation despite the source being parented directly to `clavicle`; `lowerleg02` weighted shin vertices to the C1 ankle; `foot` weighted foot surface to the C1 forefoot. The source `toe*-1` metatarsal/forefoot segment was also assigned to the distal toe joint. For C2.4, retarget these to C1 clavicle, knee, ankle and foot respectively, while retaining both sides, the original source vertices, UV splits, four normalized influences and the existing calibrated FK frames.
+
+This is a targeted semantic skin-ownership correction, not independent twist-bone implementation or full corrective deformation. `upperarm01/02` and `lowerarm01/02` still collapse to shoulder and elbow joints respectively. The shoulder, hip/groin, wrist/palm, forearm twist and facial/jaw silhouettes still need focused actual WebGL visual assessment before any C2.4 completion claim; the full combined stress-pose matrix is reserved for C2.5.
+
 ## C2.2 experimental official CC0 rig/weight retarget
 
 The follow-up branch `feat/c2-2-official-rig-weights` adopts two additional data-only
