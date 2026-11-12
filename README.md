@@ -13,6 +13,21 @@ A reusable, TypeScript-based adventure RPG framework. **Ramayana** is the first 
 
 Run `pnpm typecheck`, `pnpm test`, and `pnpm build` before submitting a pull request.
 
+## CI: development slices versus phase acceptance
+
+Pull requests and pushes to `main` run **fast Verify CI**: strict TypeScript,
+the full unit suite (including the 1,000-seed combat replay), production build,
+and exact-SHA build identity verification. The expensive desktop/touch Chromium
+matrix does **not** run automatically for each intermediate Character Studio
+slice.
+
+At completion of a full C0–C9 phase, use **GitHub Actions → Phase Acceptance →
+Run workflow**, choose the candidate branch and phase, then inspect its browser
+screenshots before declaring the phase complete. A passing run certifies only
+its tested commit SHA. See [phase-gated CI policy](docs/ci-phase-acceptance.md).
+Focused manual browser checks remain advisable when changing visuals; skipping
+automatic E2E on slices is not a claim that those changes are visually verified.
+
 ## Architecture
 
 - `packages/combat`: pure TypeScript turn rules, reaction grading and resolution; no dependency on Three.js or DOM.
