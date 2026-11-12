@@ -26,7 +26,6 @@ function finiteScale(value:number|undefined,name:string):number {
   if(!Number.isFinite(n)||n<.85||n>1.15)throw new Error("Invalid "+name);
   return n;
 }
-const referenceHeight=1.75;
 export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
   const height=finiteScale(options.heightScale,"heightScale");
   const shoulder=finiteScale(options.shoulderScale,"shoulderScale");
@@ -114,7 +113,7 @@ export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
     const from=centers.get(parent.proximalJointId)!;
     const to=centers.get(seg.proximalJointId)!;
     const role=graph.joints.find(j=>j.id===seg.proximalJointId)!.role;
-    const radius=role.includes("spine")||role==="chest"?.14:
+    const radius=role.includes("spine")||role==="chest" ? .14 :
       role.includes("hip")?.105:role.includes("knee")?.082:
       role.includes("shoulder")?.075:role.includes("elbow")?.058:
       role.includes("wrist")?.045:role.includes("neck")?.07:
