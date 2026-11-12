@@ -59,3 +59,43 @@ export function inspectC2Pose(human:C2Human,step=43):PoseSample {
     throw new Error("Invalid C2 pose deformation");
   return {samples,maxDisplacementMeters:max,invalidSamples:invalid};
 }
+
+/** Mesh edge-length distortion diagnostic for the hip/groin stress zone.
+ * A skinned surface may deform, but abrupt weighting seams create extreme
+ * edge stretching at the former hard hip boundary.
+ */
+export function inspectC2HipEdgeStretch(human:C2Human):{
+  readonly edges:number;
+  readonly p95Stretch:number;
+  readonly maxStretch:number;
+} {
+  const positions=human.mesh.geometry.getAttribute("position");
+  const indices=human.mesh.geometry.getIndex();
+  if(!indices)throw new Error("Indexed anatomical topology required");
+  const a=new THREE.Vector3(),b=new THREE.Vector3();
+  const pa=new THREE.Vector3(),pb=new THREE.Vector3();
+  const observed:number[]=[];
+  for(let i=0;i<indices.count;i+=3) {
+    const triangle=[
+      indices.getX(i),indices.getX(i+1),indices.getX(i+2),
+    ];
+    for(let e=0;e<3;e++) {
+      const ia=triangle[e]!,ib=triangle[(e+1)%3]!;
+      a.fromBufferAttribute(positions,ia);
+      b.fromBufferAttribute(positions,ib);
+      const cy=(a.y+b.y)*.5,cx=Math.abs((a.x+b.x)*.5);
+      if(cy<.73||cy>1.12||cx>.43)continue;
+      const length=a.distanceTo(b);
+      if(length<.0004)continue;
+      human.mesh.getVertexPosition(ia,pa);
+      human.mesh.getVertexPosition(ib,pb);
+      const stretch=pa.distanceTo(pb)/length;
+      if(!Number.isFinite(stretch))throw new Error("Nonfinite hip edge stretch");
+      observed.push(stretch);
+    }
+  }
+  if(!observed.length)throw new Error("Missing hip deformation samples");
+  observed.sort((a,b)=>a-b);
+  return {edges:observed.length,p95Stretch:observed[Math.floor((observed.length-1)*.95)]!,
+    maxStretch:observed[observed.length-1]!};
+}
