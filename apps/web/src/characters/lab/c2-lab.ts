@@ -320,7 +320,14 @@ try{
       graph:preview.spike.graph,bones:preview.spike.bones,scene,camera,
       viewport:viewport!,panel,labels,markerToggle,connectionToggle,
     });
-    for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
+  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
+      button.setAttribute("aria-pressed",String(button.dataset.surface===name));
+    applyPose(currentPose);applyDebug();
+    document.documentElement.dataset.c2Ready="true";
+    document.documentElement.dataset.c2Source=name;
+  }
+  // Register camera controls once, not once per template/implicit surface swap.
+  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
     button.addEventListener("click",()=>{
       const selectedView=button.dataset.view;
       if(selectedView==="front")camera.position.set(0,1.45,3.2);
@@ -393,12 +400,6 @@ try{
       for(const item of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
         item.setAttribute("aria-pressed",String(item===button));
     });
-  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
-      button.setAttribute("aria-pressed",String(button.dataset.surface===name));
-    applyPose(currentPose);applyDebug();
-    document.documentElement.dataset.c2Ready="true";
-    document.documentElement.dataset.c2Source=name;
-  }
   for(const button of document.querySelectorAll<HTMLButtonElement>("[data-pose]"))
     button.addEventListener("click",()=>{
       applyPose(button.dataset.pose??"neutral");
