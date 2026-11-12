@@ -168,3 +168,48 @@ legend, full canonical IDs, parent names and copyable diagnostic text. Its
 browser e2e assertions are retained for later Phase Acceptance but are not run
 in intermediate Fast CI. Browser screenshots and anatomical visual judgment
 remain separate from numeric acceptance.
+
+
+## C2.4 focused palm/thumb-web influence compaction (PR #29)
+
+The pinned CC0 MakeHuman weights can have more than four mapped bone influences
+at the radial wrist/thumb-web transition. The previous four-largest-influence
+policy dropped a small but *moving* thumb-base (`finger1-1.L/R`) contribution
+while reserving separate slots for `wrist.L/R` and its C1 palm child. The
+existing source maps the four metacarpals onto the single passive C1 palm;
+C2.3 has **no independent palm articulation**, so wrist and palm have the
+same rest-relative world skin matrix in every currently supported pose.
+That kinematic equivalence was confirmed using actual Three.js skin matrices,
+rather than inferred from bone names.
+
+For a vertex with more than four mapped influences **and** both wrist and
+palm weights on the same side, consolidate their *total weight* into the
+palm skin slot before deterministic four-weight ranking. This is an exact
+rest/pose-equivalent transformation under the present canonical C1 FK, not
+an arbitrary fractional rotation, new skin bone, or source-weight painting.
+For all other vertices the existing ownership and four-weight algorithm
+remain untouched. Source vertex numbering, indexed topology, normals, UVs,
+four normalized skin slots, bind pose, and C2.3 thumb/finger motion stay intact.
+If future C1 work gives the palm its own DOF, this optimization must be
+revalidated and revised rather than silently assumed equivalent.
+
+**Measured evidence (pinned asset, 1,606 unique source hand vertices/side):**
+The original top-four projection differed from the unpruned source-weight
+linear blend by up to **1.116 mm** under combined elbow/wrist/thumb/finger
+poses. With passive wrist/palm compaction, the maximum measured error is
+**0.347 mm** across the same diagnostic pose set, and **0.026 mm** in the
+isolated thumb pose. Headless tests compare actual
+`SkinnedMesh.getVertexPosition` results with an independently accumulated
+*unpruned* source-weight/posed-bone oracle; the thumb-web sources 3683 and
+10351 specifically fail when the original top-four truncation is restored.
+The full finite/deterministic and index/UV tests continue to run in
+`pnpm test` alongside the 1,000-seed combat replay.
+
+Character Lab adds `Thumb + wrist` and `Hand combined stress` pose commands,
+plus independent **Left/Right thumb web** close-up camera views. These controls
+use original semantic C1 joints and do not implement C4. Browser e2e
+assertions exercise the controls at later Phase Acceptance; this incremental
+slice does **not** run the full Chromium matrix. Numeric reduction of LBS
+truncation error is not proof of artist-quality skin-volume, convincing
+webbing, no self-intersections, or a physically accurate thumb base. Actual
+WebGL close-up inspection remains outstanding.
