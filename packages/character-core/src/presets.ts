@@ -44,7 +44,7 @@ export function createAnatomyPreset(options:PresetOptionsV1={}): AnatomicalGraph
     segments.push({id,moduleId:module.id,parentId:parentSegment,proximalJointId:jointId,
       combatRegionIds:regions,capabilityIds:caps});
     joints.push({id:jointId,segmentId:id,parentId:parentJointId??null,role,
-      bindTranslation:translation,bindQuaternion:identity,exported:true});
+      bindTranslation:translation.map(n=>Object.is(n,-0)?0:n) as unknown as Vec3,bindQuaternion:identity,exported:true});
     module.segmentIds.push(id);module.jointIds.push(jointId);
     return id;
   }
