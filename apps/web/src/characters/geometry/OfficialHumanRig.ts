@@ -272,13 +272,40 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
       bucket.set(index,(bucket.get(index)??0)+weight);
     }
   }
+  // The C1 palm joint is a passive, rigid child of the wrist (no independent
+  // pose DOF in C2.3). Their skin matrices are consequently identical for
+  // every supported pose. Some CC0 thumb-web vertices have five or more
+  // distinct mapped influences: dropping a small thumb influence would erase
+  // actual opposition while spending separate slots on equivalent wrist and
+  // palm matrices. Compress ONLY overloaded wrist+palm buckets, retaining the
+  // palm slot and all source weight mass; other ownership stays unchanged.
+  // Revisit this rule if the C1 palm gains independent articulation.
+  const passivePalmPairs = (["left","right"] as const).map(side => {
+    const wrist = roles.get("wrist_"+side), palm = roles.get("palm_"+side);
+    if(wrist===undefined||palm===undefined)
+      throw new Error("Missing semantic wrist/palm skin roles");
+    const palmJoint = graph.joints[palm];
+    if(palmJoint?.parentId!==graph.joints[wrist]?.id)
+      throw new Error("Passive palm must be wrist child");
+    return {wrist,palm};
+  });
   const indices:number[]=[],weights:number[]=[];
   let unweighted=0;
   const fallback=roles.get("pelvis");
   if(fallback===undefined)throw new Error("Missing pelvis role");
   for(const sourceId of template.sourceVertexIds){
     const influences=perSource.get(sourceId);
-    const ordered=[...(influences??new Map<number,number>())]
+    const compact = new Map(influences);
+    if(compact.size>4){
+      for(const {wrist,palm} of passivePalmPairs){
+        const wristWeight=compact.get(wrist),palmWeight=compact.get(palm);
+        if(wristWeight===undefined||palmWeight===undefined)continue;
+        compact.set(palm,palmWeight+wristWeight);
+        compact.delete(wrist);
+        if(compact.size<=4)break;
+      }
+    }
+    const ordered=[...compact]
       .sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,4);
     if(!ordered.length){unweighted++;ordered.push([fallback,1]);}
     const total=ordered.reduce((sum,item)=>sum+item[1],0);
