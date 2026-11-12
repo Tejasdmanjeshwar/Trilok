@@ -29,6 +29,7 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   mkdirSync("test-results/c2",{recursive:true});
   const platform=test.info().project.name;
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-neutral.png"});
+  await page.getByText("Geometry overlays",{exact:true}).click();
   await page.locator('[data-debug="skeleton"]').check();
   await choosePose(page,"overhead");
   await expect(page.locator("#status")).toContainText("overhead");
@@ -127,6 +128,7 @@ test("C2 Bone Inspector searches canonical joint IDs and maintains marker select
   await expect(page.locator(".bone-marker-label.selected")).toContainText("wrist_left");
   await choosePose(page,"wrist");
   await expect(page.locator("#status")).toContainText("wrist");
+  await page.getByText("Geometry overlays",{exact:true}).click();
   await page.getByLabel("Bone markers and labels").uncheck();
   await expect(page.locator(".bone-marker-label.selected")).toBeHidden();
   await page.getByLabel("Bone markers and labels").check();
