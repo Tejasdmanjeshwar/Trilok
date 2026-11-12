@@ -25,7 +25,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: c2-pose-captures-${{ github.run_id }}
-          path: test-results/
+          path: c2-captures/
           if-no-files-found: ignore
           retention-days: 14
       - name: Verify compiled build identity
