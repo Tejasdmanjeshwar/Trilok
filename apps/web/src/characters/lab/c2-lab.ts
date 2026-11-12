@@ -115,6 +115,18 @@ try{
       case "wrist":
         pose("wrist_left","flexion",.65);pose("wrist_right","flexion",.65);break;
       case "fist":fist(1);break;
+      case "index":
+        for(const side of ["left","right"] as const){
+          finger(side,"index",0,"flexion",1.1);
+          finger(side,"index",1,"flexion",1.35);
+          finger(side,"index",2,"flexion",.7);
+        }break;
+      case "thumb":
+        for(const side of ["left","right"] as const){
+          finger(side,"thumb",0,"opposition",.72);
+          finger(side,"thumb",0,"flexion",.6);
+          finger(side,"thumb",1,"flexion",.8);
+        }break;
       case "sword":
         pose("shoulder_left","flexion",.5);pose("shoulder_right","flexion",.5);
         pose("elbow_left","flexion",1);pose("elbow_right","flexion",1);
@@ -172,7 +184,18 @@ try{
       if(selectedView==="front")camera.position.set(0,1.45,3.2);
       if(selectedView==="side")camera.position.set(3.2,1.45,0);
       if(selectedView==="rear")camera.position.set(0,1.45,-3.2);
-      camera.lookAt(0,.95,0);controls.target.set(0,.95,0);controls.update();
+      let target=new THREE.Vector3(0,.95,0);
+      if(selectedView==="hand-left"||selectedView==="hand-right"){
+        const role=selectedView==="hand-left"?"palm_left":"palm_right";
+        const joint=active!.spike.graph.joints.find(j=>j.role===role);
+        const bone=joint?active!.spike.bones.get(joint.id):undefined;
+        if(bone){
+          active!.spike.character.root.updateWorldMatrix(true,true);
+          target=bone.getWorldPosition(new THREE.Vector3());
+          camera.position.copy(target).add(new THREE.Vector3(0,.15,.58));
+        }
+      }
+      camera.lookAt(target);controls.target.copy(target);controls.update();
       for(const item of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
         item.setAttribute("aria-pressed",String(item===button));
     });
