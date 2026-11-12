@@ -194,7 +194,7 @@ describe("C2.3 mirrored MakeHuman hand directions", () => {
     for (const side of ["left", "right"] as const) {
       const palmar = fk.palmarNormals.get(side)!;
       const thumb = world("finger_thumb_1", side);
-      const wrist = world("wrist_" + side);
+      const wrist = world("wrist_" + side, side);
       expect(thumb.clone().sub(wrist).dot(palmar)).toBeGreaterThan(0);
       for (const digit of ["index", "middle", "ring", "little"]) {
         for (const index of [0, 1, 2]) {
