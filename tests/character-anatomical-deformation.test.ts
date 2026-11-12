@@ -395,3 +395,96 @@ describe("C2.4 full CC0 forearm/wrist transition geometry", () => {
     } finally { human.dispose(); }
   }, 60_000);
 });
+
+
+describe("C2.4 CC0 palm/finger continuity on the original indexed body", () => {
+  it("preserves bounded surface edge lengths at wrist-to-palm and palm-to-finger-base seams", () => {
+    const { human, fk, weights } = loadRealHuman();
+    try {
+      const { spike, mesh, template } = human;
+      const source = template.sourceVertexIds;
+      const geometry = mesh.geometry;
+      const index = geometry.getIndex()!;
+      const owners = new Map<number, Set<string>>();
+      for (const [name, entries] of Object.entries(weights.weights)) {
+        if (!/^(wrist|metacarpal[1-4]|finger[1-5]-1)\.(L|R)$/.test(name)) continue;
+        for (const [id, w] of entries) {
+          if (w <= .02) continue;
+          const set = owners.get(id) ?? new Set<string>();
+          set.add(name); owners.set(id, set);
+        }
+      }
+      const category = (id: number, prefix: string, suffix: string): boolean =>
+        [...(owners.get(id) ?? [])].some(n => n.startsWith(prefix) && n.endsWith(suffix));
+      const edges = new Map<string, { a: number; b: number; band: string; rest: number }>();
+      const neutral = (i: number) =>
+        new THREE.Vector3().fromBufferAttribute(geometry.getAttribute("position"), i);
+      for (let t = 0; t < index.count; t += 3) {
+        const triangle = [index.getX(t), index.getX(t + 1), index.getX(t + 2)];
+        for (const [a, b] of [
+          [triangle[0]!, triangle[1]!],
+          [triangle[1]!, triangle[2]!],
+          [triangle[2]!, triangle[0]!],
+        ]) {
+          const s0 = source[a]!, s1 = source[b]!;
+          const key = Math.min(s0, s1) + "|" + Math.max(s0, s1);
+          if (edges.has(key)) continue;
+          let band: string | undefined;
+          for (const suffix of [".L", ".R"]) {
+            const wristPalm =
+              category(s0, "wrist", suffix) && category(s1, "metacarpal", suffix) ||
+              category(s1, "wrist", suffix) && category(s0, "metacarpal", suffix);
+            const palmDigit =
+              category(s0, "metacarpal", suffix) && category(s1, "finger", suffix) ||
+              category(s1, "metacarpal", suffix) && category(s0, "finger", suffix);
+            if (wristPalm) band = "wrist-palm" + suffix;
+            else if (palmDigit) band = "palm-finger" + suffix;
+          }
+          if (!band) continue;
+          const rest = neutral(a).distanceTo(neutral(b));
+          if (rest < .00005) continue;
+          edges.set(key, { a, b, band, rest });
+        }
+      }
+      const bands = new Map<string, number>();
+      for (const edge of edges.values())
+        bands.set(edge.band, (bands.get(edge.band) ?? 0) + 1);
+      for (const side of [".L", ".R"])
+        for (const band of ["wrist-palm", "palm-finger"])
+          expect(bands.get(band + side) ?? 0,
+            "source-index real CC0 surface edges " + band + side)
+            .toBeGreaterThanOrEqual(8);
+      const joint = (side: Side, role: string, motion: JointTarget["motion"],
+        radians: number): JointTarget => ({
+          jointId: spike.graph.joints.find(j => j.role === role + "_" + side)!.id,
+          motion, radians,
+        });
+      const finger = (side: Side, digit: string, motion: JointTarget["motion"],
+        radians: number): JointTarget => ({
+          jointId: spike.graph.joints.find(j => j.role === "finger_" + digit + "_0" &&
+            j.id.includes("arm[" + side + ","))!.id, motion, radians,
+        });
+      for (const variation of [1, -1]) {
+        fk.apply((["left", "right"] as const).flatMap(side => [
+          joint(side, "elbow", "rotation", variation * 1.0),
+          joint(side, "wrist", "flexion", .6),
+          joint(side, "wrist", "abduction", .25),
+          finger(side, "index", "flexion", 1.15),
+          finger(side, "thumb", "opposition", .65),
+        ]));
+        spike.character.root.updateWorldMatrix(true, true);
+        let maxStretch = 0;
+        for (const { a, b, rest } of edges.values()) {
+          const pa = mesh.getVertexPosition(a, new THREE.Vector3());
+          const pb = mesh.getVertexPosition(b, new THREE.Vector3());
+          expect(pa.toArray().every(Number.isFinite)).toBe(true);
+          expect(pb.toArray().every(Number.isFinite)).toBe(true);
+          const stretch = pa.distanceTo(pb) / rest;
+          maxStretch = Math.max(maxStretch, stretch);
+          expect(stretch).toBeLessThan(4.5);
+        }
+        expect(maxStretch).toBeGreaterThan(.2);
+      }
+    } finally { human.dispose(); }
+  }, 60_000);
+});
