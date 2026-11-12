@@ -55,7 +55,7 @@ try{
       active.vertexCount.toLocaleString()+" vertices · "+
       active.triangleCount.toLocaleString()+" triangles"+
       (t?" · "+t.sourceVertexCount.toLocaleString()+" source vertices · "+
-       t.connectedComponents+" topology components · "+t.sourceHeight.toFixed(3)+" source height units · "+t.boundaryEdgeCount
+       t.connectedComponents+" topology components · "+t.sourceHeight.toFixed(3)+" source height units · "+t.boundaryEdgeCount+
        " boundary / "+t.nonManifoldEdgeCount+" non-manifold edges":" · implicit fallback");
   };
   function applyPose(name:string):void {
