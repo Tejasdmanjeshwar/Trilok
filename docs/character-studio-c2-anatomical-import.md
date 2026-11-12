@@ -213,3 +213,54 @@ slice does **not** run the full Chromium matrix. Numeric reduction of LBS
 truncation error is not proof of artist-quality skin-volume, convincing
 webbing, no self-intersections, or a physically accurate thumb base. Actual
 WebGL close-up inspection remains outstanding.
+
+
+## C2.4 shoulder / axilla calibrated-pivot correction (PR #30, in review)
+
+The previous bilateral `shoulder01.L/R` presentation-only skin connector was
+bound at the **source shoulder01 head** (clavicle child) but given a fraction
+of the **semantic shoulder/upperarm01 rotation** around its *different head*.
+Because it is a sibling, that rotation happened around the connector's own
+origin. This produced different rotation centers for the overlapping CC0
+`shoulder01`, `upperarm01`, `clavicle` and `spine01` influences; the
+armpit/upper-arm boundary could stretch even though all bones and influences
+looked valid in neutral pose.
+
+We preserve the verified CC0 source hierarchy, source joint landmarks, all
+source skin weights, C1 graph, GPU four-weight reduction, and the earlier
+half-rotation **pending actual visual assessment**. We change only the posed
+connector translation so its partial rotation is centered at the calibrated
+canonical humeral pivot, without moving the semantic shoulder, modifying the
+inverse bind, or adding a new skin helper. The original connector rest
+translation is explicitly restored on every FK application.
+
+A pinned real-asset, headless CPU skin regression selects the original
+`shoulder01`-weighted body patch using source vertex correspondence and
+indexed triangle edges, then calculates per-edge stretch on the actual
+`SkinnedMesh.getVertexPosition()` result under neutral, T-pose, raised,
+overhead, forward, adduction, elbow and torso combinations. To prove
+sensitivity, a deliberate mutation restores the connector's previous
+self-centered pivot **without modifying any skin weights or quaternions**.
+Both sides and rest/deterministic replay are covered in `pnpm test`.
+
+Initial exploratory benchmark (716 unique region edges per side; percentages
+are *peak per-edge length change*, **not** mm or an anatomical quality score):
+
+| CC0 pose | Old connector self-pivot | Calibrated humeral pivot |
+|---|---:|---:|
+| Shoulder raise (clavicle + arm) | 554.885% | 547.361% |
+| Arms overhead | 553.308% | 541.121% |
+| Forward shoulder flexion | 363.404% | 360.929% |
+| Combined shoulder/elbow/forearm/wrist | 508.707% | 505.638% |
+
+These extreme local edge-stretch values reveal **significant remaining
+deformation artifacts**. Some RMS/p95 scores worsen slightly under the
+pivot correction; the change is a local pivot-consistency fix, not a universal
+skinning improvement. The `0.5` connector motion fraction remains a
+non-anatomical approximation and is **not** validated as optimal. Large
+outliers may also reflect four-influence pruning and linear blend collapse;
+a further targeted analysis, actual rendered views and anatomical assessments
+are required. The dedicated lab now provides front/angled bilateral
+shoulder and axilla cameras and combined stress poses, reusing the existing
+Bone Inspector. This intermediate slice does **not** trigger Chromium Phase
+Acceptance or unlock C2.5/C3.
