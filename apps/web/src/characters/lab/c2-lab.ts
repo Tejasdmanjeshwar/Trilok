@@ -84,13 +84,13 @@ try{
     const fist=(closure:number)=>{
       for(const side of ["left","right"] as const){
         for(const digit of ["index","middle","ring","little"]){
-          finger(side,digit,0,"flexion",1.24*closure);
-          finger(side,digit,1,"flexion",1.48*closure);
-          finger(side,digit,2,"flexion",.85*closure);
+          finger(side,digit,0,"flexion",1.07*closure);
+          finger(side,digit,1,"flexion",1.05*closure);
+          finger(side,digit,2,"flexion",.42*closure);
         }
-        finger(side,"thumb",0,"opposition",.72*closure);
-        finger(side,"thumb",0,"flexion",.6*closure);
-        finger(side,"thumb",1,"flexion",.9*closure);
+        finger(side,"thumb",0,"opposition",.55*closure);
+        finger(side,"thumb",0,"flexion",.4*closure);
+        finger(side,"thumb",1,"flexion",.55*closure);
       }
     };
     switch(name){
