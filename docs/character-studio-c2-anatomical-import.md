@@ -264,3 +264,93 @@ are required. The dedicated lab now provides front/angled bilateral
 shoulder and axilla cameras and combined stress poses, reusing the existing
 Bone Inspector. This intermediate slice does **not** trigger Chromium Phase
 Acceptance or unlock C2.5/C3.
+
+## C2.4 measured full-body skin quality and shoulder source-fidelity improvement (PR #31)
+
+A pinned-asset CPU skin audit measures genuine indexed body edges on the imported
+CC0 OBJ for shoulder/axilla, elbow, hip/groin, knee, ankle, neck and jaw under
+independent and combined FK poses. The test uses `SkinnedMesh.getVertexPosition`
+and the original source vertex IDs, avoiding UV-seam duplication. It also
+checks finite matrices/positions, bilateral near-symmetry for mirrored poses,
+strict rest restoration, and original-source-only rigid ownership where the
+rendered body actually contains exclusively weighted vertices. The neck and
+jaw have no fully isolated source-weight patch **inside the rendered body**
+(although such vertices exist in excluded source groups); their visible,
+mixed-weight surfaces are still included in the edge-strain and full-weight
+reference audits. An ankle-to-knee misownership mutation is rejected by
+actual posed skin displacement. Additional synthetic motion-compaction and
+real-asset top-four truncation mutations gate shoulder weight fidelity.
+
+### Measured baseline and interpretation
+
+The following **peak local edge-length changes** are percentages of rest
+edge length, not vertex displacement, and represent worst individual edges
+over representative stress poses. These extreme outliers are not acceptable
+production deformations.
+
+| Region / isolated stress | Maximum relative edge change | Maximum absolute edge-length change |
+|---|---:|---:|
+| Shoulder raise | 531.90% | 41.40 mm |
+| Elbow bend/twist | 181.44% | 17.91 mm |
+| Hip flexion + abduction | 496.03% | 38.62 mm |
+| Knee flexion | 101.50% | 33.60 mm |
+| Ankle flexion | 37.29% | 7.61 mm |
+| Neck/head movement | 65.88% | 11.58 mm |
+| Jaw open | 138.79% | 13.63 mm |
+
+These diagnostics are run by ordinary `pnpm test` without Chromium, with
+per-region *regression* ceilings based on the pinned source. Such ceilings
+prevent silent worsening; they do **not** establish anatomical acceptance.
+
+An independent reference accumulates every official CC0 source influence
+without GPU four-weight truncation, using the very same posed skin matrices.
+For the tested isolated movements, maximum positional errors between the
+unpruned reference and the existing GPU-equivalent source-weight transfer:
+
+| Region | Previous top-four peak error |
+|---|---:|
+| Shoulder (raised-arm stress) | 15.6845 mm |
+| Elbow (isolated bend and pronation) | 0.2345 mm |
+| Hip (flexion + abduction) | 0.9548 mm |
+| Knee (isolated flexion) | effectively zero |
+| Ankle (isolated flexion) | effectively zero |
+| Neck (rotation + head flexion) | 9.5862 mm |
+| Jaw (isolated opening) | 2.6987 mm |
+
+This demonstrates that **pruning is a substantial shoulder contributor** but
+cannot explain the much larger hip/knee/ankle fold stretching. That remaining
+distortion reflects blended skin transforms and joint/topology deformation,
+not merely source ownership. Altering leg weights speculatively is not
+justified by these measurements.
+
+### Shoulder-only deterministic source-mass fitting
+
+The CC0 shoulder01 source patch contains vertices with more than four mapped
+influences. Import now evaluates a finite, deterministic set of real C1 FK
+stress matrices **once** after calibrating bone origins and inverse binds,
+then restores neutral pose. For only overloaded original shoulder01 vertices,
+a greedy constrained compactor merges low-mass source owners into existing
+owners, preserving all source mass and at most four GPU influences. Every
+candidate is compared against the original complete-source linear blend
+target and rejected unless it improves squared positional error over the
+ordinary top-four reduction **across the sampled pose envelope**. Unlike a
+global heuristic, it never changes the unrelated hip, knee, ankle or the
+previously repaired wrist/thumb-web transfer. UV splits reuse the exact
+same source-index result. No new C1 joints, helpers, GPU shader technology,
+source topology or combat mechanics are introduced.
+
+The measured shoulder raise peak **four-influence transfer error** improves
+from **15.6845 mm to 5.1744 mm**; combined articulation improves from
+**15.0179 mm to 5.4193 mm**. Remaining positional loss and severe local
+edge compression/stretching are not concealed. The sample-fit objective is
+not a full skin-volume/occlusion guarantee; fit quality outside the sampled
+pose envelope, mobile import cost and actual browser renders still need
+evaluation.
+
+The Character Lab now provides bilateral close-ups and combined stress
+poses for shoulder/armpit, elbow, hip/groin, knee, ankle and neck/jaw,
+reusing the C1 Bone Inspector rather than creating a separate inspector.
+The later Chromium test spec asserts these controls, but full Phase
+Acceptance remains reserved for C2.5. **C2.4 is still open** until the
+observed LBS volume/pinch/self-intersection defects are actually corrected
+and relevant rendered deformation is inspected.
