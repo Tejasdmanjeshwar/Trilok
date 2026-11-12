@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { mkdirSync } from "node:fs";
 
 test("C2 isolated preview renders and changes poses without touching battle",async({page})=>{
   test.setTimeout(75_000);
@@ -9,11 +10,16 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await expect(page.locator("#status")).toContainText("C2 diagnostic ready",{timeout:60_000});
   await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true");
   await expect(page.locator("#viewport canvas")).toBeVisible();
+  mkdirSync("test-results/c2",{recursive:true});
+  const platform=test.info().project.name;
+  await page.screenshot({path:"test-results/c2/"+platform+"-neutral.png"});
   await page.locator('[data-pose="shoulder"]').click();
   await expect(page.locator('[data-pose="shoulder"]')).toHaveAttribute("aria-pressed","true");
   await expect(page.locator("#status")).toContainText("shoulder");
+  await page.screenshot({path:"test-results/c2/"+platform+"-shoulder.png"});
   await page.locator('[data-pose="crouch"]').click();
   await expect(page.locator("#status")).toContainText("crouch");
+  await page.screenshot({path:"test-results/c2/"+platform+"-crouch.png"});
   await page.locator('[data-pose="neutral"]').click();
   await expect(page.locator("#status")).toContainText("neutral");
   expect(errors).toEqual([]);
