@@ -20,6 +20,14 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Run desktop and mobile browser smoke checks
         run: pnpm test:e2e
+      - name: Preserve C2 pose inspection captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c2-pose-captures-${{ github.run_id }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Verify compiled build identity
         run: |
           node --input-type=module <<'NODE'
