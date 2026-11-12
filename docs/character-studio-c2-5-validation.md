@@ -100,3 +100,39 @@ Run `pnpm typecheck`, `pnpm test` (including 1,000 combat replay seeds),
 The manual Phase Acceptance workflow includes actual Chromium desktop/touch
 tests and screenshots, which require direct review. Never close C2 based only
 on Fast CI or generated images.
+
+## C2.5 performance/lifecycle instrumentation slice (not a benchmark verdict)
+
+The browser-only CC0 importer exposes an optional typed `AnatomicalTimingSink`.
+It uses the browser's monotonic `performance.now()` and records actual
+wall-clock durations for OBJ network/text fetch, body-group OBJ parsing,
+skeleton/weights network fetch, JSON parsing, semantic FK calibration,
+shoulder motion envelope sampling, four-weight source-influence fitting,
+and total character instantiation. The callback is opt-in; it does not
+change generated geometry, FK or the public CC0 asset hashes.
+
+Character Lab's expandable *measured timings* diagnostics additionally
+samples actual FK pose application, bounded 256-vertex Three.js CPU skinning,
+JS render submission time and median requestAnimationFrame interval.
+These values are **environment-specific observations**: RAF interval is not
+GPU execution time or guaranteed FPS; JS render submission is not GPU frame
+time; browser privacy restrictions may prevent reliable process/GPU memory
+measurement. Do not invent a memory value or declare a mobile performance
+budget from a simulated viewport.
+
+The manual C2 Phase Acceptance Playwright matrix includes a desktop/touch
+scenario that records three import observations and switches the CC0 and
+implicit prototypes three times, asserting the single live Bone Inspector,
+correct imported CC0 source and hand/jaw direction sentinels. It logs the
+empirical timing text to the workflow output and captures the panel as an
+artifact. This is *observability*, not proof of no GPU leaks: browser GPU
+resource residency is opaque and requires separate inspection. Headless
+idempotent geometry/material lifecycle assertions remain mandatory.
+
+When screenshots and empirical timings are available, record device/viewport,
+browser version, first versus cached resource fetch, medians/range across
+runs, and whether sampled frame interval was reduced-motion/throttled.
+No unmeasured target or inferred optimization is accepted. Candidates for
+future worker/caching investigation include OBJ parsing, source-weight JSON
+processing, pose-envelope skin compaction and geometry regeneration; prioritize
+only after production measurements identify meaningful costs.

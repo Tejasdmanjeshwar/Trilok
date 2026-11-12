@@ -24,6 +24,8 @@ export interface AnatomicalTemplate {
   readonly sourceHeight: number;
   readonly conversionMetersPerSourceUnit: number;
 }
+export type AnatomicalLoadStage = "obj-fetch" | "obj-parse" | "rig-fetch" | "rig-json" | "weight-json" | "fk-calibration" | "shoulder-motion-sampling" | "skin-influence-fitting" | "total-instantiation";
+export type AnatomicalTimingSink = (stage:AnatomicalLoadStage,milliseconds:number)=>void;
 export interface AnatomicalHuman {
   readonly spike: SkinningSpike;
   readonly mesh: THREE.SkinnedMesh;
@@ -245,7 +247,8 @@ function calibratedSkinMotionSamples(spike:SkinningSpike,
 /** The official weights are mandatory for the deployed template, while synthetic
  * OBJ unit fixtures retain the explicit provisional heuristic for parser tests. */
 export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
-  official?:{readonly rig:SourceRig;readonly weights:SourceWeights}):AnatomicalHuman {
+  official?:{readonly rig:SourceRig;readonly weights:SourceWeights;
+    readonly onTiming?:AnatomicalTimingSink}):AnatomicalHuman {
   const spike=createSkinningSpike({forearmSkinning:official!==undefined,
     shoulderSkinning:official!==undefined});
   const geometry=template.geometry;
@@ -258,9 +261,11 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
       const landmarks=makeSourceLandmarks(official.rig,template,positions);
       jawTipWorldRest=landmarks.get("jaw:tail")?.clone();
       if(!jawTipWorldRest)throw new Error("Missing imported jaw-tip landmark");
+      const calibrationStart=performance.now();
       displacement=calibrateHumanBones(spike.graph,spike.bones,spike.skeleton,
         spike.character.root,landmarks,spike.forearmSkinBones,
         spike.shoulderSkinBones);
+      official.onTiming?.("fk-calibration",performance.now()-calibrationStart);
       const proximalIndices=new Map<"left"|"right",number>();
       for(const side of ["left","right"] as const){
         const helper=spike.forearmSkinBones?.get(side);
@@ -277,9 +282,13 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
           throw new Error("Missing C2 shoulder skin connector "+side);
         shoulderIndices.set(side,index);
       }
+      const samplingStart=performance.now();
       const sampledMotions=calibratedSkinMotionSamples(spike,jawTipWorldRest);
+      official.onTiming?.("shoulder-motion-sampling",performance.now()-samplingStart);
+      const fittingStart=performance.now();
       diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,
         official.weights,proximalIndices,shoulderIndices,sampledMotions);
+      official.onTiming?.("skin-influence-fitting",performance.now()-fittingStart);
       if(diagnostic.unweightedVertices||diagnostic.unmappedBones.length)
         throw new Error("Official rig incomplete: "+diagnostic.unweightedVertices+" unweighted render vertices; "+diagnostic.unmappedBones.join(","));
       spike.mesh.geometry=geometry;
@@ -343,23 +352,39 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
     vertexCount:position.count,triangleCount:geometry.getIndex()!.count/3,
     dispose(){if(disposed)return;disposed=true;geometry.dispose();spike.dispose();}};
 }
-export async function loadAnatomicalHuman(signal?:AbortSignal):Promise<AnatomicalHuman> {
+export async function loadAnatomicalHuman(signal?:AbortSignal,
+  onTiming?:AnatomicalTimingSink):Promise<AnatomicalHuman> {
+  const totalStart=performance.now();
+  const fetchStart=performance.now();
   const response=await fetch("/anatomy/makehuman-base.obj",{signal});
   if(!response.ok)throw new Error("Pinned anatomical source unavailable (HTTP "+response.status+")");
   const obj=await response.text();
+  onTiming?.("obj-fetch",performance.now()-fetchStart);
   // MakeHuman core OBJ contains helper clothing/collision meshes that overlap
   // the visible skin and produce a false "skirt" silhouette if imported.
   // Retain original vertex numbering but render only the actual body surface.
+  const parseStart=performance.now();
   const template=parseAnatomicalOBJ(obj,{includeGroups:["body"]});
+  onTiming?.("obj-parse",performance.now()-parseStart);
+  const rigFetchStart=performance.now();
   const [rigResponse,weightResponse]=await Promise.all([
     fetch("/anatomy/makehuman-default.mhskel",{signal}),
     fetch("/anatomy/makehuman-default_weights.mhw",{signal}),
   ]);
   if(!rigResponse.ok||!weightResponse.ok){template.geometry.dispose();
     throw new Error("Pinned CC0 MakeHuman skeleton/weight data unavailable");}
+  const rawRig=await rigResponse.text();
+  const rawWeights=await weightResponse.text();
+  onTiming?.("rig-fetch",performance.now()-rigFetchStart);
   try{
-    const rig=await rigResponse.json() as SourceRig;
-    const weights=await weightResponse.json() as SourceWeights;
-    return bindTemplateToSemanticRig(template,{rig,weights});
+    const rigParseStart=performance.now();
+    const rig=JSON.parse(rawRig) as SourceRig;
+    onTiming?.("rig-json",performance.now()-rigParseStart);
+    const weightParseStart=performance.now();
+    const weights=JSON.parse(rawWeights) as SourceWeights;
+    onTiming?.("weight-json",performance.now()-weightParseStart);
+    const human=bindTemplateToSemanticRig(template,{rig,weights,onTiming});
+    onTiming?.("total-instantiation",performance.now()-totalStart);
+    return human;
   }catch(error){template.geometry.dispose();throw error;}
 }

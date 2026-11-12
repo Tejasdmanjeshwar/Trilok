@@ -236,3 +236,43 @@ test("C2.5 versioned pose matrix expands desktop/touch lab diagnostics", async (
   await expect(page.locator("#status")).toContainText("neutral");
   expect(errors).toEqual([]);
 });
+
+test("C2.5 empirical import timings and repeated owned-surface lifecycle",async({page})=>{
+  test.setTimeout(180_000);
+  const errors:string[]=[];
+  page.on("pageerror",e=>errors.push(e.message));
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  const results:string[]=[];
+  mkdirSync("test-results/c2",{recursive:true});
+  for(let cycle=0;cycle<3;cycle++){
+    await expect(page.locator("#c25-metrics")).toContainText("total-instantiation");
+    const metrics=await page.locator("#c25-metrics").innerText();
+    for(const stage of ["obj-fetch","obj-parse","rig-json","weight-json",
+      "fk-calibration","shoulder-motion-sampling","skin-influence-fitting",
+      "total-instantiation","last FK pose","CPU skin sample"])
+      expect(metrics,"Missing empirical timing: "+stage).toContain(stage);
+    results.push(metrics);
+    // Exercise the existing surface and inspector ownership teardown path
+    // after actual pinned CC0 rendering, not just fake surface replacement.
+    await page.locator('[data-surface="implicit"]').click();
+    await expect(page.locator("html")).toHaveAttribute("data-c2-source","implicit",
+      {timeout:60_000});
+    await expect(page.locator("#bone-inspector-panel .bone-list")).toHaveCount(1);
+    await page.locator('[data-surface="template"]').click();
+    await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",
+      {timeout:60_000});
+    await expect(page.locator("#bone-inspector-panel .bone-list")).toHaveCount(1);
+    await expect(page.locator("html")).toHaveAttribute("data-c2-directions","passed");
+    await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
+  }
+  console.log("C2.5 environment",test.info().project.name,
+    "import and pose empirical samples",JSON.stringify(results));
+  await page.locator("#c25-performance").evaluate((element:HTMLDetailsElement)=>{
+    element.open=true;
+  });
+  await page.locator("#c25-performance").screenshot({
+    path:"test-results/c2/"+test.info().project.name+"-c25-performance.png",
+  });
+  expect(errors).toEqual([]);
+});
