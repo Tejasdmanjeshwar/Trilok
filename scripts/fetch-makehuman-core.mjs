@@ -11,7 +11,7 @@ const url="https://raw.githubusercontent.com/makehumancommunity/makehuman/"+
   manifest.revision+"/"+manifest.path;
 async function verify(bytes){
   if(bytes.length!==manifest.rawBytes)throw new Error("MakeHuman asset size mismatch");
-  const gitHash=createHash("sha1").update("blob "+bytes.length+"\\0".replace("\\\\0","\\0")).update(bytes).digest("hex");
+  const gitHash=createHash("sha1").update("blob "+bytes.length+String.fromCharCode(0)).update(bytes).digest("hex");
   if(gitHash!==manifest.gitBlobSha1)throw new Error("MakeHuman asset Git blob checksum mismatch");
   return createHash("sha256").update(bytes).digest("hex");
 }
