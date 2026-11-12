@@ -15,6 +15,8 @@ export interface SkinningSpike {
   readonly bones: ReadonlyMap<string, THREE.Bone>;
   /** Optional render-only proximal forearm references; never C1 semantic joints. */
   readonly forearmSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone>;
+  /** CC0 shoulder01 presentation-only connector bones (not semantic joints). */
+  readonly shoulderSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone>;
   readonly vertexCount: number;
   readonly triangleCount: number;
   dispose(): void;
@@ -24,6 +26,8 @@ export interface SpikeOptions {
   readonly shoulderScale?: number;
   /** Add non-twisting proximal skin references for official imported weights. */
   readonly forearmSkinning?: boolean;
+  /** Preserve the CC0 shoulder01 source-weight region as an intermediate skin reference. */
+  readonly shoulderSkinning?: boolean;
 }
 function finiteScale(value:number|undefined,name:string):number {
   const n=value??1;
@@ -66,6 +70,25 @@ export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
       helper.quaternion.copy(elbow.quaternion);
       elbow.parent.add(helper);
       forearmSkinBones.set(side,helper);
+      boneList.push(helper);
+    }
+  }
+  // The CC0 shoulder01 source connector sits between clavicle and
+  // upperarm01; skinning it directly to the clavicle pins the axilla during
+  // elevation. This helper is a sibling of the semantic shoulder, and is
+  // NEVER a parent of any semantic joint.
+  const shoulderSkinBones=new Map<"left"|"right",THREE.Bone>();
+  if(options.shoulderSkinning){
+    for(const side of ["left","right"] as const){
+      const shoulderJoint=graph.joints.find(j=>j.role==="shoulder_"+side);
+      const shoulder=shoulderJoint?bones.get(shoulderJoint.id):undefined;
+      if(!shoulder?.parent)throw new Error("Missing C1 shoulder skin anchor");
+      const helper=new THREE.Bone();
+      helper.name="C2_SKIN_SHOULDER_CONNECTOR_"+side.toUpperCase();
+      helper.position.copy(shoulder.position);
+      helper.quaternion.copy(shoulder.quaternion);
+      shoulder.parent.add(helper);
+      shoulderSkinBones.set(side,helper);
       boneList.push(helper);
     }
   }
@@ -167,6 +190,7 @@ export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
   let disposed=false;
   return {graph,character,mesh,skeleton,bones,
     forearmSkinBones:options.forearmSkinning?forearmSkinBones:undefined,
+    shoulderSkinBones:options.shoulderSkinning?shoulderSkinBones:undefined,
     vertexCount:positions.length/3,triangleCount:indices.length/3,
     dispose(){if(disposed)return;disposed=true;character.dispose();}};
 }
@@ -177,9 +201,12 @@ export function validateSkinningSpike(spike:SkinningSpike):void {
   const uv=g.getAttribute("uv");
   if(!p||!w||!ids||!uv||p.count!==w.count||p.count!==ids.count||p.count!==uv.count)
     throw new Error("Missing or inconsistent skinned attributes");
-  const extra=spike.forearmSkinBones?.size??0;
-  if(spike.skeleton.bones.length!==spike.graph.joints.length+extra ||
-    (extra!==0&&extra!==2))
+  const forearmExtra=spike.forearmSkinBones?.size??0;
+  const shoulderExtra=spike.shoulderSkinBones?.size??0;
+  if(spike.skeleton.bones.length!==spike.graph.joints.length+
+      forearmExtra+shoulderExtra ||
+    (forearmExtra!==0&&forearmExtra!==2)||
+    (shoulderExtra!==0&&shoulderExtra!==2))
     throw new Error("Skeleton joint mismatch");
   for(const [offset,side] of (["left","right"] as const).entries()){
     const helper=spike.forearmSkinBones?.get(side);
@@ -189,6 +216,15 @@ export function validateSkinningSpike(spike:SkinningSpike):void {
     if(!elbow||helper.parent!==elbow.parent||
       spike.skeleton.bones[spike.graph.joints.length+offset]!==helper)
       throw new Error("Invalid proximal forearm skin anchor");
+  }
+  for(const [offset,side] of (["left","right"] as const).entries()){
+    const helper=spike.shoulderSkinBones?.get(side);
+    if(!helper)continue;
+    const joint=spike.graph.joints.find(j=>j.role==="shoulder_"+side);
+    const shoulder=joint?spike.bones.get(joint.id):undefined;
+    if(!shoulder||helper.parent!==shoulder.parent||
+      spike.skeleton.bones[spike.graph.joints.length+forearmExtra+offset]!==helper)
+      throw new Error("Invalid shoulder skin connector");
   }
   for(let i=0;i<p.count;i++){
     let total=0;
