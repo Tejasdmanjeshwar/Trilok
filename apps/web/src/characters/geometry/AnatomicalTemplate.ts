@@ -124,12 +124,14 @@ export function parseAnatomicalOBJ(source:string):AnatomicalTemplate {
     const nx=aby*acz-abz*acy,ny=abz*acx-abx*acz,nz=abx*acy-aby*acx;
     if(nx*nx+ny*ny+nz*nz<1e-20)throw new Error("Degenerate anatomical face");
     for(const id of [sourceIds[a]!,sourceIds[b]!,sourceIds[c]!]){
-      sourceNormals[id*3]+=nx;sourceNormals[id*3+1]+=ny;sourceNormals[id*3+2]+=nz;
+      sourceNormals[id*3]=(sourceNormals[id*3]??0)+nx;
+      sourceNormals[id*3+1]=(sourceNormals[id*3+1]??0)+ny;
+      sourceNormals[id*3+2]=(sourceNormals[id*3+2]??0)+nz;
     }
   }
   const normals:number[]=[];
   for(const id of sourceIds){
-    const x=sourceNormals[id*3],y=sourceNormals[id*3+1],z=sourceNormals[id*3+2];
+    const x=sourceNormals[id*3]??0,y=sourceNormals[id*3+1]??0,z=sourceNormals[id*3+2]??0;
     const len=Math.hypot(x,y,z);
     normals.push(len>1e-12?x/len:0,len>1e-12?y/len:1,len>1e-12?z/len:0);
   }
@@ -193,7 +195,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate):Anatomica
     if(!Number.isFinite(sum)||sum<=0)throw new Error("Invalid semantic skin transfer");
     for(let j=0;j<4;j++){
       indices.push(top[j]?.[0]??0);
-      weights.push(j===3?0:top[j]?.[1]/sum||0);
+      weights.push(j===3?0:(top[j]?.[1]??0)/sum);
     }
     // Re-normalize after influence truncation using exact 4th-slot remainder.
     const offset=i*4;
