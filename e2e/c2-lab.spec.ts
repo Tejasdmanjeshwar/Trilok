@@ -70,6 +70,26 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await page.locator('[data-view="rear"]').click();
   await page.locator('[data-pose="overhead"]').click();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-overhead-rear.png"});
+  await page.locator('[data-view="front"]').click();
+  await page.locator('[data-pose="neutral"]').click();
+  await expect(page.locator("#status")).toContainText("neutral");
+  expect(errors).toEqual([]);
+  await page.goto("/");
+  await expect(page.locator("#loading")).toBeHidden({timeout:20_000});
+  await expect(page.locator("#boss-phase-name")).toContainText("SENTINEL");
+});
+
+
+test("Imported CC0 jaw opens downward and renders from front and side",async({page})=>{
+  test.setTimeout(75_000);
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true",{timeout:60_000});
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
+  mkdirSync("test-results/c2",{recursive:true});
+  const platform=test.info().project.name;
   await page.locator('[data-pose="neutral"]').click();
   await page.locator('[data-view="head-front"]').click();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-neutral-front.png"});
@@ -80,11 +100,5 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-open-side.png"});
   await page.locator('[data-view="head-front"]').click();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-open-front.png"});
-  await page.locator('[data-view="front"]').click();
-  await page.locator('[data-pose="neutral"]').click();
-  await expect(page.locator("#status")).toContainText("neutral");
   expect(errors).toEqual([]);
-  await page.goto("/");
-  await expect(page.locator("#loading")).toBeHidden({timeout:20_000});
-  await expect(page.locator("#boss-phase-name")).toContainText("SENTINEL");
 });
