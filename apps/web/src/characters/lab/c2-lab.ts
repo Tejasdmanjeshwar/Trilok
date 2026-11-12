@@ -43,7 +43,8 @@ try{
     overlay=undefined;
     if(active&&selected("skeleton")){
       overlay=new THREE.SkeletonHelper(active.spike.character.root);
-      overlay.material.depthTest=false;overlay.material.transparent=true;
+      const lineMaterial=overlay.material as THREE.LineBasicMaterial;
+      lineMaterial.depthTest=false;lineMaterial.transparent=true;
       scene.add(overlay);
     }
   };
