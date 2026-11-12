@@ -30,7 +30,7 @@ const suffix = (side: Side) => side === "right" ? ".L" : ".R";
 const sideNames: readonly Side[] = ["left", "right"];
 
 /** Roles are a human-template mapping, not a fixed requirement of C1 anatomy. */
-export function sourceBoneForRole(role: string): string | undefined {
+export function sourceBoneForRole(role: string, jointId = ""): string | undefined {
   const bases: Record<string,string> = {
     pelvis:"spine05", spine_lower:"spine03", chest:"spine01", neck:"neck01",
     head:"head", jaw:"jaw",
@@ -52,7 +52,7 @@ export function sourceBoneForRole(role: string): string | undefined {
     };
     if (named[role]) return named[role];
     for(let d=0;d<digits.length;d++)for(let n=0;n<(d===0?2:3);n++){
-      if(role==="finger_"+digits[d]+"_"+n)
+      if(role==="finger_"+digits[d]+"_"+n && jointId.includes("arm["+side+","))
         return "finger"+(d+1)+"-"+(n+1)+s;
     }
   }
@@ -101,7 +101,7 @@ export function calibrateHumanBones(
   root.updateMatrixWorld(true);
   for(const joint of graph.joints){
     const bone=bones.get(joint.id);
-    const sourceName=sourceBoneForRole(joint.role);
+    const sourceName=sourceBoneForRole(joint.role,joint.id);
     const world=sourceName?landmarks.get(sourceName):undefined;
     if(!bone||!world)continue;
     const before=bone.getWorldPosition(new THREE.Vector3());
@@ -120,7 +120,10 @@ function semanticRoles(graph:AnatomicalGraphV1):Map<string,number> {
   const roles=new Map<string,number>();
   for(let i=0;i<graph.joints.length;i++){
     const role=graph.joints[i]!.role;
-    if(!roles.has(role))roles.set(role,i);
+    if(role.startsWith("finger_")){
+      const side=/arm\\[(left|right),/.exec(graph.joints[i]!.id)?.[1];
+      if(side)roles.set(role+"_"+side,i);
+    }else if(!roles.has(role))roles.set(role,i);
   }
   return roles;
 }
@@ -151,7 +154,7 @@ export function sourceWeightRole(sourceName:string):string|undefined {
     const digit=Number(finger[1])-1;
     // C1 thumb has two phalanges; its distal third shares the second.
     const n=Math.min(Number(finger[2])-1,digit===0?1:2);
-    return "finger_"+digits[digit]+"_"+n;
+    return "finger_"+digits[digit]+"_"+n+"_"+side;
   }
   if(/^toe[1-5]-[1-3]$/.test(part))return "toe_"+side;
   return undefined;
@@ -207,7 +210,8 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
     let used=0;
     for(let k=0;k<4;k++){
       indices.push(ordered[k]?.[0]??fallback);
-      const w=k===3?Math.max(0,1-used):(ordered[k]?.[1]??0)/total;
+      const w=k===ordered.length-1?Math.max(0,1-used):
+        (ordered[k]?.[1]??0)/total;
       weights.push(w);used+=w;
     }
   }
