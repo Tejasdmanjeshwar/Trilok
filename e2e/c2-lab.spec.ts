@@ -197,3 +197,42 @@ test("C2.4 bilateral lower-body and elbow/neck stress diagnostics remain selecta
   await page.locator('[data-pose="neutral"]').click();
   await expect(page.locator(".bone-details")).toContainText("wrist_left");
 });
+
+test("C2.5 versioned pose matrix expands desktop/touch lab diagnostics", async ({page}) => {
+  test.setTimeout(90_000);
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source", "template",
+    {timeout: 60_000});
+  const poses = ["shoulder-unilateral", "forearm-supination", "wrist-deviation",
+    "hip-rotation", "deep-crouch", "toe-curl", "head-turn",
+    "whole-asymmetric", "crouch-reach", "whole-extreme"];
+  const platform = test.info().project.name;
+  mkdirSync("test-results/c2",{recursive:true});
+  for (const id of poses) {
+    await page.locator('[data-pose="' + id + '"]').click();
+    await expect(page.locator('[data-pose="' + id + '"]'))
+      .toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#status")).toContainText(id);
+    if (["shoulder-unilateral","deep-crouch","whole-asymmetric",
+      "crouch-reach","whole-extreme"].includes(id)) {
+      await page.locator('[data-view="front"]').click();
+      await page.locator("#viewport").screenshot({
+        path:"test-results/c2/" + platform + "-c25-" + id + "-front.png",
+      });
+      await page.locator('[data-view="rear"]').click();
+      await page.locator("#viewport").screenshot({
+        path:"test-results/c2/" + platform + "-c25-" + id + "-rear.png",
+      });
+    }
+  }
+  await page.locator('[data-pose="jaw"]').click();
+  await page.locator('[data-view="head-side"]').click();
+  await page.locator("#viewport").screenshot({
+    path:"test-results/c2/" + platform + "-c25-jaw-side.png",
+  });
+  await page.locator('[data-pose="neutral"]').click();
+  await expect(page.locator("#status")).toContainText("neutral");
+  expect(errors).toEqual([]);
+});
