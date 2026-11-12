@@ -8,6 +8,8 @@ import { AnatomicalFK } from
 import { ANATOMICAL_POSE_MATRIX, ANATOMICAL_POSE_MATRIX_VERSION,
   resolveAnatomicalPose, type AnatomicalPoseV1 } from
   "../apps/web/src/characters/geometry/AnatomicalPoseMatrix";
+import { inspectAnatomicalMorphologyBaseline, AnatomicalContractError } from
+  "../apps/web/src/characters/geometry/AnatomicalMorphologyContract";
 import { validateSkinningSpike } from
   "../apps/web/src/characters/geometry/SkinningSpike";
 import type { SourceRig, SourceWeights } from
@@ -151,4 +153,28 @@ describe("C2.5 v1 supported real-asset anatomical pose matrix (CPU Three.js)", (
       expect(human.spike.skeleton.bones.map(b => b.quaternion.toArray())).toEqual(before);
     } finally { human.dispose(); }
   });
+  it("produces deterministic read-only C3 baseline metadata and rejects corrupt source skin", () => {
+    const { human } = makeSession();
+    try {
+      const first = inspectAnatomicalMorphologyBaseline(human);
+      const again = inspectAnatomicalMorphologyBaseline(human);
+      expect(again).toEqual(first);
+      expect(first.version).toBe(1);
+      expect(first.units).toBe("meters");
+      expect(first.upAxis).toBe("+Y");
+      expect(first.forwardAxis).toBe("+Z");
+      expect(first.uvDuplicatedVertices).toBeGreaterThan(150);
+      expect(first.presentationOnlySkinBoneCount).toBe(4);
+      expect(first.canonicalJointIds).toEqual(human.spike.graph.joints.map(j => j.id));
+      const attribute = human.mesh.geometry.getAttribute("skinWeight");
+      const original = attribute.getX(0);
+      try {
+        attribute.setX(0, -0.1);
+        expect(() => inspectAnatomicalMorphologyBaseline(human))
+          .toThrow(AnatomicalContractError);
+      } finally { attribute.setX(0, original); }
+      expect(inspectAnatomicalMorphologyBaseline(human)).toEqual(first);
+    } finally { human.dispose(); }
+  });
+
 });
