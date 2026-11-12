@@ -178,3 +178,22 @@ test("C2.4 shoulder / axilla cameras and combined stress preserve imported inspe
   await page.locator('[data-pose="neutral"]').click();
   await expect(page.locator(".bone-details")).toContainText("wrist_left");
 });
+
+
+test("C2.4 bilateral lower-body and elbow/neck stress diagnostics remain selectable",async({page})=>{
+  test.setTimeout(75_000);
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true",{timeout:60_000});
+  for (const pose of ["elbow-stress","hip-stress","knee-stress","ankle-stress","neck-jaw"]) {
+    await page.locator('[data-pose="'+pose+'"]').click();
+    await expect(page.locator('[data-pose="'+pose+'"]')).toHaveAttribute("aria-pressed","true");
+  }
+  for (const region of ["elbow","hip","knee","ankle"])for(const side of ["left","right"]){
+    const view=page.locator('[data-view="'+region+'-'+side+'"]');
+    await view.click();
+    await expect(view).toHaveAttribute("aria-pressed","true");
+    await expect(page.locator("#viewport canvas")).toBeVisible();
+  }
+  await page.locator('[data-pose="neutral"]').click();
+  await expect(page.locator(".bone-details")).toContainText("wrist_left");
+});
