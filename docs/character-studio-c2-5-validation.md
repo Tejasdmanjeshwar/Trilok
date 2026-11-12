@@ -136,3 +136,32 @@ No unmeasured target or inferred optimization is accepted. Candidates for
 future worker/caching investigation include OBJ parsing, source-weight JSON
 processing, pose-envelope skin compaction and geometry regeneration; prioritize
 only after production measurements identify meaningful costs.
+
+## C2.5 numerical whole-surface audit (non-visual evidence)
+
+`AnatomicalGeometryAuditor` snapshots the indexed pinned CC0 render surface
+and original source edge correspondence at **rest**; after authoritative
+AnatomicalFK, it samples all rendered vertices using
+`SkinnedMesh.getVertexPosition`. It measures global rendered triangle area,
+absolute closed-surface signed-tetrahedron volume, area and volume ratios
+from rest, source-edge RMS/p95/worst-relative stretch for original edges at
+least 3mm, worst absolute displacement and original source edge IDs.
+It reports degenerate and nonfinite triangles and does not mutate geometry.
+The 3mm cutoff is for *relative edge strain conditioning only*, not an
+unspoken removal of small triangles from surface area or volume.
+
+These diagnostics run on selected high-risk matrix poses in ordinary Vitest.
+A deliberately misbound wrist patch demonstrates that global statistics
+change even when the corrupted weights remain normalized, and restoring
+weights must recover the original metrics. Source-region-specific C2.4
+thresholds and mutations remain in their original tests.
+
+**Limitations:** absolute enclosed volume from oriented triangles is
+interpretable for a closed, consistently wound surface without self-overlaps.
+LBS can invert/fold faces and introduce self-intersections without causing
+a failure of finite area or volume. Whole-body volume may mask local muscle
+and joint collapse. The computed values are descriptive evidence and are
+**not** a certified self-intersection, local cross-sectional preservation,
+corrective-shape or anatomy quality test. Compare the reported numbers to
+rendered axilla, hip/groin, knee, jaw and wrist views before adjudicating any
+blocker. Do not invent a global volume/strain pass threshold after the fact.
