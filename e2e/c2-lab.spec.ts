@@ -41,6 +41,17 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await page.locator('[data-pose="fist"]').click();
   await expect(page.locator("#status")).toContainText("fist");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist.png"});
+  await page.locator('[data-view="hand-left"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist-hand-left.png"});
+  await page.locator('[data-view="hand-right"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist-hand-right.png"});
+  await page.locator('[data-pose="index"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-index-hand-right.png"});
+  await page.locator('[data-pose="thumb"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-thumb-hand-right.png"});
+  await page.locator('[data-view="front"]').click();
+  await page.locator('[data-pose="forearm"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-forearm.png"});
   await page.locator('[data-pose="sword"]').click();
   await page.locator('[data-view="side"]').click();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-sword-side.png"});
