@@ -101,3 +101,21 @@ test("D14 boss phase HUD starts in Sentinel and resets safely",async ({page})=>{
   await expect(page.locator("#runtime-fault")).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test("combat header links to the isolated Character Lab and back",async({page})=>{
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/");
+  await expect(page.locator("#loading")).toBeHidden({timeout:20_000});
+  const link=page.getByRole("link",{name:"Open experimental Character Lab"});
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute("href","/c2-lab.html");
+  await link.click();
+  await expect(page).toHaveURL(/\/c2-lab\.html$/);
+  await expect(page.locator("h1")).toContainText("Experimental skinned character surface");
+  await page.getByRole("link",{name:/Combat arena/}).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("#loading")).toBeHidden({timeout:20_000});
+  await expect(page.locator("#boss-phase-name")).toContainText("SENTINEL");
+  expect(errors).toEqual([]);
+});

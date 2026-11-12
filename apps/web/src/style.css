@@ -421,3 +421,18 @@
 .game[data-boss-phase="3"] .boss-transition{border-color:#fca064;box-shadow:0 0 80px #b84e3555,0 12px 45px #000a}
 @media(max-width:760px){.boss-transition{top:30%;padding:12px 14px;width:80vw}.boss-transition p{font-size:.65rem}.boss-phase-name{font-size:.56rem}}
 @media(prefers-reduced-motion:reduce){.boss-transition{animation:none;transition:none}}
+
+
+/* Direct navigation to the isolated C2 research lab; no gameplay coupling. */
+.header-links{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.lab-link{display:inline-flex;align-items:center;justify-content:center;min-height:30px;
+  padding:6px 10px;border:1px solid #e1c58e87;border-radius:4px;
+  background:#244538e8;color:#f6e4c2;font-size:.61rem;font-weight:700;
+  letter-spacing:.08em;text-decoration:none;white-space:nowrap;
+  text-shadow:0 2px 5px #0009}
+.lab-link:hover{background:#476650}
+.lab-link:focus-visible{outline:3px solid #f4d793;outline-offset:2px}
+@media(max-width:760px){
+  .header-links{gap:5px}
+  .lab-link{min-height:28px;padding:5px 7px;font-size:.52rem;letter-spacing:.03em}
+}
