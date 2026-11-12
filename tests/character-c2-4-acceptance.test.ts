@@ -134,9 +134,9 @@ describe("C2.4 targeted anatomical skinning acceptance (pinned CC0, no WebGL)", 
       fk.apply([...pose].reverse());
       expect(cpuPositions(human, vertices)).toEqual(positioned);
       fk.apply([]);
+      const recovered = cpuPositions(human, vertices);
       for (let i = 0; i < rest.length; i++)
-        expect(Math.abs(cpuPositions(human, vertices)[i]! - rest[i]!))
-          .toBeLessThan(3e-6);
+        expect(Math.abs(recovered[i]! - rest[i]!)).toBeLessThan(3e-6);
       expect(human.spike.skeleton.boneInverses.map(m => m.toArray()))
         .toEqual(restInverse);
       expect(human.spike.graph.joints.map(j => j.id)).toEqual(canonicalIds);
