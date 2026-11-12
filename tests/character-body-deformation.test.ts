@@ -205,12 +205,12 @@ function anchor(session:Session,region:"shoulder"|"hip"|"knee"|"ankle"|"neck"|"j
   return session.body.spike.bones.get(joint.id)!;
 }
 describe("C2.4 exclusive-owner original CC0 skin-to-bone geometric contracts",()=>{
-  it("retains rigid local surface correspondence for shoulders, hips, knees, ankles, neck and jaw",()=>{
+  it("retains rigid local surface correspondence for shoulders, hips, knees and ankles",()=>{
     const s=human();
     try {
-      // The eight neck-only source points are outside the rendered body group;
-      // neck continuity is assessed by the mixed-owner edge-strain matrix.
-      const tested=["shoulder","hip","knee","ankle","jaw"] as const;
+      // Original isolated neck and jaw source points are outside the
+      // rendered body group; their visible mixed skin is measured separately.
+      const tested=["shoulder","hip","knee","ankle"] as const;
       const patches=new Map(tested.flatMap(region=>sides.map(side=>
         [region+side,rigidPatch(s,region,side)] as const)));
       const rest=s.body.mesh.geometry.getAttribute("position");
