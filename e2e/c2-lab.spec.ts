@@ -136,3 +136,26 @@ test("C2 Bone Inspector searches canonical joint IDs and maintains marker select
   await search.fill("index");
   await expect(page.locator(".bone-list button:not([hidden])").first()).toContainText("index");
 });
+
+test("C2.4 thumb web stress controls retain imported skin and live inspector", async ({page}) => {
+  test.setTimeout(75_000);
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",
+    {timeout:60_000});
+  await page.locator('[data-pose="thumb-wrist"]').click();
+  await expect(page.locator("#status")).toContainText("thumb-wrist");
+  await page.locator('[data-view="thumb-web-left"]').click();
+  await expect(page.locator('[data-view="thumb-web-left"]'))
+    .toHaveAttribute("aria-pressed","true");
+  await page.locator('[data-pose="hand-stress"]').click();
+  await expect(page.locator("#status")).toContainText("hand-stress");
+  await expect(page.locator(".bone-details")).toContainText("wrist_left");
+  await page.locator('[data-view="thumb-web-right"]').click();
+  await expect(page.locator('[data-view="thumb-web-right"]'))
+    .toHaveAttribute("aria-pressed","true");
+  await page.locator('[data-pose="neutral"]').click();
+  await expect(page.locator("#status")).toContainText("neutral");
+  expect(errors).toEqual([]);
+});
