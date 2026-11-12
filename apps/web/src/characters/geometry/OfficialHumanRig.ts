@@ -121,7 +121,7 @@ function semanticRoles(graph:AnatomicalGraphV1):Map<string,number> {
   for(let i=0;i<graph.joints.length;i++){
     const role=graph.joints[i]!.role;
     if(role.startsWith("finger_")){
-      const side=/arm\\[(left|right),/.exec(graph.joints[i]!.id)?.[1];
+      const side=/arm\[(left|right),/.exec(graph.joints[i]!.id)?.[1];
       if(side)roles.set(role+"_"+side,i);
     }else if(!roles.has(role))roles.set(role,i);
   }
