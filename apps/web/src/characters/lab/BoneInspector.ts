@@ -97,7 +97,18 @@ export class BoneInspector {
     this.pickRay.setFromCamera(this.pointer, this.options.camera);
     const hits = this.pickRay.intersectObjects(this.entries.filter(e =>
       e.marker.visible).map(e => e.marker), false);
-    const chosen = this.entries.find(e => e.marker === hits[0]?.object);
+    // Full-body markers are visually small. Offer a 22px touch/mouse hit
+    // radius around the true projected semantic joint without altering the
+    // marker world position or selecting hidden bones.
+    const chosen = this.entries.find(e => e.marker === hits[0]?.object) ??
+      this.entries.filter(e => e.marker.visible).map(entry => {
+        const point = entry.marker.position.clone().project(this.options.camera);
+        const x = rect.left + (point.x + 1) * .5 * rect.width;
+        const y = rect.top + (1 - point.y) * .5 * rect.height;
+        return { entry, distance: Math.hypot(x - event.clientX, y - event.clientY),
+          depth: point.z };
+      }).filter(hit => hit.depth >= -1 && hit.depth <= 1 && hit.distance <= 22)
+        .sort((a, b) => a.distance - b.distance)[0]?.entry;
     if (chosen) this.select(chosen.id);
   };
   private readonly onSearch = (): void => this.filterList();
@@ -283,7 +294,7 @@ export class BoneInspector {
     const selected = this.entries.find(e => e.id === this.selectedId);
     const parent = selected?.parentId ? this.world.get(selected.parentId) : undefined;
     const tip = selected ? this.world.get(selected.id) : undefined;
-    this.selectionLine.visible = !!(tip && parent);
+    this.selectionLine.visible = markerToggle.checked && !!(tip && parent);
     if (tip && parent) {
       const p = this.selectionGeometry.getAttribute("position");
       p.setXYZ(0, parent.x, parent.y, parent.z);
@@ -303,7 +314,8 @@ export class BoneInspector {
         point.x >= -1 && point.x <= 1 && point.y >= -1 && point.y <= 1;
       entry.label.hidden = !visible;
       if (visible) {
-        entry.label.textContent = entry.name + " · " + entry.role;
+        const title = entry.name + " · " + entry.role;
+        if (entry.label.textContent !== title) entry.label.textContent = title;
         entry.label.classList.toggle("selected", picked);
         entry.label.style.left = ((point.x + 1) * 0.5 * bounds.width) + "px";
         entry.label.style.top = ((1 - point.y) * 0.5 * bounds.height) + "px";
