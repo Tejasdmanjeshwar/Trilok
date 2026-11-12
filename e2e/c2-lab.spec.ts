@@ -159,3 +159,22 @@ test("C2.4 thumb web stress controls retain imported skin and live inspector", a
   await expect(page.locator("#status")).toContainText("neutral");
   expect(errors).toEqual([]);
 });
+
+
+test("C2.4 shoulder / axilla cameras and combined stress preserve imported inspector", async ({page}) => {
+  test.setTimeout(75_000);
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true",{timeout:60_000});
+  await expect(page.locator("#status")).toContainText("CC0");
+  for (const pose of ["shoulder-forward","shoulder-combined","shoulder-torso"]) {
+    await page.locator('[data-pose="'+pose+'"]').click();
+    await expect(page.locator('[data-pose="'+pose+'"]')).toHaveAttribute("aria-pressed","true");
+    for (const view of ["shoulder-left","shoulder-right","axilla-left","axilla-right"]) {
+      await page.locator('[data-view="'+view+'"]').click();
+      await expect(page.locator('[data-view="'+view+'"]')).toHaveAttribute("aria-pressed","true");
+      await expect(page.locator("#viewport canvas")).toBeVisible();
+    }
+  }
+  await page.locator('[data-pose="neutral"]').click();
+  await expect(page.locator(".bone-details")).toContainText("wrist_left");
+});

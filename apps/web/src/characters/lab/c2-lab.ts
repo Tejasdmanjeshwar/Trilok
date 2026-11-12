@@ -170,6 +170,20 @@ try{
       case "shoulder":
         pose("clavicle_left","abduction",.22);pose("clavicle_right","abduction",.22);
         pose("shoulder_left","abduction",1.5);pose("shoulder_right","abduction",1.5);break;
+      case "shoulder-forward":
+        pose("shoulder_left","flexion",1.5);pose("shoulder_right","flexion",1.5);break;
+      case "shoulder-combined":
+        for(const side of ["left","right"] as const){
+          pose("clavicle_"+side,"abduction",.22);
+          pose("shoulder_"+side,"abduction",1.35);
+          pose("shoulder_"+side,"flexion",.75);
+          pose("elbow_"+side,"flexion",1.5);
+          pose("elbow_"+side,"rotation",side==="left"?.7:-.7);
+          pose("wrist_"+side,"flexion",.3);
+        }break;
+      case "shoulder-torso":
+        pose("shoulder_left","abduction",1.5);pose("shoulder_right","abduction",1.5);
+        pose("spine_lower","rotation",.3);pose("chest","rotation",.35);break;
       case "elbow":
         pose("elbow_left","flexion",1.7);pose("elbow_right","flexion",1.7);break;
       case "crouch":
@@ -297,6 +311,20 @@ try{
       if(selectedView==="side")camera.position.set(3.2,1.45,0);
       if(selectedView==="rear")camera.position.set(0,1.45,-3.2);
       let target=new THREE.Vector3(0,.95,0);
+      if(selectedView==="shoulder-left"||selectedView==="shoulder-right"||
+        selectedView==="axilla-left"||selectedView==="axilla-right"){
+        const side=selectedView.endsWith("left")?"left":"right";
+        const joint=active!.spike.graph.joints.find(j=>j.role==="shoulder_"+side);
+        const bone=joint?active!.spike.bones.get(joint.id):undefined;
+        if(bone){
+          active!.spike.character.root.updateWorldMatrix(true,true);
+          target=bone.getWorldPosition(new THREE.Vector3());
+          if(selectedView.startsWith("axilla"))target.y-=.085;
+          camera.position.copy(target).add(selectedView.startsWith("axilla")?
+            new THREE.Vector3(side==="left"?.36:-.36,-.18,.27):
+            new THREE.Vector3(side==="left"?.24:-.24,.12,.43));
+        }
+      }
       if(selectedView==="head-front"||selectedView==="head-side"){
         const headJoint=active!.spike.graph.joints.find(j=>j.role==="head");
         const head=headJoint?active!.spike.bones.get(headJoint.id):undefined;
