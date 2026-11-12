@@ -84,13 +84,17 @@ function bindWeights(geometry:THREE.BufferGeometry,graph:AnatomicalGraphV1,
     }).sort((a,b)=>b.score-a.score).slice(0,4);
     const total=candidates.reduce((sum,c)=>sum+c.score,0);
     if(!Number.isFinite(total)||total<=0)throw new Error("Invalid skin candidate sum");
+    // Store a bounded, normalized Float32 palette. When the candidate
+    // list contains fewer than four bones, leave unused slots at zero;
+    // the rounding residual belongs to the *last real* influence.
+    let allocated=0;
     candidates.forEach((c,i)=>{
       indices[v*4+i]=c.index;
-      weights[v*4+i]=c.score/total;
+      const w=i===candidates.length-1
+        ?Math.max(0,1-allocated):Math.fround(c.score/total);
+      weights[v*4+i]=w;
+      allocated+=w;
     });
-    // Normalize in Float32 to avoid finite-precision sum drift.
-    const sum=weights[v*4]!+weights[v*4+1]!+weights[v*4+2]!+weights[v*4+3]!;
-    weights[v*4+3]=(weights[v*4+3]??0)+(1-sum);
   }
   geometry.setAttribute("skinIndex",new THREE.Uint16BufferAttribute(indices,4));
   geometry.setAttribute("skinWeight",new THREE.Float32BufferAttribute(weights,4));
