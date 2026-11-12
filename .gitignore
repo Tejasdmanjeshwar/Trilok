@@ -7,3 +7,6 @@ coverage/
 *.local
 *.log
 !.github/**
+
+# Reproducibly downloaded pinned MakeHuman CC0 source (never commit generated copy)
+apps/web/public/anatomy/makehuman-base.obj
