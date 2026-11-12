@@ -166,10 +166,10 @@ function rigidPatch(session:Session, region:"shoulder"|"hip"|"knee"|"ankle"|"nec
   side:Side):number[] {
   const suffix=side==="left"?".R":".L";
   const allowed:Record<typeof region,RegExp>={
-    shoulder:/^upperarm0[12]\\.[LR]$/,
-    hip:/^upperleg0[12]\\.[LR]$/,
-    knee:/^lowerleg0[12]\\.[LR]$/,
-    ankle:/^(foot|toe[1-5]-1)\\.[LR]$/,
+    shoulder:/^upperarm0[12]\.[LR]$/,
+    hip:/^upperleg0[12]\.[LR]$/,
+    knee:/^lowerleg0[12]\.[LR]$/,
+    ankle:/^(foot|toe[1-5]-1)\.[LR]$/,
     neck:/^neck0[123]$/,
     jaw:/^jaw$/,
   };
