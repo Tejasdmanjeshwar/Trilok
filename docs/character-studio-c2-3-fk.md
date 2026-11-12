@@ -85,3 +85,27 @@ palm joint. The synthetic C1 prototype has a schematic palm-plane fallback.
 passed CI and actual CC0 WebGL screenshot inspection for desktop and touch.
 Skin-volume preservation, perfect digit contact, and distributed forearm
 deformation remain C2.4; C2.5 owns the full stress-pose matrix.
+
+
+## Jaw-opening direction follow-up
+
+The jaw originally inherited the spine/head's fixed `-X` pitch axis. In the
+imported MakeHuman rest pose, positive rotation about `-X` pushes the
+mandibular tip upward toward the maxilla (closure), not downward (opening).
+This was not caught by the previous FK tests, which only checked whether jaw
+flexion exists and is bounded.
+
+Jaw flexion now uses a sagittal hinge determined from the calibrated neck-to-head
+cranial-up direction and the measured hinge-to-chin-tip vector. The source jaw
+tail is retained as a rest landmark in the imported template; it is not a new
+runtime bone, skin influence, or modification to C1 IDs. Positive opening
+rotates the chin downward while keeping the upper head stationary, and the
+existing angular bounds and deterministic rest-relative quaternion composition
+remain intact. The C1 schematic diagnostic still uses the jaw/head relationship
+as a fallback when an imported jaw tip is unavailable.
+
+Regression tests explicitly assert downward tip motion, unchanged upper head,
+neutral restoration and jaw constraints at varied root yaws. The imported CC0
+browser test separately rejects upward chin motion, and the lab includes
+face/jaw close-ups with neutral/open front and side screenshots. This follow-up
+does not change D14 combat or attempt facial topology or skin-volume refinements.
