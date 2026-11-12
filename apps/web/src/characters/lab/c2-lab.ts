@@ -65,6 +65,49 @@ try{
        active.rigDiagnostics.maxBindDisplacementMeters.toFixed(3)+"m max bind correction":"")
        :" · implicit fallback");
   };
+  /** Actual imported-source regression: verify signed hand movement in the
+   * WebGL rig, not just the schematic C1 unit-test hand. Each individual
+   * joint is assessed in isolation before restoring the calibrated rest. */
+  function verifyCalibratedHandMotions():void {
+    if(!active||!fk)return;
+    const joint=(side:"left"|"right",digit:string,index:number)=>
+      active!.spike.graph.joints.find(j=>j.role==="finger_"+digit+"_"+index &&
+        j.id.includes("arm["+side+","));
+    const world=(id:string)=>active!.spike.bones.get(id)!.getWorldPosition(new THREE.Vector3());
+    for(const side of ["left","right"] as const){
+      const palmar=fk.palmarNormals.get(side)!;
+      const wrist=active.spike.graph.joints.find(j=>j.role==="wrist_"+side)!;
+      const thumb=joint(side,"thumb",1)!;
+      if(world(thumb.id).clone().sub(world(wrist.id)).dot(palmar)<=0)
+        throw new Error("Imported "+side+" hand palmar normal faces dorsally");
+      for(const digit of ["index","middle","ring","little"]){
+        for(let index=0;index<3;index++){
+          const target=joint(side,digit,index)!;
+          const bone=active.spike.bones.get(target.id)!;
+          const current=world(target.id);
+          const previous=index>0?world(joint(side,digit,index-1)!.id):
+            world(active.spike.graph.joints.find(j=>j.role==="palm_"+side)!.id);
+          const restEnd=index<2?world(joint(side,digit,index+1)!.id):
+            current.clone().add(current.clone().sub(previous));
+          const probe=bone.worldToLocal(restEnd.clone());
+          fk.apply([{jointId:target.id,motion:"flexion",radians:.6}]);
+          const displacement=bone.localToWorld(probe.clone()).sub(restEnd).dot(palmar);
+          fk.apply([]);
+          if(displacement<=.00001)
+            throw new Error("Imported "+side+" "+digit+" joint "+index+" bends dorsally");
+        }
+      }
+      const base=joint(side,"thumb",0)!;
+      const ring=joint(side,"ring",0)!;
+      const initial=world(thumb.id).distanceTo(world(ring.id));
+      fk.apply([{jointId:base.id,motion:"opposition",radians:.7}]);
+      const opposed=world(thumb.id).distanceTo(world(ring.id));
+      fk.apply([]);
+      if(opposed>=initial-.00001)
+        throw new Error("Imported "+side+" thumb does not oppose across palm");
+    }
+    document.documentElement.dataset.c2Directions="passed";
+  }
   function applyPose(name:string):void {
     if(!active||!fk)return;
     currentPose=name;
@@ -177,6 +220,8 @@ try{
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
     fk=new AnatomicalFK(preview.spike.graph,preview.spike.bones);
+    if(name==="template")verifyCalibratedHandMotions();
+    else delete document.documentElement.dataset.c2Directions;
     scene.add(preview.spike.character.root);
     for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
     button.addEventListener("click",()=>{
