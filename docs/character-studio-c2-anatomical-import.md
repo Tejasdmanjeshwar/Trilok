@@ -73,6 +73,12 @@ The imported source has distinct `lowerarm01.L/R` and `lowerarm02.L/R` weighted 
 
 This is a *two-reference linear blend skinning compromise*, not independently simulated radius/ulna bones, validated muscle bulging, dual-quaternion skinning, or proof of visual volume quality. Possible candy-wrapper collapse, wrist creasing and hand intersection require close actual CC0 browser-render review before final C2.4 acceptance. C2.5 retains the complete combined-pose stress matrix.
 
+## C2.4 shoulder / axilla skin connector (incremental)
+
+The verified CC0 source hierarchy is `clavicle -> shoulder01 -> upperarm01`. Per side, `shoulder01` has 569 weighted vertices (sum of weights 43.98), with 396 overlapping `clavicle`, 514 `upperarm01`, and 491 `spine01`. Collapsing all `shoulder01` weights onto the C1 clavicle prevented the intermediate shoulder/axilla skin from following humeral elevation. This slice creates two additional skin-only connectors with their original shoulder01 head landmarks, preserving the calibrated semantic shoulder's position and parent. The connector's rest-local quaternion follows half the current semantic shoulder rest-relative orientation, so original source weights provide the blend. The exact 0.5 split is a limited engineering approximation, **not** an anatomically calibrated scapulohumeral rhythm. The connector is not a C1 semantic bone and cannot alter authoritative gameplay; neutral transforms and inverse binds remain preserved. Synthetic diagnostic meshes do not add these helpers.
+
+Regression gates cover source bone ordering, source-index weight ownership, four normalized weights, original geometry/UV/index/vertex ID invariance, helper placement, finite inverse binds, deterministic FK, bilateral rest recovery and independence from earlier C2.3 hand/jaw mechanics. Re-check actual 3D poses after deployment (front/back overhead, 1.5-radian shoulder elevation and forward-flexion, underarm close-ups): it is not yet proven that the shoulder avoids collapse, pinching or self-intersection. Reassess the partial motion fraction using measured rendered outcomes rather than claiming AAA-quality volume preservation. The complete Phase Acceptance run remains reserved for C2.5.
+
 ## C2.2 experimental official CC0 rig/weight retarget
 
 The follow-up branch `feat/c2-2-official-rig-weights` adopts two additional data-only
