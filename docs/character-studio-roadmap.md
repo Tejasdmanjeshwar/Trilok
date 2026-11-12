@@ -126,6 +126,16 @@ Implement tested, strict-TS versioned rig/anatomy/socket schemas; canonical huma
 
 Adopt or generate first deformation-friendly human topology, UVs, normals, normalized skin weights and calibrated bind pose. Evaluate Rakshasa proportions. Add pose stress-test harness now (shoulder raise, bow draw, elbow/forearm twist, crouch, torso rotation) and inspect renders. Reserve sever-compatible topology.
 
+### C2 scope refinement (C2.3–C2.5)
+
+C2 is limited to the reliable anatomical human mesh/rig foundation. Distinct reviewable milestones:
+
+- **C2.3 Anatomical joint orientations and FK:** rest-relative, calibrated frames for the C1 semantic skeleton; bounded anatomical controls, correctly directed finger/thumb and proximal forearm articulation. Do not conflate technical FK tests with visual skin-deformation approval. Status: implementation in progress in `feat/c2-3-anatomical-fk`.
+- **C2.4 Skinning/deformation:** audit lost source twist/helper influences and improve shoulder, elbow, forearm, wrist, fingers, hip, knee and crouch using targeted weighting, meaningful twist support, or small correctives; preserve original vertex identity, four normalized weights and UV seams. Begin only after C2.3 has passed review and merged.
+- **C2.5 Validation and C3 readiness:** examine complete pose matrix, topology, deterministic FK and skin correspondence, actual desktop/mobile renders, performance and repeated disposal; document C3 shape-ready bind and landmark APIs. Record remaining caveats without declaring AAA quality.
+
+**Deliberately deferred:** C3 anatomical body/face shaping and male/female morphology presets (gender identity must remain independent of morphology); C4 full studio UI; C5 calibrated grips/hand IK; C6 full-body IK, animation layers and retargeting; C7 additional archetype appearance; C8 actual disfigurement, severing and wound integration; C9 baking/export/reimport. Track all in Issue #15 without reclassifying them as C2 failures. No swap of the D14 combat actor or combat-domain changes in C2.
+
 ### C3 — Parametric shaping and head families
 
 Create bounded body/face parameters, topology families, corrective morphs, bone/IK/socket/refit calculations, stable hashes and extreme-combination tests. Provide custom humanoid heads including primate, avian and bear-like profiles through compatible template families. Dismemberment/disfigurement state remains separate.
