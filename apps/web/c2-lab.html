@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#151a22" />
+  <title>Trilok C2 · Experimental Skinning Laboratory</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#141923;color:#eae4dc;font:15px/1.45 system-ui,sans-serif}
+    main{max-width:1150px;margin:auto;padding:20px}h1{font-size:clamp(1.35rem,4vw,2rem);margin:6px 0}
+    .warning{padding:10px 14px;border-left:3px solid #dfad57;background:#27232a;margin:12px 0}
+    .view{height:min(69vh,690px);min-height:340px;background:#242b34;position:relative;border-radius:12px;overflow:hidden}
+    canvas{width:100%;height:100%;display:block}.controls{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+    button,a{font:inherit;color:inherit}button{background:#303d4b;color:#fff;border:1px solid #657e8b;border-radius:6px;padding:9px 13px;cursor:pointer}
+    button[aria-pressed="true"]{background:#58788c}button:focus-visible,a:focus-visible{outline:3px solid #f4d793;outline-offset:3px}
+    .small{color:#b5c0c9;font-size:13px}#status{margin:12px 0}#error{color:#ffb9af}
+  </style>
+</head>
+<body>
+<main>
+  <a href="/">← Combat arena</a>
+  <h1>C2 · Experimental skinned character surface</h1>
+  <div class="warning"><strong>Engineering prototype, not finished anatomy.</strong> The connected surface is generated from an implicit field. Shoulders, face, fingers, clothing, sever seams, and realistic deformation have not passed visual quality gates. This is not Character Studio.</div>
+  <div class="controls" role="group" aria-label="Deformation stress pose">
+    <button type="button" data-pose="neutral" aria-pressed="true">Neutral</button>
+    <button type="button" data-pose="shoulder">Shoulder raise</button>
+    <button type="button" data-pose="elbow">Elbow bend</button>
+    <button type="button" data-pose="crouch">Crouch</button>
+    <button type="button" data-pose="torso">Torso twist</button>
+    <button type="button" data-pose="forearm">Forearm rotation</button>
+    <button type="button" data-pose="bow">Bow-draw approximation</button>
+  </div>
+  <div class="view" id="viewport" role="img" aria-label="Interactive skinned surface diagnostic rendered with Three.js"></div>
+  <p id="status" role="status">Generating research surface…</p>
+  <p id="error" role="alert"></p>
+  <p class="small">Drag to rotate. Wheel or pinch to zoom. Controls set deterministic diagnostic bone rotations; they do not represent authored combat animation. Reduced-motion preference disables continuous scene animation.</p>
+</main>
+<script type="module" src="/src/characters/lab/c2-lab.ts"></script>
+</body>
+</html>

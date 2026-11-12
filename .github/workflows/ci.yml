@@ -37,3 +37,12 @@ jobs:
           }
           console.log("Verified Trilok build:", metadata.buildId);
           NODE
+
+      - name: Upload C2 rendered pose screenshots for human review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c2-pose-screenshots
+          path: test-results/c2/*.png
+          if-no-files-found: ignore
+          retention-days: 14
