@@ -107,6 +107,7 @@ export function calibrateHumanBones(
   graph:AnatomicalGraphV1, bones:ReadonlyMap<string,THREE.Bone>,
   skeleton:THREE.Skeleton, root:THREE.Object3D,
   landmarks:ReadonlyMap<string,THREE.Vector3>,
+  forearmSkinBones?:ReadonlyMap<Side,THREE.Bone>,
 ):number {
   let largest=0;
   root.updateMatrixWorld(true);
@@ -122,6 +123,18 @@ export function calibrateHumanBones(
     parent.updateWorldMatrix(true,false);
     bone.position.copy(parent.worldToLocal(world.clone()));
     bone.updateMatrixWorld(true);
+  }
+  // Helpers share the elbow's parent and calibrated origin. Copy AFTER
+  // semantic landmark retargeting, before the inverse bind matrices are saved.
+  for(const side of sideNames){
+    const helper=forearmSkinBones?.get(side);
+    if(!helper)continue;
+    const joint=graph.joints.find(j=>j.role==="elbow_"+side);
+    const elbow=joint?bones.get(joint.id):undefined;
+    if(!elbow||helper.parent!==elbow.parent)
+      throw new Error("Invalid C2 forearm skin helper hierarchy");
+    helper.position.copy(elbow.position);
+    helper.quaternion.copy(elbow.quaternion);
   }
   root.updateMatrixWorld(true);
   skeleton.calculateInverses();
@@ -178,7 +191,10 @@ export function sourceWeightRole(sourceName:string):string|undefined {
   return undefined;
 }
 export function applyOfficialSkinWeights(template:AnatomicalTemplate,
-  graph:AnatomicalGraphV1, rig:SourceRig, data:SourceWeights):RigDiagnostics {
+  graph:AnatomicalGraphV1, rig:SourceRig, data:SourceWeights,
+  /** Optional indices of C2 presentation-only proximal skin references. */
+  proximalForearmIndices?:ReadonlyMap<Side,number>,
+):RigDiagnostics {
   if(rig.license!=="CC0"||data.license!=="CC0")
     throw new Error("Source skin data must be CC0");
   const roles=semanticRoles(graph);
@@ -196,6 +212,19 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
       current=rig.bones[current]?.parent??null;
     }
     if(target===undefined){unmapped.push(name);continue;}
+    // Official lowerarm01 is the proximal weighted forearm segment. Its
+    // reference bone follows elbow flexion but not axial pronation; lowerarm02
+    // stays on the full C1 elbow transform toward the wrist. Preserve source
+    // indices, topology, and all four normalized GPU influences.
+    const lowerarm=/^lowerarm01\.(L|R)$/.exec(name);
+    if(lowerarm&&proximalForearmIndices){
+      const side:Side=lowerarm[1]==="L"?"right":"left";
+      const helper=proximalForearmIndices.get(side);
+      if(helper===undefined||!Number.isSafeInteger(helper)||
+        helper<graph.joints.length||helper>=graph.joints.length+2)
+        throw new Error("Invalid C2 proximal forearm skin index");
+      target=helper;
+    }
     resolved.set(name,target);
   }
   // Exact source-index lookup guarantees UV duplicates and future morph deltas

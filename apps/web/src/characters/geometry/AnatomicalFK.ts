@@ -64,11 +64,26 @@ export class AnatomicalFK {
   readonly palmarNormals: ReadonlyMap<"left" | "right", THREE.Vector3>;
   private readonly graph: AnatomicalGraphV1;
   private readonly bones: ReadonlyMap<string, THREE.Bone>;
+  private readonly proximalForearmSkin: ReadonlyMap<string, THREE.Bone>;
 
   constructor(graph: AnatomicalGraphV1, bones: ReadonlyMap<string, THREE.Bone>,
-    options: { readonly jawTipWorldRest?: THREE.Vector3 } = {}) {
+    options: { readonly jawTipWorldRest?: THREE.Vector3;
+      readonly forearmSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone> } = {}) {
     this.graph = graph;
     this.bones = bones;
+    const helpers = new Map<string, THREE.Bone>();
+    for (const side of ["left", "right"] as const) {
+      const helper = options.forearmSkinBones?.get(side);
+      if (!helper) continue;
+      const joint = graph.joints.find(j => j.role === "elbow_" + side);
+      const elbow = joint ? bones.get(joint.id) : undefined;
+      if (!elbow || helper.parent !== elbow.parent)
+        throw new Error("Invalid skin-only forearm helper " + side);
+      helpers.set(joint!.id, helper);
+    }
+    if (options.forearmSkinBones && helpers.size !== 2)
+      throw new Error("Incomplete forearm skin helpers");
+    this.proximalForearmSkin = helpers;
     const restPositions = new Map<string, THREE.Vector3>();
     const worldQuaternions = new Map<string, THREE.Quaternion>();
     for (const joint of graph.joints) {
@@ -251,13 +266,19 @@ export class AnatomicalFK {
       const frame = this.frames.get(joint.id)!;
       const bone = this.bones.get(joint.id)!;
       bone.quaternion.copy(frame.rest);
+      const helper = this.proximalForearmSkin.get(joint.id);
+      if (helper) helper.quaternion.copy(frame.rest);
       const motions = commands.get(joint.id);
       if (!motions) continue;
       for (const motion of order) {
         const angle = motions.get(motion);
         if (angle === undefined || angle === 0) continue;
-        bone.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
-          frame.freedoms.get(motion)!.axis, angle));
+        const delta = new THREE.Quaternion().setFromAxisAngle(
+          frame.freedoms.get(motion)!.axis, angle);
+        bone.quaternion.multiply(delta);
+        // The proximal forearm follows bend, but excludes pronation.
+        // The semantic elbow + wrist remain fully rotated, preserving C2.3.
+        if (helper && motion !== "rotation") helper.quaternion.multiply(delta);
       }
     }
     this.bones.get(this.graph.joints[0]!.id)!.updateWorldMatrix(true, true);

@@ -145,6 +145,50 @@ describe("C2.2 CC0 source skeleton and weight retarget",()=>{
     }
     template.geometry.dispose();
   });
+  it("separates the source lowerarm01 and lowerarm02 twist references without changing the C1 graph",()=>{
+    const template=parseAnatomicalOBJ(meshSource);
+    const spike=createSkinningSpike({forearmSkinning:true});
+    const beforeIds=spike.graph.joints.map(j=>j.id);
+    const beforeUV=Array.from(template.geometry.getAttribute("uv").array);
+    const beforeVertices=Array.from(template.sourceVertexIds);
+    const beforeIndices=Array.from(template.geometry.getIndex()!.array);
+    const helpers=spike.forearmSkinBones!;
+    expect(spike.skeleton.bones.length).toBe(spike.graph.joints.length+2);
+    for(const side of ["left","right"] as const){
+      const elbow=spike.graph.joints.find(j=>j.role==="elbow_"+side)!;
+      expect(helpers.get(side)!.parent).toBe(spike.bones.get(elbow.id)!.parent);
+    }
+    const helperIndex=(side:"left"|"right")=>
+      spike.skeleton.bones.indexOf(helpers.get(side)!);
+    const source:SourceWeights={license:"CC0",weights:{
+      "lowerarm01.L":[[0,1]],"lowerarm02.L":[[1,1]],
+      "lowerarm01.R":[[2,1]],"lowerarm02.R":[[3,1]],
+    }};
+    const stats=applyOfficialSkinWeights(template,spike.graph,fixtureRig,
+      source,new Map([["left",helperIndex("left")],
+        ["right",helperIndex("right")]]));
+    expect(stats.unweightedVertices).toBe(0);
+    const skin=template.geometry.getAttribute("skinIndex");
+    const skinWeights=template.geometry.getAttribute("skinWeight");
+    const roleIndex=(name:string)=>spike.graph.joints.findIndex(j=>j.role===name);
+    const expected=[
+      helperIndex("right"),roleIndex("elbow_right"),
+      helperIndex("left"),roleIndex("elbow_left"),
+    ];
+    for(let i=0;i<template.sourceVertexIds.length;i++){
+      expect(skin.getX(i)).toBe(expected[template.sourceVertexIds[i]!]!);
+      expect(skinWeights.getX(i)).toBeCloseTo(1,6);
+      let sum=0;
+      for(let k=0;k<4;k++)sum+=skinWeights.getComponent(i,k);
+      expect(sum).toBeCloseTo(1,5);
+    }
+    expect(Array.from(template.sourceVertexIds)).toEqual(beforeVertices);
+    expect(Array.from(template.geometry.getAttribute("uv").array)).toEqual(beforeUV);
+    expect(Array.from(template.geometry.getIndex()!.array)).toEqual(beforeIndices);
+    expect(spike.graph.joints.map(j=>j.id)).toEqual(beforeIds);
+    validateSkinningSpike(spike);
+    template.geometry.dispose();spike.dispose();
+  });
   it("rejects unlicensed or malformed source weight assignments",()=>{
     const template=parseAnatomicalOBJ(meshSource);
     const graph=createAnatomyPreset();

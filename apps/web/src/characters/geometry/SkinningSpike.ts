@@ -13,6 +13,8 @@ export interface SkinningSpike {
   readonly mesh: THREE.SkinnedMesh;
   readonly skeleton: THREE.Skeleton;
   readonly bones: ReadonlyMap<string, THREE.Bone>;
+  /** Optional render-only proximal forearm references; never C1 semantic joints. */
+  readonly forearmSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone>;
   readonly vertexCount: number;
   readonly triangleCount: number;
   dispose(): void;
@@ -20,6 +22,8 @@ export interface SkinningSpike {
 export interface SpikeOptions {
   readonly heightScale?: number;
   readonly shoulderScale?: number;
+  /** Add non-twisting proximal skin references for official imported weights. */
+  readonly forearmSkinning?: boolean;
 }
 function finiteScale(value:number|undefined,name:string):number {
   const n=value??1;
@@ -45,6 +49,25 @@ export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
     (joint.parentId===null?root:bones.get(joint.parentId)!).add(bone);
     bones.set(joint.id,bone);
     boneList.push(bone);
+  }
+  // The source lowerarm01 and lowerarm02 have different weighted skin
+  // segments. Keep the proximal skin free of axial twist while the original
+  // C1 elbow and wrist retain their full, unchanged articulation.
+  // Each helper is a sibling of its elbow, not a C1 joint or wrist parent.
+  const forearmSkinBones = new Map<"left" | "right", THREE.Bone>();
+  if(options.forearmSkinning){
+    for(const side of ["left","right"] as const){
+      const elbowJoint=graph.joints.find(j=>j.role==="elbow_"+side);
+      const elbow=elbowJoint?bones.get(elbowJoint.id):undefined;
+      if(!elbow?.parent)throw new Error("Missing C1 forearm skin anchor");
+      const helper=new THREE.Bone();
+      helper.name="C2_SKIN_PROXIMAL_FOREARM_"+side.toUpperCase();
+      helper.position.copy(elbow.position);
+      helper.quaternion.copy(elbow.quaternion);
+      elbow.parent.add(helper);
+      forearmSkinBones.set(side,helper);
+      boneList.push(helper);
+    }
   }
   root.updateMatrixWorld(true);
   const centers=new Map<string,THREE.Vector3>();
@@ -143,6 +166,7 @@ export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
   });
   let disposed=false;
   return {graph,character,mesh,skeleton,bones,
+    forearmSkinBones:options.forearmSkinning?forearmSkinBones:undefined,
     vertexCount:positions.length/3,triangleCount:indices.length/3,
     dispose(){if(disposed)return;disposed=true;character.dispose();}};
 }
@@ -153,8 +177,19 @@ export function validateSkinningSpike(spike:SkinningSpike):void {
   const uv=g.getAttribute("uv");
   if(!p||!w||!ids||!uv||p.count!==w.count||p.count!==ids.count||p.count!==uv.count)
     throw new Error("Missing or inconsistent skinned attributes");
-  if(spike.skeleton.bones.length!==spike.graph.joints.length)
+  const extra=spike.forearmSkinBones?.size??0;
+  if(spike.skeleton.bones.length!==spike.graph.joints.length+extra ||
+    (extra!==0&&extra!==2))
     throw new Error("Skeleton joint mismatch");
+  for(const [offset,side] of (["left","right"] as const).entries()){
+    const helper=spike.forearmSkinBones?.get(side);
+    if(!helper)continue;
+    const joint=spike.graph.joints.find(j=>j.role==="elbow_"+side);
+    const elbow=joint?spike.bones.get(joint.id):undefined;
+    if(!elbow||helper.parent!==elbow.parent||
+      spike.skeleton.bones[spike.graph.joints.length+offset]!==helper)
+      throw new Error("Invalid proximal forearm skin anchor");
+  }
   for(let i=0;i<p.count;i++){
     let total=0;
     for(let j=0;j<4;j++){

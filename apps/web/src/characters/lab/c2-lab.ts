@@ -244,7 +244,8 @@ try{
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
     fk=new AnatomicalFK(preview.spike.graph,preview.spike.bones,
-      {jawTipWorldRest:preview.jawTipWorldRest});
+      {jawTipWorldRest:preview.jawTipWorldRest,
+        forearmSkinBones:preview.spike.forearmSkinBones});
     if(name==="template"){
       verifyCalibratedHandMotions();
       verifyCalibratedJawOpening();

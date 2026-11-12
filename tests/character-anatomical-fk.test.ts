@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { createAnatomyPreset } from "../packages/character-core/src/index";
-import { createSkinningSpike } from "../apps/web/src/characters/geometry/SkinningSpike";
+import { createSkinningSpike, validateSkinningSpike } from "../apps/web/src/characters/geometry/SkinningSpike";
 import { AnatomicalFK, type JointTarget } from "../apps/web/src/characters/geometry/AnatomicalFK";
 
 function fixture() {
@@ -187,6 +187,50 @@ function tiltedHandFixture() {
     ({ jointId: joint(role, side).id, motion, radians });
   return { rig, fk, world, target };
 }
+
+describe("C2.4 distributed forearm skin FK", () => {
+  it("retains full elbow/wrist pronation and a non-twisting proximal skin anchor", () => {
+    const rig=createSkinningSpike({forearmSkinning:true});
+    const helpers=rig.forearmSkinBones!;
+    const fk=new AnatomicalFK(rig.graph,rig.bones,{forearmSkinBones:helpers});
+    const joints=rig.graph.joints.map(j=>j.id);
+    const initial=rig.skeleton.boneInverses.map(m=>m.toArray());
+    for(const side of ["left","right"] as const){
+      const joint=rig.graph.joints.find(j=>j.role==="elbow_"+side)!;
+      const elbow=rig.bones.get(joint.id)!;
+      const helper=helpers.get(side)!;
+      const wristJoint=rig.graph.joints.find(j=>j.role==="wrist_"+side)!;
+      const wrist=rig.bones.get(wristJoint.id)!;
+      const restElbow=elbow.quaternion.clone();
+      const restWrist=wrist.quaternion.clone();
+      const restHelper=helper.quaternion.clone();
+      const bend={jointId:joint.id,motion:"flexion" as const,radians:1.05};
+      const twist={jointId:joint.id,motion:"rotation" as const,
+        radians:side==="left"?1.15:-1.15};
+      fk.apply([twist,bend]);
+      const combinedElbow=elbow.quaternion.clone();
+      const combinedHelper=helper.quaternion.clone();
+      expect(combinedHelper.angleTo(restHelper)).toBeGreaterThan(.5);
+      expect(combinedElbow.angleTo(combinedHelper)).toBeGreaterThan(.9);
+      expect(wrist.quaternion.angleTo(restWrist)).toBeLessThan(1e-7);
+      fk.apply([bend]);
+      expect(helper.quaternion.angleTo(combinedHelper)).toBeLessThan(1e-7);
+      fk.apply([bend,twist]);
+      expect(elbow.quaternion.angleTo(combinedElbow)).toBeLessThan(1e-7);
+      fk.apply([twist]);
+      expect(helper.quaternion.angleTo(restHelper)).toBeLessThan(1e-7);
+      expect(elbow.quaternion.angleTo(restElbow)).toBeGreaterThan(1);
+      fk.apply([]);
+      expect(elbow.quaternion.angleTo(restElbow)).toBeLessThan(1e-7);
+      expect(helper.quaternion.angleTo(restHelper)).toBeLessThan(1e-7);
+      expect(wrist.quaternion.angleTo(restWrist)).toBeLessThan(1e-7);
+    }
+    expect(rig.skeleton.boneInverses.map(m=>m.toArray())).toEqual(initial);
+    expect(rig.graph.joints.map(j=>j.id)).toEqual(joints);
+    validateSkinningSpike(rig);
+    rig.dispose();
+  });
+});
 
 describe("C2.3 mirrored MakeHuman hand directions", () => {
   it("moves every MCP/PIP/DIP toward the volar side, including individual index curl", () => {
