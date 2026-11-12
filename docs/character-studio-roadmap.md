@@ -130,7 +130,7 @@ Adopt or generate first deformation-friendly human topology, UVs, normals, norma
 
 C2 is limited to the reliable anatomical human mesh/rig foundation. Distinct reviewable milestones:
 
-- **C2.3 Anatomical joint orientations and FK:** rest-relative, calibrated frames for the C1 semantic skeleton; bounded anatomical controls, correctly directed finger/thumb and proximal forearm articulation. Do not conflate technical FK tests with visual skin-deformation approval. Status: implementation in progress in `feat/c2-3-anatomical-fk`.
+- **C2.3 Anatomical joint orientations and FK:** rest-relative frames for the C1 semantic skeleton; bounded anatomical controls and proximal forearm articulation. PR #19 merged, but subsequent live user inspection identified backward finger flexion and thumb opposition. The focused palmar-orientation correction is in PR #20, **pending actual imported CC0 desktop/mobile visual acceptance and CI**. Do not treat the previous technical signoff as proof of correct movement. C2.4 begins only after C2.3 is genuinely accepted.
 - **C2.4 Skinning/deformation:** audit lost source twist/helper influences and improve shoulder, elbow, forearm, wrist, fingers, hip, knee and crouch using targeted weighting, meaningful twist support, or small correctives; preserve original vertex identity, four normalized weights and UV seams. Begin only after C2.3 has passed review and merged.
 - **C2.5 Validation and C3 readiness:** examine complete pose matrix, topology, deterministic FK and skin correspondence, actual desktop/mobile renders, performance and repeated disposal; document C3 shape-ready bind and landmark APIs. Record remaining caveats without declaring AAA quality.
 
