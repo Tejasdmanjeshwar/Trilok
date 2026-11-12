@@ -283,6 +283,79 @@ describe("C2.4 shoulder skin distribution", () => {
   });
 });
 
+describe("C2.4 elbow and wrist skin blends",()=>{
+  it("softens proximal elbow skin flexion while retaining full semantic bend and twist",()=>{
+    const rig=createSkinningSpike({forearmSkinning:true});
+    const fk=new AnatomicalFK(rig.graph,rig.bones,{
+      forearmSkinBones:rig.forearmSkinBones,
+    });
+    const before=rig.graph.joints.map(j=>j.id);
+    const inverses=rig.skeleton.boneInverses.map(m=>m.toArray());
+    for(const side of ["left","right"] as const){
+      const joint=rig.graph.joints.find(j=>j.role==="elbow_"+side)!;
+      const elbow=rig.bones.get(joint.id)!;
+      const helper=rig.forearmSkinBones!.get(side)!;
+      const rest=helper.quaternion.clone();
+      const targets=[
+        {jointId:joint.id,motion:"flexion" as const,radians:1.4},
+        {jointId:joint.id,motion:"rotation" as const,radians:side==="left"?.65:-.65},
+      ];
+      fk.apply(targets);
+      const full=elbow.quaternion.clone();
+      const half=helper.quaternion.clone();
+      fk.apply([targets[0]!]);
+      expect(helper.quaternion.angleTo(rest)).toBeCloseTo(.7,6);
+      expect(elbow.quaternion.angleTo(rest)).toBeCloseTo(1.4,6);
+      fk.apply([...targets].reverse());
+      expect(elbow.quaternion.toArray()).toEqual(full.toArray());
+      expect(helper.quaternion.toArray()).toEqual(half.toArray());
+      fk.apply([]);
+      expect(helper.quaternion.angleTo(rest)).toBeLessThan(1e-7);
+    }
+    expect(rig.graph.joints.map(j=>j.id)).toEqual(before);
+    expect(rig.skeleton.boneInverses.map(m=>m.toArray())).toEqual(inverses);
+    rig.dispose();
+  });
+  it("interpolates wrist-band skin but leaves the hand at full rotation and restores neutral",()=>{
+    const rig=createSkinningSpike({forearmSkinning:true,
+      shoulderSkinning:true,wristSkinning:true});
+    const fk=new AnatomicalFK(rig.graph,rig.bones,{
+      forearmSkinBones:rig.forearmSkinBones,
+      shoulderSkinBones:rig.shoulderSkinBones,
+      wristSkinBones:rig.wristSkinBones,
+    });
+    const initial=rig.skeleton.boneInverses.map(m=>m.toArray());
+    for(const side of ["left","right"] as const){
+      const joint=rig.graph.joints.find(j=>j.role==="wrist_"+side)!;
+      const wrist=rig.bones.get(joint.id)!;
+      const bridge=rig.wristSkinBones!.get(side)!;
+      const opposite=rig.wristSkinBones!.get(side==="left"?"right":"left")!;
+      const rest=wrist.quaternion.clone();
+      const restBridge=bridge.quaternion.clone();
+      const oppositeRest=opposite.quaternion.clone();
+      const targets=[
+        {jointId:joint.id,motion:"flexion" as const,radians:.7},
+        {jointId:joint.id,motion:"abduction" as const,radians:.28},
+      ];
+      fk.apply(targets);
+      const full=wrist.quaternion.clone();
+      const half=bridge.quaternion.clone();
+      expect(restBridge.angleTo(half))
+        .toBeCloseTo(rest.angleTo(full)*.5,5);
+      expect(opposite.quaternion.angleTo(oppositeRest)).toBeLessThan(1e-7);
+      fk.apply([...targets].reverse());
+      expect(wrist.quaternion.toArray()).toEqual(full.toArray());
+      expect(bridge.quaternion.toArray()).toEqual(half.toArray());
+      fk.apply([]);
+      expect(wrist.quaternion.angleTo(rest)).toBeLessThan(1e-7);
+      expect(bridge.quaternion.angleTo(restBridge)).toBeLessThan(1e-7);
+    }
+    expect(rig.skeleton.boneInverses.map(m=>m.toArray())).toEqual(initial);
+    validateSkinningSpike(rig);
+    rig.dispose();
+  });
+});
+
 describe("C2.3 mirrored MakeHuman hand directions", () => {
   it("moves every MCP/PIP/DIP toward the volar side, including individual index curl", () => {
     const { rig, fk, world, target } = tiltedHandFixture();
