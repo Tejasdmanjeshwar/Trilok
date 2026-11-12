@@ -1,6 +1,6 @@
 # Trilok Character Studio — Browser-Native Character System Roadmap (C0–C9)
 
-**Status:** approved C0–C9 planning baseline; the [C0 audited architecture specification](character-studio-c0-architecture.md) is proposed separately. C1 contract implementation is documented in [C1 contracts](character-studio-c1-contracts.md). No anatomical mesh, playable Character Studio, or combat migration is present.  
+**Status:** approved C0–C9 planning baseline; the [C0 audited architecture specification](character-studio-c0-architecture.md) is proposed separately. C1 contracts are documented in [C1 contracts](character-studio-c1-contracts.md). C2 anatomical skinning implementation and known limitations are documented in [C2 technical notes](character-studio-c2-human.md); no full Character Studio or combat migration is present.  
 **Repository baseline at planning time:** main @ db8348bd296a412262781d20a9f444fea474c692; playable 0.4.0-preview.19; combat 0.4-D14.  
 **Scope:** shared, reusable character technology for Ramayana and subsequent campaigns.  
 **First implementation phase:** C0 architecture audit/specification. Review the [C0 ADR](character-studio-c0-architecture.md) and its verification before starting C1.  
@@ -123,7 +123,7 @@ Implement tested, strict-TS versioned rig/anatomy/socket schemas; canonical huma
 
 Adopt or generate first deformation-friendly human topology, UVs, normals, normalized skin weights and calibrated bind pose. Evaluate Rakshasa proportions. Add pose stress-test harness now (shoulder raise, bow draw, elbow/forearm twist, crouch, torso rotation) and inspect renders. Reserve sever-compatible topology.
 
-### C3 — Parametric shaping and head families
+**C2 implementation note:** the first continuous CC0 anatomical body, four-weight procedural skinning and isolated pose-preview harness are specified and audited in [C2 technical notes](character-studio-c2-human.md). This is a structural experiment, **not an art-quality certification**.\n\n### C3 — Parametric shaping and head families
 
 Create bounded body/face parameters, topology families, corrective morphs, bone/IK/socket/refit calculations, stable hashes and extreme-combination tests. Provide custom humanoid heads including primate, avian and bear-like profiles through compatible template families. Dismemberment/disfigurement state remains separate.
 
