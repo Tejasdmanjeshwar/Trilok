@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { parseHm08HumanOBJ } from "../apps/web/src/characters/geometry/Hm08Topology";
 import { createC2Human } from "../apps/web/src/characters/runtime/createC2Human";
-import { applyC2StressPose, C2_STRESS_POSES, inspectC2Pose } from "../apps/web/src/characters/pose/C2PoseStress";
+import { applyC2StressPose, C2_STRESS_POSES, inspectC2Pose, inspectC2HipEdgeStretch } from "../apps/web/src/characters/pose/C2PoseStress";
 import { validateSkinnedHuman } from "../apps/web/src/characters/geometry/validateSkinnedHuman";
 
 const source=readFileSync(new URL("../apps/web/public/characters/hm08/base.obj",import.meta.url),"utf8");
@@ -42,6 +42,10 @@ describe("C2 CC0 continuous anatomical human",()=>{
       expect(result.invalidSamples).toBe(0);
       expect(result.maxDisplacementMeters).toBeLessThan(3.5);
     }
+    applyC2StressPose(human,"crouch");
+    const hip=inspectC2HipEdgeStretch(human);
+    expect(hip.edges).toBeGreaterThan(200);
+    expect(hip.p95Stretch).toBeLessThan(4);
     applyC2StressPose(human,"neutral");
     const neutral=inspectC2Pose(human);
     expect(neutral.maxDisplacementMeters).toBeLessThan(1e-4);
