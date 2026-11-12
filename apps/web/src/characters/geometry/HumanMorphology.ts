@@ -1,0 +1,111 @@
+import * as THREE from "three";
+import { validateHumanMorphologyRecipe, type CharacterRecipeV1,
+  type HumanMorphologyV1 } from "@trilok/character-core";
+import type { AnatomicalHuman } from "./AnatomicalTemplate";
+import { inspectAnatomicalMorphologyBaseline } from "./AnatomicalMorphologyContract";
+import { validateSkinningSpike } from "./SkinningSpike";
+
+/**
+ * C3.1 opt-in, deterministic, rest-space human shape pass. All source IDs,
+ * indexed faces, UV seams, skin ownership and semantic C1 joints are retained.
+ * This first narrow affine body model is not a sculpt, corrective morph, head
+ * generator, segmented severable mesh, or general-purpose re-targeting API.
+ */
+const applied = new WeakSet<AnatomicalHuman>();
+const transform = (v: THREE.Vector3, shape: HumanMorphologyV1): THREE.Vector3 =>
+  v.set(v.x * shape.breadth, v.y * shape.stature, v.z * shape.breadth);
+
+export interface AppliedHumanMorphologyV1 {
+  readonly generatorVersion: string;
+  readonly vertices: number;
+  readonly joints: number;
+  readonly stature: number;
+  readonly breadth: number;
+}
+
+/**
+ * Mutates only one *owned*, bound, neutral-pose AnatomicalHuman instance.
+ * Use loadAnatomicalHuman/bindTemplateToSemanticRig to create a fresh instance
+ * for each recipe. Validation completes before changing rest positions.
+ */
+export function applyHumanMorphology(
+  human: AnatomicalHuman,
+  recipe: CharacterRecipeV1,
+): AppliedHumanMorphologyV1 {
+  const shape = validateHumanMorphologyRecipe(recipe);
+  if (applied.has(human)) throw new Error("C3 morphology already applied: rebuild from the source");
+  inspectAnatomicalMorphologyBaseline(human);
+  const {spike, mesh, template} = human;
+  if (spike.graph.topologyFamilyId !== recipe.topologyFamilyId ||
+      spike.graph.headTopologyFamilyId !== "head_human_v1" ||
+      mesh.geometry !== template.geometry)
+    throw new Error("C3 morphology requires the pinned human anatomy/mesh");
+  const root = spike.character.root;
+  root.updateMatrixWorld(true);
+  const rootInverse = root.matrixWorld.clone().invert();
+  const allBones = spike.skeleton.bones;
+  const oldLocalPositions = allBones.map(b =>
+    b.getWorldPosition(new THREE.Vector3()).applyMatrix4(rootInverse));
+  // Reject posed rigs; this API does not alter current animation state or FK.
+  for (let i = 0; i < allBones.length; i++) {
+    const bone = allBones[i]!;
+    const skin = bone.matrixWorld.clone().multiply(spike.skeleton.boneInverses[i]!);
+    const e = skin.elements;
+    if (e.some((x, j) => Math.abs(x - (j % 5 === 0 ? 1 : 0)) > 1e-5))
+      throw new Error("C3 morphology requires a neutral-pose rest skeleton");
+  }
+  const geometry = mesh.geometry;
+  const pos = geometry.getAttribute("position");
+  const normal = geometry.getAttribute("normal");
+  if (!pos || !normal || pos.count !== normal.count ||
+      pos.itemSize !== 3 || normal.itemSize !== 3)
+    throw new Error("Missing human position/normal attributes");
+  // Test all transformed inputs and skeleton targets before the first write.
+  for (let i = 0; i < pos.count; i++) {
+    if (![pos.getX(i), pos.getY(i), pos.getZ(i),
+          normal.getX(i), normal.getY(i), normal.getZ(i)].every(Number.isFinite))
+      throw new Error("Nonfinite C3 rest surface");
+  }
+  const nextBonePositions = oldLocalPositions.map(p => transform(p.clone(), shape));
+  const restWorld = root.matrixWorld.clone();
+  // The Three.js scale stays exactly one. Bone translations and inverse binds
+  // follow the same mapping as surface positions; no root scaling shortcuts.
+  for (let i = 0; i < allBones.length; i++) {
+    const bone = allBones[i]!;
+    const parent = bone.parent;
+    if (!parent) throw new Error("Missing anatomical bone parent");
+    parent.updateWorldMatrix(true, false);
+    const targetWorld = nextBonePositions[i]!.clone().applyMatrix4(restWorld);
+    bone.position.copy(parent.worldToLocal(targetWorld));
+    bone.updateMatrixWorld(true);
+  }
+  root.updateMatrixWorld(true);
+  spike.skeleton.calculateInverses();
+  const p = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i);
+    transform(p, shape);
+    pos.setXYZ(i, p.x, p.y, p.z);
+    // Inverse transpose of the positive, diagonal anatomical rest transform:
+    p.set(normal.getX(i) / shape.breadth,
+      normal.getY(i) / shape.stature, normal.getZ(i) / shape.breadth).normalize();
+    normal.setXYZ(i, p.x, p.y, p.z);
+  }
+  pos.needsUpdate = true;
+  normal.needsUpdate = true;
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  if (human.jawTipWorldRest) {
+    const original = human.jawTipWorldRest.clone().applyMatrix4(rootInverse);
+    human.jawTipWorldRest.copy(transform(original, shape).applyMatrix4(restWorld));
+  }
+  validateSkinningSpike(spike);
+  applied.add(human);
+  return Object.freeze({
+    generatorVersion: recipe.generatorVersion,
+    vertices: pos.count,
+    joints: spike.graph.joints.length,
+    stature: shape.stature,
+    breadth: shape.breadth,
+  });
+}
