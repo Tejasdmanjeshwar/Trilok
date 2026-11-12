@@ -121,6 +121,9 @@ Implement tested, strict-TS versioned rig/anatomy/socket schemas; canonical huma
 
 **C1 implementation note:** the pure character-core, semantic runtime and test-only legacy bridge are in [C1 contract notes](character-studio-c1-contracts.md). C1 has not implemented skinning, a renderable model or a Studio page.\n\n### C2 — Continuous procedural skinned human
 
+**C2 research slice:** [feasibility notes](character-studio-c2-feasibility.md) describe the experimental unified SkinnedMesh, standalone rendered pose lab and open anatomical quality gates. The prototype is not a production-quality finished human; definitive C2 topology/skin weighting/seam approval remains pending.
+
+
 Adopt or generate first deformation-friendly human topology, UVs, normals, normalized skin weights and calibrated bind pose. Evaluate Rakshasa proportions. Add pose stress-test harness now (shoulder raise, bow draw, elbow/forearm twist, crouch, torso rotation) and inspect renders. Reserve sever-compatible topology.
 
 ### C3 — Parametric shaping and head families
