@@ -42,7 +42,7 @@ if (!host) throw new Error("Missing application element.");
 host.innerHTML = [
   '<main class="game"><div id="viewport" class="viewport"></div><div class="vignette"></div>',
   '<header class="top"><div class="brand-stack"><div class="brand">✦ <strong>TRILOK</strong><span id="playable-version"></span></div>',
-  '<details class="build-picker"><summary id="build-summary" aria-label="Show build version and commit details"></summary>',
+  '<div class="header-links"><details class="build-picker"><summary id="build-summary" aria-label="Show build version and commit details"></summary>',
   '<div class="build-popover"><div class="build-field"><b>PLAYABLE</b><span id="build-playable"></span></div>',
   '<div class="build-field"><b>COMBAT CORE</b><span id="build-core"></span></div>',
   '<div class="build-field"><b>CHANNEL</b><span id="build-channel"></span></div>',
@@ -50,7 +50,7 @@ host.innerHTML = [
   '<div class="build-field"><b>BUILT (UTC)</b><span id="build-time"></span></div>',
   '<div class="build-field"><b>BUILD ID</b><code id="build-id"></code></div>',
   '<div class="build-actions"><button type="button" id="copy-build">COPY DETAILS</button><a href="/build-info.json" target="_blank" rel="noopener noreferrer">MANIFEST</a></div>',
-  '</div></details></div>',
+  '</div></details><a id="character-lab-link" class="lab-link" href="/c2-lab.html" aria-label="Open experimental Character Lab">✦ CHARACTER LAB</a></div></div>',
   '<div class="tools"><span id="fps">— FPS</span><button id="quality" type="button" aria-label="Toggle graphics quality">⚙ HIGH</button>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',
