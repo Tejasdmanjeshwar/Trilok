@@ -87,6 +87,12 @@ The CC0 `wrist.L/R` source region (248 vertices per side) previously mapped dire
 
 The 50% blend in each region is a **provisional limited linear-blend skinning approximation**, not anatomically measured muscle-volume correction or proof of improved real renders. Potential elbow fold collapse, candy-wrapper twist, wrist narrowing and finger-palm intersections require actual front/side/close-up WebGL review. Do not equate unit-test success with visual signoff; the complete Phase Acceptance Chromium matrix belongs to C2.5.
 
+## C2.4 corrective wrist regression and headless geometry guard
+
+PR #26 tried to soften wrist deformation by mapping the official source `wrist.L/R` skin weights to a 50%-rotating sibling of the C1 wrist, while the metacarpals followed the full C1 wrist. This independently rotating skin band can produce a visible separation from the actual wrist bone/hand. The corrective slice removes the wrist skin helper and assigns the original `wrist.L/R` source weights directly back to the full semantic C1 wrist, without modifying finger, thumb, jaw, source topology, UV seams, source IDs, or earlier C2.4 shoulder/forearm helpers. No arbitrary replacement percentage is introduced.
+
+The new **headless real-asset regression** uses the pinned CC0 OBJ, `default.mhskel` and `default_weights.mhw`. It selects source wrist vertices influenced solely by wrist/metacarpal segments, then computes actual CPU-skinned positions from `SkinnedMesh.getVertexPosition` under rest, bilateral flexion/deviation, elbow pronation plus wrist movement, and combined elbow flexion/wrist movement. For those vertices, independently calculate the full wrist rigid transformation using the original neutral vertices and measured wrist world matrices. Any skin bridge that follows only part of wrist motion fails the distance-to-expected constraint, even when skin weights are normalized and bone matrices finite. A controlled mis-weight mutation proves the geometric check detects erroneous bone attachment. A pinned asset integrity check now runs before the normal Vitest suite via `pnpm test`; existing fast CI automatically exercises the new gate and still includes the 1,000-seed combat replay. These tests verify *one measurable geometric invariant*; other wrist volume/creases, anatomical plausibility and full-pose visual review remain open until C2.5.
+
 ## C2.2 experimental official CC0 rig/weight retarget
 
 The follow-up branch `feat/c2-2-official-rig-weights` adopts two additional data-only
