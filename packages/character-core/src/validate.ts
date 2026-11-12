@@ -167,7 +167,7 @@ export function validateAnatomicalGraph(graph: AnatomicalGraphV1,
   for(const zone of graph.severZones) {
     check(nonEmpty(zone.id) && nonEmpty(zone.seamLoopId) && nonEmpty(zone.capAssetId),
       "sever metadata");
-    check(segments.get(zone.segmentId)?.parentId!==null,"sever root/unknown segment");
+    check(segments.has(zone.segmentId) && segments.get(zone.segmentId)!.parentId!==null,"sever root/unknown segment");
     check(!severSegmentIds.has(zone.segmentId),"duplicate sever segment");
     severSegmentIds.add(zone.segmentId);
   }
