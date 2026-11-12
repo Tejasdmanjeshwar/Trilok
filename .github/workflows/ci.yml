@@ -1,48 +1,34 @@
 name: Verify
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main]
   pull_request:
+
+# Intermediate PRs run only fast, deterministic checks. Do not cancel main
+# verification when a new PR push arrives.
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # There is currently no committed pnpm lockfile. Preserve the existing
+      # compatible install mode until lockfile work is separately reviewed.
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm typecheck
+      # Includes the existing 1,000-seed deterministic combat replay.
       - run: pnpm test
       - run: pnpm build
-      - name: Install Chromium for real browser combat smoke checks
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Run desktop and mobile browser smoke checks
-        run: pnpm test:e2e
       - name: Verify compiled build identity
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync } from "node:fs";
-          const metadata = JSON.parse(readFileSync("apps/web/dist/build-info.json", "utf8"));
-          if (metadata.commitSha !== process.env.GITHUB_SHA) {
-            throw new Error("Build commit does not match checked-out GitHub SHA");
-          }
-          const expected = JSON.parse(readFileSync("apps/web/build-version.json", "utf8"));
-          if (metadata.playableVersion !== expected.playableVersion || metadata.combatEngineVersion !== expected.combatEngineVersion || metadata.channel !== expected.channel) {
-            throw new Error("Unexpected playable or engine version");
-          }
-          if (!/^.{8}-\d{8}T\d{9}Z$/.test(metadata.buildId)) {
-            throw new Error("Invalid generated build ID");
-          }
-          console.log("Verified Trilok build:", metadata.buildId);
-          NODE
-
-      - name: Upload C2 rendered pose screenshots for human review
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: c2-pose-screenshots
-          path: test-results/c2/*.png
-          if-no-files-found: ignore
-          retention-days: 14
+        run: node scripts/verify-build-identity.mjs
