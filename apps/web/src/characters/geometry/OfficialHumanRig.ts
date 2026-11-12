@@ -146,10 +146,11 @@ export function calibrateHumanBones(
     const joint=graph.joints.find(j=>j.role==="shoulder_"+side);
     const shoulder=joint?bones.get(joint.id):undefined;
     const source=landmarks.get("shoulder01"+suffix(side));
-    if(!shoulder||helper.parent!==shoulder.parent||!source)
+    const parent=helper.parent;
+    if(!shoulder||!parent||parent!==shoulder.parent||!source)
       throw new Error("Invalid CC0 shoulder connector landmark");
-    helper.parent.updateWorldMatrix(true,false);
-    helper.position.copy(helper.parent.worldToLocal(source.clone()));
+    parent.updateWorldMatrix(true,false);
+    helper.position.copy(parent.worldToLocal(source.clone()));
     helper.quaternion.copy(shoulder.quaternion);
   }
   root.updateMatrixWorld(true);
