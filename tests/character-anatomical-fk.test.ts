@@ -232,6 +232,57 @@ describe("C2.4 distributed forearm skin FK", () => {
   });
 });
 
+describe("C2.4 shoulder skin distribution", () => {
+  it("drives the intermediate shoulder connector without changing semantic FK", () => {
+    const rig=createSkinningSpike({forearmSkinning:true,shoulderSkinning:true});
+    const fk=new AnatomicalFK(rig.graph,rig.bones,{
+      forearmSkinBones:rig.forearmSkinBones,
+      shoulderSkinBones:rig.shoulderSkinBones,
+    });
+    const semanticIds=rig.graph.joints.map(j=>j.id);
+    const restInverses=rig.skeleton.boneInverses.map(m=>m.toArray());
+    for(const side of ["left","right"] as const){
+      const joint=rig.graph.joints.find(j=>j.role==="shoulder_"+side)!;
+      const shoulder=rig.bones.get(joint.id)!;
+      const connector=rig.shoulderSkinBones!.get(side)!;
+      const opposite=rig.shoulderSkinBones!.get(side==="left"?"right":"left")!;
+      const restShoulder=shoulder.quaternion.clone();
+      const restConnector=connector.quaternion.clone();
+      const restOpposite=opposite.quaternion.clone();
+      const targets=[
+        {jointId:joint.id,motion:"abduction" as const,radians:1.4},
+        {jointId:joint.id,motion:"flexion" as const,radians:.7},
+      ];
+      fk.apply(targets);
+      const full=shoulder.quaternion.clone();
+      const half=connector.quaternion.clone();
+      const fullAngle=restShoulder.angleTo(full);
+      const halfAngle=restConnector.angleTo(half);
+      expect(fullAngle).toBeGreaterThan(.5);
+      expect(halfAngle).toBeCloseTo(fullAngle*.5,5);
+      expect(opposite.quaternion.angleTo(restOpposite)).toBeLessThan(1e-7);
+      fk.apply([...targets].reverse());
+      expect(shoulder.quaternion.toArray()).toEqual(full.toArray());
+      expect(connector.quaternion.toArray()).toEqual(half.toArray());
+      fk.apply([]);
+      expect(shoulder.quaternion.angleTo(restShoulder)).toBeLessThan(1e-7);
+      expect(connector.quaternion.angleTo(restConnector)).toBeLessThan(1e-7);
+    }
+    expect(rig.graph.joints.map(j=>j.id)).toEqual(semanticIds);
+    expect(rig.skeleton.boneInverses.map(m=>m.toArray())).toEqual(restInverses);
+    validateSkinningSpike(rig);
+    rig.dispose();
+  });
+  it("leaves disabled shoulder references entirely absent from the C1 diagnostic",()=>{
+    const rig=createSkinningSpike();
+    expect(rig.shoulderSkinBones).toBeUndefined();
+    expect(rig.skeleton.bones.length).toBe(rig.graph.joints.length);
+    const fk=new AnatomicalFK(rig.graph,rig.bones);
+    expect(()=>fk.apply([])).not.toThrow();
+    rig.dispose();
+  });
+});
+
 describe("C2.3 mirrored MakeHuman hand directions", () => {
   it("moves every MCP/PIP/DIP toward the volar side, including individual index curl", () => {
     const { rig, fk, world, target } = tiltedHandFixture();
