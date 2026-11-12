@@ -1,4 +1,4 @@
-# C2.3 — Anatomical forward kinematics (in progress)
+# C2.3 — Anatomical forward kinematics (verified directional foundation)
 
 The C1 anatomical graph and bind-pose identifiers remain unchanged. The C2.3
 laboratory introduces `AnatomicalFK`, a Three.js presentation-layer pose
@@ -47,10 +47,19 @@ invariance, rest restoration, semantic coverage, two-hand finger control,
 forearm versus wrist behavior, clamping, and atomic rejection of invalid
 targets. Existing CC0 rig and combat suites remain required gates.
 
-**Outstanding before C2.3 acceptance:** verify these tests and type/build in
-GitHub Actions; inspect actual imported-CC0 Chromium hand and arm screenshots
-in both desktop and mobile configurations; correct conspicuous direction or
-intersection defects. The FK mathematics alone is not proof of visual quality.
+**C2.3 closure verification:** PR #20 direction correction passed GitHub Verify
+on commit `79c43c1c2500e62ec5a30f8b4c0f45f3ce1b3297` (run 43209802945):
+TypeScript, Vitest including 1,000-seed combat replays, production build,
+desktop/touch Chromium and compiled build identity. The actual imported CC0
+browser rig asserts signed positive-volar flexion for each finger phalanx
+on both hands, and thumb motion toward the opposing ring knuckle.
+
+Human review of the **actual** 34 desktop/touch screenshot captures found
+neutral hands stable, index curl and fist closure inward on both sides,
+recognizable fists, thumb motion across the palm, and no conspicuous new
+forearm/full-body regressions in the existing poses. Screenshots are in the
+`c2-pose-screenshots` artifact of run 43209802945. This is C2.3 **directional
+FK** acceptance only, not C2.4 skin-volume/contact quality approval.
 
 **Next:** C2.4 weight and twist quality, including source lowerarm02 transfer,
 followed by C2.5 stress-pose validation and C3 readiness.
@@ -72,7 +81,7 @@ fixtures assert signed volar displacement for each non-thumb phalanx and
 cross-palm thumb opposition, not merely nonzero movement or proximity to a
 palm joint. The synthetic C1 prototype has a schematic palm-plane fallback.
 
-**Acceptance condition:** C2.3 remains under review until the follow-up PR's
-CI and actual CC0 WebGL desktop/mobile screenshot inspection confirm the
-correction. Numeric motion tests alone do not establish satisfactory fist
-closure, surface contact, or skin deformation; the latter remains C2.4.
+**Acceptance verdict:** Directional FK and basic hand pose correctness have
+passed CI and actual CC0 WebGL screenshot inspection for desktop and touch.
+Skin-volume preservation, perfect digit contact, and distributed forearm
+deformation remain C2.4; C2.5 owns the full stress-pose matrix.
