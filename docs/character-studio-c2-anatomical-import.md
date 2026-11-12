@@ -40,3 +40,23 @@ The original implicit surface remains selectable to compare failures. The lab ad
 4. Author **metadata-only** candidate sever boundaries from validated source edge loops, source segment ownership and injury anchors. Do **not** slice or dismember runtime meshes yet.
 5. Profile parsing/rendering and regeneration/cleanup on low-end touch and desktop; evaluate compact asset conversion and future morph targets. Verify 1,000-seed combat regression plus normal D14 e2e tests.
 6. Do not unlock C3 parameter customization, C4 Studio, or replacement of `AnimatedWarrior` based on a recognizable neutral face alone.
+
+## Body-only topology and visual review (2026-11-12)
+
+[GitHub Verify run 43182529817](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43182529817) passed TypeScript, **37 Vitest files / 217 tests**, pinned SHA-256 production build, **12 desktop and mobile Chromium tests**, and built-identity verification. Browser logs reported for the **body group alone**:
+
+| Metric | Incorrect all-group import | Corrected body-only import |
+| --- | ---: | ---: |
+| Rendered vertices (UV seam split) | 21,833 | 14,517 |
+| Triangles | 36,972 | 26,756 |
+| Source `v` records retained (for morph indexing) | 19,158 | 19,158 |
+| Connected source-face components | 154 | **1** |
+| Topological boundary edges | 784 | **0** |
+| Non-manifold edges (>2 incident triangles) | 0 | **0** |
+| Source topology height (Y units, before metric conversion) | 16.946 (includes helpers) | **16.659 (body only)** |
+
+The body-only surface is a single connected closed manifold by the tested *edge-incidence* definition, not yet by a complete self-intersection/solid-winding test. Measured render geometry is materially better than the earlier capsule/implicit mannequin. **Excluding helper surfaces** fixed an observed floor-length skirt artifact. The additional e2e checks now reject helper import regressions by asserting the real source has one topology component and zero open/non-manifold edges on both device projects.
+
+**Actually inspected, not just collected:** WebGL viewport screenshots (desktop and simulated mobile touch) for neutral A-like pose, shoulder raise, arms overhead, deep crouch and wireframe/skeleton overlays. Neutral now has distinct feet, individual fingers, recognizable facial features and visible hip/leg anatomy. The skirt artifact is absent. The shoulders/elbows and crouch are visibly deforming without an obvious detached shell in these views. These images are *engineering review evidence*, not professional deformation signoff: shoulder elevation/wrist twist silhouette and groin folding still need close frontal/side/back inspection; hand grip poses do not prove finger articulation; full materials/face/eye topology, corrective shapes, robust weight painting, severing loops and performance baselines are **not** validated. Keep issue #15 open and do not enable C3/C4 or swap D14 actors.
+
+**Repeatable screenshot review:** The CI workflow uploads the `c2-pose-screenshots` artifact for 14 days. This review used the viewport-only screenshots from run 43182529817, not the earlier unusably cropped full-page captures. Future releases need more complete pose/device/budget gates.
