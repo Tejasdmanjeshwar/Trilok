@@ -316,40 +316,39 @@ describe("C2.4 elbow and wrist skin blends",()=>{
     expect(rig.skeleton.boneInverses.map(m=>m.toArray())).toEqual(inverses);
     rig.dispose();
   });
-  it("interpolates wrist-band skin but leaves the hand at full rotation and restores neutral",()=>{
-    const rig=createSkinningSpike({forearmSkinning:true,
-      shoulderSkinning:true,wristSkinning:true});
+  it("preserves full bilateral wrist FK and exact rest recovery without a skin bridge",()=>{
+    const rig=createSkinningSpike({forearmSkinning:true,shoulderSkinning:true});
     const fk=new AnatomicalFK(rig.graph,rig.bones,{
       forearmSkinBones:rig.forearmSkinBones,
       shoulderSkinBones:rig.shoulderSkinBones,
-      wristSkinBones:rig.wristSkinBones,
     });
+    const originalIds=rig.graph.joints.map(j=>j.id);
     const initial=rig.skeleton.boneInverses.map(m=>m.toArray());
+    const wristBones=rig.graph.joints.filter(j=>j.role.startsWith("wrist_"));
+    expect(wristBones).toHaveLength(2);
+    expect(rig.skeleton.bones.length).toBe(rig.graph.joints.length+4);
     for(const side of ["left","right"] as const){
-      const joint=rig.graph.joints.find(j=>j.role==="wrist_"+side)!;
-      const wrist=rig.bones.get(joint.id)!;
-      const bridge=rig.wristSkinBones!.get(side)!;
-      const opposite=rig.wristSkinBones!.get(side==="left"?"right":"left")!;
+      const wristJoint=rig.graph.joints.find(j=>j.role==="wrist_"+side)!;
+      const wrist=rig.bones.get(wristJoint.id)!;
+      const oppositeJoint=rig.graph.joints.find(j=>j.role==="wrist_"+
+        (side==="left"?"right":"left"))!;
+      const opposite=rig.bones.get(oppositeJoint.id)!;
       const rest=wrist.quaternion.clone();
-      const restBridge=bridge.quaternion.clone();
       const oppositeRest=opposite.quaternion.clone();
-      const targets=[
-        {jointId:joint.id,motion:"flexion" as const,radians:.7},
-        {jointId:joint.id,motion:"abduction" as const,radians:.28},
+      const commands=[
+        {jointId:wristJoint.id,motion:"flexion" as const,radians:.7},
+        {jointId:wristJoint.id,motion:"abduction" as const,radians:.28},
       ];
-      fk.apply(targets);
+      fk.apply(commands);
       const full=wrist.quaternion.clone();
-      const half=bridge.quaternion.clone();
-      expect(restBridge.angleTo(half))
-        .toBeCloseTo(rest.angleTo(full)*.5,5);
+      expect(rest.angleTo(full)).toBeGreaterThan(.7);
       expect(opposite.quaternion.angleTo(oppositeRest)).toBeLessThan(1e-7);
-      fk.apply([...targets].reverse());
+      fk.apply([...commands].reverse());
       expect(wrist.quaternion.toArray()).toEqual(full.toArray());
-      expect(bridge.quaternion.toArray()).toEqual(half.toArray());
       fk.apply([]);
       expect(wrist.quaternion.angleTo(rest)).toBeLessThan(1e-7);
-      expect(bridge.quaternion.angleTo(restBridge)).toBeLessThan(1e-7);
     }
+    expect(rig.graph.joints.map(j=>j.id)).toEqual(originalIds);
     expect(rig.skeleton.boneInverses.map(m=>m.toArray())).toEqual(initial);
     validateSkinningSpike(rig);
     rig.dispose();
