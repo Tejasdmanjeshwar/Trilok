@@ -332,3 +332,41 @@ test("Character Lab viewport and diagnostic controls work at narrow touch width"
   await page.getByRole("button",{name:"Close pose library"}).click();
   await expect(page.locator("#viewport")).toBeVisible();
 });
+
+test("Character Lab pose/camera selectors occupy the sidebar without covering the rendered view",async({page})=>{
+  test.setTimeout(90_000);
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  const viewport=page.locator("#viewport");
+  const pose=page.getByRole("combobox",{name:"Select anatomical pose"});
+  const camera=page.getByRole("combobox",{name:"Select camera view"});
+  await expect(viewport).toBeVisible();
+  await expect(page.getByRole("region",{name:"Pose and camera controls"})).toBeVisible();
+  const isNarrow=await page.evaluate(()=>window.matchMedia("(max-width:980px)").matches);
+  for(const id of ["pose-select","view-select"]){
+    const control=page.locator("#"+id);
+    await control.scrollIntoViewIfNeeded();
+    const view=await viewport.boundingBox(),field=await control.boundingBox();
+    expect(view).not.toBeNull();
+    expect(field).not.toBeNull();
+    const overlapX=Math.max(0,Math.min(view!.x+view!.width,field!.x+field!.width)-
+      Math.max(view!.x,field!.x));
+    const overlapY=Math.max(0,Math.min(view!.y+view!.height,field!.y+field!.height)-
+      Math.max(view!.y,field!.y));
+    expect(overlapX*overlapY,"Sidebar "+id+" must not obscure the WebGL viewport").toBe(0);
+    if(!isNarrow)expect(field!.x).toBeGreaterThanOrEqual(view!.x+view!.width);
+    else expect(field!.y).toBeGreaterThanOrEqual(view!.y+view!.height);
+  }
+  await pose.selectOption("overhead");
+  await camera.selectOption("rear");
+  await expect(page.locator("#status")).toContainText("overhead");
+  await expect(page.locator("#active-view-label")).toContainText("Rear");
+  await expect(viewport.locator("canvas")).toBeVisible();
+  mkdirSync("test-results/c2",{recursive:true});
+  await page.screenshot({
+    path:"test-results/c2/"+test.info().project.name+"-sidebar-pose-controls.png",
+    fullPage:false,
+  });
+  await page.locator("#reset-pose").click();
+  await expect(pose).toHaveValue("neutral");
+});
