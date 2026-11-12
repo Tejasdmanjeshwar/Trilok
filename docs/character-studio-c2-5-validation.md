@@ -165,3 +165,34 @@ and joint collapse. The computed values are descriptive evidence and are
 corrective-shape or anatomy quality test. Compare the reported numbers to
 rendered axilla, hip/groin, knee, jaw and wrist views before adjudicating any
 blocker. Do not invent a global volume/strain pass threshold after the fact.
+
+## Viewer-first Character Lab usability improvement (C2.5 diagnostic interface)
+
+The original lab put the entire 54-pose matrix and all region cameras *above*
+the Three.js canvas. Repeated scrolling made visual evaluation unnecessarily
+difficult. The revised lab keeps the character viewport immediately below a
+compact pose and camera toolbar, with quick poses and camera shortcuts, a
+searchable, region-filtered pose library in a dismissible dialog/mobile sheet,
+and a collapsible Bone Inspector and advanced geometry overlays.
+
+The actual `ANATOMICAL_POSE_MATRIX` remains authoritative; control labels,
+filters and modal presentation are defined independently in
+`CharacterLabControls.ts`. The selector and browser invoke the exact same
+`AnatomicalFK` target resolver used by previous diagnostic buttons.
+All 54 supported poses, anatomical camera IDs, optional source switching,
+Bone Inspector semantic IDs and deterministic screenshot camera states remain
+accessible. Old `[data-pose]` IDs remain on generated library buttons for
+diagnostics; test automation uses the user-facing selects to avoid requiring
+the library to stay open when reviewing a pose.
+
+Expected UX acceptance: the 3D viewer is visible without scrolling through
+pose lists on desktop and narrow touch screens; the pose search and region
+filter are keyboard-usable; the library closes with Escape or a close button,
+restores focus, and uses a focus loop; selected pose remains visible outside
+the dialog; the inspector remains available without blocking the viewport.
+The body does not scroll while the pose browser is open. Browser screenshots,
+touch interaction and accessibility checks must be inspected as part of the
+manual C2 phase gate; a passing fast PR CI alone does not prove visual polish.
+
+No C1 semantic contract, FK angles, skin weights, geometry, combat behavior or
+C3 morphology features were changed for this UI-only slice.

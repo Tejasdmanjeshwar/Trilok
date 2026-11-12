@@ -1,4 +1,7 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+const choosePose = (page:Page,id:string) => page.locator("#pose-select").selectOption(id);
+const chooseView = (page:Page,id:string) => page.locator("#view-select").selectOption(id);
 import { mkdirSync } from "node:fs";
 
 test("C2 isolated preview renders and changes poses without touching battle",async({page})=>{
@@ -26,52 +29,53 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   mkdirSync("test-results/c2",{recursive:true});
   const platform=test.info().project.name;
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-neutral.png"});
+  await page.getByText("Geometry overlays",{exact:true}).click();
   await page.locator('[data-debug="skeleton"]').check();
-  await page.locator('[data-pose="overhead"]').click();
+  await choosePose(page,"overhead");
   await expect(page.locator("#status")).toContainText("overhead");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-overhead.png"});
   await page.locator('[data-debug="wireframe"]').check();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-wireframe.png"});
   await page.locator('[data-debug="wireframe"]').uncheck();
   await page.locator('[data-debug="skeleton"]').uncheck();
-  await page.locator('[data-pose="shoulder"]').click();
+  await choosePose(page,"shoulder");
   await expect(page.locator('[data-pose="shoulder"]')).toHaveAttribute("aria-pressed","true");
   await expect(page.locator("#status")).toContainText("shoulder");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-shoulder.png"});
-  await page.locator('[data-pose="crouch"]').click();
+  await choosePose(page,"crouch");
   await expect(page.locator("#status")).toContainText("crouch");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-crouch.png"});
-  await page.locator('[data-view="hand-left"]').click();
+  await chooseView(page,"hand-left");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-neutral-hand-left.png"});
-  await page.locator('[data-view="hand-right"]').click();
+  await chooseView(page,"hand-right");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-neutral-hand-right.png"});
-  await page.locator('[data-pose="fist"]').click();
+  await choosePose(page,"fist");
   await expect(page.locator("#status")).toContainText("fist");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist.png"});
-  await page.locator('[data-view="hand-left"]').click();
+  await chooseView(page,"hand-left");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist-hand-left.png"});
-  await page.locator('[data-view="hand-right"]').click();
+  await chooseView(page,"hand-right");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist-hand-right.png"});
-  await page.locator('[data-pose="index"]').click();
+  await choosePose(page,"index");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-index-hand-right.png"});
-  await page.locator('[data-view="hand-left"]').click();
+  await chooseView(page,"hand-left");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-index-hand-left.png"});
-  await page.locator('[data-view="hand-right"]').click();
-  await page.locator('[data-pose="thumb"]').click();
+  await chooseView(page,"hand-right");
+  await choosePose(page,"thumb");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-thumb-hand-right.png"});
-  await page.locator('[data-view="hand-left"]').click();
+  await chooseView(page,"hand-left");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-thumb-hand-left.png"});
-  await page.locator('[data-view="front"]').click();
-  await page.locator('[data-pose="forearm"]').click();
+  await chooseView(page,"front");
+  await choosePose(page,"forearm");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-forearm.png"});
-  await page.locator('[data-pose="sword"]').click();
-  await page.locator('[data-view="side"]').click();
+  await choosePose(page,"sword");
+  await chooseView(page,"side");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-sword-side.png"});
-  await page.locator('[data-view="rear"]').click();
-  await page.locator('[data-pose="overhead"]').click();
+  await chooseView(page,"rear");
+  await choosePose(page,"overhead");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-overhead-rear.png"});
-  await page.locator('[data-view="front"]').click();
-  await page.locator('[data-pose="neutral"]').click();
+  await chooseView(page,"front");
+  await choosePose(page,"neutral");
   await expect(page.locator("#status")).toContainText("neutral");
   expect(errors).toEqual([]);
   await page.goto("/");
@@ -90,15 +94,15 @@ test("Imported CC0 jaw opens downward and renders from front and side",async({pa
   await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
   mkdirSync("test-results/c2",{recursive:true});
   const platform=test.info().project.name;
-  await page.locator('[data-pose="neutral"]').click();
-  await page.locator('[data-view="head-front"]').click();
+  await choosePose(page,"neutral");
+  await chooseView(page,"head-front");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-neutral-front.png"});
-  await page.locator('[data-view="head-side"]').click();
+  await chooseView(page,"head-side");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-neutral-side.png"});
-  await page.locator('[data-pose="jaw"]').click();
+  await choosePose(page,"jaw");
   await expect(page.locator("#status")).toContainText("jaw");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-open-side.png"});
-  await page.locator('[data-view="head-front"]').click();
+  await chooseView(page,"head-front");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-open-front.png"});
   expect(errors).toEqual([]);
 });
@@ -109,6 +113,7 @@ test("C2 Bone Inspector searches canonical joint IDs and maintains marker select
   await page.goto("/c2-lab.html");
   await expect(page.locator("html")).toHaveAttribute("data-c2-source", "template", { timeout: 60_000 });
   await expect(page.getByRole("heading", { name: "Bone inspector" })).toBeVisible();
+  await page.getByRole("button",{name:"Inspect bones"}).click();
   const search = page.getByRole("searchbox", { name: "Search bone name or semantic ID" });
   const region = page.getByRole("combobox", { name: "Filter bones by region" });
   await region.selectOption("left-arm");
@@ -121,8 +126,9 @@ test("C2 Bone Inspector searches canonical joint IDs and maintains marker select
   await expect(page.locator(".bone-details")).toContainText("humanoid[0]/arm[left,0]/wrist/joint");
   await expect(page.locator(".bone-details")).toContainText("Parent ID");
   await expect(page.locator(".bone-marker-label.selected")).toContainText("wrist_left");
-  await page.locator('[data-pose="wrist"]').click();
+  await choosePose(page,"wrist");
   await expect(page.locator("#status")).toContainText("wrist");
+  await page.getByText("Geometry overlays",{exact:true}).click();
   await page.getByLabel("Bone markers and labels").uncheck();
   await expect(page.locator(".bone-marker-label.selected")).toBeHidden();
   await page.getByLabel("Bone markers and labels").check();
@@ -144,18 +150,16 @@ test("C2.4 thumb web stress controls retain imported skin and live inspector", a
   await page.goto("/c2-lab.html");
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",
     {timeout:60_000});
-  await page.locator('[data-pose="thumb-wrist"]').click();
+  await choosePose(page,"thumb-wrist");
   await expect(page.locator("#status")).toContainText("thumb-wrist");
-  await page.locator('[data-view="thumb-web-left"]').click();
-  await expect(page.locator('[data-view="thumb-web-left"]'))
-    .toHaveAttribute("aria-pressed","true");
-  await page.locator('[data-pose="hand-stress"]').click();
+  await chooseView(page,"thumb-web-left");
+  await expect(page.locator("#view-select")).toHaveValue("thumb-web-left");
+  await choosePose(page,"hand-stress");
   await expect(page.locator("#status")).toContainText("hand-stress");
   await expect(page.locator(".bone-details")).toContainText("wrist_left");
-  await page.locator('[data-view="thumb-web-right"]').click();
-  await expect(page.locator('[data-view="thumb-web-right"]'))
-    .toHaveAttribute("aria-pressed","true");
-  await page.locator('[data-pose="neutral"]').click();
+  await chooseView(page,"thumb-web-right");
+  await expect(page.locator("#view-select")).toHaveValue("thumb-web-right");
+  await choosePose(page,"neutral");
   await expect(page.locator("#status")).toContainText("neutral");
   expect(errors).toEqual([]);
 });
@@ -167,15 +171,15 @@ test("C2.4 shoulder / axilla cameras and combined stress preserve imported inspe
   await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true",{timeout:60_000});
   await expect(page.locator("#status")).toContainText("CC0");
   for (const pose of ["shoulder-forward","shoulder-combined","shoulder-torso"]) {
-    await page.locator('[data-pose="'+pose+'"]').click();
+    await choosePose(page,pose);
     await expect(page.locator('[data-pose="'+pose+'"]')).toHaveAttribute("aria-pressed","true");
     for (const view of ["shoulder-left","shoulder-right","axilla-left","axilla-right"]) {
-      await page.locator('[data-view="'+view+'"]').click();
-      await expect(page.locator('[data-view="'+view+'"]')).toHaveAttribute("aria-pressed","true");
+      await chooseView(page,view);
+      await expect(page.locator("#view-select")).toHaveValue(view);
       await expect(page.locator("#viewport canvas")).toBeVisible();
     }
   }
-  await page.locator('[data-pose="neutral"]').click();
+  await choosePose(page,"neutral");
   await expect(page.locator(".bone-details")).toContainText("wrist_left");
 });
 
@@ -185,16 +189,16 @@ test("C2.4 bilateral lower-body and elbow/neck stress diagnostics remain selecta
   await page.goto("/c2-lab.html");
   await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true",{timeout:60_000});
   for (const pose of ["elbow-stress","hip-stress","knee-stress","ankle-stress","neck-jaw"]) {
-    await page.locator('[data-pose="'+pose+'"]').click();
+    await choosePose(page,pose);
     await expect(page.locator('[data-pose="'+pose+'"]')).toHaveAttribute("aria-pressed","true");
   }
   for (const region of ["elbow","hip","knee","ankle"])for(const side of ["left","right"]){
-    const view=page.locator('[data-view="'+region+'-'+side+'"]');
-    await view.click();
-    await expect(view).toHaveAttribute("aria-pressed","true");
+    const view=region+"-"+side;
+    await chooseView(page,view);
+    await expect(page.locator("#view-select")).toHaveValue(view);
     await expect(page.locator("#viewport canvas")).toBeVisible();
   }
-  await page.locator('[data-pose="neutral"]').click();
+  await choosePose(page,"neutral");
   await expect(page.locator(".bone-details")).toContainText("wrist_left");
 });
 
@@ -211,28 +215,28 @@ test("C2.5 versioned pose matrix expands desktop/touch lab diagnostics", async (
   const platform = test.info().project.name;
   mkdirSync("test-results/c2",{recursive:true});
   for (const id of poses) {
-    await page.locator('[data-pose="' + id + '"]').click();
+    await choosePose(page,id);
     await expect(page.locator('[data-pose="' + id + '"]'))
       .toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#status")).toContainText(id);
     if (["shoulder-unilateral","deep-crouch","whole-asymmetric",
       "crouch-reach","whole-extreme"].includes(id)) {
-      await page.locator('[data-view="front"]').click();
+      await chooseView(page,"front");
       await page.locator("#viewport").screenshot({
         path:"test-results/c2/" + platform + "-c25-" + id + "-front.png",
       });
-      await page.locator('[data-view="rear"]').click();
+      await chooseView(page,"rear");
       await page.locator("#viewport").screenshot({
         path:"test-results/c2/" + platform + "-c25-" + id + "-rear.png",
       });
     }
   }
-  await page.locator('[data-pose="jaw"]').click();
-  await page.locator('[data-view="head-side"]').click();
+  await choosePose(page,"jaw");
+  await chooseView(page,"head-side");
   await page.locator("#viewport").screenshot({
     path:"test-results/c2/" + platform + "-c25-jaw-side.png",
   });
-  await page.locator('[data-pose="neutral"]').click();
+  await choosePose(page,"neutral");
   await expect(page.locator("#status")).toContainText("neutral");
   expect(errors).toEqual([]);
 });
@@ -255,11 +259,11 @@ test("C2.5 empirical import timings and repeated owned-surface lifecycle",async(
     results.push(metrics);
     // Exercise the existing surface and inspector ownership teardown path
     // after actual pinned CC0 rendering, not just fake surface replacement.
-    await page.locator('[data-surface="implicit"]').click();
+    await page.locator("#source-select").selectOption("implicit");
     await expect(page.locator("html")).toHaveAttribute("data-c2-source","implicit",
       {timeout:60_000});
     await expect(page.locator("#bone-inspector-panel .bone-list")).toHaveCount(1);
-    await page.locator('[data-surface="template"]').click();
+    await page.locator("#source-select").selectOption("template");
     await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",
       {timeout:60_000});
     await expect(page.locator("#bone-inspector-panel .bone-list")).toHaveCount(1);
@@ -275,4 +279,56 @@ test("C2.5 empirical import timings and repeated owned-surface lifecycle",async(
     path:"test-results/c2/"+test.info().project.name+"-c25-performance.png",
   });
   expect(errors).toEqual([]);
+});
+
+test("Character Lab viewer-first pose picker stays compact, searchable and keyboard accessible",async({page})=>{
+  test.setTimeout(90_000);
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  const viewport=page.locator("#viewport");
+  const pose=page.getByRole("combobox",{name:"Select anatomical pose"});
+  await expect(viewport).toBeVisible();
+  await expect(pose).toHaveValue("neutral");
+  const viewportTop=await viewport.evaluate(node=>node.getBoundingClientRect().top);
+  expect(viewportTop).toBeLessThan(490);
+  await page.getByRole("button",{name:"Browse poses"}).click();
+  await expect(page.getByRole("dialog",{name:"Anatomical pose library"})).toBeVisible();
+  await expect(page.locator("#pose-result-count")).toContainText("54 of 54");
+  await page.getByRole("searchbox",{name:"Search poses"}).fill("thumb");
+  await expect(page.locator("#pose-result-count")).not.toContainText("54 of 54");
+  await page.locator('#pose-results [data-pose="thumb"]').click();
+  await expect(pose).toHaveValue("thumb");
+  await expect(page.locator("#status")).toContainText("thumb");
+  await expect(page.locator("#pose-browser")).toBeHidden();
+  await expect(viewport).toBeVisible();
+  await page.getByRole("button",{name:"Browse poses"}).click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#pose-browser")).toBeHidden();
+  await page.getByRole("button",{name:"Reset"}).click();
+  await expect(pose).toHaveValue("neutral");
+  await page.getByRole("button",{name:"Crouch",exact:true}).click();
+  await expect(pose).toHaveValue("crouch");
+  const platform=test.info().project.name;
+  mkdirSync("test-results/c2",{recursive:true});
+  await page.screenshot({path:"test-results/c2/"+platform+"-viewer-first-layout.png",fullPage:false});
+});
+
+test("Character Lab viewport and diagnostic controls work at narrow touch width",async({page})=>{
+  test.setTimeout(90_000);
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  await page.locator("#view-select").selectOption("hand-left");
+  await page.locator("#pose-select").selectOption("fist");
+  await expect(page.locator("#viewport canvas")).toBeVisible();
+  await expect(page.locator("#active-pose-label")).toContainText("fist", {ignoreCase:true});
+  await page.getByRole("button",{name:"Inspect bones"}).click();
+  await expect(page.getByRole("searchbox",{name:"Search bone name or semantic ID"})).toBeVisible();
+  await page.getByRole("button",{name:"Hide inspector"}).click();
+  await expect(page.getByRole("searchbox",{name:"Search bone name or semantic ID"})).toBeHidden();
+  await page.getByRole("button",{name:"Browse poses"}).click();
+  await expect(page.getByRole("dialog",{name:"Anatomical pose library"})).toBeVisible();
+  await page.getByRole("combobox",{name:"Filter anatomical pose region"}).selectOption("hands");
+  await expect(page.locator("#pose-result-count")).toContainText("poses");
+  await page.getByRole("button",{name:"Close pose library"}).click();
+  await expect(page.locator("#viewport")).toBeVisible();
 });
