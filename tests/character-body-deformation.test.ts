@@ -53,7 +53,7 @@ function band(session: Session, region: Region, side: Side) {
   const local = new THREE.Vector3(),other = new THREE.Vector3();
   for (let i=0;i<indices.count;i+=3) {
     const a=indices.getX(i),b=indices.getX(i+1),c=indices.getX(i+2);
-    for (const [x,y] of [[a,b],[b,c],[c,a]]) {
+    for (const [x,y] of [[a,b],[b,c],[c,a]] as const) {
       const u=src[x]!,v=src[y]!;
       if (!wanted.has(u)||!wanted.has(v)||u===v)continue;
       const key=Math.min(u,v)+":"+Math.max(u,v);
