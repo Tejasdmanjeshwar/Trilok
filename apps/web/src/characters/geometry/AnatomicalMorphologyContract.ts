@@ -48,7 +48,9 @@ export function inspectAnatomicalMorphologyBaseline(
   const skinWeight = geometry.getAttribute("skinWeight");
   const skinIndex = geometry.getAttribute("skinIndex");
   const topology = geometry.getIndex();
-  if (!topology) fail("INDEX", "Missing indexed anatomical surface");
+  if (topology === null) {
+    throw new AnatomicalContractError("INDEX", "Missing indexed anatomical surface");
+  }
   if (!position || !uv || !skinWeight || !skinIndex ||
       position.itemSize !== 3 || uv.itemSize !== 2 ||
       skinWeight.itemSize !== 4 || skinIndex.itemSize !== 4 ||
