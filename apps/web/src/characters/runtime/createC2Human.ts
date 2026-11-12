@@ -81,7 +81,13 @@ function bindWeights(geometry:THREE.BufferGeometry,graph:AnatomicalGraphV1,
     // the previous hard leg/torso and arm/torso boundaries visibly sheared
     // the skin under crouch and shoulder elevation.
     const h=smooth(1.40,1.64,point.y)*(1-smooth(.15,.29,ax));
-    const a=smooth(.16,.34,ax)*smooth(.94,1.12,point.y)*
+    // In the source A-pose fingertips can descend below the wrist toward
+    // thigh height. Protect the distal hand from leg/torso influences; vary
+    // the horizontal threshold with height so thighs remain leg-driven.
+    const lowHand=1-smooth(.82,1.10,point.y);
+    const armXStart=.16+.16*lowHand;
+    const armXFull=.34+.06*lowHand;
+    const a=smooth(armXStart,armXFull,ax)*smooth(.60,.74,point.y)*
       (1-smooth(1.51,1.69,point.y));
     const l=1-smooth(.77,1.10,point.y);
     const rest=1-h;
