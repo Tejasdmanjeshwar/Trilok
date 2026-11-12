@@ -108,6 +108,7 @@ export function calibrateHumanBones(
   skeleton:THREE.Skeleton, root:THREE.Object3D,
   landmarks:ReadonlyMap<string,THREE.Vector3>,
   forearmSkinBones?:ReadonlyMap<Side,THREE.Bone>,
+  shoulderSkinBones?:ReadonlyMap<Side,THREE.Bone>,
 ):number {
   let largest=0;
   root.updateMatrixWorld(true);
@@ -135,6 +136,21 @@ export function calibrateHumanBones(
       throw new Error("Invalid C2 forearm skin helper hierarchy");
     helper.position.copy(elbow.position);
     helper.quaternion.copy(elbow.quaternion);
+  }
+  // Preserve the original CC0 shoulder01 intermediate landmark: the
+  // connector is proximal to upperarm01 and distal to the clavicle. It is
+  // presentation-only, with no C1 joint identity or parent-chain changes.
+  for(const side of sideNames){
+    const helper=shoulderSkinBones?.get(side);
+    if(!helper)continue;
+    const joint=graph.joints.find(j=>j.role==="shoulder_"+side);
+    const shoulder=joint?bones.get(joint.id):undefined;
+    const source=landmarks.get("shoulder01"+suffix(side));
+    if(!shoulder||helper.parent!==shoulder.parent||!source)
+      throw new Error("Invalid CC0 shoulder connector landmark");
+    helper.parent.updateWorldMatrix(true,false);
+    helper.position.copy(helper.parent.worldToLocal(source.clone()));
+    helper.quaternion.copy(shoulder.quaternion);
   }
   root.updateMatrixWorld(true);
   skeleton.calculateInverses();
@@ -194,6 +210,8 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
   graph:AnatomicalGraphV1, rig:SourceRig, data:SourceWeights,
   /** Optional indices of C2 presentation-only proximal skin references. */
   proximalForearmIndices?:ReadonlyMap<Side,number>,
+  /** Indices for the imported CC0 shoulder01 skin-only connectors. */
+  shoulderConnectorIndices?:ReadonlyMap<Side,number>,
 ):RigDiagnostics {
   if(rig.license!=="CC0"||data.license!=="CC0")
     throw new Error("Source skin data must be CC0");
@@ -223,6 +241,16 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
       if(helper===undefined||!Number.isSafeInteger(helper)||
         helper<graph.joints.length||helper>=graph.joints.length+2)
         throw new Error("Invalid C2 proximal forearm skin index");
+      target=helper;
+    }
+    const shoulderConnector=/^shoulder01\.(L|R)$/.exec(name);
+    if(shoulderConnector&&shoulderConnectorIndices){
+      const side:Side=shoulderConnector[1]==="L"?"right":"left";
+      const helper=shoulderConnectorIndices.get(side);
+      if(helper===undefined||!Number.isSafeInteger(helper)||
+        helper<graph.joints.length+(proximalForearmIndices?.size??0)||
+        helper>=graph.joints.length+(proximalForearmIndices?.size??0)+2)
+        throw new Error("Invalid C2 shoulder connector skin index");
       target=helper;
     }
     resolved.set(name,target);
