@@ -14,6 +14,26 @@
     button,a{font:inherit;color:inherit}button{background:#303d4b;color:#fff;border:1px solid #657e8b;border-radius:6px;padding:9px 13px;cursor:pointer}
     button[aria-pressed="true"]{background:#58788c}button:focus-visible,a:focus-visible{outline:3px solid #f4d793;outline-offset:3px}
     .small{color:#b5c0c9;font-size:13px}#status{margin:12px 0}#error{color:#ffb9af}
+    .bone-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,330px);gap:12px}
+    .bone-panel{background:#202a36;border:1px solid #536576;border-radius:10px;padding:12px;min-width:0}
+    .bone-panel h2{font-size:1.1rem;margin:0 0 8px}
+    .bone-panel label{display:block;margin:7px 0}
+    .bone-panel select,.bone-panel input{display:block;width:100%;background:#111a23;color:#fff;
+      border:1px solid #8d9cac;border-radius:5px;padding:8px;font:inherit;min-height:40px}
+    .bone-list{max-height:230px;overflow:auto;display:grid;gap:3px;padding:5px 0}
+    .bone-list button{text-align:left;font-size:12px;padding:6px 8px;overflow-wrap:anywhere}
+    .bone-list button[hidden],.bone-marker-label[hidden]{display:none!important}
+    .bone-list button[aria-pressed="true"]{background:#786c2c;outline:2px solid #fff08a}
+    .bone-details{font-size:12px;overflow-wrap:anywhere;margin:10px 0}
+    .bone-details div{margin:3px 0}
+    #bone-inspector-panel>button{margin:4px;font-size:12px}
+    #bone-marker-labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+    .bone-marker-label{position:absolute;transform:translate(8px,-50%);
+      background:#101820d9;color:#e8f2ff;padding:2px 5px;font-size:10px;
+      white-space:nowrap;border-radius:3px;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+    .bone-marker-label.selected{background:#544c1d;color:#fff7a2;font-weight:700;z-index:2}
+    @media(max-width:760px){.bone-layout{grid-template-columns:1fr}
+      .view{height:56vh;min-height:320px}.bone-list{max-height:170px}}
   </style>
 </head>
 <body>
@@ -47,6 +67,8 @@
   <div class="controls" role="group" aria-label="Geometry overlays">
     <label><input type="checkbox" data-debug="skeleton"> Skeleton</label>
     <label><input type="checkbox" data-debug="wireframe"> Wireframe topology</label>
+    <label><input type="checkbox" id="bone-markers" checked> Bone markers and labels</label>
+    <label><input type="checkbox" id="bone-connections" checked> Parent connections</label>
   </div>
   <div class="controls" role="group" aria-label="Camera view">
     <button type="button" data-view="front" aria-pressed="true">Front</button>
@@ -57,7 +79,16 @@
     <button type="button" data-view="hand-left" aria-pressed="false">Left hand close-up</button>
     <button type="button" data-view="hand-right" aria-pressed="false">Right hand close-up</button>
   </div>
-  <div class="view" id="viewport" role="img" aria-label="Interactive skinned surface diagnostic rendered with Three.js"></div>
+  <div class="bone-layout">
+    <div class="view" id="viewport" aria-label="Interactive skinned surface with selectable joint markers rendered using Three.js">
+      <div id="bone-marker-labels" aria-hidden="true"></div>
+    </div>
+    <aside class="bone-panel" aria-label="Bone inspector">
+      <h2>Bone inspector</h2>
+      <p class="small">Blue: left · orange: right · yellow: selected. Tap a marker or choose a bone below.</p>
+      <div id="bone-inspector-panel"></div>
+    </aside>
+  </div>
   <p id="status" role="status">Loading pinned CC0 core anatomical mesh…</p>
   <p id="error" role="alert"></p>
   <p class="small">Drag to rotate. Wheel or pinch to zoom. Controls set deterministic diagnostic bone rotations; they do not represent authored combat animation. Reduced-motion preference disables continuous scene animation.</p>
