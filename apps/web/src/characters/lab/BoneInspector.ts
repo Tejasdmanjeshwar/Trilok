@@ -236,7 +236,7 @@ export class BoneInspector {
       const strong = document.createElement("strong");
       strong.textContent = title + ": ";
       const valueText = document.createElement("span");
-      valueText.textContent = value;
+      valueText.textContent = value ?? "";
       line.append(strong, valueText);
       this.selectedDetails.append(line);
     }
