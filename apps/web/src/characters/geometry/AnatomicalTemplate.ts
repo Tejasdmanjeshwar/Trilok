@@ -207,7 +207,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate):Anatomica
   spike.mesh.geometry=geometry;
   spike.mesh.name="C2_MAKEHUMAN_TEMPLATE_PROVISIONAL_SKINNING";
   try{validateSkinningSpike(spike);}
-  catch(error){spike.dispose();throw error;}
+  catch(error){geometry.dispose();spike.dispose();throw error;}
   let disposed=false;
   return {spike,mesh:spike.mesh,template,
     vertexCount:position.count,triangleCount:geometry.getIndex()!.count/3,
