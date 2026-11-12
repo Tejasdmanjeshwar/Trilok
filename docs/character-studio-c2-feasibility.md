@@ -35,3 +35,7 @@
 ## Verification and deployment
 
 `pnpm typecheck`, `pnpm test` (including 1,000 seeded combat replays), `pnpm build`, `pnpm test:e2e` Chromium desktop/mobile and build-identity check are the CI gate. Verify actual GitHub Actions status before merge. Production Cloudflare SHA must be checked independently from the preview and source merge.
+
+## Follow-up C2 anatomical import slice
+
+A bounded, deterministic OBJ source adapter, pinned CC0 MakeHuman core download with Git object integrity verification, provisional C1 skin transfer and an explicit C2 lab source toggle have been implemented on a follow-up feature branch. See [C2 anatomical import status and outstanding quality gates](character-studio-c2-anatomical-import.md). The original feasibility prototype remains available for comparison. **A recognizable neutral silhouette is not sufficient evidence of correct finger rigging, muscle/skin deformation, topology cut loops or finished anatomy.** This follow-up does not close issue #15 until all quality gates pass.
