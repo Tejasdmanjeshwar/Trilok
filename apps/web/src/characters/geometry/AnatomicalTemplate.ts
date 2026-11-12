@@ -28,6 +28,8 @@ export interface AnatomicalHuman {
   readonly mesh: THREE.SkinnedMesh;
   readonly template: AnatomicalTemplate;
   readonly rigDiagnostics?: RigDiagnostics;
+  /** Source jaw tip rest-world position; used to calibrate sagittal opening. */
+  readonly jawTipWorldRest?: THREE.Vector3;
   readonly vertexCount: number;
   readonly triangleCount: number;
   dispose():void;
@@ -196,9 +198,12 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
   if(official){
     let diagnostic:RigDiagnostics;
     let displacement=0;
+    let jawTipWorldRest:THREE.Vector3|undefined;
     try{
       const positions=new THREE.Float32BufferAttribute(template.sourcePositions,3);
       const landmarks=makeSourceLandmarks(official.rig,template,positions);
+      jawTipWorldRest=landmarks.get("jaw:tail")?.clone();
+      if(!jawTipWorldRest)throw new Error("Missing imported jaw-tip landmark");
       displacement=calibrateHumanBones(spike.graph,spike.bones,spike.skeleton,spike.character.root,landmarks);
       diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,official.weights);
       if(diagnostic.unweightedVertices||diagnostic.unmappedBones.length)
@@ -208,7 +213,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
       validateSkinningSpike(spike);
     }catch(error){geometry.dispose();spike.dispose();throw error;}
     let disposed=false;
-    return {spike,mesh:spike.mesh,template,
+    return {spike,mesh:spike.mesh,template,jawTipWorldRest,
       rigDiagnostics:{...diagnostic,maxBindDisplacementMeters:displacement},
       vertexCount:geometry.getAttribute("position").count,
       triangleCount:geometry.getIndex()!.count/3,

@@ -85,6 +85,17 @@ export function makeSourceLandmarks(source:SourceRig, template:AnatomicalTemplat
     result.set(name,v.sub(new THREE.Vector3(...origin))
       .multiplyScalar(template.conversionMetersPerSourceUnit));
   }
+  // Keep the jaw's distal surface landmark for direction-aware opening.
+  // The calibrated joint translation uses the hinge (bone head), while
+  // the bone tail identifies actual mandibular movement in source space.
+  const jaw = source.bones.jaw;
+  if (jaw) {
+    const tipIds = source.joints[jaw.tail];
+    if (!tipIds) throw new Error("Missing CC0 jaw tip landmark");
+    result.set("jaw:tail", average(source, sourcePositions, tipIds)
+      .sub(new THREE.Vector3(...origin))
+      .multiplyScalar(template.conversionMetersPerSourceUnit));
+  }
   return result;
 }
 /**

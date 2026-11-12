@@ -234,3 +234,36 @@ describe("C2.3 mirrored MakeHuman hand directions", () => {
     rig.dispose();
   });
 });
+
+describe("C2.3 signed mandibular opening", () => {
+  it("opens the mouth by lowering the chin, without moving the upper head", () => {
+    for(const yaw of [0, .7, -1.1]){
+      const rig=createSkinningSpike();
+      rig.character.root.rotation.y=yaw;
+      rig.character.root.updateWorldMatrix(true,true);
+      const jaw=rig.graph.joints.find(j=>j.role==="jaw")!;
+      const head=rig.graph.joints.find(j=>j.role==="head")!;
+      const jawBone=rig.bones.get(jaw.id)!;
+      const headBone=rig.bones.get(head.id)!;
+      // A jaw-tip probe placed ahead of and below its anatomical hinge.
+      const chin=jawBone.localToWorld(new THREE.Vector3(0,-.07,.06));
+      const tipInJaw=jawBone.worldToLocal(chin.clone());
+      const headRest=headBone.getWorldPosition(new THREE.Vector3());
+      const fk=new AnatomicalFK(rig.graph,rig.bones,
+        {jawTipWorldRest:chin});
+      fk.apply([{jointId:jaw.id,motion:"flexion",radians:.4}]);
+      const opened=jawBone.localToWorld(tipInJaw.clone());
+      expect(opened.y,yaw+" opening did not lower chin").toBeLessThan(chin.y-.005);
+      expect(headBone.getWorldPosition(new THREE.Vector3())
+        .distanceTo(headRest)).toBeLessThan(1e-7);
+      // No negative jaw-opening commands; constraints are preserved.
+      fk.apply([{jointId:jaw.id,motion:"flexion",radians:-.7}]);
+      expect(jawBone.localToWorld(tipInJaw.clone()).distanceTo(chin))
+        .toBeLessThan(1e-7);
+      fk.apply([]);
+      expect(jawBone.localToWorld(tipInJaw.clone()).distanceTo(chin))
+        .toBeLessThan(1e-7);
+      rig.dispose();
+    }
+  });
+});

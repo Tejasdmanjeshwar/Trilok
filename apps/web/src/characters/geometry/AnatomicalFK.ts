@@ -65,7 +65,8 @@ export class AnatomicalFK {
   private readonly graph: AnatomicalGraphV1;
   private readonly bones: ReadonlyMap<string, THREE.Bone>;
 
-  constructor(graph: AnatomicalGraphV1, bones: ReadonlyMap<string, THREE.Bone>) {
+  constructor(graph: AnatomicalGraphV1, bones: ReadonlyMap<string, THREE.Bone>,
+    options: { readonly jawTipWorldRest?: THREE.Vector3 } = {}) {
     this.graph = graph;
     this.bones = bones;
     const restPositions = new Map<string, THREE.Vector3>();
@@ -201,7 +202,24 @@ export class AnatomicalFK {
         add("rotation", yaw, -.75, .75);
         add("flexion", pitch, -.45, .55);
       } else if (role === "jaw") {
-        add("flexion", pitch, 0, .65);
+        const head = byRole("head");
+        const neck = byRole("neck");
+        const hinge = at(joint.id)!;
+        // In the imported CC0 rig the mandibular tip lies anterior and below
+        // the hinge; opening must lower that point away from the maxilla.
+        // Derive the hinge in the measured sagittal plane rather than reusing
+        // the generic head/spine pitch (-X), which *closes* the mouth.
+        const cranialUp = head && neck ?
+          safeUnit(head.clone().sub(neck), up) : up.clone();
+        const towardChin = options.jawTipWorldRest ?
+          options.jawTipWorldRest.clone().sub(hinge) :
+          head ? hinge.clone().sub(head) : forward.clone();
+        const anterior = towardChin.addScaledVector(cranialUp,
+          -towardChin.dot(cranialUp));
+        if (anterior.lengthSq() < 1e-10)
+          throw new Error("Cannot calibrate sagittal jaw plane " + joint.id);
+        const openingHinge = cranialUp.clone().cross(anterior.normalize());
+        add("flexion", openingHinge, 0, .65);
       } else if (role === "pelvis") {
         add("rotation", yaw, -.55, .55);
       }
