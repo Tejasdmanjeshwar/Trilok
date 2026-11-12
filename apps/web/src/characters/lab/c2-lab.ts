@@ -267,6 +267,7 @@ try{
   // Register camera controls once, not once per template/implicit surface swap.
   function applyView(selectedView:string):void {
       currentView=selectedView;
+      if(!active)return;
       if(selectedView==="front")camera.position.set(0,1.45,3.2);
       if(selectedView==="side")camera.position.set(3.2,1.45,0);
       if(selectedView==="rear")camera.position.set(0,1.45,-3.2);
@@ -347,6 +348,7 @@ try{
     const show=inspectorContent.hidden;
     inspectorContent.hidden=!show;
     inspectorToggle.setAttribute("aria-expanded",String(show));
+    document.body.classList.toggle("inspector-open",show);
     inspectorToggle.textContent=show?"Hide inspector":"Inspect bones";
   });
   for(const toggle of document.querySelectorAll<HTMLInputElement>("[data-debug]"))
