@@ -221,3 +221,31 @@ controls are physically non-overlapping with the WebGL viewport while the
 pose and camera update; it captures layout screenshots. This is a UI
 integration regression gate, not a replacement for the full C2 Phase
 Acceptance and human screenshot review.
+
+
+### Cloudflare cold-builder pose-matrix timeout hardening (12 November 2026)
+
+A Cloudflare deployment build using `pnpm install --no-frozen-lockfile &&
+pnpm typecheck && pnpm test && pnpm build` failed before the build stage.
+Its CI log showed **265/266 tests passed**, with only the exhaustive
+`runs all defined imported poses...` C2.5 real-asset CPU-skin test exceeding
+Vitest's **default 5-second timeout** (about 9.56 seconds in that environment).
+The failure did not report a failed anatomical invariant. This test iterates
+all 54 supported poses, CPU skins source-corresponding vertex/UV seam samples,
+compares deterministic command ordering, restores neutral between poses,
+and verifies the original source topology/inverse binds.
+
+Give **only that exhaustive test** a `30_000` ms timeout, leaving the rest of
+Vitest's timeout policy, all geometric thresholds, real-CC0 work, deterministic
+assertions, and combat-replay tests untouched. The added budget reflects
+variation in cold/contended builders and is **not** a claimed performance target
+or an instruction to skip any acceptance gate. It should still fail if it
+exceeds 30 seconds; investigate persistent excess rather than further
+relaxing it without profiling.
+
+Cloudflare's automatic dependency setup reports `bun install`, despite the
+repo declaring `pnpm@10.20.0`; the configured build command then runs a
+second, PNPM-based install. This redundant setup is an independent deployment
+configuration hygiene concern. Do not conflate it with the pose test timeout
+or change the package manager in this targeted fix without verifying the
+Cloudflare project's configured install settings.
