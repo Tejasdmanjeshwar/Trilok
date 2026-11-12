@@ -132,3 +132,39 @@ grip, wrist and jaw poses, front/side/rear camera views, and screenshot
 capture. E2E screenshot existence is **not** proof of acceptable deformation.
 The issue #15 anatomical quality gate stays open until measured source coverage,
 visual signoff, performance baselines, and all CI checks are verified.
+
+
+## C2.4 continued wrist overlap diagnosis and headless guard
+
+The fixed PR #27 rigid-wrist test selects only original source vertices whose
+entire ownership is wrist/metacarpal. That is a useful anti-wrist-bridge guard
+but **does not exercise the overlapping source lowerarm01 skin**. Inspection of
+the pinned CC0 weights shows 162/248 wrist-weighted vertices per side share
+`lowerarm01`; 176/248 share `lowerarm02`. Even some wrist vertices have a
+larger lowerarm01 influence than wrist influence. Source `lowerarm01` is
+parented before `lowerarm02` and the real wrist, and C1 collapses the two
+distal forearm segments to a common elbow joint.
+
+The residual mismatch is explained by PR #26's half-flexion render-only
+`lowerarm01` helper: under elbow bending it does not follow the semantic
+elbow-to-hand transform even at source vertices shared with wrist/mitt skin.
+Restore **full elbow flexion** for that helper, preserving its deliberate
+exclusion of pronation, the authoritative C1 joint, all FK controls and the
+original UV/topology/weights. No new skin bones or percentages.
+
+A headless test loads the real pinned CC0 OBJ, skeleton and weights, isolates
+original source vertices with overlapping wrist/lowerarm01 ownership and no
+upper-arm owner, samples actual Three.js CPU-skinned positions, and checks that
+adding a pure elbow bend rigidly transports those same vertices even after
+wrist flexion/deviation/fist/thumb commands. It explicitly mutates the
+proximal helper to half flexion and demands measurable wrist-skin separation.
+Additional tests cover bilateral pronation, deterministic command ordering,
+finite deformation and neutral recovery. These tests are part of ordinary
+`pnpm test`, not Chromium.
+
+The separate Character Lab Bone Inspector shows posed semantic joint markers,
+left/right colors, selectable parent segments, label overlays, filtered/searchable
+legend, full canonical IDs, parent names and copyable diagnostic text. Its
+browser e2e assertions are retained for later Phase Acceptance but are not run
+in intermediate Fast CI. Browser screenshots and anatomical visual judgment
+remain separate from numeric acceptance.
