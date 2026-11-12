@@ -50,7 +50,7 @@ export function validateAnatomicalGraph(graph: AnatomicalGraphV1,
   check(graph !== null && typeof graph === "object", "graph object");
   check(graph.schemaVersion === 1 && graph.coordinates === CHARACTER_COORDINATES,
     "schema or coordinate system");
-  check(nonEmpty(graph.topologyFamilyId), "topology family");
+  check(nonEmpty(graph.topologyFamilyId) && nonEmpty(graph.headTopologyFamilyId), "topology family");
   check(Array.isArray(graph.modules) && graph.modules.length > 0 && graph.modules.length <= 64, "module count");
   check(Array.isArray(graph.segments) && graph.segments.length > 0 && graph.segments.length <= 1024, "segment count");
   check(Array.isArray(graph.joints) && graph.joints.length > 0 && graph.joints.length <= 4096, "joint count");
