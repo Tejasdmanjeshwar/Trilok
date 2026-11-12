@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
-import { loadAnatomicalHuman, type AnatomicalHuman } from "../geometry/AnatomicalTemplate";
+import { loadAnatomicalHuman, type AnatomicalHuman, type AnatomicalLoadStage } from "../geometry/AnatomicalTemplate";
 import { validateSkinningSpike, type SkinningSpike } from "../geometry/SkinningSpike";
 import { AnatomicalFK } from "../geometry/AnatomicalFK";
 import { ANATOMICAL_POSE_MATRIX, anatomicalPoseById, resolveAnatomicalPose } from "../geometry/AnatomicalPoseMatrix";
@@ -25,6 +25,36 @@ let renderer:THREE.WebGLRenderer|undefined;
 let frame=0;
 let surface="template";
 let currentPose="neutral";
+const performancePanel=document.querySelector<HTMLElement>("#c25-metrics");
+const stageTimings=new Map<AnatomicalLoadStage,number>();
+let lastPoseApplyMs:number|undefined;
+let lastCpuSampleMs:number|undefined;
+let lastRenderSubmitMs:number|undefined;
+let frameIntervals:number[]=[];
+let previousFrameTime:number|undefined;
+function publishMetrics():void {
+  if(!performancePanel)return;
+  const orderedStages:readonly AnatomicalLoadStage[]=[
+    "obj-fetch","obj-parse","rig-fetch","rig-json","weight-json",
+    "fk-calibration","shoulder-motion-sampling","skin-influence-fitting",
+    "total-instantiation",
+  ];
+  const rows=orderedStages.map(stage=>stageTimings.has(stage)?
+    stage+": "+stageTimings.get(stage)!.toFixed(2)+" ms":undefined)
+    .filter((entry):entry is string=>entry!==undefined);
+  if(lastPoseApplyMs!==undefined)rows.push("last FK pose: "+lastPoseApplyMs.toFixed(2)+" ms");
+  if(lastCpuSampleMs!==undefined)rows.push("256-vertex CPU skin sample: "+
+    lastCpuSampleMs.toFixed(2)+" ms");
+  if(lastRenderSubmitMs!==undefined)rows.push("last JS render submission: "+
+    lastRenderSubmitMs.toFixed(2)+" ms (NOT GPU time)");
+  if(frameIntervals.length>=20){
+    const ordered=[...frameIntervals].sort((a,b)=>a-b);
+    const median=ordered[Math.floor(ordered.length/2)]!;
+    rows.push("observed RAF median interval: "+median.toFixed(2)+" ms / "+
+      (1000/median).toFixed(1)+" FPS (includes scheduling)");
+  }
+  performancePanel.textContent=rows.join("\n")||"No anatomical timing samples yet.";
+}
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x242b34);
 const camera=new THREE.PerspectiveCamera(42,1,.1,80);
 camera.position.set(1.75,1.55,2.9);camera.lookAt(0,1,0);
@@ -139,8 +169,18 @@ try{
     if(!active||!fk)return;
     currentPose=name;
     const targets=resolveAnatomicalPose(anatomicalPoseById(name),active.spike.graph,fk);
+    const poseStart=performance.now();
     fk.apply(targets);
     active.spike.character.root.updateWorldMatrix(true,true);
+    lastPoseApplyMs=performance.now()-poseStart;
+    // Explicit, bounded diagnostic sampling; not part of normal rendering.
+    const cpuStart=performance.now();
+    const total=active.mesh.geometry.getAttribute("position").count;
+    const temp=new THREE.Vector3();
+    for(let k=0;k<256;k++)
+      active.mesh.getVertexPosition(Math.floor(k*(total-1)/255),temp);
+    lastCpuSampleMs=performance.now()-cpuStart;
+    publishMetrics();
     inspector?.update();
     details();
   }
@@ -157,8 +197,10 @@ try{
     status!.textContent="Loading "+name+" geometry…";
     error!.textContent="";
     let preview:Preview;
+    const sampleTimings=new Map<AnatomicalLoadStage,number>();
     try {
-      if(name==="template")preview=await loadAnatomicalHuman();
+      if(name==="template")preview=await loadAnatomicalHuman(undefined,
+        (stage,ms)=>sampleTimings.set(stage,ms));
       else preview=createContinuousHumanPrototype({step:.047});
       validateSkinningSpike(preview.spike);
     }catch(e){
@@ -181,6 +223,13 @@ try{
     inspector?.dispose();inspector=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
+    stageTimings.clear();
+    if(name==="template")for(const [stage,ms] of sampleTimings)stageTimings.set(stage,ms);
+    frameIntervals=[];
+    previousFrameTime=undefined;
+    lastPoseApplyMs=undefined;
+    lastCpuSampleMs=undefined;
+    lastRenderSubmitMs=undefined;
     fk=new AnatomicalFK(preview.spike.graph,preview.spike.bones,
       {jawTipWorldRest:preview.jawTipWorldRest,
         forearmSkinBones:preview.spike.forearmSkinBones,
@@ -311,7 +360,16 @@ try{
     camera.aspect=width/height;camera.updateProjectionMatrix();
     controls.update();
     inspector?.update();
+    const started=performance.now();
     renderer!.render(scene,camera);
+    lastRenderSubmitMs=performance.now()-started;
+    if(previousFrameTime!==undefined && started-previousFrameTime<250){
+      frameIntervals.push(started-previousFrameTime);
+      if(frameIntervals.length>120)frameIntervals.shift();
+    }
+    previousFrameTime=started;
+    // Metrics are updated only periodically, not on every frame or GPU call.
+    if(frameIntervals.length>0&&frameIntervals.length%60===0)publishMetrics();
     frame=requestAnimationFrame(render);
   };
   render();
