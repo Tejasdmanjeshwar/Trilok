@@ -109,6 +109,7 @@ export function calibrateHumanBones(
   landmarks:ReadonlyMap<string,THREE.Vector3>,
   forearmSkinBones?:ReadonlyMap<Side,THREE.Bone>,
   shoulderSkinBones?:ReadonlyMap<Side,THREE.Bone>,
+  wristSkinBones?:ReadonlyMap<Side,THREE.Bone>,
 ):number {
   let largest=0;
   root.updateMatrixWorld(true);
@@ -152,6 +153,19 @@ export function calibrateHumanBones(
     parent.updateWorldMatrix(true,false);
     helper.position.copy(parent.worldToLocal(source.clone()));
     helper.quaternion.copy(shoulder.quaternion);
+  }
+  // Skin-only wrist references share the official wrist bind landmark
+  // but stay outside the semantic C1 hierarchy. They soften the source wrist
+  // skin band without restricting the actual wrist or palm controls.
+  for(const side of sideNames){
+    const helper=wristSkinBones?.get(side);
+    if(!helper)continue;
+    const joint=graph.joints.find(j=>j.role==="wrist_"+side);
+    const wrist=joint?bones.get(joint.id):undefined;
+    if(!wrist||helper.parent!==wrist.parent)
+      throw new Error("Invalid CC0 wrist bridge hierarchy");
+    helper.position.copy(wrist.position);
+    helper.quaternion.copy(wrist.quaternion);
   }
   root.updateMatrixWorld(true);
   skeleton.calculateInverses();
@@ -213,6 +227,8 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
   proximalForearmIndices?:ReadonlyMap<Side,number>,
   /** Indices for the imported CC0 shoulder01 skin-only connectors. */
   shoulderConnectorIndices?:ReadonlyMap<Side,number>,
+  /** Source wrist skin-only bridge indices, ordered after other helpers. */
+  wristBridgeIndices?:ReadonlyMap<Side,number>,
 ):RigDiagnostics {
   if(rig.license!=="CC0"||data.license!=="CC0")
     throw new Error("Source skin data must be CC0");
@@ -252,6 +268,17 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
         helper<graph.joints.length+(proximalForearmIndices?.size??0)||
         helper>=graph.joints.length+(proximalForearmIndices?.size??0)+2)
         throw new Error("Invalid C2 shoulder connector skin index");
+      target=helper;
+    }
+    const wristBand=/^wrist\.(L|R)$/.exec(name);
+    if(wristBand&&wristBridgeIndices){
+      const side:Side=wristBand[1]==="L"?"right":"left";
+      const helper=wristBridgeIndices.get(side);
+      const start=graph.joints.length+(proximalForearmIndices?.size??0)+
+        (shoulderConnectorIndices?.size??0);
+      if(helper===undefined||!Number.isSafeInteger(helper)||
+        helper<start||helper>=start+2)
+        throw new Error("Invalid C2 wrist bridge skin index");
       target=helper;
     }
     resolved.set(name,target);
