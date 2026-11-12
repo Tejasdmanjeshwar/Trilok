@@ -34,6 +34,20 @@ describe("C2 verified-source anatomical OBJ importer",()=>{
       expect([...first.geometry.getAttribute(name).array].every(Number.isFinite)).toBe(true);
     first.geometry.dispose();second.geometry.dispose();
   });
+  it("excludes MakeHuman helper geometry without renumbering source vertices",()=>{
+    const grouped=fixture.replace("v 0 1 0.5","v 0 1 0.5\\nv 0 99 0")
+      .replace("f 1/1 2/2 3/3 4/4","g body\\nf 1/1 2/2 3/3 4/4")
+      .replace("f 1/5 4/4 5/3","g helper-skirt\\nf 1/5 4/4 5/3");
+    const template=parseAnatomicalOBJ(grouped,{includeGroups:["body"]});
+    expect(template.sourceVertexCount).toBe(6); // all original v positions retained
+    expect(template.sourceFaceCount).toBe(1); // only actual skin surface
+    expect(template.geometry.getIndex()!.count).toBe(6);
+    expect(Array.from(template.sourceVertexIds)).toEqual([0,1,2,3]);
+    expect(template.sourceHeight).toBe(2); // ignores omitted height=99 helper
+    expect(template.geometry.boundingBox!.max.y).toBeCloseTo(1.88);
+    expect(()=>parseAnatomicalOBJ(grouped,{includeGroups:["missing"]})).toThrow(/Empty/);
+    template.geometry.dispose();
+  });
   it("binds unchanged C1 semantic bones with finite normalized four-weight influences",()=>{
     const p=bindTemplateToSemanticRig(parseAnatomicalOBJ(fixture));
     expect(p.mesh).toBeInstanceOf(THREE.SkinnedMesh);
