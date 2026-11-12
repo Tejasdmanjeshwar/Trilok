@@ -222,3 +222,31 @@ The lab Bone Inspector exposes live canonical C1 markers, parent links, regional
 search, a selected joint, full canonical ID, side, parent and copyable report,
 using the same posed skeleton. It does not expose skin-only helper bones as
 semantic joints or implement C4 editing.
+
+
+## C2.4 hand deformation follow-up — thumb-web source transfer
+
+Following the wrist regression correction, the next incremental C2.4 task
+audited the imported **palm, thumb and finger-base** geometry against original
+MakeHuman weight ownership. The real pinned CC0 source contains 1,606 distinct
+rendered source hand vertices per side influenced by the metacarpal/finger
+segments. The previous top-four mapping lost the small moving thumb MCP
+influence at a five-owner wrist/thumb-web patch, producing a measured maximum
+1.116mm difference from the unpruned, same-pose source-weight LBS oracle.
+
+The repair consolidates the passive C1 wrist/palm skin matrices **only when a
+vertex has more than four influences and both are present**, conserving
+weight and preserving the thumb influence. The C1 palm is an unarticulated
+child of wrist today; tests verify their equivalent skin transforms under
+finger/thumb, fist, wrist and combined elbow pose combinations. Worst sampled
+four-weight-to-unpruned error falls to 0.347mm across combined hand stress
+poses (0.026mm under isolated thumb). A mutation restoring the old truncation
+must fail the geometric regression. Existing original source-vertex/UV seams,
+four normalized influences, FK, rig identity and combat remain unchanged.
+
+The isolated Character Lab now has thumb+wrist and combined hand stress poses,
+plus left/right thumb-web close-up views for future render review. **No actual
+browser visual acceptance has been established by those CPU tests.**
+Remaining C2.4 work includes close-up material/crease/volume review and
+shoulder/axilla, forearm, lower-body, neck and jaw deformation. C2.5 and C3
+remain deferred.
