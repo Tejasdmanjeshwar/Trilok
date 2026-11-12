@@ -18,7 +18,7 @@
 4. Baseline skeleton in C1 is structural and uses neutral joint frames; C2 still needs bind-pose calibration to a natural relaxed A-pose and revised human measurements. The prototype is not registered in `AnimatedWarrior` or `CombatHitVolumes`; a rendering change cannot alter domain hit detection.
 5. Arbitrary cuts are not implemented. Seam loop and interior cap placement remain pending; prevalidated severing zones must be designed and validated *before* C8. The current implicit marching topology should not be accepted as cut-ready.
 6. `/c2-lab.html` uses synchronous bounded volumetric sampling on load; browser timing, memory and GPU time need hardware measurements and later worker/cancellation. The grid is capped and no unbounded generation is exposed to users.
-7. Chromium tests exercise WebGL and pose buttons; **passing them is not human visual inspection**. A reviewer must examine neutral plus extreme poses (especially shoulders/elbows/groin), with actual images and device profiles, before labeling C2 complete.
+7. Chromium tests exercise WebGL and pose buttons and now capture neutral, shoulder and crouch screenshots on desktop and touch projects as a short-lived GitHub Actions artifact. **Passing tests or producing screenshots is not human visual inspection**; review the archived screenshots before art acceptance. A reviewer must examine neutral plus extreme poses (especially shoulders/elbows/groin), with actual images and device profiles, before labeling C2 complete.
 
 ## Human anatomy source feasibility: primary-asset license evidence
 
