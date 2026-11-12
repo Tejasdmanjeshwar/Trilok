@@ -169,10 +169,113 @@ describe("C2.4 CC0 real hand deform diagnostics", () => {
           console.log("CC0-HAND", pose, side, "sample", errors.length,
             "worst_m", worst.error.toFixed(6), "p95_m", p95.error.toFixed(6),
             "source", worst.id, "owners", worst.count);
-          // Diagnostic broad ceiling pending evidence-based thresholding.
-          expect(worst.error).toBeLessThan(.035);
+          // These are measured ceilings from the pinned CC0 source and
+          // current C1 pose envelope, not assertions about quaternion code.
+          // The prior top-four reduction displaced thumb-web skin by
+          // 1.116mm; passive-palm compaction reduces it below 0.35mm.
+          expect(worst.error, pose + " " + side + " worst source " + worst.id)
+            .toBeLessThan(pose === "mixed" ? .0004 :
+              pose === "wrist-thumb" ? .0002 : .00006);
         }
       }
     } finally { human.dispose(); }
   }, 60_000);
 });
+
+
+  it("preserves the exact articulated thumb-web source influence and detects old truncation", () => {
+    const { human, fk, weights } = realHand();
+    try {
+      const owners = sourceOwners(weights);
+      const { mesh, spike, template } = human;
+      const skinIndex = mesh.geometry.getAttribute("skinIndex");
+      const skinWeight = mesh.geometry.getAttribute("skinWeight");
+      const points = [
+        { side: "left" as Side, sourceId: 3683 },
+        { side: "right" as Side, sourceId: 10351 },
+      ];
+      for (const { sourceId, side } of points) {
+        const selected: number[] = [];
+        template.sourceVertexIds.forEach((id, i) => {
+          if (id === sourceId) selected.push(i);
+        });
+        expect(selected.length).toBeGreaterThan(0);
+        const sourceWeights = owners.get(sourceId)!;
+        expect(sourceWeights.length).toBe(5);
+        const raw = new Map<number, number>();
+        for (const { name, value } of sourceWeights) {
+          const bone = mappedIndex(name, human);
+          raw.set(bone, (raw.get(bone) ?? 0) + value);
+        }
+        const originalTopFour = [...raw]
+          .sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 4);
+        const sum = originalTopFour.reduce((value, entry) => value + entry[1], 0);
+        const oldIndices = [
+          originalTopFour[0]![0], originalTopFour[1]![0],
+          originalTopFour[2]![0], originalTopFour[3]![0],
+        ];
+        const oldWeights = originalTopFour.map((entry, index) =>
+          index === 3 ? Math.max(0, 1 -
+            originalTopFour.slice(0, 3).reduce((n, i) => n + i[1] / sum, 0)) :
+            entry[1] / sum);
+        const commands = handPose(human, "thumb");
+        fk.apply(commands);
+        spike.character.root.updateWorldMatrix(true, true);
+        for (const renderId of selected) {
+          const baseline = expectedUnlimited(sourceId, renderId, owners, human);
+          const corrected = mesh.getVertexPosition(renderId, new THREE.Vector3());
+          expect(corrected.distanceTo(baseline),
+            "retained thumb web " + side + " source " + sourceId)
+            .toBeLessThan(.000005);
+          const savedIndices = [0,1,2,3].map(k => skinIndex.getComponent(renderId,k));
+          const savedWeights = [0,1,2,3].map(k => skinWeight.getComponent(renderId,k));
+          let truncatedError = 0;
+          try {
+            for (let k=0;k<4;k++) {
+              skinIndex.setComponent(renderId,k,oldIndices[k]!);
+              skinWeight.setComponent(renderId,k,oldWeights[k]!);
+            }
+            truncatedError = mesh.getVertexPosition(renderId,
+              new THREE.Vector3()).distanceTo(baseline);
+          } finally {
+            for (let k=0;k<4;k++) {
+              skinIndex.setComponent(renderId,k,savedIndices[k]!);
+              skinWeight.setComponent(renderId,k,savedWeights[k]!);
+            }
+          }
+          expect(truncatedError,"old top-four reduction must visibly move thumb web")
+            .toBeGreaterThan(.0008);
+        }
+      }
+    } finally { human.dispose(); }
+  }, 60_000);
+
+  it("proves wrist and passive palm use identical skin transforms in the pose envelope", () => {
+    const { human, fk } = realHand();
+    try {
+      for (const pose of ["thumb","fist","index","wrist-thumb","mixed"] as const) {
+        fk.apply(handPose(human, pose));
+        human.spike.character.root.updateWorldMatrix(true, true);
+        for (const side of SIDES) {
+          const graph = human.spike.graph;
+          const wrist = graph.joints.find(j=>j.role==="wrist_"+side)!;
+          const palm = graph.joints.find(j=>j.role==="palm_"+side)!;
+          const wristBone = human.spike.bones.get(wrist.id)!;
+          const palmBone = human.spike.bones.get(palm.id)!;
+          const wristIndex = human.spike.skeleton.bones.indexOf(wristBone);
+          const palmIndex = human.spike.skeleton.bones.indexOf(palmBone);
+          expect(wristIndex).toBeGreaterThanOrEqual(0);
+          expect(palmIndex).toBeGreaterThanOrEqual(0);
+          expect(palm.parentId).toBe(wrist.id);
+          const skeleton = human.spike.skeleton;
+          const wristSkin = wristBone.matrixWorld.clone()
+            .multiply(skeleton.boneInverses[wristIndex]!);
+          const palmSkin = palmBone.matrixWorld.clone()
+            .multiply(skeleton.boneInverses[palmIndex]!);
+          for (let element = 0; element < 16; element++)
+            expect(Math.abs(wristSkin.elements[element]! -
+              palmSkin.elements[element]!)).toBeLessThan(1e-6);
+        }
+      }
+    } finally { human.dispose(); }
+  }, 60_000);
