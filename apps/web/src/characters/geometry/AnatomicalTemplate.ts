@@ -193,7 +193,8 @@ export function parseAnatomicalOBJ(
  * OBJ unit fixtures retain the explicit provisional heuristic for parser tests. */
 export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
   official?:{readonly rig:SourceRig;readonly weights:SourceWeights}):AnatomicalHuman {
-  const spike=createSkinningSpike({forearmSkinning:official!==undefined});
+  const spike=createSkinningSpike({forearmSkinning:official!==undefined,
+    shoulderSkinning:official!==undefined});
   const geometry=template.geometry;
   if(official){
     let diagnostic:RigDiagnostics;
@@ -205,7 +206,8 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
       jawTipWorldRest=landmarks.get("jaw:tail")?.clone();
       if(!jawTipWorldRest)throw new Error("Missing imported jaw-tip landmark");
       displacement=calibrateHumanBones(spike.graph,spike.bones,spike.skeleton,
-        spike.character.root,landmarks,spike.forearmSkinBones);
+        spike.character.root,landmarks,spike.forearmSkinBones,
+        spike.shoulderSkinBones);
       const proximalIndices=new Map<"left"|"right",number>();
       for(const side of ["left","right"] as const){
         const helper=spike.forearmSkinBones?.get(side);
@@ -214,8 +216,16 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
           throw new Error("Missing C2 proximal skin reference "+side);
         proximalIndices.set(side,index);
       }
+      const shoulderIndices=new Map<"left"|"right",number>();
+      for(const side of ["left","right"] as const){
+        const helper=spike.shoulderSkinBones?.get(side);
+        const index=helper?spike.skeleton.bones.indexOf(helper):-1;
+        if(index<spike.graph.joints.length+proximalIndices.size)
+          throw new Error("Missing C2 shoulder skin connector "+side);
+        shoulderIndices.set(side,index);
+      }
       diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,
-        official.weights,proximalIndices);
+        official.weights,proximalIndices,shoulderIndices);
       if(diagnostic.unweightedVertices||diagnostic.unmappedBones.length)
         throw new Error("Official rig incomplete: "+diagnostic.unweightedVertices+" unweighted render vertices; "+diagnostic.unmappedBones.join(","));
       spike.mesh.geometry=geometry;
