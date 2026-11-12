@@ -3,8 +3,9 @@ import type { AnimatedWarrior, Motion } from "../../actors/AnimatedWarrior";
 import type { AnatomicalGraphV1 } from "@trilok/character-core";
 
 /** Test-only bridge for the D14 group-driven renderer. This is NOT a new skinned actor. */
-export class LegacyWarriorAdapter {
+export class LegacyWarriorAdapter implements AnimatedWarrior {
   private readonly jointGroups: ReadonlyMap<string, THREE.Object3D>;
+  get root():THREE.Group {return this.warrior.root;}
   constructor(readonly warrior:AnimatedWarrior, readonly graph:AnatomicalGraphV1) {
     const legacyNames:Readonly<Record<string,string>>={
       chest:"Torso", pelvis:"Torso", spine_lower:"Torso",
