@@ -171,10 +171,10 @@ test("C2.4 shoulder / axilla cameras and combined stress preserve imported inspe
   await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true",{timeout:60_000});
   await expect(page.locator("#status")).toContainText("CC0");
   for (const pose of ["shoulder-forward","shoulder-combined","shoulder-torso"]) {
-    await choosePose(page,"'+pose+'");
+    await choosePose(page,pose);
     await expect(page.locator('[data-pose="'+pose+'"]')).toHaveAttribute("aria-pressed","true");
     for (const view of ["shoulder-left","shoulder-right","axilla-left","axilla-right"]) {
-      await chooseView(page,"'+view+'");
+      await chooseView(page,view);
       await expect(page.locator("#view-select")).toHaveValue("'+view+'");
       await expect(page.locator("#viewport canvas")).toBeVisible();
     }
@@ -189,7 +189,7 @@ test("C2.4 bilateral lower-body and elbow/neck stress diagnostics remain selecta
   await page.goto("/c2-lab.html");
   await expect(page.locator("html")).toHaveAttribute("data-c2-ready","true",{timeout:60_000});
   for (const pose of ["elbow-stress","hip-stress","knee-stress","ankle-stress","neck-jaw"]) {
-    await choosePose(page,"'+pose+'");
+    await choosePose(page,pose);
     await expect(page.locator('[data-pose="'+pose+'"]')).toHaveAttribute("aria-pressed","true");
   }
   for (const region of ["elbow","hip","knee","ankle"])for(const side of ["left","right"]){
@@ -215,7 +215,7 @@ test("C2.5 versioned pose matrix expands desktop/touch lab diagnostics", async (
   const platform = test.info().project.name;
   mkdirSync("test-results/c2",{recursive:true});
   for (const id of poses) {
-    await choosePose(page,"' + id + '");
+    await choosePose(page,id);
     await expect(page.locator('[data-pose="' + id + '"]'))
       .toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#status")).toContainText(id);
