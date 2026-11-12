@@ -265,3 +265,39 @@ motion is not anatomically calibrated, no volume/intersection acceptance
 has passed and actual rendered visual inspection remains outstanding.
 Continue geometric correction incrementally before C2.5; retain the
 manual Phase Acceptance Chromium gate for C2.5 and do not start C3.
+
+
+## C2.4 targeted deformation acceptance — closure decision (PR #32)
+
+**Decision scope: C2.4 only.** The project owner reviewed the Character Lab
+visually on the live website and reports no major visible deformation problems.
+This is **user-provided visual signoff**, not a claimed independent screenshot
+review or acceptance of every possible pose. In conjunction with the measured
+source-weight repairs in PRs #23–#31, bilateral CC0 CPU-skinned regression
+tests, stable semantic FK, and a green Fast CI run on the closure PR, the
+current **C2.4 targeted skinning/deformation implementation** may be accepted
+for the next C2.5 verification gate.
+
+The closure adds a final combined headless real-asset regression that compares
+actual skinned surface positions across UV-seam duplicates, verifies stable
+original source IDs, normalized four-influence ownership, order-independent
+FK replay, exact neutral recovery, separate concurrent rig instances, and
+exactly-once geometry/material disposal. It does not alter C1 semantics, C2
+skin algorithms, D14 combat or any body geometry.
+
+**Explicit non-acceptance / technical debt:** Existing extreme local edge-strain
+outliers, small remaining differences from the complete unpruned CC0 source
+skinning, approximate shoulder/forearm helpers, and unconstrained muscle
+volume/self-intersection evidence remain documented in the C2 import notes.
+The user considers the visible result acceptable for **this intermediate
+slice**; these numerical imperfections are not proof of zero artifacts or
+production-ready anatomy. C2.5 must determine if they represent blockers
+under a comprehensive pose matrix, physically plausible joint silhouettes,
+desktop/touch render inspection, browser import-time and runtime performance,
+memory/resource lifecycle and stable C3 contracts. Any failures reopen
+targeted C2.4 corrections before C2 is declared accepted.
+
+**C2.5 is not complete; C3 must not start before C2.5 acceptance.** The
+repository's manual full Chromium Phase Acceptance workflow remains reserved
+for C2.5 and is not silently substituted with Fast CI or the user visual
+review of this intermediate slice.

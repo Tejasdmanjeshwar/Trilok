@@ -354,3 +354,35 @@ The later Chromium test spec asserts these controls, but full Phase
 Acceptance remains reserved for C2.5. **C2.4 is still open** until the
 observed LBS volume/pinch/self-intersection defects are actually corrected
 and relevant rendered deformation is inspected.
+
+
+## C2.4 focused closure review — acceptance with explicit limitations (PR #32)
+
+Following PRs #23–#31, the project owner has directly inspected the current
+Character Lab and considers the visible deformation good with no major
+problems. Record this as **owner visual acceptance for C2.4**, not as
+independent browser-render artifact review, a quantitative silhouette test,
+or evidence of high-quality deformations in every C2.5 stress pose.
+
+The final C2.4 acceptance tests load the exact pinned MakeHuman CC0 OBJ,
+skeleton and weights, apply a combined bilateral shoulder/elbow/forearm,
+wrist/index, hip/knee/ankle, chest/neck/jaw FK pose and assert:
+- CPU-skinned positions at identical original source vertices coincide
+  through all actual UV-split render vertices, with the exact same four
+  bone indices/weights and neutral geometry.
+- FK target order does not change posed positions, neutral rest restores
+  within 0.003 mm, and original inverse binds and C1 IDs stay unchanged.
+- Two imported rig instances have identical source geometry but independent
+  pose state; geometry/material resources dispose exactly once.
+- Existing geometry, source-weight fidelity, wrist/thumb/shoulder, mutation
+  and deterministic combat replay suites remain mandatory Fast CI tests.
+
+This is a **targeted deforming-skin foundation** signoff, not an assertion
+that the extreme per-edge strain outliers recorded above disappear. In
+particular, linear-blend volume loss, self-intersections, anatomical muscle
+folds, shoulder articulation fraction calibration, and residual source
+truncation errors are known limitations for exhaustive **C2.5** validation.
+C2.5 must include actual desktop/mobile rendered pose-matrix inspection,
+performance and lifecycle measurement, C3-ready stable geometry and bind
+contracts, and a manual full Chromium acceptance run on its exact candidate
+SHA. C2.4's visual signoff does not complete C2 or unlock C3.
