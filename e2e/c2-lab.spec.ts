@@ -175,7 +175,7 @@ test("C2.4 shoulder / axilla cameras and combined stress preserve imported inspe
     await expect(page.locator('[data-pose="'+pose+'"]')).toHaveAttribute("aria-pressed","true");
     for (const view of ["shoulder-left","shoulder-right","axilla-left","axilla-right"]) {
       await chooseView(page,view);
-      await expect(page.locator("#view-select")).toHaveValue("'+view+'");
+      await expect(page.locator("#view-select")).toHaveValue(view);
       await expect(page.locator("#viewport canvas")).toBeVisible();
     }
   }
