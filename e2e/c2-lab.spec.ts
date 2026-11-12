@@ -373,3 +373,47 @@ test("Character Lab pose/camera selectors occupy the sidebar without covering th
   await page.locator("#reset-pose").click();
   await expect(pose).toHaveValue("neutral");
 });
+
+
+test("C3.2 opt-in morphology presets retain the C2 diagnostics and source lifecycle", async ({page}) => {
+  test.setTimeout(150_000);
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/c2-lab.html");
+  const preset=page.locator("#morph-preset");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",
+    {timeout:60_000});
+  await expect(preset).toHaveValue("neutral");
+  await expect(page.locator("html")).toHaveAttribute("data-c3-morph-preset","neutral");
+  await choosePose(page,"shoulder-combined");
+  await preset.selectOption("shoulders");
+  await expect(page.locator("html")).toHaveAttribute("data-c3-morph-preset","shoulders",
+    {timeout:60_000});
+  await expect(page.locator("#status")).toContainText("morphology shoulders");
+  await expect(page.locator("#status")).toContainText("shoulder-combined");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-directions","passed");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
+  mkdirSync("test-results/c3",{recursive:true});
+  const platform=test.info().project.name;
+  await chooseView(page,"front");
+  await page.locator("#viewport").screenshot({path:"test-results/c3/"+platform+"-shoulders-front.png"});
+  await chooseView(page,"rear");
+  await page.locator("#viewport").screenshot({path:"test-results/c3/"+platform+"-shoulders-rear.png"});
+  await preset.selectOption("stress");
+  await expect(page.locator("html")).toHaveAttribute("data-c3-morph-preset","stress",
+    {timeout:60_000});
+  await choosePose(page,"deep-crouch");
+  await chooseView(page,"side");
+  await page.locator("#viewport").screenshot({path:"test-results/c3/"+platform+"-combined-crouch-side.png"});
+  await preset.selectOption("neutral");
+  await expect(page.locator("html")).toHaveAttribute("data-c3-morph-preset","neutral",
+    {timeout:60_000});
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
+  await page.locator("#source-select").selectOption("implicit");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","implicit",{timeout:60_000});
+  await expect(preset).toBeDisabled();
+  await page.locator("#source-select").selectOption("template");
+  await expect(preset).toBeEnabled({timeout:60_000});
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
+  expect(errors).toEqual([]);
+});
