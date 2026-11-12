@@ -29,7 +29,7 @@ export function makeHumanLocalTransform(
 ): HumanLocalTransform {
   const { spike, mesh } = human;
   const root = spike.character.root;
-  root.updateWorldMatrix(true);
+  root.updateMatrixWorld(true);
   const rootInverse = root.matrixWorld.clone().invert();
   const joints = spike.graph.joints;
   const allBones = spike.skeleton.bones;
@@ -173,9 +173,9 @@ export function recomputeSourceNormals(human: AnatomicalHuman): void {
       throw new Error("C3.2 generated a nonfinite or collapsed triangle " + (i / 3));
     for (const vertex of [a, b, c]) {
       const source = sourceVertexIds[vertex]! * 3;
-      accumulated[source] += nx;
-      accumulated[source + 1] += ny;
-      accumulated[source + 2] += nz;
+      accumulated[source] = (accumulated[source] ?? 0) + nx;
+      accumulated[source + 1] = (accumulated[source + 1] ?? 0) + ny;
+      accumulated[source + 2] = (accumulated[source + 2] ?? 0) + nz;
     }
   }
   for (let i = 0; i < positions.count; i++) {
