@@ -122,7 +122,9 @@ export function parseHm08HumanOBJ(text:string):HumanTopology {
     if(nx*nx+ny*ny+nz*nz<1e-18)throw new Error("Degenerate hm08 source triangle");
     for(const id of [sourceForOutput[index[i]!]!,sourceForOutput[index[i+1]!]!,
       sourceForOutput[index[i+2]!]!]){
-      normals[id*3]+=nx;normals[id*3+1]+=ny;normals[id*3+2]+=nz;
+      normals[id*3]=(normals[id*3]??0)+nx;
+      normals[id*3+1]=(normals[id*3+1]??0)+ny;
+      normals[id*3+2]=(normals[id*3+2]??0)+nz;
     }
   }
   const smooth=new Float32Array(sourceForOutput.length*3);
