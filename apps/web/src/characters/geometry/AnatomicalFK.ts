@@ -123,7 +123,7 @@ export class AnatomicalFK {
         const current = at(joint.id)!;
         const childId = fingerId(graph, handSide, digit.digit, digit.index + 1);
         const child = at(childId);
-        const parent = at(joint.parentId);
+        const parent = at(joint.parentId ?? undefined);
         // Last phalanx uses the preceding calibrated bone direction; never
         // falls back to an arbitrary X Euler rotation.
         const direction = safeUnit(
