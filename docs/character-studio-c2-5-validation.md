@@ -77,9 +77,20 @@ validation before C2 completion:
 | Lifecycle | Owned `geometry`, `material`, `skeleton`; idempotent disposal | Rebuild atomically; dispose replaced owned resources and cancel stale async loads |
 | Failure reporting | Throws on malformed sources, missing DOFs and bad skin | Surface machine-readable diagnostic results in a future versioned bake schema |
 
-Do **not** treat these proposed rules as a completed versioned serialized C3
-interface or evidence that geometry is safe for arbitrary procedural shape
-changes. No body sliders, face shaping, archetype transforms, morphological
+The implemented read-only `AnatomicalMorphologyContract.ts` exposes
+`ANATOMICAL_MORPHOLOGY_CONTRACT_VERSION = 1` and
+`inspectAnatomicalMorphologyBaseline(human)`. It validates current original
+source numbering, indexed triangles, seam position/weight identity, four
+normalized influences, semantic C1 bone alignment, inverse bind validity,
+unit root scale, source-unit conversion and canonical Y-up/+Z conventions;
+returns bounded immutable metadata without mutating a posed rig or authoring
+any C3 shapes. An explicit error code differentiates contract failures.
+The headless real-source test corrupts a GPU skin weight to ensure the audit
+fails closed; it then restores the weight and verifies repeatability.
+
+Do **not** treat this read-only baseline as a completed *serialized* C3
+morphology editing/bake interface or evidence that geometry is safe for
+arbitrary procedural shape changes. No body sliders, face shaping, archetype transforms, morphological
 baking, new combat actor, or C4 editing was introduced here.
 
 ## CI policy
