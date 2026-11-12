@@ -1,0 +1,73 @@
+name: Phase Acceptance
+
+# The full Chromium matrix is an explicit phase-closure gate, not a per-slice
+# PR check. Select the exact branch/commit to validate in Actions -> Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "Phase being considered for acceptance"
+        required: true
+        type: choice
+        options: [C0, C1, C2, C3, C4, C5, C6, C7, C8, C9]
+      notes:
+        description: "Optional acceptance candidate / issue reference"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# Never cancel a started acceptance run; its SHA and artifacts are evidence.
+concurrency:
+  group: phase-acceptance-${{ github.ref }}-${{ inputs.phase }}
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Verify exact checkout build identity
+        run: node scripts/verify-build-identity.mjs
+      - name: Install Chromium for desktop and touch verification
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run full browser acceptance matrix
+        run: pnpm test:e2e
+      - name: Record tested phase and revision
+        if: always()
+        env:
+          PHASE: ${{ inputs.phase }}
+          NOTES: ${{ inputs.notes }}
+          TESTED_SHA: ${{ github.sha }}
+          TESTED_REF: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "## $PHASE acceptance candidate"
+            echo "- Tested ref: \`$TESTED_REF\`"
+            echo "- Tested commit: \`$TESTED_SHA\`"
+            echo "- Workflow: $RUN_URL"
+            if [ -n "$NOTES" ]; then
+              echo "- Notes: $NOTES"
+            fi
+            echo "- Acceptance requires a green run plus actual rendered screenshot review."
+            echo "- This workflow does not automatically mark any phase complete."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload rendered browser screenshots for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-${{ inputs.phase }}-screenshots
+          path: test-results/**/*.png
+          if-no-files-found: ignore
+          retention-days: 14
