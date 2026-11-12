@@ -34,6 +34,67 @@ describe("C2.2 CC0 source skeleton and weight retarget",()=>{
     expect(sourceWeightRole("finger2-1.L")).toBe("finger_index_0_right");
     expect(sourceWeightRole("finger1-3.L")).toBe("finger_thumb_1_right");
   });
+  it("assigns source shoulder and leg surfaces to their actual C1 segment origins",()=>{
+    // The official 163-bone CC0 rig inserts shoulder01 between clavicle and
+    // upperarm01; lowerleg02 is still on the shin, foot begins at the ankle.
+    // Misplacing these weights deforms the underarm and sends shin/foot skin
+    // through adjacent joint rotations during crouch and ankle flexion.
+    for(const [source,role] of [
+      ["shoulder01.L","clavicle_right"],["shoulder01.R","clavicle_left"],
+      ["upperarm01.L","shoulder_right"],["upperarm02.R","shoulder_left"],
+      ["lowerleg01.L","knee_right"],["lowerleg02.L","knee_right"],
+      ["lowerleg02.R","knee_left"],["foot.L","ankle_right"],
+      ["foot.R","ankle_left"],["toe1-1.L","foot_right"],
+      ["toe5-1.R","foot_left"],["toe1-2.L","toe_right"],
+      ["toe5-3.R","toe_left"],
+      ["lowerarm01.R","elbow_left"],["lowerarm02.L","elbow_right"],
+      ["wrist.R","wrist_left"],
+    ] as const)expect(sourceWeightRole(source),source).toBe(role);
+  });
+  it("keeps source-index seam equality after shoulder and shin ownership transfer",()=>{
+    const template=parseAnatomicalOBJ(meshSource);
+    const graph=createAnatomyPreset();
+    const source:SourceWeights={license:"CC0",weights:{
+      "shoulder01.L":[[0,.8],[1,.4]],"upperarm01.L":[[0,.2],[1,.6]],
+      "lowerleg02.L":[[2,.75],[3,.8]],"foot.L":[[2,.25],[3,.2]],
+    }};
+    const ids=template.sourceVertexIds;
+    const geometry=template.geometry;
+    const beforePosition=Array.from(geometry.getAttribute("position").array);
+    const beforeUV=Array.from(geometry.getAttribute("uv").array);
+    const beforeIndex=Array.from(geometry.getIndex()!.array);
+    const diagnostics=applyOfficialSkinWeights(template,graph,fixtureRig,source);
+    expect(diagnostics.unweightedVertices).toBe(0);
+    const skinIds=geometry.getAttribute("skinIndex");
+    const weights=geometry.getAttribute("skinWeight");
+    const indexFor=(role:string)=>graph.joints.findIndex(j=>j.role===role);
+    const expected=[
+      [[indexFor("clavicle_right"),.8],[indexFor("shoulder_right"),.2]],
+      [[indexFor("shoulder_right"),.6],[indexFor("clavicle_right"),.4]],
+      [[indexFor("knee_right"),.75],[indexFor("ankle_right"),.25]],
+      [[indexFor("knee_right"),.8],[indexFor("ankle_right"),.2]],
+    ] as const;
+    for(let i=0;i<ids.length;i++){
+      const expectedInfluences=expected[ids[i]!]!;
+      for(let k=0;k<expectedInfluences.length;k++){
+        expect(skinIds.getComponent(i,k)).toBe(expectedInfluences[k]![0]);
+        expect(weights.getComponent(i,k)).toBeCloseTo(expectedInfluences[k]![1],5);
+      }
+      let sum=0;
+      for(let k=0;k<4;k++){
+        const w=weights.getComponent(i,k);
+        expect(Number.isFinite(w)).toBe(true);
+        expect(w).toBeGreaterThanOrEqual(0);
+        sum+=w;
+      }
+      expect(sum).toBeCloseTo(1,5);
+    }
+    expect(Array.from(ids)).toEqual(Array.from(template.sourceVertexIds));
+    expect(Array.from(geometry.getAttribute("position").array)).toEqual(beforePosition);
+    expect(Array.from(geometry.getAttribute("uv").array)).toEqual(beforeUV);
+    expect(Array.from(geometry.getIndex()!.array)).toEqual(beforeIndex);
+    geometry.dispose();
+  });
   it("calibrates source landmarks in mesh coordinate space without global scaling",()=>{
     const template=parseAnatomicalOBJ(meshSource);
     const source=new THREE.Float32BufferAttribute(template.sourcePositions,3);
