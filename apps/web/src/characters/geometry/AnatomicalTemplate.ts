@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { applyOfficialSkinWeights, calibrateHumanBones, makeSourceLandmarks, type SourceRig, type SourceWeights } from "./OfficialHumanRig";
+import { applyOfficialSkinWeights, calibrateHumanBones, makeSourceLandmarks, type SourceRig, type SourceWeights, type RigDiagnostics } from "./OfficialHumanRig";
 import { createSkinningSpike, validateSkinningSpike, type SkinningSpike } from "./SkinningSpike";
 
 /**
@@ -27,6 +27,7 @@ export interface AnatomicalHuman {
   readonly spike: SkinningSpike;
   readonly mesh: THREE.SkinnedMesh;
   readonly template: AnatomicalTemplate;
+  readonly rigDiagnostics?: RigDiagnostics;
   readonly vertexCount: number;
   readonly triangleCount: number;
   dispose():void;
@@ -193,11 +194,13 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
   const spike=createSkinningSpike();
   const geometry=template.geometry;
   if(official){
+    let diagnostic:RigDiagnostics;
+    let displacement=0;
     try{
       const positions=new THREE.Float32BufferAttribute(template.sourcePositions,3);
       const landmarks=makeSourceLandmarks(official.rig,template,positions);
-      calibrateHumanBones(spike.graph,spike.bones,spike.skeleton,spike.character.root,landmarks);
-      const diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,official.weights);
+      displacement=calibrateHumanBones(spike.graph,spike.bones,spike.skeleton,spike.character.root,landmarks);
+      diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,official.weights);
       if(diagnostic.unweightedVertices||diagnostic.unmappedBones.length)
         throw new Error("Official rig incomplete: "+diagnostic.unweightedVertices+" unweighted render vertices; "+diagnostic.unmappedBones.join(","));
       spike.mesh.geometry=geometry;
@@ -205,7 +208,9 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
       validateSkinningSpike(spike);
     }catch(error){geometry.dispose();spike.dispose();throw error;}
     let disposed=false;
-    return {spike,mesh:spike.mesh,template,vertexCount:geometry.getAttribute("position").count,
+    return {spike,mesh:spike.mesh,template,
+      rigDiagnostics:{...diagnostic,maxBindDisplacementMeters:displacement},
+      vertexCount:geometry.getAttribute("position").count,
       triangleCount:geometry.getIndex()!.count/3,
       dispose(){if(disposed)return;disposed=true;geometry.dispose();spike.dispose();}};
   }
