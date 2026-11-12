@@ -267,7 +267,7 @@ try{
       throw new Error("Missing bone inspector UI");
     inspector=new BoneInspector({
       graph:preview.spike.graph,bones:preview.spike.bones,scene,camera,
-      viewport,panel,labels,markerToggle,connectionToggle,
+      viewport:viewport!,panel,labels,markerToggle,connectionToggle,
     });
     for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
     button.addEventListener("click",()=>{
