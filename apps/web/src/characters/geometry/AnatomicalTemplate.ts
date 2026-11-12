@@ -46,7 +46,9 @@ function finiteValues(parts:readonly string[],length:number):number[] {
   return values;
 }
 /** Bounded parser preserving source vertex indexing and triangulating polygon faces. */
-export function parseAnatomicalOBJ(source:string):AnatomicalTemplate {
+export function parseAnatomicalOBJ(
+  source:string, options:{readonly includeGroups?:readonly string[]}={},
+):AnatomicalTemplate {
   if(!source||source.length>MAX_BYTES)throw new Error("Anatomical OBJ outside size budget");
   const sourcePositions:number[]=[];
   const sourceUVs:number[]=[];
@@ -57,12 +59,19 @@ export function parseAnatomicalOBJ(source:string):AnatomicalTemplate {
   const corners=new Map<string,number>();
   const topologyEdges=new Map<string,number>();
   let faces=0;
+  let group="";
+  const includedGroups=options.includeGroups===undefined?undefined:new Set(options.includeGroups);
+  if(includedGroups?.size===0)throw new Error("Empty anatomical source group allowlist");
   let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
   for(const rawLine of source.split(/\r?\n/)){
     const line=rawLine.trim();
     if(!line||line.startsWith("#"))continue;
     const parts=line.split(/\s+/);
     const command=parts.shift();
+    if(command==="g"){
+      group=parts[0]??"";
+      continue;
+    }
     if(command==="v"){
       const [x,y,z]=finiteValues(parts,3);
       sourcePositions.push(x!,y!,z!);
@@ -73,6 +82,7 @@ export function parseAnatomicalOBJ(source:string):AnatomicalTemplate {
     }else if(command==="vt"){
       const [u,v]=finiteValues(parts,2);sourceUVs.push(u!,v!);
     }else if(command==="f"){
+      if(includedGroups && !includedGroups.has(group))continue;
       if(parts.length<3||parts.length>32)throw new Error("Unsupported OBJ face size");
       const face=parts.map(part=>{
         const pieces=part.split("/");
@@ -102,6 +112,18 @@ export function parseAnatomicalOBJ(source:string):AnatomicalTemplate {
     }
   }
   const count=sourcePositions.length/3;
+  // Source OBJ also contains invisible helpers and auxiliary facial meshes.
+  // Calibrate dimensions from *included topology only*, not unused helper vertices.
+  if(includedGroups){
+    minX=Infinity;minY=Infinity;minZ=Infinity;
+    maxX=-Infinity;maxY=-Infinity;maxZ=-Infinity;
+    for(const id of new Set(sourceIds)){
+      const x=sourcePositions[id*3]!,y=sourcePositions[id*3+1]!,z=sourcePositions[id*3+2]!;
+      minX=Math.min(minX,x);maxX=Math.max(maxX,x);
+      minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+      minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);
+    }
+  }
   const height=maxY-minY;
   if(count<3||!triangles.length||!Number.isFinite(height)||height<=0)
     throw new Error("Empty or flat anatomical OBJ");
@@ -217,6 +239,9 @@ export async function loadAnatomicalHuman(signal?:AbortSignal):Promise<Anatomica
   const response=await fetch("/anatomy/makehuman-base.obj",{signal});
   if(!response.ok)throw new Error("Pinned anatomical source unavailable (HTTP "+response.status+")");
   const obj=await response.text();
-  const template=parseAnatomicalOBJ(obj);
+  // MakeHuman core OBJ contains helper clothing/collision meshes that overlap
+  // the visible skin and produce a false "skirt" silhouette if imported.
+  // Retain original vertex numbering but render only the actual body surface.
+  const template=parseAnatomicalOBJ(obj,{includeGroups:["body"]});
   return bindTemplateToSemanticRig(template);
 }
