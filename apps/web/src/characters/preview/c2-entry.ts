@@ -89,7 +89,7 @@ async function initialize():Promise<void>{
     human=createC2Human(source);
     scene.add(human.character.root);
     helper=new THREE.SkeletonHelper(human.character.root);
-    helper.material.depthTest=false;
+    (helper.material as THREE.LineBasicMaterial).depthTest=false;
     helper.visible=false;
     scene.add(helper);
     geometryLabel.textContent="Topology: "+human.topology.retainedSourceVertices+
@@ -112,7 +112,7 @@ function dispose():void{
   if(closed)return;
   closed=true;
   cancelAnimationFrame(frame);observer.disconnect();controls.dispose();
-  if(helper){scene.remove(helper);helper.geometry.dispose();helper.material.dispose();}
+  if(helper){scene.remove(helper);helper.geometry.dispose();(helper.material as THREE.Material).dispose();}
   human?.dispose();floor.geometry.dispose();(floor.material as THREE.Material).dispose();
   grid.geometry.dispose();(grid.material as THREE.Material).dispose();
   renderer.dispose();renderer.domElement.remove();
