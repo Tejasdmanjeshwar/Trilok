@@ -57,6 +57,12 @@ function checksum(values: readonly number[]): string {
   return values.map(v => v.toFixed(7)).join(",");
 }
 
+// A single real-CC0 CPU-skin pass exercises every supported FK pose, including
+// deterministic replay, seam equality and full neutral recovery. It can exceed
+// Vitest's 5s default on Cloudflare cold builders (observed ~9.6s).
+// Give this one exhaustive test a wall-clock budget; do not weaken assertions.
+const REAL_ASSET_POSE_MATRIX_TIMEOUT_MS = 30_000;
+
 describe("C2.5 v1 supported real-asset anatomical pose matrix (CPU Three.js)", () => {
   it("covers every supported region and maintains strict versioned pose metadata", () => {
     expect(ANATOMICAL_POSE_MATRIX_VERSION).toBe(1);
@@ -128,7 +134,7 @@ describe("C2.5 v1 supported real-asset anatomical pose matrix (CPU Three.js)", (
       expect(Array.from(human.mesh.geometry.getIndex()!.array)).toEqual(topology);
       expect(sampleRest.getX(ids[0]!)).toBe(restFirst);
     } finally { human.dispose(); }
-  });
+  }, REAL_ASSET_POSE_MATRIX_TIMEOUT_MS);
 
   it("rejects an unsupported or out-of-range matrix target before any FK state changes", () => {
     const { human, fk } = makeSession();
