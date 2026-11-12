@@ -20,7 +20,7 @@
 <main>
   <a href="/">← Combat arena</a>
   <h1>C2 · Experimental skinned character surface</h1>
-  <div class="warning"><strong>Engineering prototype, not finished anatomy.</strong> The legacy comparison uses an implicit field. The imported MakeHuman CC0 mesh uses provisional C1 skin weights; shoulders, finger grips, clothing, sever seams, and deformation still require visual signoff. This is not Character Studio.</div>
+  <div class="warning"><strong>Engineering prototype, not finished anatomy.</strong> The legacy comparison uses an implicit field. The imported CC0 body now uses an experimental calibrated default skeleton and remapped official skin weights; shoulders, finger grips, clothing, sever seams, and deformation still require visual signoff. This is not Character Studio.</div>
   <div class="controls" role="group" aria-label="Anatomical source comparison">
     <button type="button" data-surface="template" aria-pressed="true">CC0 anatomical template</button>
     <button type="button" data-surface="implicit" aria-pressed="false">Old implicit prototype</button>
@@ -37,10 +37,19 @@
     <button type="button" data-pose="torso">Torso twist</button>
     <button type="button" data-pose="forearm">Forearm rotation</button>
     <button type="button" data-pose="bow">Bow-draw approximation</button>
+    <button type="button" data-pose="wrist">Wrist flexion</button>
+    <button type="button" data-pose="fist">Individual finger curl</button>
+    <button type="button" data-pose="sword">Two-handed grip proxy</button>
+    <button type="button" data-pose="jaw">Jaw open</button>
   </div>
   <div class="controls" role="group" aria-label="Geometry overlays">
     <label><input type="checkbox" data-debug="skeleton"> Skeleton</label>
     <label><input type="checkbox" data-debug="wireframe"> Wireframe topology</label>
+  </div>
+  <div class="controls" role="group" aria-label="Camera view">
+    <button type="button" data-view="front" aria-pressed="true">Front</button>
+    <button type="button" data-view="side" aria-pressed="false">Side</button>
+    <button type="button" data-view="rear" aria-pressed="false">Rear</button>
   </div>
   <div class="view" id="viewport" role="img" aria-label="Interactive skinned surface diagnostic rendered with Three.js"></div>
   <p id="status" role="status">Loading pinned CC0 core anatomical mesh…</p>

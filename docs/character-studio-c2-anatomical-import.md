@@ -60,3 +60,43 @@ The body-only surface is a single connected closed manifold by the tested *edge-
 **Actually inspected, not just collected:** WebGL viewport screenshots (desktop and simulated mobile touch) for neutral A-like pose, shoulder raise, arms overhead, deep crouch and wireframe/skeleton overlays. Neutral now has distinct feet, individual fingers, recognizable facial features and visible hip/leg anatomy. The skirt artifact is absent. The shoulders/elbows and crouch are visibly deforming without an obvious detached shell in these views. These images are *engineering review evidence*, not professional deformation signoff: shoulder elevation/wrist twist silhouette and groin folding still need close frontal/side/back inspection; hand grip poses do not prove finger articulation; full materials/face/eye topology, corrective shapes, robust weight painting, severing loops and performance baselines are **not** validated. Keep issue #15 open and do not enable C3/C4 or swap D14 actors.
 
 **Repeatable screenshot review:** The CI workflow uploads the `c2-pose-screenshots` artifact for 14 days. This review used the viewport-only screenshots from run 43182529817, not the earlier unusably cropped full-page captures. Future releases need more complete pose/device/budget gates.
+
+## C2.2 experimental official CC0 rig/weight retarget
+
+The follow-up branch `feat/c2-2-official-rig-weights` adopts two additional data-only
+files from the **same immutable upstream MakeHuman core revision**
+`a8bc2d54ff0ac92e78ff71431b1023eda42bf482` as the imported body mesh:
+
+| Source path | Upstream Git blob SHA-1 | Raw bytes | Upstream license field |
+| --- | --- | ---: | --- |
+| `makehuman/data/rigs/default.mhskel` | `b02cbecae00143856410d7561adf006d83bf9b3e` | 117,790 | CC0 |
+| `makehuman/data/rigs/default_weights.mhw` | `66185806afacf87749be8e5cf6dbf66496b2a6b0` | 897,521 | CC0 |
+
+Source copyright: Data Collection AB, Joel Palmius, Jonas Hauquier.
+The fetch script validates immutable Git blob hashes, exact file sizes and CC0
+metadata before serving the data. This is **licensed data**, not MakeHuman
+AGPL application logic. It is fetched at build time without modeling tools.
+
+`OfficialHumanRig.ts` performs anatomical source vertex-ID weight transfer onto
+UV-split imported render vertices, collapses source twist chains onto existing
+C1 semantic roles, resolves hand finger IDs by explicit left/right module path,
+normalizes and truncates to four influences, and calibrates joint positions from
+source vertex-index landmark averages in the same meter-space conversion as
+the imported mesh. Skeleton inverse bind matrices are recalculated after
+calibration. No C1 IDs, rig schema, gameplay authority or D14 actors change.
+
+**Known quality limitations:** This is an engineering retarget, not complete
+production-grade weight painting. MakeHuman's detailed 163-bone default rig
+does not map 1:1 to C1's simplified source-neutral skeleton. Source twist
+chains, facial controls, metacarpals and toe chains are reduced to fewer
+degrees of freedom; finger rotations need measured local-axis calibration.
+Incomplete source coverage is reported and currently guarded by the loader,
+which falls back to an explicitly labeled diagnostic prototype if necessary.
+Deep crotch, elbows, shoulders, jaw and grip silhouettes require screenshot
+review. The template must not be promoted to the live arena.
+
+Browser stress-pose coverage is extended with fist, approximate two-handed
+grip, wrist and jaw poses, front/side/rear camera views, and screenshot
+capture. E2E screenshot existence is **not** proof of acceptable deformation.
+The issue #15 anatomical quality gate stays open until measured source coverage,
+visual signoff, performance baselines, and all CI checks are verified.

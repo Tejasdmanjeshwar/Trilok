@@ -10,3 +10,7 @@ coverage/
 
 # Reproducibly downloaded pinned MakeHuman CC0 source (never commit generated copy)
 apps/web/public/anatomy/makehuman-base.obj
+
+# Pinned CC0 skeleton/weights acquired by the verified build script
+apps/web/public/anatomy/makehuman-default.mhskel
+apps/web/public/anatomy/makehuman-default_weights.mhw

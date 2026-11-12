@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { applyOfficialSkinWeights, calibrateHumanBones, makeSourceLandmarks, type SourceRig, type SourceWeights, type RigDiagnostics } from "./OfficialHumanRig";
 import { createSkinningSpike, validateSkinningSpike, type SkinningSpike } from "./SkinningSpike";
 
 /**
@@ -12,6 +13,8 @@ import { createSkinningSpike, validateSkinningSpike, type SkinningSpike } from "
 export interface AnatomicalTemplate {
   readonly geometry: THREE.BufferGeometry;
   readonly sourceVertexIds: Uint32Array;
+  readonly sourcePositions: Float32Array;
+  readonly sourceOrigin: readonly [number,number,number];
   readonly sourceVertexCount: number;
   readonly sourceFaceCount: number;
   readonly boundaryEdgeCount: number;
@@ -24,6 +27,7 @@ export interface AnatomicalHuman {
   readonly spike: SkinningSpike;
   readonly mesh: THREE.SkinnedMesh;
   readonly template: AnatomicalTemplate;
+  readonly rigDiagnostics?: RigDiagnostics;
   readonly vertexCount: number;
   readonly triangleCount: number;
   dispose():void;
@@ -129,6 +133,7 @@ export function parseAnatomicalOBJ(
     throw new Error("Empty or flat anatomical OBJ");
   const unit=TARGET_HEIGHT_METERS/height;
   const centerX=(minX+maxX)*.5,centerZ=(minZ+maxZ)*.5;
+  const sourceOrigin:readonly [number,number,number]=[centerX,minY,centerZ];
   for(let i=0;i<positions.length;i+=3){
     positions[i]=(positions[i]!-centerX)*unit;
     positions[i+1]=(positions[i+1]!-minY)*unit;
@@ -174,17 +179,41 @@ export function parseAnatomicalOBJ(
   geometry.setAttribute("normal",new THREE.Float32BufferAttribute(normals,3));
   geometry.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));
   geometry.computeBoundingBox();geometry.computeBoundingSphere();
-  return {geometry,sourceVertexIds:Uint32Array.from(sourceIds),sourceVertexCount:count,
+  return {geometry,sourceVertexIds:Uint32Array.from(sourceIds),
+    sourcePositions:Float32Array.from(sourcePositions),sourceOrigin,sourceVertexCount:count,
     sourceFaceCount:faces,sourceHeight:height,conversionMetersPerSourceUnit:unit,
     boundaryEdgeCount:[...topologyEdges.values()].filter(n=>n===1).length,
     nonManifoldEdgeCount:[...topologyEdges.values()].filter(n=>n>2).length,
     connectedComponents:components};
 }
 
-/** Provisional C1 skin transfer, not a MakeHuman-authored weight map. */
-export function bindTemplateToSemanticRig(template:AnatomicalTemplate):AnatomicalHuman {
+/** The official weights are mandatory for the deployed template, while synthetic
+ * OBJ unit fixtures retain the explicit provisional heuristic for parser tests. */
+export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
+  official?:{readonly rig:SourceRig;readonly weights:SourceWeights}):AnatomicalHuman {
   const spike=createSkinningSpike();
   const geometry=template.geometry;
+  if(official){
+    let diagnostic:RigDiagnostics;
+    let displacement=0;
+    try{
+      const positions=new THREE.Float32BufferAttribute(template.sourcePositions,3);
+      const landmarks=makeSourceLandmarks(official.rig,template,positions);
+      displacement=calibrateHumanBones(spike.graph,spike.bones,spike.skeleton,spike.character.root,landmarks);
+      diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,official.weights);
+      if(diagnostic.unweightedVertices||diagnostic.unmappedBones.length)
+        throw new Error("Official rig incomplete: "+diagnostic.unweightedVertices+" unweighted render vertices; "+diagnostic.unmappedBones.join(","));
+      spike.mesh.geometry=geometry;
+      spike.mesh.name="C2_MAKEHUMAN_CC0_WEIGHTED_SKINNING";
+      validateSkinningSpike(spike);
+    }catch(error){geometry.dispose();spike.dispose();throw error;}
+    let disposed=false;
+    return {spike,mesh:spike.mesh,template,
+      rigDiagnostics:{...diagnostic,maxBindDisplacementMeters:displacement},
+      vertexCount:geometry.getAttribute("position").count,
+      triangleCount:geometry.getIndex()!.count/3,
+      dispose(){if(disposed)return;disposed=true;geometry.dispose();spike.dispose();}};
+  }
   const indices:number[]=[],weights:number[]=[];
   const joints=spike.graph.joints;
   const points=new Map<string,THREE.Vector3>();
@@ -243,5 +272,15 @@ export async function loadAnatomicalHuman(signal?:AbortSignal):Promise<Anatomica
   // the visible skin and produce a false "skirt" silhouette if imported.
   // Retain original vertex numbering but render only the actual body surface.
   const template=parseAnatomicalOBJ(obj,{includeGroups:["body"]});
-  return bindTemplateToSemanticRig(template);
+  const [rigResponse,weightResponse]=await Promise.all([
+    fetch("/anatomy/makehuman-default.mhskel",{signal}),
+    fetch("/anatomy/makehuman-default_weights.mhw",{signal}),
+  ]);
+  if(!rigResponse.ok||!weightResponse.ok){template.geometry.dispose();
+    throw new Error("Pinned CC0 MakeHuman skeleton/weight data unavailable");}
+  try{
+    const rig=await rigResponse.json() as SourceRig;
+    const weights=await weightResponse.json() as SourceWeights;
+    return bindTemplateToSemanticRig(template,{rig,weights});
+  }catch(error){template.geometry.dispose();throw error;}
 }

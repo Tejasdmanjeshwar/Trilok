@@ -10,7 +10,8 @@ const error=document.querySelector<HTMLElement>("#error");
 if(!viewport||!status||!error)throw new Error("Missing laboratory controls");
 
 type Preview = {spike:SkinningSpike;mesh:THREE.SkinnedMesh;vertexCount:number;
-  triangleCount:number;dispose():void;template?:AnatomicalHuman["template"]};
+  triangleCount:number;dispose():void;template?:AnatomicalHuman["template"];
+  rigDiagnostics?:AnatomicalHuman["rigDiagnostics"]};
 let stopping=false;
 let active:Preview|undefined;
 let overlay:THREE.SkeletonHelper|undefined;
@@ -56,7 +57,11 @@ try{
       active.triangleCount.toLocaleString()+" triangles"+
       (t?" · "+t.sourceVertexCount.toLocaleString()+" source vertices · "+
        t.connectedComponents+" topology components · "+t.sourceHeight.toFixed(3)+" source height units · "+t.boundaryEdgeCount+
-       " boundary / "+t.nonManifoldEdgeCount+" non-manifold edges":" · implicit fallback");
+       " boundary / "+t.nonManifoldEdgeCount+" non-manifold edges"+
+       (active.rigDiagnostics?" · CC0 rig "+active.rigDiagnostics.mappedBones+" weighted bones · "+
+       active.rigDiagnostics.unweightedVertices+" unweighted vertices · "+
+       active.rigDiagnostics.maxBindDisplacementMeters.toFixed(3)+"m max bind correction":"")
+       :" · implicit fallback");
   };
   function applyPose(name:string):void {
     if(!active)return;
@@ -86,6 +91,21 @@ try{
       case "torso":pose("spine_lower","y",.62);pose("chest","y",.5);break;
       case "neck":pose("neck","y",.65);break;
       case "forearm":pose("wrist_left","y",2.8);pose("wrist_right","y",-2.8);break;
+      case "wrist":
+        pose("wrist_left","x",.8);pose("wrist_right","x",.8);break;
+      case "fist":
+        for(const [id,bone] of active.spike.bones){
+          const role=active.spike.graph.joints.find(j=>j.id===id)?.role;
+          if(role?.startsWith("finger_"))bone.rotation.x=role.includes("thumb")?-.55:-1.1;
+        }break;
+      case "sword":
+        pose("shoulder_left","x",-.5);pose("shoulder_right","x",-.5);
+        pose("elbow_left","x",-1);pose("elbow_right","x",-1);
+        for(const [id,bone] of active.spike.bones){
+          if(active.spike.graph.joints.find(j=>j.id===id)?.role.startsWith("finger_"))
+            bone.rotation.x=-.7;
+        }break;
+      case "jaw":pose("jaw","x",.4);break;
       case "bow":
         pose("shoulder_left","x",-1.2);pose("shoulder_right","x",-1);
         pose("elbow_right","y",-.65);pose("elbow_left","x",-1);break;
@@ -130,7 +150,17 @@ try{
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
     scene.add(preview.spike.character.root);
-    for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
+    for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
+    button.addEventListener("click",()=>{
+      const selectedView=button.dataset.view;
+      if(selectedView==="front")camera.position.set(0,1.45,3.2);
+      if(selectedView==="side")camera.position.set(3.2,1.45,0);
+      if(selectedView==="rear")camera.position.set(0,1.45,-3.2);
+      camera.lookAt(0,.95,0);controls.target.set(0,.95,0);controls.update();
+      for(const item of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
+        item.setAttribute("aria-pressed",String(item===button));
+    });
+  for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
       button.setAttribute("aria-pressed",String(button.dataset.surface===name));
     applyPose(currentPose);applyDebug();
     document.documentElement.dataset.c2Ready="true";
