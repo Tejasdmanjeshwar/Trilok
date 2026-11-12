@@ -196,3 +196,28 @@ manual C2 phase gate; a passing fast PR CI alone does not prove visual polish.
 
 No C1 semantic contract, FK angles, skin weights, geometry, combat behavior or
 C3 morphology features were changed for this UI-only slice.
+
+### C2.5 viewer-first follow-up — sidebar pose/camera placement
+
+Owner feedback identified that native pose/camera dropdowns positioned in the
+stage toolbar could cover the actual rendered character while expanded,
+especially on smaller screens. The pose selector, camera selector, browse/reset
+actions, and quick pose shortcuts now live in the **same dedicated diagnostics
+sidebar as Display & Source**, outside the WebGL viewport and outside its
+clipping/stacking context. The stage itself contains the full unobstructed
+character preview and minimal passive pose/view labels plus quick camera
+buttons. No FK, geometry, source weights, or C1 semantic definitions changed.
+
+Desktop uses adjacent preview/sidebar columns. At tablet/phone widths the
+viewport is displayed first, followed by the controls; a compact sticky
+preview keeps the character visible while operating controls below it.
+The generated searchable pose browser still works on mobile as a purposefully
+invoked full-screen-overlay sheet. Existing `#pose-select`,
+`#view-select`, quick pose IDs, aria labels, source select and inspector
+interfaces are preserved.
+
+An additional desktop/touch Playwright check verifies the sidebar selection
+controls are physically non-overlapping with the WebGL viewport while the
+pose and camera update; it captures layout screenshots. This is a UI
+integration regression gate, not a replacement for the full C2 Phase
+Acceptance and human screenshot review.
