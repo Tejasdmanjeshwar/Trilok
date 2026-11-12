@@ -196,6 +196,27 @@ try{
           finger(side,"thumb",0,"flexion",.6);
           finger(side,"thumb",1,"flexion",.8);
         }break;
+      case "thumb-wrist":
+        pose("wrist_left","flexion",.62);pose("wrist_right","flexion",.62);
+        pose("wrist_left","abduction",.2);pose("wrist_right","abduction",-.2);
+        for(const side of ["left","right"] as const){
+          finger(side,"thumb",0,"opposition",.75);
+          finger(side,"thumb",0,"flexion",.55);
+          finger(side,"thumb",1,"flexion",.7);
+        }break;
+      case "hand-stress":
+        pose("elbow_left","flexion",1);pose("elbow_right","flexion",1);
+        pose("elbow_left","rotation",.7);pose("elbow_right","rotation",-.7);
+        pose("wrist_left","flexion",.62);pose("wrist_right","flexion",.62);
+        pose("wrist_left","abduction",.2);pose("wrist_right","abduction",-.2);
+        for(const side of ["left","right"] as const){
+          finger(side,"thumb",0,"opposition",.75);
+          finger(side,"thumb",0,"flexion",.55);
+          finger(side,"thumb",1,"flexion",.7);
+          finger(side,"index",0,"flexion",1.2);
+          finger(side,"index",1,"flexion",1.1);
+          finger(side,"index",2,"flexion",.6);
+        }break;
       case "sword":
         pose("shoulder_left","flexion",.5);pose("shoulder_right","flexion",.5);
         pose("elbow_left","flexion",1);pose("elbow_right","flexion",1);
@@ -285,6 +306,20 @@ try{
           target.y-=.07;
           camera.position.copy(target).add(selectedView==="head-front"?
             new THREE.Vector3(0,.04,.38):new THREE.Vector3(.38,.04,0));
+        }
+      }
+      if(selectedView==="thumb-web-left"||selectedView==="thumb-web-right"){
+        const side=selectedView==="thumb-web-left"?"left":"right";
+        const joint=active!.spike.graph.joints.find(j=>
+          j.role==="finger_thumb_0" && j.id.includes("arm["+side+","));
+        const base=joint?active!.spike.bones.get(joint.id):undefined;
+        if(base){
+          active!.spike.character.root.updateWorldMatrix(true,true);
+          target=base.getWorldPosition(new THREE.Vector3());
+          // Focus directly on the imported thumb/palm transition, not a
+          // guessed screen-space location; still works after posing.
+          camera.position.copy(target).add(new THREE.Vector3(
+            side==="left"?.16:-.16,.1,.25));
         }
       }
       if(selectedView==="hand-left"||selectedView==="hand-right"){
