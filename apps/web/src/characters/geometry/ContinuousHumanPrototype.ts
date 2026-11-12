@@ -27,21 +27,21 @@ interface FieldSegment {
   jointB:number;
 }
 const rad=(role:string):number=>
-  role==="chest"?.19:
-  role==="spine_lower"?.17:
-  role==="neck"?.080:
-  role==="head"?.14:
-  role.startsWith("clavicle")?.087:
-  role.startsWith("shoulder")?.10:
-  role.startsWith("elbow")?.073:
-  role.startsWith("wrist")?.058:
-  role.startsWith("palm")?.062:
-  role.startsWith("hip_")?.12:
-  role.startsWith("knee_")?.095:
-  role.startsWith("ankle_")?.068:
-  role.startsWith("foot_")?.078:
-  role.startsWith("toe_")?.055:
-  role.startsWith("finger")?.021:.043;
+  role==="chest" ? .19 :
+  role==="spine_lower" ? .17 :
+  role==="neck" ? .080 :
+  role==="head" ? .14 :
+  role.startsWith("clavicle") ? .087 :
+  role.startsWith("shoulder") ? .10 :
+  role.startsWith("elbow") ? .073 :
+  role.startsWith("wrist") ? .058 :
+  role.startsWith("palm") ? .062 :
+  role.startsWith("hip_") ? .12 :
+  role.startsWith("knee_") ? .095 :
+  role.startsWith("ankle_") ? .068 :
+  role.startsWith("foot_") ? .078 :
+  role.startsWith("toe_") ? .055 :
+  role.startsWith("finger") ? .021 :.043;
 
 function segmentsOf(spike:SkinningSpike):FieldSegment[] {
   const world=new Map<string,THREE.Vector3>();
