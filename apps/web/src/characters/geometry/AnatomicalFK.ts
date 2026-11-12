@@ -60,6 +60,8 @@ function fingerId(graph: AnatomicalGraphV1, side: "left" | "right",
 
 export class AnatomicalFK {
   readonly frames: ReadonlyMap<string, JointFrame>;
+  /** Measured volar-facing normals of the two resting hands, in world space. */
+  readonly palmarNormals: ReadonlyMap<"left" | "right", THREE.Vector3>;
   private readonly graph: AnatomicalGraphV1;
   private readonly bones: ReadonlyMap<string, THREE.Bone>;
 
@@ -79,28 +81,37 @@ export class AnatomicalFK {
       id ? restPositions.get(id) : undefined;
     const byRole = (role: string): THREE.Vector3 | undefined =>
       at(graph.joints.find(j => j.role === role)?.id);
-    const palmNormals = new Map<string, THREE.Vector3>();
+    const palmNormals = new Map<"left" | "right", THREE.Vector3>();
     for (const side of ["left", "right"] as const) {
       const wrist = byRole("wrist_" + side);
       const index = at(fingerId(graph, side, "index", 0));
       const middle = at(fingerId(graph, side, "middle", 0));
       const little = at(fingerId(graph, side, "little", 0));
-      let palmNormal = forward.clone();
-      if (wrist && index && middle && little) {
-        // The indexed knuckle span and wrist-to-knuckle vector form the
-        // measured palm plane. Face its normal toward the template's
-        // documented +Z anterior direction, not a mirrored Euler sign.
+      const thumbDistal = at(fingerId(graph, side, "thumb", 1));
+      let palmar = forward.clone(); // C1 schematic fallback: no separated knuckles.
+      if (wrist && index && middle && little && thumbDistal) {
+        // CC0 MakeHuman rests with the palms tilted toward the body. Its
+        // knuckle plane is almost perpendicular to world Z; choosing a sign
+        // by dot(+Z) flips flexion unpredictably between mirrored hands.
+        // The offset of the distal thumb landmark from the wrist/knuckle
+        // plane identifies the *volar* half-space in the source anatomy.
         const lateral = index.clone().sub(little);
         const distal = middle.clone().sub(wrist);
-        const candidate = lateral.cross(distal);
-        if (candidate.lengthSq() > 1e-10) {
-          candidate.normalize();
-          if (candidate.dot(forward) < 0) candidate.negate();
-          palmNormal = candidate;
+        const normal = lateral.cross(distal);
+        if (normal.lengthSq() > 1e-10) {
+          normal.normalize();
+          const volarOffset = thumbDistal.clone().sub(wrist).dot(normal);
+          // A nearly coplanar thumb cannot disambiguate dorsal and palmar
+          // surfaces. Fail rather than silently making an arbitrary choice.
+          if (Math.abs(volarOffset) < 1e-5)
+            throw new Error("Ambiguous palmar orientation for " + side + " hand");
+          if (volarOffset < 0) normal.negate();
+          palmar = normal;
         }
       }
-      palmNormals.set(side, palmNormal);
+      palmNormals.set(side, palmar);
     }
+    this.palmarNormals = palmNormals;
 
     const frames = new Map<string, JointFrame>();
     for (const joint of graph.joints) {
@@ -134,16 +145,18 @@ export class AnatomicalFK {
         add("flexion", flexAxis, digit.digit === "thumb" ? -0.06 : -0.10,
           digit.digit === "thumb" ? 1.10 : digit.index === 0 ? 1.42 : 1.65);
         if (digit.digit === "thumb" && digit.index === 0) {
-          const indexBase = at(fingerId(graph, handSide, "index", 0));
-          const towardIndex = indexBase ? indexBase.clone().sub(current) :
-            new THREE.Vector3(handSide === "left" ? 1 : -1, 0, 0);
-          // Sweep the thumb *across* the palm plane toward the index base.
-          // The flexion axis above tips it through the palm plane; these
-          // independent motions must not collapse into the same hinge.
-          const towardPalm = towardIndex.sub(direction.clone().multiplyScalar(
-            towardIndex.dot(direction)));
+          const opposingKnuckle = at(fingerId(graph, handSide, "ring", 0)) ??
+            at(fingerId(graph, handSide, "middle", 0));
+          const towardOtherDigits = opposingKnuckle ?
+            opposingKnuckle.clone().sub(current) :
+            new THREE.Vector3(handSide === "left" ? -1 : 1, 0, 0);
+          // Opposition is the sweep toward the other digits across the palm,
+          // not a rotation toward the adjacent index MCP. Project the target
+          // into the thumb shaft's normal plane before forming its hinge.
+          const across = towardOtherDigits.sub(direction.clone().multiplyScalar(
+            towardOtherDigits.dot(direction)));
           add("opposition",
-            safeUnit(direction.clone().cross(towardPalm), palmNormals.get(handSide)!),
+            safeUnit(direction.clone().cross(across), palmNormals.get(handSide)!),
             0, 1.25);
         }
         if (digit.index === 0 && digit.digit !== "thumb") {
