@@ -102,3 +102,37 @@ test("Imported CC0 jaw opens downward and renders from front and side",async({pa
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-open-front.png"});
   expect(errors).toEqual([]);
 });
+
+
+test("C2 Bone Inspector searches canonical joint IDs and maintains marker selection", async ({ page }) => {
+  test.setTimeout(75_000);
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source", "template", { timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "Bone inspector" })).toBeVisible();
+  const search = page.getByRole("searchbox", { name: "Search bone name or semantic ID" });
+  const region = page.getByRole("combobox", { name: "Filter bones by region" });
+  await region.selectOption("left-arm");
+  await search.fill("wrist");
+  const wrist = page.locator(".bone-list button:not([hidden])");
+  await expect(wrist).toHaveCount(1);
+  await wrist.click();
+  await expect(wrist).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".bone-details")).toContainText("wrist_left");
+  await expect(page.locator(".bone-details")).toContainText("humanoid[0]/arm[left,0]/wrist/joint");
+  await expect(page.locator(".bone-details")).toContainText("Parent ID");
+  await expect(page.locator(".bone-marker-label.selected")).toContainText("wrist_left");
+  await page.locator('[data-pose="wrist"]').click();
+  await expect(page.locator("#status")).toContainText("wrist");
+  await page.getByLabel("Bone markers and labels").uncheck();
+  await expect(page.locator(".bone-marker-label.selected")).toBeHidden();
+  await page.getByLabel("Bone markers and labels").check();
+  await expect(page.locator(".bone-marker-label.selected")).toBeVisible();
+  await region.selectOption("spine");
+  await search.fill("jaw");
+  await expect(page.locator(".bone-list button:not([hidden])")).toHaveCount(1);
+  await page.locator(".bone-list button:not([hidden])").click();
+  await expect(page.locator(".bone-details")).toContainText("jaw");
+  await region.selectOption("right-hand");
+  await search.fill("index");
+  await expect(page.locator(".bone-list button:not([hidden])").first()).toContainText("index");
+});
