@@ -31,6 +31,14 @@ Strict TypeScript is enabled. The core has no global mutable state and combat up
 
 Future console releases will need a separate porting strategy: Three.js web builds are not direct console exports.
 
+## Switching between laboratories
+
+The Combat Arena header includes a **Character Lab** link to the isolated
+[`/c2-lab.html`](https://trilok.tejasdmjr996.workers.dev/c2-lab.html).
+Select **← Combat arena** in the lab to return to the battle. This is
+navigation between independent pages, not a Character Studio release or
+replacement of the existing combat actors.
+
 ## Character Studio roadmap (C0–C9)
 
 The [C2 skinned-geometry research lab](docs/character-studio-c2-feasibility.md) at [`/c2-lab.html`](https://trilok.tejasdmjr996.workers.dev/c2-lab.html) now has a follow-up **pinned CC0 MakeHuman core template importer** with source topology diagnostics, provisional C1 skin weights and an explicit legacy implicit comparison mode. See [C2 anatomical source provenance and remaining gates](docs/character-studio-c2-anatomical-import.md). **This is not finished anatomical art or the Character Studio UI**, and it does not replace D14 battle models.
