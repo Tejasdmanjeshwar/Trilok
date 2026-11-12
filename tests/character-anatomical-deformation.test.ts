@@ -421,11 +421,12 @@ describe("C2.4 CC0 palm/finger continuity on the original indexed body", () => {
         new THREE.Vector3().fromBufferAttribute(geometry.getAttribute("position"), i);
       for (let t = 0; t < index.count; t += 3) {
         const triangle = [index.getX(t), index.getX(t + 1), index.getX(t + 2)];
-        for (const [a, b] of [
+        for (const edge of [
           [triangle[0]!, triangle[1]!],
           [triangle[1]!, triangle[2]!],
           [triangle[2]!, triangle[0]!],
         ]) {
+          const a = edge[0]!, b = edge[1]!;
           const s0 = source[a]!, s1 = source[b]!;
           const key = Math.min(s0, s1) + "|" + Math.max(s0, s1);
           if (edges.has(key)) continue;
