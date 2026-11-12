@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "name": "MakeHuman bundled core neutral human base",
+  "author": "MakeHuman Community / Data Collection AB; Joel Palmius; Jonas Hauquier",
+  "license": "CC0-1.0",
+  "licenseEvidence": "https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/LICENSE.md",
+  "origin": "https://github.com/makehumancommunity/makehuman",
+  "revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+  "path": "makehuman/data/3dobjs/base.obj",
+  "rawBytes": 1749303,
+  "gitBlobSha1": "d26635e9326e3cca30778fd7b9c00062b03cce09",
+  "units": "source mesh coordinates; converted to 1.75m stature at import",
+  "upAxis": "Y",
+  "target": "apps/web/public/anatomy/makehuman-base.obj",
+  "redistribution": "Core bundled asset released CC0 under upstream LICENSE.md; excludes MakeHuman AGPL application code and all third-party downloads"
+}
