@@ -40,7 +40,6 @@ export function makeHumanLocalTransform(
     if (i < 0) throw new Error("Missing C3.2 anatomical landmark " + role);
     return rest[i]!.clone();
   };
-  const pelvis = byRole("pelvis");
   const waist = byRole("spine_lower");
   const chest = byRole("chest");
   const leftShoulder = byRole("shoulder_left");
