@@ -283,8 +283,8 @@ describe("C2.4 shoulder skin distribution", () => {
   });
 });
 
-describe("C2.4 elbow and wrist skin blends",()=>{
-  it("softens proximal elbow skin flexion while retaining full semantic bend and twist",()=>{
+describe("C2.4 forearm and wrist skin reference contracts",()=>{
+  it("follows full elbow flexion on the proximal skin while excluding axial twist",()=>{
     const rig=createSkinningSpike({forearmSkinning:true});
     const fk=new AnatomicalFK(rig.graph,rig.bones,{
       forearmSkinBones:rig.forearmSkinBones,
@@ -302,13 +302,13 @@ describe("C2.4 elbow and wrist skin blends",()=>{
       ];
       fk.apply(targets);
       const full=elbow.quaternion.clone();
-      const half=helper.quaternion.clone();
+      const nonTwisting=helper.quaternion.clone();
       fk.apply([targets[0]!]);
-      expect(helper.quaternion.angleTo(rest)).toBeCloseTo(.7,6);
+      expect(helper.quaternion.angleTo(rest)).toBeCloseTo(1.4,6);
       expect(elbow.quaternion.angleTo(rest)).toBeCloseTo(1.4,6);
       fk.apply([...targets].reverse());
       expect(elbow.quaternion.toArray()).toEqual(full.toArray());
-      expect(helper.quaternion.toArray()).toEqual(half.toArray());
+      expect(helper.quaternion.toArray()).toEqual(nonTwisting.toArray());
       fk.apply([]);
       expect(helper.quaternion.angleTo(rest)).toBeLessThan(1e-7);
     }
