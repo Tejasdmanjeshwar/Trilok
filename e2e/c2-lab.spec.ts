@@ -249,6 +249,12 @@ test("C2.5 empirical import timings and repeated owned-surface lifecycle",async(
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
   const results:string[]=[];
   mkdirSync("test-results/c2",{recursive:true});
+  // Timings are intentionally hidden in a collapsed <details> by default.
+  // Expose the panel before using innerText(), which reads only visible text.
+  await page.locator("#c25-performance").evaluate((element:HTMLDetailsElement)=>{
+    element.open=true;
+  });
+  await expect(page.locator("#c25-metrics")).toBeVisible();
   for(let cycle=0;cycle<3;cycle++){
     await expect(page.locator("#c25-metrics")).toContainText("total-instantiation");
     const metrics=await page.locator("#c25-metrics").innerText();
@@ -272,9 +278,6 @@ test("C2.5 empirical import timings and repeated owned-surface lifecycle",async(
   }
   console.log("C2.5 environment",test.info().project.name,
     "import and pose empirical samples",JSON.stringify(results));
-  await page.locator("#c25-performance").evaluate((element:HTMLDetailsElement)=>{
-    element.open=true;
-  });
   await page.locator("#c25-performance").screenshot({
     path:"test-results/c2/"+test.info().project.name+"-c25-performance.png",
   });
