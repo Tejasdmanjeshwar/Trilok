@@ -12,6 +12,8 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   // The imported CC0 topology must render; silently falling back is a regression in CI.
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
   await expect(page.locator("#status")).toContainText("source vertices");
+  await expect(page.locator("#status")).toContainText("CC0 rig");
+  await expect(page.locator("#status")).toContainText("0 unweighted vertices");
   // Upstream body-group selection must exclude helper meshes and preserve a
   // closed manifold anatomical surface; previous all-groups import had 154 shells.
   await expect(page.locator("#status")).toContainText("1 topology components");
