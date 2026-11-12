@@ -246,7 +246,8 @@ try{
     fk=new AnatomicalFK(preview.spike.graph,preview.spike.bones,
       {jawTipWorldRest:preview.jawTipWorldRest,
         forearmSkinBones:preview.spike.forearmSkinBones,
-        shoulderSkinBones:preview.spike.shoulderSkinBones});
+        shoulderSkinBones:preview.spike.shoulderSkinBones,
+        wristSkinBones:preview.spike.wristSkinBones});
     if(name==="template"){
       verifyCalibratedHandMotions();
       verifyCalibratedJawOpening();
