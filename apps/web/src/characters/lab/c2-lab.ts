@@ -3,7 +3,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
 import { loadAnatomicalHuman, type AnatomicalHuman } from "../geometry/AnatomicalTemplate";
 import { validateSkinningSpike, type SkinningSpike } from "../geometry/SkinningSpike";
-import { AnatomicalFK, type JointTarget, type AnatomicalMotion } from "../geometry/AnatomicalFK";
+import { AnatomicalFK } from "../geometry/AnatomicalFK";
+import { ANATOMICAL_POSE_MATRIX, anatomicalPoseById, resolveAnatomicalPose } from "../geometry/AnatomicalPoseMatrix";
 import { BoneInspector } from "./BoneInspector";
 
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
@@ -137,125 +138,7 @@ try{
   function applyPose(name:string):void {
     if(!active||!fk)return;
     currentPose=name;
-    const targets:JointTarget[]=[];
-    const pose=(role:string,motion:AnatomicalMotion,radians:number)=>{
-      for(const joint of active!.spike.graph.joints){
-        if(joint.role===role && fk!.frames.get(joint.id)?.freedoms.has(motion))
-          targets.push({jointId:joint.id,motion,radians});
-      }
-    };
-    const finger=(side:"left"|"right",digit:string,index:number,
-      motion:AnatomicalMotion,radians:number)=>{
-      const joint=active!.spike.graph.joints.find(j=>j.role==="finger_"+digit+"_"+index &&
-        j.id.includes("arm["+side+","));
-      if(joint)targets.push({jointId:joint.id,motion,radians});
-    };
-    const fist=(closure:number)=>{
-      for(const side of ["left","right"] as const){
-        for(const digit of ["index","middle","ring","little"]){
-          finger(side,digit,0,"flexion",1.15*closure);
-          finger(side,digit,1,"flexion",1.19*closure);
-          finger(side,digit,2,"flexion",.55*closure);
-        }
-        finger(side,"thumb",0,"opposition",.55*closure);
-        finger(side,"thumb",0,"flexion",.4*closure);
-        finger(side,"thumb",1,"flexion",.55*closure);
-      }
-    };
-    switch(name){
-      case "tpose":
-        pose("shoulder_left","abduction",.8);pose("shoulder_right","abduction",.8);break;
-      case "overhead":
-        pose("shoulder_left","abduction",2.35);pose("shoulder_right","abduction",2.35);break;
-      case "shoulder":
-        pose("clavicle_left","abduction",.22);pose("clavicle_right","abduction",.22);
-        pose("shoulder_left","abduction",1.5);pose("shoulder_right","abduction",1.5);break;
-      case "shoulder-forward":
-        pose("shoulder_left","flexion",1.5);pose("shoulder_right","flexion",1.5);break;
-      case "shoulder-combined":
-        for(const side of ["left","right"] as const){
-          pose("clavicle_"+side,"abduction",.22);
-          pose("shoulder_"+side,"abduction",1.35);
-          pose("shoulder_"+side,"flexion",.75);
-          pose("elbow_"+side,"flexion",1.5);
-          pose("elbow_"+side,"rotation",side==="left"?.7:-.7);
-          pose("wrist_"+side,"flexion",.3);
-        }break;
-      case "shoulder-torso":
-        pose("shoulder_left","abduction",1.5);pose("shoulder_right","abduction",1.5);
-        pose("spine_lower","rotation",.3);pose("chest","rotation",.35);break;
-      case "elbow":
-        pose("elbow_left","flexion",1.7);pose("elbow_right","flexion",1.7);break;
-      case "elbow-stress":
-        pose("shoulder_left","flexion",.6);pose("shoulder_right","flexion",.6);
-        pose("elbow_left","flexion",1.9);pose("elbow_right","flexion",1.9);
-        pose("elbow_left","rotation",.9);pose("elbow_right","rotation",-.9);break;
-      case "hip-stress":
-        pose("hip_left","flexion",1.5);pose("hip_right","flexion",1.5);
-        pose("hip_left","abduction",.45);pose("hip_right","abduction",.45);
-        pose("spine_lower","rotation",.25);break;
-      case "knee-stress":
-        pose("hip_left","flexion",.7);pose("hip_right","flexion",.7);
-        pose("knee_left","flexion",1.9);pose("knee_right","flexion",1.9);break;
-      case "ankle-stress":
-        pose("ankle_left","flexion",.45);pose("ankle_right","flexion",.45);break;
-      case "neck-jaw":
-        pose("neck","rotation",.55);pose("head","flexion",.3);
-        pose("jaw","flexion",.5);break;
-      case "crouch":
-        pose("hip_left","flexion",1);pose("hip_right","flexion",1);
-        pose("knee_left","flexion",1.45);pose("knee_right","flexion",1.45);
-        pose("ankle_left","flexion",-.4);pose("ankle_right","flexion",-.4);break;
-      case "abduction":
-        pose("hip_left","abduction",.6);pose("hip_right","abduction",.6);break;
-      case "torso":pose("spine_lower","rotation",.42);pose("chest","rotation",.4);break;
-      case "neck":pose("neck","rotation",.65);break;
-      case "forearm":pose("elbow_left","rotation",1.15);pose("elbow_right","rotation",-1.15);break;
-      case "wrist":
-        pose("wrist_left","flexion",.65);pose("wrist_right","flexion",.65);break;
-      case "fist":fist(1);break;
-      case "index":
-        for(const side of ["left","right"] as const){
-          finger(side,"index",0,"flexion",1.1);
-          finger(side,"index",1,"flexion",1.35);
-          finger(side,"index",2,"flexion",.7);
-        }break;
-      case "thumb":
-        for(const side of ["left","right"] as const){
-          finger(side,"thumb",0,"opposition",.72);
-          finger(side,"thumb",0,"flexion",.6);
-          finger(side,"thumb",1,"flexion",.8);
-        }break;
-      case "thumb-wrist":
-        pose("wrist_left","flexion",.62);pose("wrist_right","flexion",.62);
-        pose("wrist_left","abduction",.2);pose("wrist_right","abduction",-.2);
-        for(const side of ["left","right"] as const){
-          finger(side,"thumb",0,"opposition",.75);
-          finger(side,"thumb",0,"flexion",.55);
-          finger(side,"thumb",1,"flexion",.7);
-        }break;
-      case "hand-stress":
-        pose("elbow_left","flexion",1);pose("elbow_right","flexion",1);
-        pose("elbow_left","rotation",.7);pose("elbow_right","rotation",-.7);
-        pose("wrist_left","flexion",.62);pose("wrist_right","flexion",.62);
-        pose("wrist_left","abduction",.2);pose("wrist_right","abduction",-.2);
-        for(const side of ["left","right"] as const){
-          finger(side,"thumb",0,"opposition",.75);
-          finger(side,"thumb",0,"flexion",.55);
-          finger(side,"thumb",1,"flexion",.7);
-          finger(side,"index",0,"flexion",1.2);
-          finger(side,"index",1,"flexion",1.1);
-          finger(side,"index",2,"flexion",.6);
-        }break;
-      case "sword":
-        pose("shoulder_left","flexion",.5);pose("shoulder_right","flexion",.5);
-        pose("elbow_left","flexion",1);pose("elbow_right","flexion",1);
-        fist(.65);break;
-      case "jaw":pose("jaw","flexion",.4);break;
-      case "bow":
-        pose("shoulder_left","flexion",1.2);pose("shoulder_right","flexion",1);
-        pose("elbow_right","rotation",-.65);pose("elbow_left","flexion",1);break;
-    }
+    const targets=resolveAnatomicalPose(anatomicalPoseById(name),active.spike.graph,fk);
     fk.apply(targets);
     active.spike.character.root.updateWorldMatrix(true,true);
     inspector?.update();
@@ -325,6 +208,17 @@ try{
     applyPose(currentPose);applyDebug();
     document.documentElement.dataset.c2Ready="true";
     document.documentElement.dataset.c2Source=name;
+  }
+  // Populate extended C2.5 matrix from the same definitions headless tests use.
+  const poseToolbar=document.querySelector<HTMLElement>('[aria-label="Deformation stress pose"]');
+  if(!poseToolbar)throw new Error("Missing C2 diagnostic pose controls");
+  for(const pose of ANATOMICAL_POSE_MATRIX){
+    if(poseToolbar.querySelector('[data-pose="'+pose.id+'"]'))continue;
+    const button=document.createElement("button");
+    button.type="button";button.dataset.pose=pose.id;
+    button.textContent=pose.label;button.setAttribute("aria-pressed","false");
+    button.title=pose.expected;
+    poseToolbar.append(button);
   }
   // Register camera controls once, not once per template/implicit surface swap.
   for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))

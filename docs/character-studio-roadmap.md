@@ -301,3 +301,16 @@ targeted C2.4 corrections before C2 is declared accepted.
 repository's manual full Chromium Phase Acceptance workflow remains reserved
 for C2.5 and is not silently substituted with Fast CI or the user visual
 review of this intermediate slice.
+
+### C2.5 implementation in progress — PR #33 (not a completion verdict)
+
+The first C2.5 slice adds a versioned, reusable full-body FK diagnostic pose matrix,
+replaces Character Lab's duplicate hardcoded switch, and adds full pinned-CC0
+CPU-skin regression verification of supported poses, neutral recovery, UV
+correspondence, semantic identities and inverse binds. A read-only versioned
+morphology baseline auditor checks source identity, topology, skin normalization,
+seam ownership, canonical joints and metric conventions without introducing C3
+shaping or new combat actors. Expanded desktop/touch captures are defined for
+the C2 Phase Acceptance run. Full runtime performance instrumentation,
+geometry-strain adjudication, inspected mobile/desktop screenshots and the
+manual exact-SHA C2 acceptance workflow remain outstanding. C2 remains open.
