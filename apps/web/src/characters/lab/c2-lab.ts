@@ -84,9 +84,9 @@ try{
     const fist=(closure:number)=>{
       for(const side of ["left","right"] as const){
         for(const digit of ["index","middle","ring","little"]){
-          finger(side,digit,0,"flexion",1.07*closure);
-          finger(side,digit,1,"flexion",1.05*closure);
-          finger(side,digit,2,"flexion",.42*closure);
+          finger(side,digit,0,"flexion",1.15*closure);
+          finger(side,digit,1,"flexion",1.19*closure);
+          finger(side,digit,2,"flexion",.55*closure);
         }
         finger(side,"thumb",0,"opposition",.55*closure);
         finger(side,"thumb",0,"flexion",.4*closure);
