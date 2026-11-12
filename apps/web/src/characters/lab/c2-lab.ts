@@ -4,6 +4,7 @@ import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanProto
 import { loadAnatomicalHuman, type AnatomicalHuman } from "../geometry/AnatomicalTemplate";
 import { validateSkinningSpike, type SkinningSpike } from "../geometry/SkinningSpike";
 import { AnatomicalFK, type JointTarget, type AnatomicalMotion } from "../geometry/AnatomicalFK";
+import { BoneInspector } from "./BoneInspector";
 
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
 const status=document.querySelector<HTMLElement>("#status");
@@ -18,6 +19,7 @@ let stopping=false;
 let active:Preview|undefined;
 let fk:AnatomicalFK|undefined;
 let overlay:THREE.SkeletonHelper|undefined;
+let inspector:BoneInspector|undefined;
 let renderer:THREE.WebGLRenderer|undefined;
 let frame=0;
 let surface="template";
@@ -205,6 +207,7 @@ try{
     }
     fk.apply(targets);
     active.spike.character.root.updateWorldMatrix(true,true);
+    inspector?.update();
     details();
   }
   const applyDebug=()=>{
@@ -241,6 +244,7 @@ try{
     overlay?.removeFromParent();overlay?.geometry.dispose();
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     overlay=undefined;
+    inspector?.dispose();inspector=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
     fk=new AnatomicalFK(preview.spike.graph,preview.spike.bones,
@@ -255,6 +259,16 @@ try{
       delete document.documentElement.dataset.c2JawDirection;
     }
     scene.add(preview.spike.character.root);
+    const panel=document.querySelector<HTMLElement>("#bone-inspector-panel");
+    const labels=document.querySelector<HTMLElement>("#bone-marker-labels");
+    const markerToggle=document.querySelector<HTMLInputElement>("#bone-markers");
+    const connectionToggle=document.querySelector<HTMLInputElement>("#bone-connections");
+    if(!panel||!labels||!markerToggle||!connectionToggle)
+      throw new Error("Missing bone inspector UI");
+    inspector=new BoneInspector({
+      graph:preview.spike.graph,bones:preview.spike.bones,scene,camera,
+      viewport,panel,labels,markerToggle,connectionToggle,
+    });
     for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
     button.addEventListener("click",()=>{
       const selectedView=button.dataset.view;
@@ -309,6 +323,7 @@ try{
     renderer!.setSize(width,height,false);
     camera.aspect=width/height;camera.updateProjectionMatrix();
     controls.update();
+    inspector?.update();
     renderer!.render(scene,camera);
     frame=requestAnimationFrame(render);
   };
@@ -318,6 +333,7 @@ try{
     stopping=true;request++;cancelAnimationFrame(frame);
     overlay?.removeFromParent();overlay?.geometry.dispose();
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
+    inspector?.dispose();inspector=undefined;
     controls.dispose();active?.dispose();fk=undefined;scene.clear();
     renderer?.dispose();renderer?.domElement.remove();
   },{once:true});
