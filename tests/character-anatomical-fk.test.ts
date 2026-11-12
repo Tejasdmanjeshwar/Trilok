@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { createAnatomyPreset } from "../packages/character-core/src/index";
-import { createSkinningSpike } from "../apps/web/src/characters/geometry/SkinningSpike";
+import { createSkinningSpike, validateSkinningSpike } from "../apps/web/src/characters/geometry/SkinningSpike";
 import { AnatomicalFK, type JointTarget } from "../apps/web/src/characters/geometry/AnatomicalFK";
 
 function fixture() {
