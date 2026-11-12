@@ -31,6 +31,10 @@ Strict TypeScript is enabled. The core has no global mutable state and combat up
 
 Future console releases will need a separate porting strategy: Three.js web builds are not direct console exports.
 
+## Character Studio roadmap (C0–C9)
+
+The upcoming [browser-native Character Studio roadmap](docs/character-studio-roadmap.md) defines an in-Trilok Three.js workflow for procedural anatomical humanoids, rigs, customizable human/Rakshasa/Vanara/winged-humanoid archetypes, validated baking and eventual anatomy-aware disfigurement/dismemberment. No Blender, separate authoring platform, or manual sculpting by the user is required. This is a **planned** system, not an implemented feature. The next development task is **C0 architecture and feasibility**, using the [C0 new-session handoff](docs/character-studio-c0-handoff.md). Existing D14 combat is preserved.
+
 ## How to verify the live build
 
 Every Vite build exposes a unique **BUILD <commit> · <UTC time>** badge below the Trilok title. Tap it to see the full Git SHA, build timestamp, playable version and combat engine version, or copy the report. The same data is published at `/build-info.json`.
