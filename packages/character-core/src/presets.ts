@@ -151,11 +151,11 @@ export function createAnatomyPreset(options:PresetOptionsV1={}): AnatomicalGraph
   const graph:AnatomicalGraphV1={
     schemaVersion:1,coordinates:CHARACTER_COORDINATES,
     topologyFamilyId:arms||legs?"humanoid_multi_limb_v1":"humanoid_biped_v1",
+    headTopologyFamilyId:family,
     modules:modules.map(m=>({...m})),segments,joints,sockets,skinBindings:[],severZones:[],
   };
   // Descriptive head topology family is reserved, but C1 does not manufacture
   // a substitute primitive skull, nor claim to generate morph-compatible meshes.
-  void family;
   validateAnatomicalGraph(graph);
   return graph;
 }
