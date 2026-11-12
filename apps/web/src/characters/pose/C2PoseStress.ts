@@ -60,14 +60,12 @@ export function inspectC2Pose(human:C2Human,step=43):PoseSample {
   return {samples,maxDisplacementMeters:max,invalidSamples:invalid};
 }
 
-/** Mesh edge-length distortion diagnostic for the hip/groin stress zone.
- * A skinned surface may deform, but abrupt weighting seams create extreme
- * edge stretching at the former hard hip boundary.
+/** Probe local edge stretch in the undeformed anatomical source space.
+ * Numerical screening does NOT replace screenshot/deformation inspection.
  */
-export function inspectC2HipEdgeStretch(human:C2Human):{
-  readonly edges:number;
-  readonly p95Stretch:number;
-  readonly maxStretch:number;
+function inspectRegionEdgeStretch(human:C2Human,
+  inRegion:(x:number,y:number,z:number)=>boolean):{
+  readonly edges:number;readonly p95Stretch:number;readonly maxStretch:number;
 } {
   const positions=human.mesh.geometry.getAttribute("position");
   const indices=human.mesh.geometry.getIndex();
@@ -83,19 +81,31 @@ export function inspectC2HipEdgeStretch(human:C2Human):{
       const ia=triangle[e]!,ib=triangle[(e+1)%3]!;
       a.fromBufferAttribute(positions,ia);
       b.fromBufferAttribute(positions,ib);
-      const cy=(a.y+b.y)*.5,cx=Math.abs((a.x+b.x)*.5);
-      if(cy<.73||cy>1.12||cx>.43)continue;
+      if(!inRegion((a.x+b.x)*.5,(a.y+b.y)*.5,(a.z+b.z)*.5))continue;
       const length=a.distanceTo(b);
       if(length<.0004)continue;
       human.mesh.getVertexPosition(ia,pa);
       human.mesh.getVertexPosition(ib,pb);
       const stretch=pa.distanceTo(pb)/length;
-      if(!Number.isFinite(stretch))throw new Error("Nonfinite hip edge stretch");
+      if(!Number.isFinite(stretch))throw new Error("Nonfinite anatomical edge stretch");
       observed.push(stretch);
     }
   }
-  if(!observed.length)throw new Error("Missing hip deformation samples");
+  if(!observed.length)throw new Error("Missing anatomical deformation samples");
   observed.sort((a,b)=>a-b);
   return {edges:observed.length,p95Stretch:observed[Math.floor((observed.length-1)*.95)]!,
     maxStretch:observed[observed.length-1]!};
+}
+/** Crouch hip seam and groin distortion check. */
+export function inspectC2HipEdgeStretch(human:C2Human):{
+  readonly edges:number;readonly p95Stretch:number;readonly maxStretch:number;
+} {
+  return inspectRegionEdgeStretch(human,(x,y)=>y>=.73&&y<=1.12&&Math.abs(x)<=.43);
+}
+/** Detect source A-pose finger/hand vertices stretching into dangling spikes. */
+export function inspectC2HandEdgeStretch(human:C2Human):{
+  readonly edges:number;readonly p95Stretch:number;readonly maxStretch:number;
+} {
+  return inspectRegionEdgeStretch(human,(x,y)=>Math.abs(x)>=.33&&
+    y>=.60&&y<=1.20);
 }
