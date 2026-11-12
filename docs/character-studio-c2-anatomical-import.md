@@ -67,6 +67,12 @@ The pinned 163-bone MakeHuman source rig contains intermediate articulated segme
 
 This is a targeted semantic skin-ownership correction, not independent twist-bone implementation or full corrective deformation. `upperarm01/02` and `lowerarm01/02` still collapse to shoulder and elbow joints respectively. The shoulder, hip/groin, wrist/palm, forearm twist and facial/jaw silhouettes still need focused actual WebGL visual assessment before any C2.4 completion claim; the full combined stress-pose matrix is reserved for C2.5.
 
+## C2.4 forearm skin twist distribution — incremental slice
+
+The imported source has distinct `lowerarm01.L/R` and `lowerarm02.L/R` weighted regions. Previously both became a single C1 elbow skin transform, so full pronation rotated the entire forearm abruptly from the elbow. The C2.4 lab adapter now optionally installs **two skin-only sibling references** at the calibrated elbow (one per side). The proximal `lowerarm01` vertices follow elbow flexion and parent shoulder movement without forearm-axis rotation; distal `lowerarm02` vertices follow the full semantic elbow transform, with existing source blend weights interpolating across the seam. Wrist and hand remain children of the original C1 elbow and receive full rotation. The original source vertex IDs, UVs, C1 bone mapping, four normalized GPU weights, bind matrices and deterministic FK remain intact. The synthetic C1 prototype does not add helpers.
+
+This is a *two-reference linear blend skinning compromise*, not independently simulated radius/ulna bones, validated muscle bulging, dual-quaternion skinning, or proof of visual volume quality. Possible candy-wrapper collapse, wrist creasing and hand intersection require close actual CC0 browser-render review before final C2.4 acceptance. C2.5 retains the complete combined-pose stress matrix.
+
 ## C2.2 experimental official CC0 rig/weight retarget
 
 The follow-up branch `feat/c2-2-official-rig-weights` adopts two additional data-only
