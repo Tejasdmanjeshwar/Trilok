@@ -10,7 +10,8 @@ const error=document.querySelector<HTMLElement>("#error");
 if(!viewport||!status||!error)throw new Error("Missing laboratory controls");
 
 type Preview = {spike:SkinningSpike;mesh:THREE.SkinnedMesh;vertexCount:number;
-  triangleCount:number;dispose():void;template?:AnatomicalHuman["template"]};
+  triangleCount:number;dispose():void;template?:AnatomicalHuman["template"];
+  rigDiagnostics?:AnatomicalHuman["rigDiagnostics"]};
 let stopping=false;
 let active:Preview|undefined;
 let overlay:THREE.SkeletonHelper|undefined;
@@ -56,7 +57,11 @@ try{
       active.triangleCount.toLocaleString()+" triangles"+
       (t?" · "+t.sourceVertexCount.toLocaleString()+" source vertices · "+
        t.connectedComponents+" topology components · "+t.sourceHeight.toFixed(3)+" source height units · "+t.boundaryEdgeCount+
-       " boundary / "+t.nonManifoldEdgeCount+" non-manifold edges":" · implicit fallback");
+       " boundary / "+t.nonManifoldEdgeCount+" non-manifold edges"+
+       (active.rigDiagnostics?" · CC0 rig "+active.rigDiagnostics.mappedBones+" weighted bones · "+
+       active.rigDiagnostics.unweightedVertices+" unweighted vertices · "+
+       active.rigDiagnostics.maxBindDisplacementMeters.toFixed(3)+"m max bind correction":"")
+       :" · implicit fallback");
   };
   function applyPose(name:string):void {
     if(!active)return;
