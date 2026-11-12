@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import { createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY,
+  type HumanLocalMorphologyV1 } from "@trilok/character-core";
+import { applyHumanMorphology } from "../geometry/HumanMorphology";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
 import { loadAnatomicalHuman, type AnatomicalHuman, type AnatomicalLoadStage } from "../geometry/AnatomicalTemplate";
@@ -27,6 +30,13 @@ let frame=0;
 let surface="template";
 let currentPose="neutral";
 let currentView="front";
+const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = {
+  neutral:{}, shoulders:{shoulders:1.10}, chest:{chest:1.10},
+  waist:{waist:0.90}, hips:{hips:1.10}, arms:{arms:1.06},
+  legs:{legs:1.06}, stress:{shoulders:1.10,chest:1.10,waist:0.90,
+    hips:1.10,arms:1.06,legs:1.06},
+};
+const morphologySelect = document.querySelector<HTMLSelectElement>("#morph-preset");
 const performancePanel=document.querySelector<HTMLElement>("#c25-metrics");
 const stageTimings=new Map<AnatomicalLoadStage,number>();
 let lastPoseApplyMs:number|undefined;
@@ -91,7 +101,8 @@ try{
   const details=()=>{
     if(!active)return;
     const t=active.template;
-    status!.textContent="C2 diagnostic ready · "+surface+" · "+currentPose+" · "+
+    status!.textContent="Anatomical diagnostic ready · "+surface+" · "+currentPose+" · "+
+      "morphology "+(morphologySelect?.value??"neutral")+" · "+
       active.vertexCount.toLocaleString()+" vertices · "+
       active.triangleCount.toLocaleString()+" triangles"+
       (t?" · "+t.sourceVertexCount.toLocaleString()+" source vertices · "+
@@ -202,8 +213,21 @@ try{
     let preview:Preview;
     const sampleTimings=new Map<AnatomicalLoadStage,number>();
     try {
-      if(name==="template")preview=await loadAnatomicalHuman(undefined,
-        (stage,ms)=>sampleTimings.set(stage,ms));
+      if(name==="template"){
+        const anatomical=await loadAnatomicalHuman(undefined,
+          (stage,ms)=>sampleTimings.set(stage,ms));
+        preview=anatomical;
+        const preset=morphologySelect?.value??"neutral";
+        if(preset!=="neutral"){
+          try{
+            const params=morphPresets[preset];
+            if(!params)throw new Error("Unknown morphology preset "+preset);
+            applyHumanMorphology(anatomical,createHumanLocalRecipe({
+              ...DEFAULT_HUMAN_LOCAL_MORPHOLOGY,...params,
+            }));
+          }catch(error){anatomical.dispose();throw error;}
+        }
+      }
       else preview=createContinuousHumanPrototype({step:.047});
       validateSkinningSpike(preview.spike);
     }catch(e){
@@ -226,6 +250,9 @@ try{
     inspector?.dispose();inspector=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
+    if(morphologySelect)morphologySelect.disabled=name!=="template";
+    document.documentElement.dataset.c3MorphPreset=
+      name==="template"?(morphologySelect?.value??"neutral"):"unavailable";
     const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
     if(sourceSelect)sourceSelect.value=name;
     stageTimings.clear();
@@ -340,6 +367,9 @@ try{
   const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
   sourceSelect?.addEventListener("change",()=>{
     void switchSurface(sourceSelect.value);
+  });
+  morphologySelect?.addEventListener("change",()=>{
+    void switchSurface("template");
   });
   const inspectorToggle=document.querySelector<HTMLButtonElement>("#bone-inspector-toggle");
   const inspectorContent=document.querySelector<HTMLElement>("#bone-inspector-content");
