@@ -73,6 +73,25 @@ describe("C2.3 anatomical FK", () => {
     expect(wrist.quaternion.angleTo(new THREE.Quaternion())).toBeGreaterThan(.4);
     rig.dispose();
   });
+  it("keeps finger spread and thumb opposition distinct from finger flexion", () => {
+    const { rig, fk, joint, target, position } = fixture();
+    for (const side of ["left", "right"] as const) {
+      const index = joint("finger_index_0", side);
+      const frame = fk.frames.get(index.id)!;
+      const flex = frame.freedoms.get("flexion")!.axis;
+      const spread = frame.freedoms.get("abduction")!.axis;
+      expect(Math.abs(flex.dot(spread))).toBeLessThan(.15);
+      const thumb = fk.frames.get(joint("finger_thumb_0", side).id)!;
+      const thumbFlex = thumb.freedoms.get("flexion")!.axis;
+      const opposition = thumb.freedoms.get("opposition")!.axis;
+      expect(Math.abs(thumbFlex.dot(opposition))).toBeLessThan(.9);
+      const untouched = position("finger_middle_2", side);
+      fk.apply([target("finger_index_0", "abduction", .18, side)]);
+      expect(position("finger_middle_2", side).distanceTo(untouched)).toBeLessThan(1e-6);
+      fk.apply([]);
+    }
+    rig.dispose();
+  });
   it("rejects invalid or duplicate commands atomically", () => {
     const { rig, fk, target, joint } = fixture();
     const valid = target("knee_left", "flexion", 1.3);
