@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
 import { loadAnatomicalHuman, type AnatomicalHuman } from "../geometry/AnatomicalTemplate";
 import { validateSkinningSpike, type SkinningSpike } from "../geometry/SkinningSpike";
+import { AnatomicalFK, type JointTarget, type AnatomicalMotion } from "../geometry/AnatomicalFK";
 
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
 const status=document.querySelector<HTMLElement>("#status");
@@ -14,6 +15,7 @@ type Preview = {spike:SkinningSpike;mesh:THREE.SkinnedMesh;vertexCount:number;
   rigDiagnostics?:AnatomicalHuman["rigDiagnostics"]};
 let stopping=false;
 let active:Preview|undefined;
+let fk:AnatomicalFK|undefined;
 let overlay:THREE.SkeletonHelper|undefined;
 let renderer:THREE.WebGLRenderer|undefined;
 let frame=0;
@@ -64,52 +66,77 @@ try{
        :" · implicit fallback");
   };
   function applyPose(name:string):void {
-    if(!active)return;
+    if(!active||!fk)return;
     currentPose=name;
-    // Reset every bone before applying poses; the C1 rest graph is unchanged.
-    for(const bone of active.spike.bones.values())bone.quaternion.identity();
-    const pose=(role:string,axis:"x"|"y"|"z",amount:number)=>{
-      const joint=active!.spike.graph.joints.find(j=>j.role===role);
-      if(joint)active!.spike.bones.get(joint.id)!.rotation[axis]=amount;
+    const targets:JointTarget[]=[];
+    const pose=(role:string,motion:AnatomicalMotion,radians:number)=>{
+      for(const joint of active!.spike.graph.joints){
+        if(joint.role===role && fk!.frames.get(joint.id)?.freedoms.has(motion))
+          targets.push({jointId:joint.id,motion,radians});
+      }
+    };
+    const finger=(side:"left"|"right",digit:string,index:number,
+      motion:AnatomicalMotion,radians:number)=>{
+      const joint=active!.spike.graph.joints.find(j=>j.role==="finger_"+digit+"_"+index &&
+        j.id.includes("arm["+side+","));
+      if(joint)targets.push({jointId:joint.id,motion,radians});
+    };
+    const fist=(closure:number)=>{
+      for(const side of ["left","right"] as const){
+        for(const digit of ["index","middle","ring","little"]){
+          finger(side,digit,0,"flexion",1.15*closure);
+          finger(side,digit,1,"flexion",1.19*closure);
+          finger(side,digit,2,"flexion",.55*closure);
+        }
+        finger(side,"thumb",0,"opposition",.55*closure);
+        finger(side,"thumb",0,"flexion",.4*closure);
+        finger(side,"thumb",1,"flexion",.55*closure);
+      }
     };
     switch(name){
       case "tpose":
-        pose("shoulder_left","z",-Math.PI/3);pose("shoulder_right","z",Math.PI/3);break;
+        pose("shoulder_left","abduction",.8);pose("shoulder_right","abduction",.8);break;
       case "overhead":
-        pose("shoulder_left","z",-2.35);pose("shoulder_right","z",2.35);break;
+        pose("shoulder_left","abduction",2.35);pose("shoulder_right","abduction",2.35);break;
       case "shoulder":
-        pose("clavicle_left","z",-.22);pose("clavicle_right","z",.22);
-        pose("shoulder_left","z",-1.5);pose("shoulder_right","z",1.5);break;
+        pose("clavicle_left","abduction",.22);pose("clavicle_right","abduction",.22);
+        pose("shoulder_left","abduction",1.5);pose("shoulder_right","abduction",1.5);break;
       case "elbow":
-        pose("elbow_left","x",-2);pose("elbow_right","x",-2);break;
+        pose("elbow_left","flexion",1.7);pose("elbow_right","flexion",1.7);break;
       case "crouch":
-        pose("hip_left","x",-1);pose("hip_right","x",-1);
-        pose("knee_left","x",1.45);pose("knee_right","x",1.45);
-        pose("ankle_left","x",-.4);pose("ankle_right","x",-.4);break;
+        pose("hip_left","flexion",1);pose("hip_right","flexion",1);
+        pose("knee_left","flexion",1.45);pose("knee_right","flexion",1.45);
+        pose("ankle_left","flexion",-.4);pose("ankle_right","flexion",-.4);break;
       case "abduction":
-        pose("hip_left","z",-.6);pose("hip_right","z",.6);break;
-      case "torso":pose("spine_lower","y",.62);pose("chest","y",.5);break;
-      case "neck":pose("neck","y",.65);break;
-      case "forearm":pose("wrist_left","y",2.8);pose("wrist_right","y",-2.8);break;
+        pose("hip_left","abduction",.6);pose("hip_right","abduction",.6);break;
+      case "torso":pose("spine_lower","rotation",.42);pose("chest","rotation",.4);break;
+      case "neck":pose("neck","rotation",.65);break;
+      case "forearm":pose("elbow_left","rotation",1.15);pose("elbow_right","rotation",-1.15);break;
       case "wrist":
-        pose("wrist_left","x",.8);pose("wrist_right","x",.8);break;
-      case "fist":
-        for(const [id,bone] of active.spike.bones){
-          const role=active.spike.graph.joints.find(j=>j.id===id)?.role;
-          if(role?.startsWith("finger_"))bone.rotation.x=role.includes("thumb")?-.55:-1.1;
+        pose("wrist_left","flexion",.65);pose("wrist_right","flexion",.65);break;
+      case "fist":fist(1);break;
+      case "index":
+        for(const side of ["left","right"] as const){
+          finger(side,"index",0,"flexion",1.1);
+          finger(side,"index",1,"flexion",1.35);
+          finger(side,"index",2,"flexion",.7);
+        }break;
+      case "thumb":
+        for(const side of ["left","right"] as const){
+          finger(side,"thumb",0,"opposition",.72);
+          finger(side,"thumb",0,"flexion",.6);
+          finger(side,"thumb",1,"flexion",.8);
         }break;
       case "sword":
-        pose("shoulder_left","x",-.5);pose("shoulder_right","x",-.5);
-        pose("elbow_left","x",-1);pose("elbow_right","x",-1);
-        for(const [id,bone] of active.spike.bones){
-          if(active.spike.graph.joints.find(j=>j.id===id)?.role.startsWith("finger_"))
-            bone.rotation.x=-.7;
-        }break;
-      case "jaw":pose("jaw","x",.4);break;
+        pose("shoulder_left","flexion",.5);pose("shoulder_right","flexion",.5);
+        pose("elbow_left","flexion",1);pose("elbow_right","flexion",1);
+        fist(.65);break;
+      case "jaw":pose("jaw","flexion",.4);break;
       case "bow":
-        pose("shoulder_left","x",-1.2);pose("shoulder_right","x",-1);
-        pose("elbow_right","y",-.65);pose("elbow_left","x",-1);break;
+        pose("shoulder_left","flexion",1.2);pose("shoulder_right","flexion",1);
+        pose("elbow_right","rotation",-.65);pose("elbow_left","flexion",1);break;
     }
+    fk.apply(targets);
     active.spike.character.root.updateWorldMatrix(true,true);
     details();
   }
@@ -149,6 +176,7 @@ try{
     overlay=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
+    fk=new AnatomicalFK(preview.spike.graph,preview.spike.bones);
     scene.add(preview.spike.character.root);
     for(const button of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
     button.addEventListener("click",()=>{
@@ -156,7 +184,18 @@ try{
       if(selectedView==="front")camera.position.set(0,1.45,3.2);
       if(selectedView==="side")camera.position.set(3.2,1.45,0);
       if(selectedView==="rear")camera.position.set(0,1.45,-3.2);
-      camera.lookAt(0,.95,0);controls.target.set(0,.95,0);controls.update();
+      let target=new THREE.Vector3(0,.95,0);
+      if(selectedView==="hand-left"||selectedView==="hand-right"){
+        const role=selectedView==="hand-left"?"palm_left":"palm_right";
+        const joint=active!.spike.graph.joints.find(j=>j.role===role);
+        const bone=joint?active!.spike.bones.get(joint.id):undefined;
+        if(bone){
+          active!.spike.character.root.updateWorldMatrix(true,true);
+          target=bone.getWorldPosition(new THREE.Vector3());
+          camera.position.copy(target).add(new THREE.Vector3(0,.15,.58));
+        }
+      }
+      camera.lookAt(target);controls.target.copy(target);controls.update();
       for(const item of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
         item.setAttribute("aria-pressed",String(item===button));
     });
@@ -191,7 +230,7 @@ try{
     stopping=true;request++;cancelAnimationFrame(frame);
     overlay?.removeFromParent();overlay?.geometry.dispose();
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
-    controls.dispose();active?.dispose();scene.clear();
+    controls.dispose();active?.dispose();fk=undefined;scene.clear();
     renderer?.dispose();renderer?.domElement.remove();
   },{once:true});
 }catch(e){
