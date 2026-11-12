@@ -250,3 +250,18 @@ browser visual acceptance has been established by those CPU tests.**
 Remaining C2.4 work includes close-up material/crease/volume review and
 shoulder/axilla, forearm, lower-body, neck and jaw deformation. C2.5 and C3
 remain deferred.
+
+## C2.4 full-body source-fidelity audit — follow-up to PR #30
+
+PR #31 establishes headless CC0 original-source weighted surface metrics for
+shoulder, elbow, hips, knees, ankles, neck, jaw and combined poses. The new
+motion-compatible shoulder weight compaction addresses a measured up-to-15.7mm
+four-weight truncation defect, reducing the raised-arm source-reference error
+to about 5.2mm. See [C2 anatomical import notes](character-studio-c2-anatomical-import.md)
+for source selection, edge-strain measurements and mutation tests. This is
+**not C2.4 quality completion**: high local edge distortion in axilla,
+groin, knee fold and jaw remains, the shoulder's approximate distributed
+motion is not anatomically calibrated, no volume/intersection acceptance
+has passed and actual rendered visual inspection remains outstanding.
+Continue geometric correction incrementally before C2.5; retain the
+manual Phase Acceptance Chromium gate for C2.5 and do not start C3.
