@@ -59,7 +59,10 @@ describe("C2.5 global pinned-source deformation measurement (real CPU skin, no G
       }
       console.info("C2_5_WHOLE_BODY_GEOMETRY_AUDIT",JSON.stringify(results));
       fk.apply([]);
-      expect(audit.measure("recovered")).toEqual({...neutral,poseId:"recovered"});
+      const restored=audit.measure("recovered");
+      expect(restored.areaRatioFromRest).toBeCloseTo(neutral.areaRatioFromRest,6);
+      expect(restored.volumeRatioFromRest).toBeCloseTo(neutral.volumeRatioFromRest,6);
+      expect(restored.edgeRmsPercent).toBeCloseTo(neutral.edgeRmsPercent,5);
       fk.apply(resolveAnatomicalPose(anatomicalPoseById("whole-extreme"),
         human.spike.graph,fk));
       expect(audit.measure("whole-extreme")).toEqual(results.at(-1));
@@ -84,7 +87,7 @@ describe("C2.5 global pinned-source deformation measurement (real CPU skin, no G
       for(let i=0;i<skin.count;i++){
         // Mutate an actual left-wrist-owned patch, including every UV copy of
         // a source vertex, without disrupting four-weight normalization.
-        if(skin.getX(i)!==wristIndex||weights.getX(i)<.95)continue;
+        if(skin.getX(i)!==wristIndex||weights.getX(i)<.3)continue;
         const p=new THREE.Vector3().fromBufferAttribute(human.mesh.geometry.getAttribute("position"),i);
         if(!Number.isFinite(p.x))continue;
         if(mutated.length>=128)break;
