@@ -79,6 +79,14 @@ The verified CC0 source hierarchy is `clavicle -> shoulder01 -> upperarm01`. Per
 
 Regression gates cover source bone ordering, source-index weight ownership, four normalized weights, original geometry/UV/index/vertex ID invariance, helper placement, finite inverse binds, deterministic FK, bilateral rest recovery and independence from earlier C2.3 hand/jaw mechanics. Re-check actual 3D poses after deployment (front/back overhead, 1.5-radian shoulder elevation and forward-flexion, underarm close-ups): it is not yet proven that the shoulder avoids collapse, pinching or self-intersection. Reassess the partial motion fraction using measured rendered outcomes rather than claiming AAA-quality volume preservation. The complete Phase Acceptance run remains reserved for C2.5.
 
+## C2.4 elbow bend and wrist skin-band blending (incremental)
+
+The pinned CC0 source independently weights `upperarm02`, `lowerarm01`, `lowerarm02`, `wrist`, and metacarpals. Each side has 207 source vertices shared between upperarm02/lowerarm01, 288 shared between lowerarm01/lowerarm02, and 176 shared between lowerarm02/wrist. Previously, proximal lowerarm01 skin followed full elbow flexion while the upper arm was unbent, concentrating the skin fold at the elbow. The existing *render-only* proximal forearm reference now receives 50% of elbow flexion (and no axial pronation); the original semantic elbow still receives the complete bend and twist. Original source weights determine skin interpolation over the region. There is no extra authoritative gameplay joint.
+
+The CC0 `wrist.L/R` source region (248 vertices per side) previously mapped directly to the full C1 wrist transform alongside the metacarpals. Two additional presentation-only wrist skin bridges are placed at the calibrated wrist bind centers, parented as wrist siblings so existing hand/finger FK remains unchanged. Official `wrist` weights now follow half of the rest-relative semantic wrist quaternion; the metacarpal/palm and finger chains retain full wrist flexion/deviation. All original source vertex IDs, indexed triangles, UV seams and normalized four-influence skin weights are retained. Bind inverses are calculated after calibration and deterministic rest-pose commands restore each helper.
+
+The 50% blend in each region is a **provisional limited linear-blend skinning approximation**, not anatomically measured muscle-volume correction or proof of improved real renders. Potential elbow fold collapse, candy-wrapper twist, wrist narrowing and finger-palm intersections require actual front/side/close-up WebGL review. Do not equate unit-test success with visual signoff; the complete Phase Acceptance Chromium matrix belongs to C2.5.
+
 ## C2.2 experimental official CC0 rig/weight retarget
 
 The follow-up branch `feat/c2-2-official-rig-weights` adopts two additional data-only

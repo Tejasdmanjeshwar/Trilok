@@ -17,6 +17,8 @@ export interface SkinningSpike {
   readonly forearmSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone>;
   /** CC0 shoulder01 presentation-only connector bones (not semantic joints). */
   readonly shoulderSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone>;
+  /** CC0 wrist skin bridge, separate from the authoritative C1 wrist joints. */
+  readonly wristSkinBones?: ReadonlyMap<"left" | "right", THREE.Bone>;
   readonly vertexCount: number;
   readonly triangleCount: number;
   dispose(): void;
@@ -28,6 +30,8 @@ export interface SpikeOptions {
   readonly forearmSkinning?: boolean;
   /** Preserve the CC0 shoulder01 source-weight region as an intermediate skin reference. */
   readonly shoulderSkinning?: boolean;
+  /** Interpolate the CC0 wrist skin band between forearm and fully rotating palm. */
+  readonly wristSkinning?: boolean;
 }
 function finiteScale(value:number|undefined,name:string):number {
   const n=value??1;
@@ -89,6 +93,24 @@ export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
       helper.quaternion.copy(shoulder.quaternion);
       shoulder.parent.add(helper);
       shoulderSkinBones.set(side,helper);
+      boneList.push(helper);
+    }
+  }
+  // Source wrist.L/R has its own weighted skin band between lowerarm02
+  // and the metacarpals. A sibling reference eases wrist bending without
+  // changing the C1 wrist transform or its child palm/fingers.
+  const wristSkinBones=new Map<"left"|"right",THREE.Bone>();
+  if(options.wristSkinning){
+    for(const side of ["left","right"] as const){
+      const joint=graph.joints.find(j=>j.role==="wrist_"+side);
+      const wrist=joint?bones.get(joint.id):undefined;
+      if(!wrist?.parent)throw new Error("Missing C1 wrist skin anchor");
+      const helper=new THREE.Bone();
+      helper.name="C2_SKIN_WRIST_BRIDGE_"+side.toUpperCase();
+      helper.position.copy(wrist.position);
+      helper.quaternion.copy(wrist.quaternion);
+      wrist.parent.add(helper);
+      wristSkinBones.set(side,helper);
       boneList.push(helper);
     }
   }
@@ -191,6 +213,7 @@ export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
   return {graph,character,mesh,skeleton,bones,
     forearmSkinBones:options.forearmSkinning?forearmSkinBones:undefined,
     shoulderSkinBones:options.shoulderSkinning?shoulderSkinBones:undefined,
+    wristSkinBones:options.wristSkinning?wristSkinBones:undefined,
     vertexCount:positions.length/3,triangleCount:indices.length/3,
     dispose(){if(disposed)return;disposed=true;character.dispose();}};
 }
@@ -203,10 +226,12 @@ export function validateSkinningSpike(spike:SkinningSpike):void {
     throw new Error("Missing or inconsistent skinned attributes");
   const forearmExtra=spike.forearmSkinBones?.size??0;
   const shoulderExtra=spike.shoulderSkinBones?.size??0;
+  const wristExtra=spike.wristSkinBones?.size??0;
   if(spike.skeleton.bones.length!==spike.graph.joints.length+
-      forearmExtra+shoulderExtra ||
+      forearmExtra+shoulderExtra+wristExtra ||
     (forearmExtra!==0&&forearmExtra!==2)||
-    (shoulderExtra!==0&&shoulderExtra!==2))
+    (shoulderExtra!==0&&shoulderExtra!==2)||
+    (wristExtra!==0&&wristExtra!==2))
     throw new Error("Skeleton joint mismatch");
   for(const [offset,side] of (["left","right"] as const).entries()){
     const helper=spike.forearmSkinBones?.get(side);
@@ -225,6 +250,15 @@ export function validateSkinningSpike(spike:SkinningSpike):void {
     if(!shoulder||helper.parent!==shoulder.parent||
       spike.skeleton.bones[spike.graph.joints.length+forearmExtra+offset]!==helper)
       throw new Error("Invalid shoulder skin connector");
+  }
+  for(const [offset,side] of (["left","right"] as const).entries()){
+    const helper=spike.wristSkinBones?.get(side);
+    if(!helper)continue;
+    const joint=spike.graph.joints.find(j=>j.role==="wrist_"+side);
+    const wrist=joint?spike.bones.get(joint.id):undefined;
+    if(!wrist||helper.parent!==wrist.parent||
+      spike.skeleton.bones[spike.graph.joints.length+forearmExtra+shoulderExtra+offset]!==helper)
+      throw new Error("Invalid wrist skin bridge");
   }
   for(let i=0;i<p.count;i++){
     let total=0;
