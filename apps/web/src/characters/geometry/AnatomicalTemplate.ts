@@ -194,7 +194,7 @@ export function parseAnatomicalOBJ(
 export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
   official?:{readonly rig:SourceRig;readonly weights:SourceWeights}):AnatomicalHuman {
   const spike=createSkinningSpike({forearmSkinning:official!==undefined,
-    shoulderSkinning:official!==undefined});
+    shoulderSkinning:official!==undefined,wristSkinning:official!==undefined});
   const geometry=template.geometry;
   if(official){
     let diagnostic:RigDiagnostics;
@@ -207,7 +207,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
       if(!jawTipWorldRest)throw new Error("Missing imported jaw-tip landmark");
       displacement=calibrateHumanBones(spike.graph,spike.bones,spike.skeleton,
         spike.character.root,landmarks,spike.forearmSkinBones,
-        spike.shoulderSkinBones);
+        spike.shoulderSkinBones,spike.wristSkinBones);
       const proximalIndices=new Map<"left"|"right",number>();
       for(const side of ["left","right"] as const){
         const helper=spike.forearmSkinBones?.get(side);
@@ -224,8 +224,16 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
           throw new Error("Missing C2 shoulder skin connector "+side);
         shoulderIndices.set(side,index);
       }
+      const wristIndices=new Map<"left"|"right",number>();
+      for(const side of ["left","right"] as const){
+        const helper=spike.wristSkinBones?.get(side);
+        const index=helper?spike.skeleton.bones.indexOf(helper):-1;
+        if(index<spike.graph.joints.length+proximalIndices.size+shoulderIndices.size)
+          throw new Error("Missing C2 wrist bridge "+side);
+        wristIndices.set(side,index);
+      }
       diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,
-        official.weights,proximalIndices,shoulderIndices);
+        official.weights,proximalIndices,shoulderIndices,wristIndices);
       if(diagnostic.unweightedVertices||diagnostic.unmappedBones.length)
         throw new Error("Official rig incomplete: "+diagnostic.unweightedVertices+" unweighted render vertices; "+diagnostic.unmappedBones.join(","));
       spike.mesh.geometry=geometry;
