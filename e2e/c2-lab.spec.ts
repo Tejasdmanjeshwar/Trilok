@@ -36,6 +36,16 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await page.locator('[data-pose="crouch"]').click();
   await expect(page.locator("#status")).toContainText("crouch");
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-crouch.png"});
+  await page.locator('[data-pose="fist"]').click();
+  await expect(page.locator("#status")).toContainText("fist");
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-fist.png"});
+  await page.locator('[data-pose="sword"]').click();
+  await page.locator('[data-view="side"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-sword-side.png"});
+  await page.locator('[data-view="rear"]').click();
+  await page.locator('[data-pose="overhead"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-overhead-rear.png"});
+  await page.locator('[data-view="front"]').click();
   await page.locator('[data-pose="neutral"]').click();
   await expect(page.locator("#status")).toContainText("neutral");
   expect(errors).toEqual([]);
