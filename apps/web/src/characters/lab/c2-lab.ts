@@ -32,6 +32,7 @@ let lastCpuSampleMs:number|undefined;
 let lastRenderSubmitMs:number|undefined;
 let frameIntervals:number[]=[];
 let previousFrameTime:number|undefined;
+let renderTicks=0;
 function publishMetrics():void {
   if(!performancePanel)return;
   const orderedStages:readonly AnatomicalLoadStage[]=[
@@ -369,7 +370,7 @@ try{
     }
     previousFrameTime=started;
     // Metrics are updated only periodically, not on every frame or GPU call.
-    if(frameIntervals.length>0&&frameIntervals.length%60===0)publishMetrics();
+    if(++renderTicks%120===0)publishMetrics();
     frame=requestAnimationFrame(render);
   };
   render();
