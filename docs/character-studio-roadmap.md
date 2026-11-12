@@ -1,9 +1,9 @@
 # Trilok Character Studio — Browser-Native Character System Roadmap (C0–C9)
 
-**Status:** approved planning baseline; **implementation not started**.  
+**Status:** approved C0–C9 planning baseline; the [C0 audited architecture specification](character-studio-c0-architecture.md) is proposed separately. No character generator, Character Studio, or C1 implementation is present.  
 **Repository baseline at planning time:** main @ db8348bd296a412262781d20a9f444fea474c692; playable 0.4.0-preview.19; combat 0.4-D14.  
 **Scope:** shared, reusable character technology for Ramayana and subsequent campaigns.  
-**First implementation phase:** C0 architecture audit/specification. Complete C0 and review it before starting C1.  
+**First implementation phase:** C0 architecture audit/specification. Review the [C0 ADR](character-studio-c0-architecture.md) and its verification before starting C1.  
 **Hard constraint:** authoring, customization, preview, rigging, validation, and game-ready baking/export must run within Trilok's own Three.js/TypeScript browser application. No Blender, Maya, separate character-creation service, or manual sculpting is required of the user.
 
 ## 1. Product intent and non-goals
