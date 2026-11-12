@@ -13,6 +13,7 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
   // Signed directions are evaluated against the pinned imported CC0 skeleton.
   await expect(page.locator("html")).toHaveAttribute("data-c2-directions","passed");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
   await expect(page.locator("#status")).toContainText("source vertices");
   await expect(page.locator("#status")).toContainText("CC0 rig");
   await expect(page.locator("#status")).toContainText("0 unweighted vertices");
@@ -69,6 +70,16 @@ test("C2 isolated preview renders and changes poses without touching battle",asy
   await page.locator('[data-view="rear"]').click();
   await page.locator('[data-pose="overhead"]').click();
   await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-overhead-rear.png"});
+  await page.locator('[data-pose="neutral"]').click();
+  await page.locator('[data-view="head-front"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-neutral-front.png"});
+  await page.locator('[data-view="head-side"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-neutral-side.png"});
+  await page.locator('[data-pose="jaw"]').click();
+  await expect(page.locator("#status")).toContainText("jaw");
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-open-side.png"});
+  await page.locator('[data-view="head-front"]').click();
+  await page.locator("#viewport").screenshot({path:"test-results/c2/"+platform+"-jaw-open-front.png"});
   await page.locator('[data-view="front"]').click();
   await page.locator('[data-pose="neutral"]').click();
   await expect(page.locator("#status")).toContainText("neutral");
