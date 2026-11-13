@@ -353,6 +353,7 @@ try{
     overlay?.removeFromParent();overlay?.geometry.dispose();
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     overlay=undefined;
+    const priorSelectedBone=inspector?.getSelectedBone()?.id;
     inspector?.dispose();inspector=undefined;
     correctives?.dispose();correctives=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
@@ -408,6 +409,7 @@ try{
       graph:preview.spike.graph,bones:preview.spike.bones,scene,camera,
       viewport:viewport!,panel,labels,markerToggle,connectionToggle,
     });
+    if(priorSelectedBone)inspector.selectBone(priorSelectedBone);
   for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
       button.setAttribute("aria-pressed",String(button.dataset.surface===name));
     applyPose(currentPose);applyDebug();
@@ -415,6 +417,28 @@ try{
     document.documentElement.dataset.c2Ready="true";
     document.documentElement.dataset.c2Source=name;
   }
+  // Explicit action only: framing does not run when selecting a marker or
+  // changing morphology. Preserve the current orbit direction while moving
+  // the camera target to the live selected semantic C1 bone.
+  function focusSelectedBone():void {
+    const selection=inspector?.getSelectedBone();
+    if(!selection||!active)return;
+    const offset=camera.position.clone().sub(controls.target);
+    const direction=offset.lengthSq()>1e-8?
+      offset.normalize():new THREE.Vector3(0,.08,1).normalize();
+    const role=selection.role;
+    const range=role.startsWith("finger_")?.15:
+      /^(jaw|head|neck)$/.test(role)?.36:
+      /^(wrist|palm_)/.test(role)?.26:
+      /^(shoulder|elbow|hip|knee|ankle)/.test(role)?.48:.58;
+    const distance=Math.max(range,camera.near*3);
+    controls.target.copy(selection.position);
+    camera.position.copy(selection.position).addScaledVector(direction,distance);
+    camera.lookAt(controls.target);
+    controls.update();
+  }
+  document.querySelector<HTMLButtonElement>("#focus-selected-bone")
+    ?.addEventListener("click",focusSelectedBone);
   // Register camera controls once, not once per template/implicit surface swap.
   function applyView(selectedView:string):void {
       currentView=selectedView;
