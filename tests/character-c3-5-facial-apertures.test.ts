@@ -30,6 +30,16 @@ describe("C3.5 source-contiguous bounded human facial aperture scaffolding",()=>
       const original=human.template.geometry;
       const before=original.getAttribute("position");
       const created=buildHumanFacialApertures(human);
+      console.log("C3.5 facial source probe:",JSON.stringify(
+        ["brow.left","eyelid.upper.left","eyelid.lower.left",
+          "eye.inner.left","eye.outer.left","lip.upper","lip.lower",
+          "mouth.corner.left","nose.tip","nostril.left","chin",
+          "crownRest"]
+          .map(id=>id==="crownRest" ? [id,[]] :
+            [id,created.edgeFlow.atlas.region(id as import(
+              "../apps/web/src/characters/geometry/FacialTopology").FacialRegionId)
+              .landmark.rest])));
+
       expect(created.audit.apertureCount).toBe(5);
       expect(created.audit.features.map(f=>f.id)).toEqual([...FACIAL_APERTURE_IDS]);
       expect(created.audit.boundaryEdges).toBe(0);
