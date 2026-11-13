@@ -41,6 +41,14 @@ shoulder/hip correctives remain available on shaped previews.
 `/c2-lab.html` includes original/broad/long/brow/jaw/combined-stress human
 head presets and nine labeled, accessible 0.01-step sliders; switching shapes
 rebuilds the owned source and reapplies the selected anatomical pose.
+C3.4 camera UX correction: morph preset changes, facial slider edits and
+head resets rebuild geometry **without rerunning the named camera preset**.
+This preserves the actual user's orbit, pan, zoom and OrbitControls target,
+even if the selected named view is still `head-front` or `head-side`.
+Only an explicit camera-view selection (or source change/initial load) reframes
+the model. A read-only `data-camera-state` on the viewport supports
+phase-gated browser assertions over camera position, target and zoom.
+
 A `data-c3-head-ready` diagnostic marker distinguishes a successful
 human-head build from the fallback implicit geometry. No C4 editor,
 save/bake pipeline or animal-head representation has been introduced.
