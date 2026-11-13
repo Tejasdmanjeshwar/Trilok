@@ -46,7 +46,11 @@ Strict TypeScript is enabled. The core has no global mutable state and combat up
 
 Future console releases will need a separate porting strategy: Three.js web builds are not direct console exports.
 
-## Character Studio — C3 in progress\n\nC2 owner sign-off and exact-SHA automated acceptance are recorded in [closed Issue #15](https://github.com/Tejasdmanjeshwar/Trilok/issues/15). C3.1–C3.3 body morphology and correctives are merged. C3.4 opt-in human head morphology is described in [C3.4 notes](docs/character-studio-c3-4-human-head.md). C3.5 [primate/bear source-derived heads](docs/character-studio-c3-5-mammalian-heads.md) are available for experimental preview; visual acceptance is pending. C3.6 avian heads and C3.7 acceptance remain pending. This is **not** C3 phase acceptance, C4 Studio, or combat character migration. [Track remaining C3 work](https://github.com/Tejasdmanjeshwar/Trilok/issues/41).\n\n## Character Studio C2.4 targeted deformation milestone
+## Character Studio — C3 in progress
+
+C2 owner sign-off and SHA-specific automated acceptance are recorded in [closed Issue #15](https://github.com/Tejasdmanjeshwar/Trilok/issues/15). C3.1–C3.3 body morphology and correctives and C3.4 human head morphology are merged. **C3.5** develops source-connected human facial topology, semantic controls, and experimental capped eye/nasal/oral recess diagnostics in [draft PR #53](https://github.com/Tejasdmanjeshwar/Trilok/pull/53). These features are *not accepted anatomical facial animation assets*: eyelid margins and the mouth still have visible reconstruction artifacts. **C3.6** is reserved for reusable facial morphology and morph targets, **C3.7** for C3 integration/acceptance; Vanara, bear, avian and other species-specific reconstruction is deferred to **C7**. Neither C4 Studio nor combat-character migration has begun. See the [Character Studio roadmap](docs/character-studio-roadmap.md) and [Issue #41](https://github.com/Tejasdmanjeshwar/Trilok/issues/41).
+
+## Character Studio C2.4 targeted deformation milestone
 
 C2.4's pinned-CC0 anatomical skinning and source-weight corrections include
 headless real-asset shape, seam, articulation, ownership, rest-pose and
