@@ -1,7 +1,7 @@
 import {readFileSync} from "node:fs";
 import {describe, expect, it} from "vitest";
 import * as THREE from "three";
-import {createHumanLocalRecipe} from "../packages/character-core/src/index";
+import {createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY} from "../packages/character-core/src/index";
 import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from
   "../apps/web/src/characters/geometry/AnatomicalTemplate";
 import {applyHumanMorphology,getHumanMorphologyAlignment} from
@@ -28,7 +28,7 @@ describe("C3.3 optional pose-space correction and socket/IK calibration",()=>{
   it("preserves neutral source skin, seam correspondence, and opt-in correction lifecycle",()=>{
     const human=create();
     try {
-      const recipe=createHumanLocalRecipe({shoulders:1.10,hips:1.10,arms:1.06,
+      const recipe=createHumanLocalRecipe({...DEFAULT_HUMAN_LOCAL_MORPHOLOGY,shoulders:1.10,hips:1.10,arms:1.06,
         legs:1.06});
       applyHumanMorphology(human,recipe);
       const positions=new Float32Array(human.mesh.geometry.getAttribute("position").array);
@@ -45,7 +45,7 @@ describe("C3.3 optional pose-space correction and socket/IK calibration",()=>{
         for(let i=0;i<ids.length;i++){
           const previous=first.get(ids[i]!);
           if(previous===undefined){first.set(ids[i]!,i);continue;}
-          for(const attr of attrs)for(let k=0;k<3;k++)
+          for(const attr of attrs!)for(let k=0;k<3;k++)
             expect(attr!.getComponent(i,k)).toBe(attr!.getComponent(previous,k));
         }
         const fk=pose(human);
@@ -74,7 +74,7 @@ describe("C3.3 optional pose-space correction and socket/IK calibration",()=>{
       const human=create();
       try {
         const originalSocketIds=human.spike.graph.sockets.map(s=>s.id);
-        applyHumanMorphology(human,createHumanLocalRecipe(params));
+        applyHumanMorphology(human,createHumanLocalRecipe({...DEFAULT_HUMAN_LOCAL_MORPHOLOGY,...params}));
         const alignment=getHumanMorphologyAlignment(human)!;
         expect(alignment).toBeDefined();
         expect([...alignment.sockets.keys()]).toEqual(originalSocketIds);
