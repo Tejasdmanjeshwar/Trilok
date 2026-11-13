@@ -31,3 +31,39 @@ The museum's Dundee link embeds a Sketchfab asset. [Sketchfab's documented Downl
 - `MammalianHeadDeformation.ts` and `MammalianFaceAnatomy.ts` deform the pinned MakeHuman head's original indices. Skin weights, UVs and the underlying C2 source topology remain shared. The graph's `head_primate_v1`/`head_bear_v1` labels are **not evidence** that zoological topology is installed.
 - C3.5 tests currently verify bounded offsets, color/nose/jaw fields, C1 identities and replay compatibility; they do **not** establish scan-based geometry or credible zoological silhouettes.
 - The existing C3.5 candidate must not be marked accepted; no claimed direct scanner data, no scan-backed code path and no release of C3.6/C4.
+
+## Experimental candidate implementation on PR #48 (not final C3.5)
+
+A **new independent procedural head topology** is integrated in the primate-only
+morphology path in `VanaraHeadGeometry.ts`. It creates a versioned-recipe-driven
+macaque-inspired outer cranium, broad buccal cheeks, projecting muzzle, recessed
+bilateral nostrils, lip/oral crease, orbital relief, eyelid pigmentation,
+lateral ear fields, and two skinned eye globes. Instead of projecting the human
+nose, it removes render triangles of the original human head above a calibrated
+neck cut. It reuses existing head and jaw semantic skin bones and keeps the
+original C2 body's vertex attributes and weights. The bear keeps the legacy
+experimental morph and is deferred to C7. A separate C3.5 test checks generated
+vertex attributes, skinned influences, face degeneracy, C1 jaw articulation,
+and deterministic rebuild output.
+
+**Not scan derived:** The current dimensions are authored, stylized procedural
+ratios, NOT measurements extracted from Smithsonian skull meshes. The real
+specimen files have not yet been acquired, checked or imported. This candidate
+is a bounded evaluation of genuine new topology, **not completion** of the
+request to use the Smithsonian skull/mandible as anatomical foundations.
+
+**Not continuous at neck:** The new species-specific head is a separate
+closed skinned mesh whose lower ring overlaps the retained C2 neck surface.
+It is not yet a welded, manifold whole-body mesh, nor does it demonstrate
+final UV/texture, fur, lip interior, external ear folds, tongue or dentition.
+A cap and detached eye-globe components are intentional preview choices.
+The required acceptance gate must include overlap, neck rotation, jaw open,
+3/4 silhouette, cranial/mandibular anatomy, geometric defects under extremes,
+and actual screenshots. In particular a separate mesh is not a claim of
+single-piece topology.
+
+**No release promotion:** do not mark C3.5 accepted, merge, or open C3.6 based
+on a successful unit suite. Confirm exact source suitability and visually
+verify species anatomy first. The existing `docs/character-studio-c3-5-mammalian-heads.md`
+documents the previously merged legacy candidate; this audit supersedes it
+for the new Vanara replacement.
