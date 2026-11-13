@@ -6,7 +6,7 @@ import { createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY,
   type MammalianHeadMorphologyV1, type MammalianHeadFamilyV1 } from "@trilok/character-core";
 import { applyHumanMorphology, getHumanHeadLandmarks,
   getMammalianHeadLandmarks } from "../geometry/HumanMorphology";
-import { refineHumanFacialTopology, type FacialTopologyAudit } from "../geometry/FacialTopology";
+import { buildHumanFacialEdgeFlow, type FacialEdgeFlowAudit } from "../geometry/FacialEdgeFlow";
 import { HumanPoseCorrectives } from "../geometry/HumanPoseCorrectives";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
@@ -305,7 +305,7 @@ try{
     error!.textContent="";
     let preview:Preview;
     const sampleTimings=new Map<AnatomicalLoadStage,number>();
-    let facialAudit:FacialTopologyAudit|undefined;
+    let facialAudit:FacialEdgeFlowAudit|undefined;
     try {
       if(name==="template"){
         const family=selectedFamily();
@@ -341,7 +341,7 @@ try{
         // Independent geometry pass AFTER C3 rest-space shaping and rebinding.
         // This is an authoring/diagnostic preview, not a C3.6 morph operation.
         if(family==="human" && facialRefinementToggle?.checked) {
-          facialAudit=refineHumanFacialTopology(anatomical).atlas.audit;
+          facialAudit=buildHumanFacialEdgeFlow(anatomical).audit;
         }
       }
       else preview=createContinuousHumanPrototype({step:.047});
@@ -374,7 +374,7 @@ try{
       "C3.5: "+facialAudit.refinedVertices.toLocaleString()+" total vertices ("+
       (facialAudit.refinedVertices-facialAudit.originalVertices)+" new); "+
       facialAudit.refinedTriangles.toLocaleString()+" triangles; "+
-      facialAudit.selectedEdges+" canonical facial edges refined; 26 semantic control regions." :
+      facialAudit.loopCount+" validated closed contour loops; 26 semantic control regions." :
       "Facial topology controls inactive.";
     if(name==="template" && (morphologySelect?.value!=="neutral" ||
       headIsActive() || selectedFamily()!=="human"))
