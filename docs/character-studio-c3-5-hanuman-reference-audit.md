@@ -31,3 +31,13 @@ Front / profile geometry inspected with a VTK offscreen depth-buffered render (n
 7. Review multiple visual stages: base neutral silhouette (front/side/three-quarter), facial landmark separation at head scale, jaw-open/side, neck seam while turning, and desktop/mobile metrics, with Cloudflare PR preview and explicit owner approval before merging.
 
 **Decision:** suitable for internal conceptual facial landmark guidance; unsuitable for direct vertex transfer, mesh import, animation or redistribution. If the requested target cannot be achieved independently and legally, seek a suitable CC0/CC-BY reference or original commissioned asset, not a derivative of this CC BY-NC-ND sculpt.
+
+## Owner rejection of draft PR #50 visual output
+
+Owner visually rejects the first preview as a low-detail silhouette, misaligned forward neck, head/body tone mismatch, and visibly detached ears. **Passing initial CI is not visual acceptance.** Source inspection identified four direct causes: (a) face constructed from sparse interpolated depth stations rather than adequate deformation-friendly feature-loop topology, (b) abrupt transition from original C2 seam to a different Z-centre, (c) artificially dark head colours, and (d) separate ear patches.
+
+The corrective draft now derives face/cranial colour from the source neck ring, blends early head rows toward the *actual skinned* neck contour, uses additional face sampling, and constructs bilateral ear volume within the main cranial strips instead of floating ear components. Targeted geometry tests cover colour/neck/ear invariants. **These corrections are engineering hypotheses, not proof of a credible Hanuman likeness, true seamless watertight topology, or quality acceptance.** The eyes and nasal details still use auxiliary feature pieces; their integration and expression/deformation quality remain blocking until real visual inspection.
+
+### Source usage boundary
+
+The CC BY-NC-ND Hanuman STL remains **visual/internal reference only**. The owner asks to leverage source geometry for vertex placement, but the supplied license does not authorize distributing remeshes or adapted geometry. Do not import its coordinates, decimate/retopologize it, or ship derivative assets without separate permission from the rights holder. A properly licensed CC0/CC-BY live primate/character reference is an alternative for a direct vertex-based workflow. For now, all runtime geometry remains original and authored from independent design constraints.
