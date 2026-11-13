@@ -85,7 +85,7 @@ function featureCenters(face:HumanFacialEdgeFlow):readonly Center[]{
     z:(mouthUpper.z+mouthLower.z)/2,
     depth:.014,kind:"oral",
   });
-  return centers;
+  return centers.sort((a,b)=>FACIAL_APERTURE_IDS.indexOf(a.id)-FACIAL_APERTURE_IDS.indexOf(b.id));
 }
 type Edge={a:number;b:number};
 class OwnedSurface {
