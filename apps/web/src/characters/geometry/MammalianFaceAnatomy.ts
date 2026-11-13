@@ -68,7 +68,6 @@ export function makeMammalianFaceAnatomy(
   const noseHeight=Math.max(.017,span*(isBear?.19:.16));
   const nasalHalfWidth=Math.max(.022,halfOrbit*(isBear?1.07:.76));
   const mouthHalfWidth=Math.max(.026,halfOrbit*(isBear?1.37:1.13));
-  const jawHeight=Math.max(.035,span*.36);
   const cheekY=chin.y+span*.64;
   const browY=eyeY+headHeight*.055;
   const centerEarY=eyeY+headHeight*(isBear?.24:.04);
@@ -124,7 +123,6 @@ export function makeMammalianFaceAnatomy(
     if(f.mask===0&&f.earLeft===0&&f.earRight===0)return basePoint;
     const x=original.x-cx;
     const top=gaussian(original.y-(neck.y+headHeight*.73),headHeight*.40);
-    const bulge=isBear?.092:.043;
     const muzzleProjection=(isBear?.029:.016)*shape.muzzleLength*f.muzzle;
     const noseProjection=(isBear?.011:.007)*shape.muzzleLength*f.nosePad;
     const upperLipProjection=(isBear?.006:.004)*shape.jawMass*f.upperLip;
