@@ -59,7 +59,9 @@ function evaluate(
     const change=Math.hypot(dx,dy,dz);
     if(change>1e-9)displacedVertices++;
     maxDisplacementMeters=Math.max(maxDisplacementMeters,change);
-    moved[i*3]+=dx;moved[i*3+1]+=dy;moved[i*3+2]+=dz;
+    moved[i*3]=moved[i*3]!+dx;
+    moved[i*3+1]=moved[i*3+1]!+dy;
+    moved[i*3+2]=moved[i*3+2]!+dz;
   }
   // Canonical topology IDs represent UV copies of one physical vertex. The
   // diagnostic displacement must not create cracks at those UV seams.
