@@ -64,6 +64,14 @@ describe("C3.5 source-contiguous bounded human facial aperture scaffolding",()=>
           expect(created.geometry.getAttribute("position").getComponent(i,k))
             .toBe(before.getComponent(i,k));
       }
+      // Geometry surgery must preserve the original C2 UV and skin-weight
+      // attribute prefix exactly; only newly created pocket vertices may
+      // receive C3.5 transitional oral/jaw influences.
+      for(const name of ["uv","skinIndex","skinWeight"] as const){
+        const source=original.getAttribute(name).array;
+        const current=created.geometry.getAttribute(name).array;
+        expect(Array.from(current.slice(0,source.length))).toEqual(Array.from(source));
+      }
       const p=created.geometry.getAttribute("position");
       for(const feature of created.audit.features){
         expect(p.getZ(feature.centerVertex)).toBeLessThan(
