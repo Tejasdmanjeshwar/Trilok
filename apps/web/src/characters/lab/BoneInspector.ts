@@ -254,6 +254,24 @@ export class BoneInspector {
     this.update();
   }
 
+  /** Read-only live semantic selection for explicit camera framing. */
+  getSelectedBone(): {readonly id:string;readonly role:string;
+    readonly position:THREE.Vector3} | undefined {
+    if(this.disposed)return undefined;
+    const entry=this.entries.find(e=>e.id===this.selectedId);
+    if(!entry)return undefined;
+    entry.bone.updateWorldMatrix(true,false);
+    return {id:entry.id,role:entry.role,
+      position:entry.bone.getWorldPosition(new THREE.Vector3())};
+  }
+
+  /** Keep user selection across rest-space morphology regeneration. */
+  selectBone(id:string):boolean {
+    if(this.disposed||!this.entries.some(e=>e.id===id))return false;
+    this.select(id);
+    return true;
+  }
+
   private async copy(idOnly: boolean): Promise<void> {
     const e = this.entries.find(item => item.id === this.selectedId);
     if (!e) return;
