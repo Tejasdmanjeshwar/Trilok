@@ -6,6 +6,7 @@ import { createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY,
   type MammalianHeadMorphologyV1, type MammalianHeadFamilyV1 } from "@trilok/character-core";
 import { applyHumanMorphology, getHumanHeadLandmarks,
   getMammalianHeadLandmarks } from "../geometry/HumanMorphology";
+import { refineHumanFacialTopology, type FacialTopologyAudit } from "../geometry/FacialTopology";
 import { HumanPoseCorrectives } from "../geometry/HumanPoseCorrectives";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
@@ -37,6 +38,8 @@ let frame=0;
 let surface="template";
 let currentPose="neutral";
 let currentView="front";
+const facialRefinementToggle=document.querySelector<HTMLInputElement>("#c35-face-refinement");
+const facialAuditDisplay=document.querySelector<HTMLElement>("#c35-face-audit");
 const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = {
   neutral:{}, shoulders:{shoulders:1.10}, chest:{chest:1.10},
   waist:{waist:0.90}, hips:{hips:1.10}, arms:{arms:1.06},
@@ -302,6 +305,7 @@ try{
     error!.textContent="";
     let preview:Preview;
     const sampleTimings=new Map<AnatomicalLoadStage,number>();
+    let facialAudit:FacialTopologyAudit|undefined;
     try {
       if(name==="template"){
         const family=selectedFamily();
@@ -334,6 +338,11 @@ try{
             }
           }catch(error){anatomical.dispose();throw error;}
         }
+        // Independent geometry pass AFTER C3 rest-space shaping and rebinding.
+        // This is an authoring/diagnostic preview, not a C3.6 morph operation.
+        if(family==="human" && facialRefinementToggle?.checked) {
+          facialAudit=refineHumanFacialTopology(anatomical).atlas.audit;
+        }
       }
       else preview=createContinuousHumanPrototype({step:.047});
       validateSkinningSpike(preview.spike);
@@ -359,6 +368,14 @@ try{
     correctives?.dispose();correctives=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
+    document.documentElement.dataset.c35FaceReady=String(!!facialAudit);
+    document.documentElement.dataset.c35FaceVertices=String(facialAudit?.refinedVertices??0);
+    if(facialAuditDisplay)facialAuditDisplay.textContent=facialAudit?
+      "C3.5: "+facialAudit.refinedVertices.toLocaleString()+" total vertices ("+
+      (facialAudit.refinedVertices-facialAudit.originalVertices)+" new); "+
+      facialAudit.refinedTriangles.toLocaleString()+" triangles; "+
+      facialAudit.selectedEdges+" canonical facial edges refined; 26 semantic control regions." :
+      "Facial topology controls inactive.";
     if(name==="template" && (morphologySelect?.value!=="neutral" ||
       headIsActive() || selectedFamily()!=="human"))
       correctives=new HumanPoseCorrectives(preview as AnatomicalHuman);
@@ -373,6 +390,7 @@ try{
     if(headPresetSelect)headPresetSelect.disabled=name!=="template";
     for(const slider of headSliders.values()) slider.disabled=name!=="template";
     if(familySelect)familySelect.disabled=name!=="template";
+    if(facialRefinementToggle)facialRefinementToggle.disabled=name!=="template" || selectedFamily()!=="human";
     if(mammalPresetSelect)mammalPresetSelect.disabled=
       name!=="template" || selectedFamily()==="human";
     for(const slider of mammalSliders.values())slider.disabled=
@@ -502,6 +520,7 @@ try{
       camera.lookAt(target);controls.target.copy(target);controls.update();
   }
   const labControls=createCharacterLabControls(applyPose,applyView);
+  facialRefinementToggle?.addEventListener("change",()=>void switchSurface("template",true));
   const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
   sourceSelect?.addEventListener("change",()=>{
     void switchSurface(sourceSelect.value);
@@ -513,6 +532,7 @@ try{
     if(mammalPresetSelect)mammalPresetSelect.disabled=selectedFamily()==="human";
     for(const slider of mammalSliders.values())
       slider.disabled=selectedFamily()==="human";
+    if(facialRefinementToggle)facialRefinementToggle.disabled=selectedFamily()!=="human";
     void switchSurface("template",true);
   });
   mammalPresetSelect?.addEventListener("change",()=>{
