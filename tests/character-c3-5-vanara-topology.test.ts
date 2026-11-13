@@ -161,7 +161,16 @@ describe("C3.5 Vanara independent external head geometry",()=>{
       expect(mesh.skeleton).toBe(human.spike.skeleton);
       expect(headVertices).toBeGreaterThan(3000);
       expect(skullWidthMeters).toBeGreaterThan(.16);
-      expect(skullWidthMeters).toBeLessThan(.34);
+      // A Vanara must be scaled for a humanoid skull, not for the neck;
+      // the preceding prototype allowed an oversized ~0.30m braincase.
+      const referenceWidth=replacement!.referenceHumanWidthMeters;
+      expect(referenceWidth).toBeGreaterThan(.15);
+      expect(referenceWidth).toBeLessThan(.23);
+      expect(skullWidthMeters/referenceWidth).toBeGreaterThan(.86);
+      expect(skullWidthMeters/referenceWidth).toBeLessThan(1.08);
+      expect(replacement!.skullHeightMeters).toBeGreaterThan(.20);
+      expect(replacement!.skullHeightMeters).toBeLessThan(.37);
+      expect(replacement!.referenceHumanHeightMeters).toBeCloseTo(1.88,3);
       expect(neckCutY).toBeGreaterThan(1.4);
       expect(human.mesh.geometry.getIndex()!.count).toBeLessThan(baselineTriangles);
       expect([...human.template.sourceVertexIds]).toEqual(sourceIds);
