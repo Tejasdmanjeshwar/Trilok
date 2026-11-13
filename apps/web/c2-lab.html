@@ -316,6 +316,20 @@
         <button type="button" id="reset-head">Reset human head</button>
         <p class="small">Human-only nine-channel source-derived facial morphology. Head/neck/jaw remain continuous and rigged. Neutral values preserve original anatomy. Not a facial animation editor, animal-head generator or C4 Studio.</p>
       </section>
+      <section class="panel" aria-label="C3.5 private reference-guided face morph">
+        <div class="panel-heading">
+          <h2>C3.5 local reference sculpt</h2><span class="small">Experimental · private</span>
+        </div>
+        <div class="field">
+          <label for="vanara-reference-stl">Private facial reference (.stl)</label>
+          <input type="file" id="vanara-reference-stl" accept=".stl,model/stl" aria-describedby="vanara-reference-status vanara-reference-license" />
+        </div>
+        <p class="small" id="vanara-reference-status" role="status">No private model selected. Extract head.stl from your ZIP and select it here. Choose Primate / Vanara for a continuous-mesh comparison.</p>
+        <p class="warning" id="vanara-reference-license">
+          Local-only experimental geometry fitting. This reference is CC BY-NC-ND and cannot be bundled, exported or redistributed as an adapted game asset without permission. File stays in this browser session; no server upload.
+        </p>
+        <p class="small">This prototype keeps the original C2 head and neck connected. It transfers bounded depth relief to existing face vertices; fine sculpted details cannot be faithfully reproduced without dedicated facial topology/subdivision and a validated material/normal pass. Not visual acceptance.</p>
+      </section>
       <section class="panel" aria-label="C3.5 mammalian head families">
         <div class="panel-heading"><h2>C3.5 mammalian heads</h2><span class="small">Experimental CC0</span></div>
         <div class="field">
