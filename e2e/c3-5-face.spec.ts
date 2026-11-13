@@ -17,7 +17,7 @@ test("C3.5 opt-in facial refinement preserves head/jaw poses and renders multipl
   await expect(root).toHaveAttribute("data-c2-jaw-direction","passed");
   await expect(page.locator("#c35-face-audit")).toContainText("26 semantic control regions");
   const refinedVertices=Number(await root.getAttribute("data-c35-face-vertices"));
-  expect(refinedVertices).toBeGreaterThan(1000);
+  expect(refinedVertices).toBeGreaterThan(14517);
   // Refinement must preserve user camera, rather than reframe on rebuild.
   expect(await page.locator("#viewport").getAttribute("data-camera-state")).toBe(initialCamera);
   const platform=test.info().project.name;
@@ -64,37 +64,16 @@ test("C3.5 opt-in facial refinement preserves head/jaw poses and renders multipl
   expect(errors).toEqual([]);
 });
 
-test("C3.5 recessed feature boundary diagnostic renders five source-connected pockets",async({page})=>{
-  test.setTimeout(180_000);
-  const errors:string[]=[];
-  page.on("pageerror",error=>errors.push(error.message));
+test("C3.5 source-derived face never exposes rejected synthetic cavities",async({page})=>{
   await page.goto("/c2-lab.html");
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  await expect(page.locator("#c35-face-apertures")).toHaveCount(0);
+  await page.locator("#c35-face-refinement").check();
+  await expect(page.locator("html")).toHaveAttribute("data-c35-face-ready","true",{timeout:60_000});
   await expect(page.locator("html")).toHaveAttribute("data-c35-apertures-ready","false");
+  await expect(page.locator("#c35-face-audit")).toContainText("No invented facial cavities");
   await page.locator("#view-select").selectOption("head-front");
-  await page.locator("#c35-face-apertures").check();
-  await expect(page.locator("html")).toHaveAttribute("data-c35-apertures-ready","true",
-    {timeout:60_000});
-  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
-  await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
-  await expect(page.locator("#c35-face-audit")).toContainText("5 bounded feature pockets");
-  await expect(page.locator("#c35-face-audit")).toContainText("0 non-manifold edges");
-  mkdirSync("test-results/c35",{recursive:true});
-  const prefix="test-results/c35/"+test.info().project.name+"-recess-";
-  for(const view of ["head-front","head-side"]){
-    await page.locator("#view-select").selectOption(view);
-    await page.locator("#viewport").screenshot({path:prefix+view+".png"});
-  }
-  await page.getByText("Geometry overlays",{exact:true}).click();
-  await page.locator('[data-debug="wireframe"]').check();
-  await page.locator("#view-select").selectOption("head-front");
-  await page.locator("#viewport").screenshot({path:prefix+"front-wireframe.png"});
-  await page.locator('[data-debug="wireframe"]').uncheck();
-  await page.locator("#pose-select").selectOption("jaw");
-  await page.locator("#viewport").screenshot({path:prefix+"jaw-open.png"});
-  await page.locator("#pose-select").selectOption("neutral");
-  await page.locator("#c35-face-apertures").uncheck();
-  await expect(page.locator("html")).toHaveAttribute("data-c35-apertures-ready","false",
-    {timeout:60_000});
-  expect(errors).toEqual([]);
+  await page.locator("#viewport").screenshot({
+    path:"test-results/c35/"+test.info().project.name+"-source-face-front.png",
+  });
 });
