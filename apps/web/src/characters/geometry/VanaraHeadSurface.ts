@@ -237,7 +237,7 @@ export function buildVanaraSurface(spec:VanaraSurfaceSpec):VanaraSurfaceResult {
   // These do not transfer vertex positions or tessellation from any STL.
   const addOval=(center:THREE.Vector3,rx:number,ry:number,rz:number,
     c:THREE.Color,inner:THREE.Color,jawWeight=0)=>{
-    const outer:number[]=[],middle:number[]=[],inside:number[];const n=14;
+    const outer:number[]=[],middle:number[]=[],inside:number[]=[];const n=14;
     for(let k=0;k<n;k++){
       const angle=k*2*Math.PI/n,dx=Math.cos(angle),dy=Math.sin(angle);
       outer.push(add(new THREE.Vector3(center.x+rx*dx,center.y+ry*dy,center.z),
@@ -264,7 +264,7 @@ export function buildVanaraSurface(spec:VanaraSurfaceSpec):VanaraSurfaceResult {
   for(const p of eyes){
     // Use an inset orbital loop rather than protruding spheres or bony skull holes.
     addOval(new THREE.Vector3(p.x,p.y,p.z+.002),
-      .014*shape.orbitalSpacing,.010,.005,
+      .014,.010,.005,
       new THREE.Color(0x5f483f),new THREE.Color(0x302621));
     // iris set inside the upper lid ring, owned by the C1 head joint
     addOval(new THREE.Vector3(p.x,p.y,p.z+.003),.007,.007,.001,
