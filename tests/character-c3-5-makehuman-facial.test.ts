@@ -33,12 +33,19 @@ describe("C3.5 pinned MakeHuman facial data contract",()=>{
       const controller=new MakeHumanFacialController(h,generated);
       for(const definition of FACIAL_CONTROLS){
         const diagnostic=controller.apply({[definition.id]:definition.max===1.25?0.8:0.65});
+        if(diagnostic.invertedTriangles||diagnostic.stretchedTriangles)
+          console.log("C3.5 SOURCE CONTROL DISTORTION",definition.id,
+            "inverted",diagnostic.invertedTriangles,
+            "stretched",diagnostic.stretchedTriangles,
+            "max edge stretch",diagnostic.maxEdgeStretch);
         expect(diagnostic.affectedVertices,definition.id).toBeGreaterThan(0);
         expect(diagnostic.seamMismatches,definition.id).toBe(0);
         expect(diagnostic.finiteFailures,definition.id).toBe(0);
         expect(diagnostic.triangleCount).toBe(h.triangleCount);
       }
       const combined=controller.apply(FACIAL_PRESETS.stress!);
+      console.log("C3.5 SOURCE STRESS COMBINATION",
+        JSON.stringify(combined));
       expect(combined.affectedVertices).toBeGreaterThan(200);
       expect(combined.maxEdgeStretch).toBeGreaterThanOrEqual(1);
       controller.dispose();
