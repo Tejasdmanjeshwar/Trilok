@@ -4,6 +4,7 @@ on:
     paths:
       - "apps/web/src/characters/geometry/FacialTopology.ts"
       - "apps/web/src/characters/geometry/FacialEdgeFlow.ts"
+      - "apps/web/src/characters/geometry/FacialApertures.ts"
       - "apps/web/src/characters/geometry/AnatomicalTemplate.ts"
       - "apps/web/src/characters/lab/c2-lab.ts"
       - "apps/web/c2-lab.html"
