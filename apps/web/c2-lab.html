@@ -230,8 +230,6 @@
           <button type="button" data-surface="template" aria-pressed="true">CC0 anatomical template</button>
           <button type="button" data-surface="implicit" aria-pressed="false">Old implicit prototype</button>
         </div>
-        <label class="small"><input type="checkbox" id="c35-face-refinement" />
-          C3.5 source-derived human facial control mesh (experimental, opt-in)</label>
         <p class="small" id="c35-face-audit" aria-live="polite">Facial topology controls inactive.</p>
         <details>
           <summary>Geometry overlays</summary>
@@ -272,6 +270,8 @@
             <option value="brow">Prominent brow and orbital spacing</option>
             <option value="jaw">Broad jaw and chin</option>
             <option value="stress">Combined head stress</option>
+            <option value="extreme">Combined extreme (125%)</option>
+            <option value="extreme-min">Combined extreme (75%)</option>
             <option value="custom" disabled>Custom values</option>
           </select>
         </div>
@@ -280,44 +280,83 @@
           <div class="field">
         <div class="field">
           <label for="head-skullWidth">Skull width <output data-head-value="skullWidth" for="head-skullWidth">1.00</output></label>
-          <input id="head-skullWidth" type="range" data-head-param="skullWidth" min="0.9" max="1.1" step="0.01" value="1" aria-label="C3.4 Skull width" />
+          <input id="head-skullWidth" type="range" data-head-param="skullWidth" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Skull width" />
         </div>
         <div class="field">
           <label for="head-skullHeight">Skull height <output data-head-value="skullHeight" for="head-skullHeight">1.00</output></label>
-          <input id="head-skullHeight" type="range" data-head-param="skullHeight" min="0.93" max="1.07" step="0.01" value="1" aria-label="C3.4 Skull height" />
+          <input id="head-skullHeight" type="range" data-head-param="skullHeight" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Skull height" />
         </div>
         <div class="field">
           <label for="head-forehead">Forehead <output data-head-value="forehead" for="head-forehead">1.00</output></label>
-          <input id="head-forehead" type="range" data-head-param="forehead" min="0.93" max="1.07" step="0.01" value="1" aria-label="C3.4 Forehead" />
+          <input id="head-forehead" type="range" data-head-param="forehead" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Forehead" />
         </div>
         <div class="field">
           <label for="head-brow">Brow ridge <output data-head-value="brow" for="head-brow">1.00</output></label>
-          <input id="head-brow" type="range" data-head-param="brow" min="0.92" max="1.08" step="0.01" value="1" aria-label="C3.4 Brow ridge" />
+          <input id="head-brow" type="range" data-head-param="brow" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Brow ridge" />
         </div>
         <div class="field">
           <label for="head-cheeks">Cheek fullness <output data-head-value="cheeks" for="head-cheeks">1.00</output></label>
-          <input id="head-cheeks" type="range" data-head-param="cheeks" min="0.92" max="1.08" step="0.01" value="1" aria-label="C3.4 Cheek fullness" />
+          <input id="head-cheeks" type="range" data-head-param="cheeks" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Cheek fullness" />
         </div>
         <div class="field">
           <label for="head-jawWidth">Jaw width <output data-head-value="jawWidth" for="head-jawWidth">1.00</output></label>
-          <input id="head-jawWidth" type="range" data-head-param="jawWidth" min="0.91" max="1.09" step="0.01" value="1" aria-label="C3.4 Jaw width" />
+          <input id="head-jawWidth" type="range" data-head-param="jawWidth" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Jaw width" />
         </div>
         <div class="field">
           <label for="head-chin">Chin <output data-head-value="chin" for="head-chin">1.00</output></label>
-          <input id="head-chin" type="range" data-head-param="chin" min="0.92" max="1.08" step="0.01" value="1" aria-label="C3.4 Chin" />
+          <input id="head-chin" type="range" data-head-param="chin" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Chin" />
         </div>
         <div class="field">
           <label for="head-faceDepth">Facial depth <output data-head-value="faceDepth" for="head-faceDepth">1.00</output></label>
-          <input id="head-faceDepth" type="range" data-head-param="faceDepth" min="0.94" max="1.06" step="0.01" value="1" aria-label="C3.4 Facial depth" />
+          <input id="head-faceDepth" type="range" data-head-param="faceDepth" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Facial depth" />
         </div>
         <div class="field">
           <label for="head-eyeSpacing">Eye spacing <output data-head-value="eyeSpacing" for="head-eyeSpacing">1.00</output></label>
-          <input id="head-eyeSpacing" type="range" data-head-param="eyeSpacing" min="0.95" max="1.05" step="0.01" value="1" aria-label="C3.4 Eye spacing" />
+          <input id="head-eyeSpacing" type="range" data-head-param="eyeSpacing" min="0.75" max="1.25" step="0.01" value="1" aria-label="C3.4 Eye spacing" />
         </div>
           </div>
         </details>
+        <details open>
+          <summary>Independent facial controls — normal customization</summary>
+          <p class="small">Permanent high-amplitude controls, not a separate debug mode. 100% equals the stress-test shift; 300% is three times stronger. The live warning reports triangle inversion, even when hard to see on shaded skin.</p>
+          <div class="field">
+            <label for="c35-expression-preset">Facial control preset</label>
+            <select id="c35-expression-preset" aria-label="Facial control preset">
+              <option value="neutral">Neutral</option>
+              <option value="left-eye">Left eyelid squeeze</option>
+              <option value="both-eyes">Both eyelids squeeze</option>
+              <option value="mouth">Open mouth control</option>
+              <option value="cheeks">Asymmetric cheeks</option>
+              <option value="combined">Combined stress</option>
+              <option value="custom" disabled>Custom values</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="c35-control-left-eye">Left eyelid closure <output data-face-value="left-eye" for="c35-control-left-eye">0%</output></label>
+            <input id="c35-control-left-eye" data-face-param="left-eye" type="range" min="-300" max="300" step="10" value="0" aria-label="Left eyelid squeeze intensity" />
+          </div>
+          <div class="field">
+            <label for="c35-control-right-eye">Right eyelid closure <output data-face-value="right-eye" for="c35-control-right-eye">0%</output></label>
+            <input id="c35-control-right-eye" data-face-param="right-eye" type="range" min="-300" max="300" step="10" value="0" aria-label="Right eyelid squeeze intensity" />
+          </div>
+          <div class="field">
+            <label for="c35-control-mouth">Mouth opening <output data-face-value="mouth" for="c35-control-mouth">0%</output></label>
+            <input id="c35-control-mouth" data-face-param="mouth" type="range" min="-300" max="300" step="10" value="0" aria-label="Mouth opening intensity" />
+          </div>
+          <div class="field">
+            <label for="c35-control-left-cheek">Left cheek projection <output data-face-value="left-cheek" for="c35-control-left-cheek">0%</output></label>
+            <input id="c35-control-left-cheek" data-face-param="left-cheek" type="range" min="-300" max="300" step="10" value="0" aria-label="Left cheek projection intensity" />
+          </div>
+          <div class="field">
+            <label for="c35-control-right-cheek">Right cheek projection <output data-face-value="right-cheek" for="c35-control-right-cheek">0%</output></label>
+            <input id="c35-control-right-cheek" data-face-param="right-cheek" type="range" min="-300" max="300" step="10" value="0" aria-label="Right cheek projection intensity" />
+          </div>
+          <label class="small"><input type="checkbox" id="c35-show-failures" checked />Highlight inverted triangles in red</label>
+          <p class="small" id="c35-stress-audit" role="status" aria-live="polite">Neutral face, no deformation.</p>
+          <button type="button" id="c35-reset-facial">Reset facial controls</button>
+        </details>
         <button type="button" id="reset-head">Reset human head</button>
-        <p class="small">Human-only nine-channel source-derived facial morphology. Head/neck/jaw remain continuous and rigged. Neutral values preserve original anatomy. Not a facial animation editor, animal-head generator or C4 Studio.</p>
+        <p class="small">Human-only nine-channel head shaping and live bilateral facial controls. Expanded proportion ranges are permanent. Controls can exceed deformation-safe limits: red faces identify triangle inversions. The controls do not create combat events or C3.6 expression morph targets.</p>
       </section>
       <section class="panel" aria-label="C3.5 mammalian head families">
         <div class="panel-heading"><h2>C3.5 mammalian heads</h2><span class="small">Experimental CC0</span></div>
