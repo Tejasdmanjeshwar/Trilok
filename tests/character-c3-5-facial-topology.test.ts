@@ -143,6 +143,7 @@ describe("C3.5 human facial topology foundation",()=>{
         expect(audit.refinedVertices).toBeGreaterThan(audit.originalVertices);
         expect(audit.refinedTriangles).toBeGreaterThan(audit.originalTriangles);
         expect(audit.loopCount).toBe(22);
+        console.log("C3.5 contour audit:",JSON.stringify(audit));
         expect(audit.contours.every(c=>c.closed&&c.edges>=8&&c.components>=1)).toBe(true);
         expect(Object.keys(audit.featureCoverage).length).toBe(8);
         expect(audit.featureCoverage["orbit.left"]).toBeGreaterThan(30);
@@ -169,6 +170,35 @@ describe("C3.5 human facial topology foundation",()=>{
     // Different head recipes must retain the same semantic contour contracts.
     expect(snapshots.length).toBe(2);
   },120_000);
+
+  it("keeps diagnostic left eyelid displacement independent of opposite eye and neck",()=>{
+    const human=session();
+    try{
+      const face=buildHumanFacialEdgeFlow(human,{maxSourceEdges:512});
+      const position=face.geometry.getAttribute("position");
+      const left=face.atlas.region("eyelid.upper.left");
+      const right=face.atlas.region("eyelid.upper.right");
+      const neckY=human.spike.graph.joints.find(j=>j.role==="neck")!;
+      const neck=human.spike.bones.get(neckY.id)!.getWorldPosition(new THREE.Vector3());
+      let movedLeft=0,movedRight=0,movedNeck=0,maxDisplacement=0;
+      // Diagnostic only: do not mutate the owned geometry or create C3.6
+      // expression targets. Assess independently addressable local fields.
+      for(let i=0;i<position.count;i++){
+        const p=new THREE.Vector3().fromBufferAttribute(position,i);
+        const movement=left.weight(p)*-.002;
+        if(left.weight(p)>.15)movedLeft++;
+        if(right.weight(p)>.15 && movement!==0)movedRight++;
+        if(p.y<neck.y-.02 && movement!==0)movedNeck++;
+        maxDisplacement=Math.max(maxDisplacement,Math.abs(movement));
+      }
+      expect(movedLeft).toBeGreaterThan(4);
+      expect(movedRight).toBe(0);
+      expect(movedNeck).toBe(0);
+      expect(maxDisplacement).toBeGreaterThan(.001);
+      expect(maxDisplacement).toBeLessThanOrEqual(.002);
+      validateSkinningSpike(human.spike);
+    }finally{human.dispose();}
+  },60_000);
 
   it("repeats contour geometry and derived vertex ancestry exactly on neutral source",()=>{
     const snapshots:string[]=[];
