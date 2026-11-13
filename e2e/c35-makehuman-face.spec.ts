@@ -64,4 +64,11 @@ test("C3.5 original MakeHuman facial targets render with camera-stable unilatera
   await expect(page.locator('[data-facial-control="leftLid"]')).toHaveValue("1.25");
   await capture("c34-combined","head-three-quarter");
   expect(failures).toEqual([]);
+  // Visual acceptance requires valid topology even under deliberately exposed
+  // extreme controls. Capture the screenshots before asserting so reviewers
+  // can inspect each actual failure rather than silently passing the run.
+  const inverted=Number(/inverted:\\s*(\\d+)/.exec(diagnostics)?.[1]);
+  const stretched=Number(/stretched:\\s*(\\d+)/.exec(diagnostics)?.[1]);
+  expect(inverted,"C3.5 extreme facial deformation has inverted triangles").toBe(0);
+  expect(stretched,"C3.5 extreme facial deformation has stretched triangles").toBe(0);
 });
