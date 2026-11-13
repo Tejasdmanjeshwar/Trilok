@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY,
   type HumanLocalMorphologyV1 } from "@trilok/character-core";
 import { applyHumanMorphology } from "../geometry/HumanMorphology";
+import { HumanPoseCorrectives } from "../geometry/HumanPoseCorrectives";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
 import { loadAnatomicalHuman, type AnatomicalHuman, type AnatomicalLoadStage } from "../geometry/AnatomicalTemplate";
@@ -23,6 +24,7 @@ type Preview = {spike:SkinningSpike;mesh:THREE.SkinnedMesh;vertexCount:number;
 let stopping=false;
 let active:Preview|undefined;
 let fk:AnatomicalFK|undefined;
+let correctives:HumanPoseCorrectives|undefined;
 let overlay:THREE.SkeletonHelper|undefined;
 let inspector:BoneInspector|undefined;
 let renderer:THREE.WebGLRenderer|undefined;
@@ -185,6 +187,7 @@ try{
     const targets=resolveAnatomicalPose(anatomicalPoseById(name),active.spike.graph,fk);
     const poseStart=performance.now();
     fk.apply(targets);
+    correctives?.apply(targets);
     active.spike.character.root.updateWorldMatrix(true,true);
     lastPoseApplyMs=performance.now()-poseStart;
     // Explicit, bounded diagnostic sampling; not part of normal rendering.
@@ -248,8 +251,11 @@ try{
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     overlay=undefined;
     inspector?.dispose();inspector=undefined;
+    correctives?.dispose();correctives=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
+    if(name==="template" && morphologySelect?.value!=="neutral")
+      correctives=new HumanPoseCorrectives(preview as AnatomicalHuman);
     if(morphologySelect)morphologySelect.disabled=name!=="template";
     document.documentElement.dataset.c3MorphPreset=
       name==="template"?(morphologySelect?.value??"neutral"):"unavailable";
@@ -410,7 +416,8 @@ try{
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     inspector?.dispose();inspector=undefined;
     labControls.dispose();
-    controls.dispose();active?.dispose();fk=undefined;scene.clear();
+    controls.dispose();correctives?.dispose();correctives=undefined;
+    active?.dispose();fk=undefined;scene.clear();
     renderer?.dispose();renderer?.domElement.remove();
   },{once:true});
 }catch(e){

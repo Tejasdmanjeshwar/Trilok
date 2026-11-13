@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import {captureHumanRestSockets, calibrateHumanMorphologyAlignment,
+  type HumanMorphologyAlignment} from "./HumanMorphologyAlignment";
 import { validateHumanMorphologyRecipe, type CharacterRecipeV1,
   type HumanMorphologyV1, HUMAN_LOCAL_GENERATOR_VERSION,
   validateHumanLocalRecipe } from "@trilok/character-core";
@@ -14,6 +16,10 @@ import { validateSkinningSpike } from "./SkinningSpike";
  * generator, segmented severable mesh, or general-purpose re-targeting API.
  */
 const applied = new WeakSet<AnatomicalHuman>();
+const alignments = new WeakMap<AnatomicalHuman, HumanMorphologyAlignment>();
+/** Optional C3.3 presentation-only socket/IK metadata for a shaped instance. */
+export const getHumanMorphologyAlignment = (human: AnatomicalHuman):
+  HumanMorphologyAlignment | undefined => alignments.get(human);
 const transform = (v: THREE.Vector3, shape: HumanMorphologyV1): THREE.Vector3 =>
   v.set(v.x * shape.breadth, v.y * shape.stature, v.z * shape.breadth);
 
@@ -48,6 +54,7 @@ export function applyHumanMorphology(
   root.updateMatrixWorld(true);
   const rootInverse = root.matrixWorld.clone().invert();
   const allBones = spike.skeleton.bones;
+  const restSockets = captureHumanRestSockets(human);
   const oldLocalPositions = allBones.map(b =>
     b.getWorldPosition(new THREE.Vector3()).applyMatrix4(rootInverse));
   // Reject posed rigs; this API does not alter current animation state or FK.
@@ -112,6 +119,11 @@ export function applyHumanMorphology(
       .applyMatrix4(restWorld));
   }
   validateSkinningSpike(spike);
+  const alignment = calibrateHumanMorphologyAlignment(human, restSockets,
+    (point, parentIndex) => localTransform
+      ? localTransform.joint(point, parentIndex)
+      : transform(point, shape));
+  alignments.set(human, alignment);
   applied.add(human);
   return Object.freeze({
     generatorVersion: recipe.generatorVersion,
