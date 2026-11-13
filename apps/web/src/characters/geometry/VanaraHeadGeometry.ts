@@ -304,9 +304,16 @@ export function replaceVanaraHead(human:AnatomicalHuman,
         const front=eyePos.z>eyeZ+.001;
         const pupil=bell(eyePos.x-eyeX,.0065)*bell(eyePos.y-eyeY,.0065);
         const iris=bell(eyePos.x-eyeX,.010)*bell(eyePos.y-eyeY,.010);
-        const irisColor=new THREE.Color(0x6b4a31);
-        const c=new THREE.Color(0x211d1e);
-        if(front)c.lerp(irisColor,.72*iris*(1-pupil));
+        const c=new THREE.Color(0x342a28);
+        if(front){
+          // A deep brown living eye, not the black skull-like cavity that
+          // previously made the Vanara's face read as exposed anatomy.
+          c.lerp(new THREE.Color(0x735039),.76*iris);
+          c.lerp(new THREE.Color(0x181313),.90*pupil);
+          const catchlight=bell(eyePos.x-eyeX+.004,.0028)*
+            bell(eyePos.y-eyeY-.004,.0028);
+          c.lerp(new THREE.Color(0xb2a49a),.55*catchlight);
+        }
         add(eyePos,u,v,c,0);
         if(j>0){
           const a=first+(j-1)*slices+k;
