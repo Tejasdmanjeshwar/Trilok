@@ -83,7 +83,7 @@ function featureCenters(face:HumanFacialEdgeFlow):readonly Center[]{
     x:(mouthUpper.x+mouthLower.x)/2,
     y:(mouthUpper.y+mouthLower.y)/2,
     z:(mouthUpper.z+mouthLower.z)/2,
-    depth:.014,kind:"oral",
+    depth:.008,kind:"oral",
   });
   return centers.sort((a,b)=>FACIAL_APERTURE_IDS.indexOf(a.id)-FACIAL_APERTURE_IDS.indexOf(b.id));
 }
