@@ -416,7 +416,8 @@ try{
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     inspector?.dispose();inspector=undefined;
     labControls.dispose();
-    controls.dispose();active?.dispose();fk=undefined;scene.clear();
+    controls.dispose();correctives?.dispose();correctives=undefined;
+    active?.dispose();fk=undefined;scene.clear();
     renderer?.dispose();renderer?.domElement.remove();
   },{once:true});
 }catch(e){
