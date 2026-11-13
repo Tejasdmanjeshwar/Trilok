@@ -10,6 +10,8 @@ import {parseAnatomicalOBJ,bindTemplateToSemanticRig} from
 import {applyHumanMorphology,getMammalianHeadLandmarks,getHumanHeadLandmarks,
   getHumanMorphologyAlignment} from
   "../apps/web/src/characters/geometry/HumanMorphology";
+import {getVanaraReplacement} from
+  "../apps/web/src/characters/geometry/VanaraHeadReplacement";
 import {makeMammalianHeadTransform} from
   "../apps/web/src/characters/geometry/MammalianHeadDeformation";
 import {AnatomicalFK} from
@@ -82,7 +84,7 @@ describe("C3.5 primate and bear anatomical head families",()=>{
       .toThrow();
   });
 
-  it("both species retain C1 IDs and continuous CC0 topology, UVs and weights",()=>{
+  it("both families retain C1/C2 skin, but only primate replaces facial topology",()=>{
     const reference=session();
     const canonical=reference.spike.graph.joints.map(j=>j.id);
     reference.dispose();
@@ -106,7 +108,34 @@ describe("C3.5 primate and bear anatomical head families",()=>{
           const result=applyHumanMorphology(human,recipe);
           expect(result.generatorVersion).toBe(recipe.generatorVersion);
           expect([...template.sourceVertexIds]).toEqual(sourceIds);
-          expect([...mesh.geometry.getIndex()!.array]).toEqual(faces);
+          const vanara=getVanaraReplacement(human);
+          if(family==="primate") {
+            expect(vanara).toBeDefined();
+            expect(mesh.geometry.getIndex()!.count).toBeLessThan(faces.length);
+            const kept=Array.from(mesh.geometry.getIndex()!.array);
+            expect(faces.length-kept.length).toBe(
+              vanara!.removedHumanTriangles*3);
+            expect(vanara!.newHeadTriangles).toBeLessThanOrEqual(
+              vanara!.removedHumanTriangles*1.30);
+            expect(vanara!.headWidthMeters).toBeLessThanOrEqual(
+              vanara!.humanWidthMeters*1.11);
+            expect(vanara!.seamVertices).toBeGreaterThanOrEqual(24);
+            const headGeometry=vanara!.mesh.geometry;
+            const vertices=headGeometry.getAttribute("position");
+            const influences=headGeometry.getAttribute("skinWeight");
+            expect(headGeometry.getIndex()!.count/3).toBe(
+              vanara!.newHeadTriangles);
+            expect(headGeometry.getAttribute("uv").count).toBe(vertices.count);
+            for(let i=0;i<influences.count;i++){
+              let total=0;
+              for(let k=0;k<4;k++)
+                total+=influences.getComponent(i,k);
+              expect(Math.abs(total-1)).toBeLessThan(1e-4);
+            }
+          }else{
+            expect(vanara).toBeUndefined();
+            expect([...mesh.geometry.getIndex()!.array]).toEqual(faces);
+          }
           expect([...mesh.geometry.getAttribute("uv").array]).toEqual(uv);
           expect([...mesh.geometry.getAttribute("skinWeight").array]).toEqual(weightsBefore);
           expect([...mesh.geometry.getAttribute("skinIndex").array]).toEqual(indexBefore);
@@ -127,7 +156,11 @@ describe("C3.5 primate and bear anatomical head families",()=>{
           }
           expect(moved).toBeGreaterThan(.015);
           validateSkinningSpike(spike);
-          inspectAnatomicalMorphologyBaseline(human);
+          if(family==="bear")
+            inspectAnatomicalMorphologyBaseline(human);
+          else
+            expect(vanara!.mesh.geometry.getAttribute("position").count)
+              .toBeGreaterThan(vanara!.seamVertices);
         }finally{human.dispose();human.dispose();}
       }
     }
