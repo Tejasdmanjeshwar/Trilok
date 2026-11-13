@@ -326,10 +326,10 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     earLeftRest:arr(rest.earLeft),earRightRest:arr(rest.earRight),
     muzzleWorld:(out=new THREE.Vector3())=>current(localCranial.muzzle,skull,out),
     noseWorld:(out=new THREE.Vector3())=>current(localCranial.nose,skull,out),
-    nostrilWorld:(side,out=new THREE.Vector3())=>current(
+    nostrilWorld:(side:"left"|"right",out=new THREE.Vector3())=>current(
       side==="left"?localCranial.nostrilLeft:localCranial.nostrilRight,skull,out),
     mouthWorld:(out=new THREE.Vector3())=>current(localCranial.mouth,jaw,out),
-    earWorld:(side,out=new THREE.Vector3())=>current(
+    earWorld:(side:"left"|"right",out=new THREE.Vector3())=>current(
       side==="left"?localCranial.earLeft:localCranial.earRight,skull,out),
   });
   const replacement:VanaraHeadReplacement=Object.freeze({
