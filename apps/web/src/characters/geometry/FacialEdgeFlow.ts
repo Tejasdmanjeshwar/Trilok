@@ -245,7 +245,7 @@ class Surface {
       const denominator=vb-va;
       const raw=Math.abs(denominator)<EPSILON?.5:(level-va)/denominator;
       // Threshold ties must not create zero-area triangles.
-      const t=THREE.MathUtils.clamp(raw,1e-5,1-1e-5);
+      const t=THREE.MathUtils.clamp(raw,.08,.92);
       const result=this.insert(a,b,t,id,curve,level);
       inserted.add(id);
       split.set(renderEdge,result);
@@ -323,7 +323,7 @@ class Surface {
         this.positions[c*3+2]!-this.positions[a*3+2]!);
       ab.cross(ac);
       if(ab.lengthSq()<1e-20)
-        throw new Error("C3.5 contour produced an almost-zero-area triangle");
+        throw new Error("C3.5 contour produced an almost-zero-area triangle "+ab.lengthSq().toExponential(4)+" at "+i/3);
       for(const v of [a,b,c]){
         const k=this.topologyIds[v]!*3;
         weighted[k]=weighted[k]!+ab.x;
