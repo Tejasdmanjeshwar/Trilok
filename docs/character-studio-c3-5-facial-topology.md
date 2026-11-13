@@ -1,6 +1,6 @@
 # C3.5 — Human facial topology and semantic control foundation
 
-**Status:** Implementation on feature branch; acceptance pending CI, Chromium visual inspection, and owner review. This is *not* a completed expressive face rig or production art asset. C3.6, C4 and C7 are out of scope.
+**Status:** Implementation on feature branch; acceptance pending owner review and full anatomical acceptance. The source-compatible contour-edge implementation has automated verification but is not finished facial anatomy. This is *not* a completed expressive face rig or production art asset. C3.6, C4 and C7 are out of scope.
 
 ## Source audit and existing limitations
 
@@ -15,7 +15,9 @@
 
 `refineHumanFacialTopology(human,{maxSourceEdges,minimumEdgeLengthMeters})` performs one conforming, adaptive pass on front-facing candidate source edges near those semantic fields. Canonical source-edge selection ensures both UV copies split together; face winding and original indices are preserved as a prefix of the new attribute buffers. Each new midpoint receives interpolated UV, normalized four-influence skinning and a stable two-source-vertex edge descriptor (not a fictitious upstream source vertex ID). Limits: 1–3000 split source edges, default 1200, minimum length default 2.5 mm. Refinement can only be performed once on the owned source geometry, after neutral rest-space C3 shaping and inverse-bind recalibration. It never mutates the canonical source template's original buffers. An explicit disposal path releases both original and derived GPU geometries.
 
-The opt-in **C3.5 adaptive human facial topology** checkbox in Character Lab can compare source and refined human rendering and wireframes. The status panel provides actual vertex, triangle, and selected edge counts. Lab controls preserve camera orbit while rebuilding. Default original source and all combat behavior remain untouched.
+The refined human lab pipeline now composes that source-compatible pre-pass with `buildHumanFacialEdgeFlow` (`FacialEdgeFlow.ts`), a deterministic conforming iso-contour insertion stage. Source-derived feature anchors establish paired elliptical orbit, brow and nostril bands and central oral/nasal bands; 22 authored contour levels are subdivided directly **into the one existing continuous skinned surface**, including every duplicated UV corner. Each interior contour uses closed mesh-edge adjacency, immutable stable topology IDs, exact interpolated UVs and bounded four-bone weights. Splits are kept at least eight percent along edges to avoid near-zero-area triangles discovered in an initial CI regression. New C3.5 tests reject disconnected rings, malformed triangles, invalid skin weights, non-deterministic ancestry and non-recovering jaw poses. All curved bands are diagnostic topology scaffolding, **not anatomically certified eyelid rims, eyelid closure, nostril apertures or an open mouth**.
+
+The opt-in **C3.5 feature-aligned human facial edge flow** checkbox in Character Lab can compare source and refined human rendering and wireframes. The status panel provides actual vertex, triangle, and selected edge counts. Lab controls preserve camera orbit while rebuilding. Default original source and all combat behavior remain untouched.
 
 ## Measured pinned-source facial density and visual evidence (2026-11-13)
 
@@ -23,7 +25,7 @@ Actual Fast Verify #43466330146 (55 passing Vitest files, typecheck, production 
 
 C3.5 Chromium visual run [#43466330263](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43466330263) passed desktop and touch. Its 10 artifact screenshots include front, side, three-quarter, jaw-open and wireframe on both modes. The rendered face remains visibly the existing human source; no missing functional anatomical loops were invented. Neck/body continuity holds in the sample views, and the original C1 jaw pose still opens, but this does not certify absence of contact artifacts or visual realism.
 
-**Outstanding blocker for owner C3.5 acceptance:** localized subdivision of inherited surface triangles increases sampling density but cannot introduce required palpebral rims, mouth aperture topology, separate lips, nostril openings or high-quality facial skinning. Before merging as a fully accepted *high-detail facial topology foundation*, inspect and improve true feature-local anatomical edge-flow and deformation tests (and prove quantitative refined-region counts under facial pose changes). The current implementation is deliberately a **draft/partial foundation**, not completed C3.5.
+**C3.5 acceptance caveat:** the new connected elliptical edge bands improve *topological control*, but do not remove the underlying anatomical blocker. Continuous contour lines on closed source skin cannot create an open mouth, mobile eyelid rims or true nostril apertures. Those would require an anatomically justified, source-compatible remeshing/retopology pass with authored feature boundaries, bilateral control validation and final deformation/rendered acceptance. A closed contour graph does **not** certify biologically correct edge flow. The current implementation remains a **draft/partial foundation** until those necessities and visual acceptance are resolved.
 
 ## Acceptance and limitations
 
