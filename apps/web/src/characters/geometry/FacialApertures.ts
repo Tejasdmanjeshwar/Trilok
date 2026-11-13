@@ -100,7 +100,7 @@ class OwnedSurface {
   nextTopologyId:number;
   readonly originalCount:number;
 
-  constructor(readonly face:HumanFacialEdgeFlow){
+  constructor(readonly face:HumanFacialEdgeFlow, readonly jawJointIndex:number){
     const g=face.geometry;
     this.positions=Array.from(g.getAttribute("position").array as ArrayLike<number>);
     this.normals=Array.from(g.getAttribute("normal").array as ArrayLike<number>);
@@ -167,6 +167,34 @@ class OwnedSurface {
     }
     return this.append(position,[u/vertexIds.length,v/vertexIds.length],
       [...weights],color,id);
+  }
+  /** Apply additional jaw ownership ONLY on generated oral interior vertices.
+   * The rim source vertices retain their exact original official C2 weights.
+   * Blending fades in along the two recess rings and is biased downwards so
+   * lower-mouth motion is visible without tearing the fixed upper lip seam. */
+  private transferJaw(index:number,weight:number):void{
+    if(!(this.jawJointIndex>=0) || !Number.isFinite(weight) ||
+       weight<0 || weight>1)
+      throw new Error("C3.5 invalid derived oral skin ownership");
+    const candidates=new Map<number,number>();
+    for(let k=0;k<4;k++){
+      const joint=this.joints[index*4+k]!;
+      candidates.set(joint,(candidates.get(joint)??0)+
+        this.weights[index*4+k]!*(1-weight));
+    }
+    candidates.set(this.jawJointIndex,
+      (candidates.get(this.jawJointIndex)??0)+weight);
+    const kept=[...candidates].filter(x=>x[1]>0)
+      .sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,4);
+    const sum=kept.reduce((total,pair)=>total+pair[1],0);
+    if(!(sum>0))throw new Error("C3.5 invalid derived oral skin sum");
+    let placed=0;
+    for(let k=0;k<4;k++){
+      this.joints[index*4+k]=kept[k]?.[0]??0;
+      const value=k===3?Math.max(0,1-placed):(kept[k]?.[1]??0)/sum;
+      this.weights[index*4+k]=value;
+      placed+=value;
+    }
   }
   private add(a:number,b:number,c:number):void{
     if(a===b||b===c||a===c)throw new Error("C3.5 aperture degenerate index");
@@ -351,6 +379,12 @@ class OwnedSurface {
       const id=this.topologyIds[v]!;
       const value=this.from(v,old,ring===1?colorA:colorB,
         (ring===1?innerA:innerB).get(id)!);
+      if(center.kind==="oral"){
+        const vertical=THREE.MathUtils.smoothstep(
+          .5+(center.y-this.positions[v*3+1]!)/Math.max(yMax-yMin,.004),
+          0,1);
+        this.transferJaw(value,vertical*(ring===1?.10:.65));
+      }
       cache.set(v,value);
       return value;
     };
@@ -367,6 +401,7 @@ class OwnedSurface {
     const centerIndex=this.center(uniqueInner,terminal,
       center.kind==="eye"?[.08,.07,.09]:[.10,.045,.052],
       this.nextTopologyId++);
+    if(center.kind==="oral")this.transferJaw(centerIndex,.52);
     for(const {a,b} of walls)
       this.add(rim(b,2),rim(a,2),centerIndex);
     return Object.freeze({
@@ -440,7 +475,9 @@ export function buildHumanFacialApertures(
   const material=human.mesh.material as THREE.MeshStandardMaterial;
   const oldVertexColors=material.vertexColors;
   try{
-    const surface=new OwnedSurface(flow);
+    const jawIndex=human.spike.graph.joints.findIndex(j=>j.role==="jaw");
+    if(jawIndex<0)throw new Error("C3.5 requires C1 jaw skin bone");
+    const surface=new OwnedSurface(flow,jawIndex);
     const features=featureCenters(flow).map(center=>surface.carve(center));
     const topology=surface.topologyAudit();
     if(topology.boundaryEdges!==0||topology.nonManifoldEdges!==0)
