@@ -3,7 +3,9 @@ import type {MammalianHeadMorphologyV1} from "@trilok/character-core";
 import type {AnatomicalHuman} from "./AnatomicalTemplate";
 import type {MammalianHeadLandmarks} from "./MammalianHeadDeformation";
 import type {HumanHeadTransform} from "./HumanHeadDeformation";
-import {VANARA_SCAN_ENVELOPE, VANARA_SCAN_ID} from "./VanaraScanCalibration";
+import {VANARA_SCAN_ENVELOPE, VANARA_SCAN_ID,
+  VANARA_SCAN_PROVENANCE} from "./VanaraScanCalibration";
+import {VANARA_JAW_REGISTRATION} from "./VanaraScanRegistration";
 
 /**
  * C3.5 Vanara topology experiment. This is an authored procedural *external*
@@ -191,6 +193,16 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const depth=clamp(baseDepth*1.72*shape.faceDepth,.073,.136);
   const muzzleScale=shape.muzzleLength, muzzleWidth=shape.muzzleWidth;
   const earScale=shape.earSize;
+  // Rest jaw hinge and symphysis derive from the same paired specimen.
+  // The C1 semantic jaw bone stays authoritative; these ratios control
+  // exterior mouth location and the smooth skin-weight transition only.
+  const spanY=VANARA_SCAN_PROVENANCE.scanVerticalMaxMm-
+    VANARA_SCAN_PROVENANCE.scanVerticalMinMm;
+  const jawPivotT=clamp((VANARA_JAW_REGISTRATION.condyleMidpointMm[1]-
+    VANARA_SCAN_PROVENANCE.scanVerticalMinMm)/spanY,.30,.55);
+  const chinT=clamp((VANARA_JAW_REGISTRATION.symphysisMm[1]-
+    VANARA_SCAN_PROVENANCE.scanVerticalMinMm)/spanY,.10,.27);
+  const lipT=chinT+(jawPivotT-chinT)*.43;
   const positions:number[]=[],uvs:number[]=[],colors:number[]=[];
   const skinIds:number[]=[],skinWeights:number[]=[],triangles:number[]=[];
   // Ring resolution follows the actual human neck cut, not a separate cylinder.
@@ -242,7 +254,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     const nose=bell(x,.028*muzzleWidth)*bell(t-.42,.09)*front;
     const nares=(bell(x-.014,.008)+bell(x+.014,.008))*
       bell(t-.397,.028)*front;
-    const lip=bell(x,.058*muzzleWidth)*bell(t-.287,.015)*front;
+    const lip=bell(x,.058*muzzleWidth)*bell(t-lipT,.016)*front;
     const eyeX=width*(13.2/36.5);
     const eye=(bell(x-eyeX,.023)+bell(x+eyeX,.023))*
       bell(t-.76,.064)*front;
@@ -290,7 +302,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
         THREE.MathUtils.lerp(seam.point.z,z,join));
       // The existing C1 jaw bone controls lower-face movement. The transition
       // is smooth through the cheek so no source seam changes at runtime.
-      const jawWeight=smooth((.39-t)/.17)*
+      const jawWeight=smooth((jawPivotT-t)/.17)*
         smooth((Math.sin(theta)+.65)/1.0)*.93;
       const color=fur.clone().lerp(faceSkin,f.face*.98);
       color.lerp(muzzleTone,clamp(f.muzzle*.56+f.cheek*.14,0,.85));
@@ -417,7 +429,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     nose:featurePoint(0,.42,.068*muzzleScale),
     nostrilLeft:featurePoint(-.014,.397,.05*muzzleScale),
     nostrilRight:featurePoint(.014,.397,.05*muzzleScale),
-    mouth:featurePoint(0,.287,.04*muzzleScale),
+    mouth:featurePoint(0,lipT,.04*muzzleScale),
     earLeft:new THREE.Vector3(cx-width-.03*earScale,baseY+height*.59,cz),
     earRight:new THREE.Vector3(cx+width+.03*earScale,baseY+height*.59,cz),
   };
