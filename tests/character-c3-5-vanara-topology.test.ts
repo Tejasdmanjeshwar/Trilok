@@ -1,7 +1,8 @@
 import {readFileSync} from "node:fs";
 import {describe,expect,it} from "vitest";
 import * as THREE from "three";
-import {createMammalianHeadRecipe} from "../packages/character-core/src/index";
+import {createMammalianHeadRecipe,DEFAULT_MAMMALIAN_HEAD_MORPHOLOGY} from
+  "../packages/character-core/src/index";
 import {parseAnatomicalOBJ,bindTemplateToSemanticRig} from
   "../apps/web/src/characters/geometry/AnatomicalTemplate";
 import {applyHumanMorphology,getMammalianHeadLandmarks} from
@@ -84,6 +85,7 @@ describe("C3.5 Vanara independent external head geometry",()=>{
       const human=create();
       try{
         applyHumanMorphology(human,createMammalianHeadRecipe("primate",{
+          ...DEFAULT_MAMMALIAN_HEAD_MORPHOLOGY,
           muzzleLength:1.12,muzzleWidth:1.07,earSize:1.08,
         }));
         const replacement=getVanaraHeadReplacement(human)!;
