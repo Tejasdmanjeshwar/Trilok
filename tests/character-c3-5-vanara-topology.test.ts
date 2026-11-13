@@ -84,6 +84,10 @@ describe("C3.5 Vanara independent external head geometry",()=>{
       const headId=head.geometry.getAttribute("skinIndex");
       const bodyWeight=body.geometry.getAttribute("skinWeight");
       const bodyId=body.geometry.getAttribute("skinIndex");
+      const headColor=head.geometry.getAttribute("color");
+      const bodyColor=body.geometry.getAttribute("color");
+      const headNormal=head.geometry.getAttribute("normal");
+      const bodyNormal=body.geometry.getAttribute("normal");
       const ring=replacement.neckSeamVertices;
       expect(ring).toBeGreaterThan(24);
       expect(ring).toBeLessThan(160);
@@ -100,6 +104,12 @@ describe("C3.5 Vanara independent external head geometry",()=>{
           expect(headId.getComponent(h,k)).toBe(bodyId.getComponent(bodyIndex,k));
           expect(headWeight.getComponent(h,k))
             .toBeCloseTo(bodyWeight.getComponent(bodyIndex,k),5);
+        }
+        for(let k=0;k<3;k++){
+          expect(headColor.getComponent(h,k))
+            .toBeCloseTo(bodyColor.getComponent(bodyIndex,k),5);
+          expect(headNormal.getComponent(h,k))
+            .toBeCloseTo(bodyNormal.getComponent(bodyIndex,k),5);
         }
         matched.push(bodyIndex);
       }
