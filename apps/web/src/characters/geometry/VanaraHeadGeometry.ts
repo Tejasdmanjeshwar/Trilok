@@ -157,7 +157,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
       bell(t-.71,.048)*front;
     return {nose,nares,lip,eye,ear,face,cheek,muzzle,brow};
   };
-  for(let row=0;row<=levels;row++){
+  for(let row=0;row<levels;row++){
     const t=row/levels;
     const y=baseY+height*t;
     const rx=width*lerpProfile(t,cranialProfile);
@@ -202,6 +202,10 @@ export function replaceVanaraHead(human:AnatomicalHuman,
       }
     }
   }
+  const centerTop=add(new THREE.Vector3(cx,baseY+height,cz-.023),.5,1,fur,0);
+  const lastRing=(levels-1)*samples;
+  for(let j=0;j<samples;j++)
+    triangles.push(lastRing+j,centerTop,lastRing+(j+1)%samples);
   // Cover the bottom join inside the overlapping C2 neck surface; this
   // retains a closed replacement head even though the body cut is separate.
   const centerBottom=add(new THREE.Vector3(cx,baseY,cz),.5,0,fur,0);
@@ -217,8 +221,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     const center=new THREE.Vector3(eyeX,eyeY,eyeZ);
     const first=positions.length/3;
     const stacks=10,slices=16;
-    for(let j=0;j<=stacks;j++){
-      const v=j/stacks,phi=Math.PI*v;
+    for(let j=0;j<stacks;j++){
+      const v=(j+.5)/stacks,phi=Math.PI*v;
       for(let k=0;k<slices;k++){
         const u=k/slices,theta=u*2*Math.PI;
         const eyePos=center.clone().add(new THREE.Vector3(
@@ -237,9 +241,18 @@ export function replaceVanaraHead(human:AnatomicalHuman,
           const b=first+(j-1)*slices+(k+1)%slices;
           const d=first+j*slices+k;
           const e=first+j*slices+(k+1)%slices;
-          triangles.push(a,d,b,b,d,e);
+          triangles.push(a,b,d,b,e,d);
         }
       }
+    }
+    const upper=add(center.clone().add(new THREE.Vector3(0,.014,0)),.5,0,
+      new THREE.Color(0x211d1e),0);
+    const lower=add(center.clone().add(new THREE.Vector3(0,-.014,0)),.5,1,
+      new THREE.Color(0x211d1e),0);
+    for(let k=0;k<slices;k++){
+      triangles.push(upper,first+k,first+(k+1)%slices);
+      const last=first+(stacks-1)*slices;
+      triangles.push(lower,last+(k+1)%slices,last+k);
     }
   }
   const headGeo=new THREE.BufferGeometry();
