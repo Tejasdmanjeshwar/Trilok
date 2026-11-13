@@ -477,7 +477,8 @@ try{
       "Facial topology controls inactive.";
     if(name==="template" && (morphologySelect?.value!=="neutral" ||
       headIsActive() || selectedFamily()!=="human"))
-      correctives=new HumanPoseCorrectives(preview as AnatomicalHuman);
+      correctives=new HumanPoseCorrectives(preview as AnatomicalHuman,
+        {allowDerivedFacialSource:!!facialSource});
     document.documentElement.dataset.c3HeadReady =
       name==="template" && !!getHumanHeadLandmarks(preview as AnatomicalHuman)
         ? "true" : "false";
