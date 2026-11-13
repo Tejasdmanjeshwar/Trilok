@@ -10,6 +10,8 @@ import {parseAnatomicalOBJ,bindTemplateToSemanticRig} from
 import {applyHumanMorphology,getMammalianHeadLandmarks,getHumanHeadLandmarks,
   getHumanMorphologyAlignment} from
   "../apps/web/src/characters/geometry/HumanMorphology";
+import {getVanaraHeadReplacement} from
+  "../apps/web/src/characters/geometry/VanaraHeadGeometry";
 import {makeMammalianHeadTransform} from
   "../apps/web/src/characters/geometry/MammalianHeadDeformation";
 import {AnatomicalFK} from
@@ -82,7 +84,7 @@ describe("C3.5 primate and bear anatomical head families",()=>{
       .toThrow();
   });
 
-  it("both species retain C1 IDs and continuous CC0 topology, UVs and weights",()=>{
+  it("both species retain C1 IDs, original render vertex correspondence, UVs and weights",()=>{
     const reference=session();
     const canonical=reference.spike.graph.joints.map(j=>j.id);
     reference.dispose();
@@ -106,7 +108,18 @@ describe("C3.5 primate and bear anatomical head families",()=>{
           const result=applyHumanMorphology(human,recipe);
           expect(result.generatorVersion).toBe(recipe.generatorVersion);
           expect([...template.sourceVertexIds]).toEqual(sourceIds);
-          expect([...mesh.geometry.getIndex()!.array]).toEqual(faces);
+          if(family==="primate"){
+            // The Vanara intentionally replaces the old human *face*
+            // connectivity. C2 source vertices, UVs and original influences
+            // must be retained even though draw triangles are removed.
+            const rendered=Array.from(mesh.geometry.getIndex()!.array);
+            expect(rendered.length).toBeLessThan(faces.length);
+            expect(rendered.length).toBeGreaterThan(faces.length*.6);
+            expect(getVanaraHeadReplacement(human)).toBeDefined();
+          }else{
+            expect([...mesh.geometry.getIndex()!.array]).toEqual(faces);
+            expect(getVanaraHeadReplacement(human)).toBeUndefined();
+          }
           expect([...mesh.geometry.getAttribute("uv").array]).toEqual(uv);
           expect([...mesh.geometry.getAttribute("skinWeight").array]).toEqual(weightsBefore);
           expect([...mesh.geometry.getAttribute("skinIndex").array]).toEqual(indexBefore);
