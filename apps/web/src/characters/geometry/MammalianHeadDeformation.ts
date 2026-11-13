@@ -5,6 +5,7 @@ import type {AnatomicalHuman} from "./AnatomicalTemplate";
 import {makeHumanHeadTransform,type HumanHeadTransform} from "./HumanHeadDeformation";
 import {makeMammalianFaceAnatomy,type MammalianFaceAnatomy} from
   "./MammalianFaceAnatomy";
+import {makeLicensedVanaraFaceAnatomy} from "./LicensedVanaraFaceAtlas";
 
 export type MammalSide="left"|"right";
 export interface MammalianHeadTransform extends HumanHeadTransform {
@@ -46,7 +47,9 @@ export function makeMammalianHeadTransform(human:AnatomicalHuman,
   if(family!=="primate"&&family!=="bear")
     throw new Error("Unsupported C3.5 mammalian family");
   const base=makeHumanHeadTransform(human,shape);
-  const anatomy=makeMammalianFaceAnatomy(base,family,shape);
+  const prototype=makeMammalianFaceAnatomy(base,family,shape);
+  const anatomy=family==="primate"
+    ? makeLicensedVanaraFaceAnatomy(base,shape,prototype) : prototype;
   const {neck,crown,eyeLeft,eyeRight}=base.landmarks;
   const height=crown.y-neck.y;
   const cx=(eyeLeft.x+eyeRight.x)*.5;
