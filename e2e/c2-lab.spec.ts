@@ -417,3 +417,34 @@ test("C3.2 opt-in morphology presets retain the C2 diagnostics and source lifecy
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
   expect(errors).toEqual([]);
 });
+
+test("C3.4 human head presets, jaw FK, orbital controls and source recovery", async({page})=>{
+  test.setTimeout(90_000);
+  const errors:string[]=[];
+  page.on("pageerror",e=>errors.push(e.message));
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  await expect(page.locator("html")).toHaveAttribute("data-c3-head-ready","false");
+  await page.locator("#head-preset").selectOption("broad");
+  await expect(page.locator("html")).toHaveAttribute("data-c3-head-ready","true",{timeout:60_000});
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
+  await chooseView(page,"head-front");
+  mkdirSync("test-results/c3", {recursive:true});
+  const platform=test.info().project.name;
+  await page.locator("#viewport").screenshot({path:"test-results/c3/"+platform+"-human-broad-front.png"});
+  await chooseView(page,"head-side");
+  await page.locator("#viewport").screenshot({path:"test-results/c3/"+platform+"-human-broad-side.png"});
+  await choosePose(page,"jaw");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
+  await page.locator("#viewport").screenshot({path:"test-results/c3/"+platform+"-human-jaw-open.png"});
+  await page.locator("#head-preset").selectOption("stress");
+  await expect(page.locator("html")).toHaveAttribute("data-c3-head-ready","true",{timeout:60_000});
+  await choosePose(page,"neutral");
+  await chooseView(page,"head-front");
+  await page.locator("#viewport").screenshot({path:"test-results/c3/"+platform+"-human-stress-front.png"});
+  await page.locator("#reset-head").click();
+  await expect(page.locator("html")).toHaveAttribute("data-c3-head-ready","false",{timeout:60_000});
+  await expect(page.locator("#head-preset")).toHaveValue("neutral");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
+  expect(errors).toEqual([]);
+});

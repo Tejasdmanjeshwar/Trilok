@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY,
-  type HumanLocalMorphologyV1 } from "@trilok/character-core";
-import { applyHumanMorphology } from "../geometry/HumanMorphology";
+  type HumanLocalMorphologyV1, createHumanHeadRecipe,
+  DEFAULT_HUMAN_HEAD_MORPHOLOGY, type HumanHeadMorphologyV1 } from "@trilok/character-core";
+import { applyHumanMorphology, getHumanHeadLandmarks } from "../geometry/HumanMorphology";
 import { HumanPoseCorrectives } from "../geometry/HumanPoseCorrectives";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
@@ -39,6 +40,38 @@ const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = 
     hips:1.10,arms:1.06,legs:1.06},
 };
 const morphologySelect = document.querySelector<HTMLSelectElement>("#morph-preset");
+const headPresetSelect = document.querySelector<HTMLSelectElement>("#head-preset");
+type HeadKey = "skullWidth" | "skullHeight" | "forehead" | "brow" |
+  "cheeks" | "jawWidth" | "chin" | "faceDepth" | "eyeSpacing";
+const headKeys = ["skullWidth","skullHeight","forehead","brow","cheeks",
+  "jawWidth","chin","faceDepth","eyeSpacing"] as const;
+const headPresets: Readonly<Record<string, Partial<HumanHeadMorphologyV1>>> = {
+  neutral:{}, broad:{skullWidth:1.10,cheeks:1.07},
+  long:{skullHeight:1.07,forehead:1.06},
+  brow:{brow:1.08,eyeSpacing:1.04,faceDepth:1.05},
+  jaw:{jawWidth:1.09,chin:1.08,cheeks:1.06},
+  stress:{skullWidth:1.10,skullHeight:1.07,forehead:1.07,
+    brow:1.08,cheeks:1.08,jawWidth:1.09,chin:1.08,
+    faceDepth:1.06,eyeSpacing:1.05},
+};
+const headSliders = new Map<HeadKey, HTMLInputElement>();
+for (const key of headKeys) {
+  const slider=document.querySelector<HTMLInputElement>('[data-head-param="'+key+'"]');
+  if(!slider)throw new Error("Missing C3.4 head parameter "+key);
+  headSliders.set(key,slider);
+}
+const readHeadOverrides=():Partial<HumanHeadMorphologyV1> =>
+  Object.fromEntries(headKeys.map(key=>[key,Number(headSliders.get(key)!.value)])) as
+    Partial<HumanHeadMorphologyV1>;
+const headIsActive=():boolean => headKeys.some(key=>
+  Number(headSliders.get(key)!.value)!==1);
+const syncHeadValues=():void => {
+  for (const key of headKeys) {
+    const output=document.querySelector<HTMLOutputElement>('[data-head-value="'+key+'"]');
+    if(output)output.value=Number(headSliders.get(key)!.value).toFixed(2);
+  }
+};
+syncHeadValues();
 const performancePanel=document.querySelector<HTMLElement>("#c25-metrics");
 const stageTimings=new Map<AnatomicalLoadStage,number>();
 let lastPoseApplyMs:number|undefined;
@@ -104,7 +137,8 @@ try{
     if(!active)return;
     const t=active.template;
     status!.textContent="C2 diagnostic ready · "+surface+" · "+currentPose+" · "+
-      "morphology "+(morphologySelect?.value??"neutral")+" · "+
+      "morphology "+(morphologySelect?.value??"neutral")+
+      " · head "+(headIsActive()?(headPresetSelect?.value??"custom"):"original")+" · "+
       active.vertexCount.toLocaleString()+" vertices · "+
       active.triangleCount.toLocaleString()+" triangles"+
       (t?" · "+t.sourceVertexCount.toLocaleString()+" source vertices · "+
@@ -221,13 +255,21 @@ try{
           (stage,ms)=>sampleTimings.set(stage,ms));
         preview=anatomical;
         const preset=morphologySelect?.value??"neutral";
-        if(preset!=="neutral"){
+        const params=morphPresets[preset];
+        if(!params)throw new Error("Unknown morphology preset "+preset);
+        if(preset!=="neutral" || headIsActive()){
           try{
-            const params=morphPresets[preset];
-            if(!params)throw new Error("Unknown morphology preset "+preset);
-            applyHumanMorphology(anatomical,createHumanLocalRecipe({
-              ...DEFAULT_HUMAN_LOCAL_MORPHOLOGY,...params,
-            }));
+            if(headIsActive()){
+              applyHumanMorphology(anatomical,createHumanHeadRecipe({
+                ...DEFAULT_HUMAN_HEAD_MORPHOLOGY,...params,...readHeadOverrides(),
+              }));
+              if(!getHumanHeadLandmarks(anatomical))
+                throw new Error("Missing calibrated C3.4 orbital landmarks");
+            }else{
+              applyHumanMorphology(anatomical,createHumanLocalRecipe({
+                ...DEFAULT_HUMAN_LOCAL_MORPHOLOGY,...params,
+              }));
+            }
           }catch(error){anatomical.dispose();throw error;}
         }
       }
@@ -254,9 +296,14 @@ try{
     correctives?.dispose();correctives=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
-    if(name==="template" && morphologySelect?.value!=="neutral")
+    if(name==="template" && (morphologySelect?.value!=="neutral" || headIsActive()))
       correctives=new HumanPoseCorrectives(preview as AnatomicalHuman);
+    document.documentElement.dataset.c3HeadReady =
+      name==="template" && !!getHumanHeadLandmarks(preview as AnatomicalHuman)
+        ? "true" : "false";
     if(morphologySelect)morphologySelect.disabled=name!=="template";
+    if(headPresetSelect)headPresetSelect.disabled=name!=="template";
+    for(const slider of headSliders.values()) slider.disabled=name!=="template";
     document.documentElement.dataset.c3MorphPreset=
       name==="template"?(morphologySelect?.value??"neutral"):"unavailable";
     const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
@@ -377,6 +424,27 @@ try{
   morphologySelect?.addEventListener("change",()=>{
     void switchSurface("template");
   });
+  headPresetSelect?.addEventListener("change",()=>{
+    const preset=headPresets[headPresetSelect.value];
+    if(!preset)return;
+    for(const key of headKeys) headSliders.get(key)!.value=
+      String(preset[key]??1);
+    syncHeadValues();
+    void switchSurface("template");
+  });
+  for(const slider of headSliders.values()){
+    slider.addEventListener("input",syncHeadValues);
+    slider.addEventListener("change",()=>{
+      if(headPresetSelect)headPresetSelect.value="custom";
+      void switchSurface("template");
+    });
+  }
+  document.querySelector<HTMLButtonElement>("#reset-head")?.addEventListener(
+    "click",()=>{
+      for(const slider of headSliders.values())slider.value="1";
+      if(headPresetSelect)headPresetSelect.value="neutral";
+      syncHeadValues();void switchSurface("template");
+    });
   const inspectorToggle=document.querySelector<HTMLButtonElement>("#bone-inspector-toggle");
   const inspectorContent=document.querySelector<HTMLElement>("#bone-inspector-content");
   inspectorToggle?.addEventListener("click",()=>{

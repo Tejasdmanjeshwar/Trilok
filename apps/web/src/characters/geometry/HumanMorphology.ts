@@ -3,11 +3,14 @@ import {captureHumanRestSockets, calibrateHumanMorphologyAlignment,
   type HumanMorphologyAlignment} from "./HumanMorphologyAlignment";
 import { validateHumanMorphologyRecipe, type CharacterRecipeV1,
   type HumanMorphologyV1, HUMAN_LOCAL_GENERATOR_VERSION,
-  validateHumanLocalRecipe } from "@trilok/character-core";
+  validateHumanLocalRecipe, HUMAN_HEAD_GENERATOR_VERSION,
+  validateHumanHeadRecipe } from "@trilok/character-core";
 import { makeHumanLocalTransform, recomputeSourceNormals } from "./HumanLocalDeformation";
 import type { AnatomicalHuman } from "./AnatomicalTemplate";
 import { inspectAnatomicalMorphologyBaseline } from "./AnatomicalMorphologyContract";
 import { validateSkinningSpike } from "./SkinningSpike";
+import { makeHumanHeadTransform, calibrateHumanHeadLandmarks,
+  type HumanHeadLandmarks } from "./HumanHeadDeformation";
 
 /**
  * C3.1/C3.2 opt-in, deterministic, rest-space human shape pass. All source IDs,
@@ -17,6 +20,10 @@ import { validateSkinningSpike } from "./SkinningSpike";
  */
 const applied = new WeakSet<AnatomicalHuman>();
 const alignments = new WeakMap<AnatomicalHuman, HumanMorphologyAlignment>();
+const headLandmarks = new WeakMap<AnatomicalHuman, HumanHeadLandmarks>();
+/** C3.4 source-derived facial landmarks follow the posed C1 head joint. */
+export const getHumanHeadLandmarks = (human: AnatomicalHuman):
+  HumanHeadLandmarks | undefined => headLandmarks.get(human);
 /** Optional C3.3 presentation-only socket/IK metadata for a shaped instance. */
 export const getHumanMorphologyAlignment = (human: AnatomicalHuman):
   HumanMorphologyAlignment | undefined => alignments.get(human);
@@ -40,8 +47,10 @@ export function applyHumanMorphology(
   human: AnatomicalHuman,
   recipe: CharacterRecipeV1,
 ): AppliedHumanMorphologyV1 {
-  const localShape = recipe.generatorVersion === HUMAN_LOCAL_GENERATOR_VERSION
-    ? validateHumanLocalRecipe(recipe) : undefined;
+  const headShape = recipe.generatorVersion === HUMAN_HEAD_GENERATOR_VERSION
+    ? validateHumanHeadRecipe(recipe) : undefined;
+  const localShape = headShape ?? (recipe.generatorVersion === HUMAN_LOCAL_GENERATOR_VERSION
+    ? validateHumanLocalRecipe(recipe) : undefined);
   const shape = localShape ?? validateHumanMorphologyRecipe(recipe);
   if (applied.has(human)) throw new Error("C3 morphology already applied: rebuild from the source");
   inspectAnatomicalMorphologyBaseline(human);
@@ -78,8 +87,29 @@ export function applyHumanMorphology(
       throw new Error("Nonfinite C3 rest surface");
   }
   const localTransform = localShape ? makeHumanLocalTransform(human, localShape) : undefined;
-  const nextBonePositions = oldLocalPositions.map((p, i) =>
-    localTransform ? localTransform.joint(p.clone(), i) : transform(p.clone(), shape));
+  const headTransform = headShape ? makeHumanHeadTransform(human, headShape) : undefined;
+  const mapHead = (p: THREE.Vector3): THREE.Vector3 =>
+    headTransform ? headTransform.point(p) : p;
+  const mapJoint = (p: THREE.Vector3, index: number): THREE.Vector3 =>
+    localTransform ? localTransform.joint(mapHead(p), index) : transform(p, shape);
+  const mapVertex = (p: THREE.Vector3, index: number): THREE.Vector3 =>
+    localTransform ? localTransform.vertex(mapHead(p), index) : transform(p, shape);
+  // C3.4: prepare and validate every computed vertex BEFORE writing geometry,
+  // bones or inverse binds. No C1/C3.1/C3.2 code path is rerouted here.
+  const stagedPositions = headTransform ? new Float32Array(pos.count * 3) : undefined;
+  if (stagedPositions) {
+    for (let i=0; i<pos.count; i++) {
+      const mapped = mapVertex(new THREE.Vector3().fromBufferAttribute(pos,i),i);
+      if (!mapped.toArray().every(Number.isFinite))
+        throw new Error("C3.4 head surface produced a nonfinite position");
+      stagedPositions[i*3]=mapped.x;
+      stagedPositions[i*3+1]=mapped.y;
+      stagedPositions[i*3+2]=mapped.z;
+    }
+  }
+  const nextBonePositions = oldLocalPositions.map((p, i) => mapJoint(p.clone(), i));
+  if (nextBonePositions.some(p => !p.toArray().every(Number.isFinite)))
+    throw new Error("Nonfinite C3 morphology bind position");
   const restWorld = root.matrixWorld.clone();
   // The Three.js scale stays exactly one. Bone translations and inverse binds
   // follow the same mapping as surface positions; no root scaling shortcuts.
@@ -97,7 +127,9 @@ export function applyHumanMorphology(
   const p = new THREE.Vector3();
   for (let i = 0; i < pos.count; i++) {
     p.fromBufferAttribute(pos, i);
-    const mapped = localTransform ? localTransform.vertex(p, i) : transform(p, shape);
+    const mapped = stagedPositions
+      ? new THREE.Vector3(stagedPositions[i*3]!,stagedPositions[i*3+1]!,stagedPositions[i*3+2]!)
+      : mapVertex(p, i);
     pos.setXYZ(i, mapped.x, mapped.y, mapped.z);
     if (!localTransform) {
       // Inverse transpose of the positive, diagonal anatomical rest transform.
@@ -113,17 +145,18 @@ export function applyHumanMorphology(
   geometry.computeBoundingSphere();
   if (human.jawTipWorldRest) {
     const original = human.jawTipWorldRest.clone().applyMatrix4(rootInverse);
-    const headIndex = spike.graph.joints.findIndex(j => j.role === "head");
-    human.jawTipWorldRest.copy((localTransform ?
-      localTransform.joint(original, headIndex) : transform(original, shape))
+    const referenceIndex = spike.graph.joints.findIndex(j =>
+      j.role === (headTransform ? "jaw" : "head"));
+    human.jawTipWorldRest.copy(mapJoint(original, referenceIndex)
       .applyMatrix4(restWorld));
   }
   validateSkinningSpike(spike);
-  const alignment = calibrateHumanMorphologyAlignment(human, restSockets,
-    (point, parentIndex) => localTransform
-      ? localTransform.joint(point, parentIndex)
-      : transform(point, shape));
+  const alignment = calibrateHumanMorphologyAlignment(human, restSockets, mapJoint);
   alignments.set(human, alignment);
+  if (headTransform)
+    headLandmarks.set(human, calibrateHumanHeadLandmarks(human, headTransform,
+      (point,index) => localTransform
+        ? localTransform.joint(point,index) : transform(point,shape)));
   applied.add(human);
   return Object.freeze({
     generatorVersion: recipe.generatorVersion,
