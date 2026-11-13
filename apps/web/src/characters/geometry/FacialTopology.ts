@@ -124,7 +124,7 @@ export function inspectHumanFacialTopology(human: AnatomicalHuman): FacialContro
   const eyeLeftX=eyes.eyeLeft.x, eyeRightX=eyes.eyeRight.x;
   // On the pinned CC0 head the old orbital front probe samples the brow,
   // not the palpebral fissure. Calibrate eyelids independently of brows.
-  const eyelidY=eyeY-faceHeight*.19;
+  const eyelidY=eyeY-faceHeight*.075;
   // Align the oral band with the original lip fissure rather than the chin.
   const mouthY=eyes.chin.y+faceHeight*.39;
   const noseY=eyes.chin.y+faceHeight*.58;
