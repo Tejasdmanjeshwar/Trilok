@@ -70,3 +70,6 @@ for(const data of [
   await writeFile(file,bytes);
   console.log("MakeHuman CC0 official rig verified:",data.path,bytes.length,"bytes");
 }
+
+// Fetch and compile original CC0 facial targets from the same pinned revision.
+await import("./fetch-makehuman-facial.mjs");
