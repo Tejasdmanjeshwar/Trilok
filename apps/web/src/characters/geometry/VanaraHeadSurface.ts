@@ -48,9 +48,8 @@ export interface VanaraSurfaceResult {
 const clamp=(n:number,lo=0,hi=1)=>Math.max(lo,Math.min(hi,n));
 const smooth=(x:number)=>{const t=clamp(x);return t*t*(3-2*t);};
 const mix=(a:number,b:number,t:number)=>a+(b-a)*t;
-const fur=new THREE.Color(0x66534c);
-const skin=new THREE.Color(0x9b7064);
-const muzzleTone=new THREE.Color(0x8b6559);
+// Local shading is calibrated from the actual adjacent C2 neck at build time.
+// The previous dark-fur blanket made the head a separate, almost black object.
 const deep=new THREE.Color(0x31211d);
 
 /**
@@ -106,15 +105,16 @@ function widthProfile(t:number):number {
   const a=keys[j]!,b=keys[j+1]!;
   return mix(a[1],b[1],smooth((t-a[0])/(b[0]-a[0])));
 }
-function markColor(x:number,t:number):THREE.Color {
+function markColor(x:number,t:number,base:THREE.Color):THREE.Color {
   const facial=smooth((t-.28)/.23)*(1-smooth((t-.79)/.16))*
     (1-smooth((Math.abs(x)-.60)/.32));
-  const c=fur.clone().lerp(skin,facial);
-  const oral=Math.abs(t-.385)<.014 && Math.abs(x)<.45;
-  if(oral)c.lerp(deep,.63);
+  // Subtle cheek/muzzle modulation, not a uniformly dark contrasting head.
+  const c=base.clone().multiplyScalar(1-.035*(1-facial));
+  const oral=Math.abs(t-.385)<.018 && Math.abs(x)<.46;
+  if(oral)c.lerp(deep,.38);
   const pad=smooth((t-.38)/.05)*(1-smooth((t-.54)/.08))*
     (1-smooth((Math.abs(x)-.30)/.33));
-  return c.lerp(muzzleTone,pad*.38);
+  return c.lerp(base.clone().multiplyScalar(.89),pad*.38);
 }
 function degrees(p:THREE.Vector3,cx:number,cz:number):number {
   const a=Math.atan2(p.z-cz,p.x-cx);
@@ -189,19 +189,66 @@ export function buildVanaraSurface(spec:VanaraSurfaceSpec):VanaraSurfaceResult {
   // C2 boundary must retain its exact positions and four original skin weights.
   const sortedSeam=[...seam].sort((a,b)=>
     degrees(a.point,cx,cz)-degrees(b.point,cx,cz));
+  const baseTone=sortedSeam.reduce((acc,s)=>acc.add(s.color),
+    new THREE.Color(0x000000)).multiplyScalar(1/sortedSeam.length);
+  const cranialTone=baseTone.clone().multiplyScalar(.975);
+  const nasalTone=baseTone.clone().multiplyScalar(.88);
+  const neckCenterZ=sortedSeam.reduce((sum,s)=>sum+s.point.z,0)/
+    sortedSeam.length;
+  // Reproject each new ring column against the ACTUAL skinned neck boundary.
+  // Angular interpolation avoids a sudden forward jump at row one.
+  const sampleNeck=(angle:number):VanaraNeckSample=>{
+    let closest=sortedSeam[0]!,error=Infinity;
+    for(const candidate of sortedSeam){
+      const a=degrees(candidate.point,cx,cz);
+      const delta=Math.abs(angle-a);
+      const d=Math.min(delta,Math.PI*2-delta);
+      if(d<error){closest=candidate;error=d;}
+    }
+    return closest;
+  };
+  const blendNeck=(p:THREE.Vector3,angle:number,t:number):THREE.Vector3=>{
+    const origin=sampleNeck(angle).point;
+    const k=smooth(t/.22);
+    p.x=mix(origin.x,p.x,k);
+    p.z=mix(origin.z,p.z,k);
+    // The source boundary is not necessarily planar.
+    p.y=mix(origin.y+height*t,p.y,k);
+    return p;
+  };
+  const earMass=(angle:number,t:number):number=>{
+    const side=Math.abs(Math.cos(angle));
+    const flank=smooth((side-.67)/.32);
+    const y=(t-.675)/.105;
+    return flank*Math.exp(-2.5*y*y);
+  };
+  const earDisplacement=(p:THREE.Vector3,angle:number,t:number):THREE.Vector3=>{
+    const mass=earMass(angle,t)*shape.earSize;
+    p.x+=Math.sign(Math.cos(angle))*.015*mass;
+    p.z-=.006*mass;
+    return p;
+  };
+  const earColor=(angle:number,t:number):THREE.Color=>{
+    const mass=earMass(angle,t);
+    const concha=mass*smooth((-Math.sin(angle)-.02)/.34);
+    return cranialTone.clone().lerp(cranialTone.clone().multiplyScalar(.85),
+      concha*.60);
+  };
   let previous=sortedSeam.map((s,i)=>add(s.point,i/sortedSeam.length,0,s.color,0,s));
-  const frontColumns=29,backColumns=24;
+  const frontColumns=45,backColumns=30;
   const pointsPerRing=frontColumns+backColumns-1;
   const reservedFeatures=550;
   const maxRows=Math.floor((spec.maxTriangles-reservedFeatures-sortedSeam.length)/
     (2*pointsPerRing));
-  const rows=Math.min(25,maxRows);
+  const rows=Math.min(42,maxRows);
   if(rows<12)throw new Error("C3.5 human head triangle budget too small for anatomical topology");
   const front=(x:number,t:number):THREE.Vector3=>{
     const rx=spec.halfWidth*widthProfile(t);
-    const z=cz+spec.halfDepth*Math.sqrt(Math.max(.02,1-x*x))*
+    const rz=spec.halfDepth*widthProfile(t);
+    const center=mix(neckCenterZ,cz,smooth((t-.04)/.38));
+    const z=center+rz*Math.sqrt(Math.max(.02,1-x*x))*
       (.87+.13*smooth((t-.22)/.30))+
-      sculpt(x,t,shape);
+      sculpt(x,t,shape)*smooth((t-.14)/.17);
     return new THREE.Vector3(cx+rx*x,spec.neckY+height*t,z);
   };
   for(let row=1;row<=rows;row++){
@@ -212,24 +259,31 @@ export function buildVanaraSurface(spec:VanaraSurfaceSpec):VanaraSurfaceResult {
     const ring:number[]=[];
     for(let k=0;k<frontColumns;k++){
       const x=1-2*k/(frontColumns-1);
-      const p=front(x,t);
+      const angle=Math.acos(x);
+      const p=earDisplacement(blendNeck(front(x,t),angle,t),angle,t);
       const jaw=smooth((.55-t)/.28)*(1-smooth((Math.abs(x)-.55)/.34));
-      ring.push(add(p,(1-x)/2,t,markColor(x,t),jaw));
+      const c=markColor(x,t,baseTone).lerp(earColor(angle,t),
+        earMass(angle,t)*.75);
+      c.lerp(sampleNeck(angle).color,1-smooth(t/.18));
+      ring.push(add(p,(1-x)/2,t,c,jaw));
     }
     const rx=spec.halfWidth*widthProfile(t);
     for(let k=1;k<backColumns;k++){
       const angle=Math.PI+k*Math.PI/backColumns;
+      const center=mix(neckCenterZ,cz,smooth((t-.04)/.38));
       const p=new THREE.Vector3(cx+rx*Math.cos(angle),
         spec.neckY+height*t,
-        cz+spec.halfDepth*Math.sin(angle)*widthProfile(t)*.95);
-      ring.push(add(p,.5+angle/(2*Math.PI),t,fur,0));
+        center+spec.halfDepth*Math.sin(angle)*widthProfile(t)*.95);
+      earDisplacement(blendNeck(p,angle,t),angle,t);
+      const c=earColor(angle,t).lerp(sampleNeck(angle).color,1-smooth(t/.18));
+      ring.push(add(p,.5+angle/(2*Math.PI),t,c,0));
     }
     // Rings are in 0..2pi order and front vertices explicitly follow
     // facial bands. This is NOT the rejected homogeneous cranium-ring mesh.
     bridge(previous,ring);
     previous=ring;
   }
-  const top=add(new THREE.Vector3(cx,spec.crownY,cz-.004),.5,1,fur);
+  const top=add(new THREE.Vector3(cx,spec.crownY,cz-.004),.5,1,cranialTone);
   for(let k=0;k<previous.length;k++)
     faces.push(previous[k]!,top,previous[(k+1)%previous.length]!);
 
@@ -265,7 +319,7 @@ export function buildVanaraSurface(spec:VanaraSurfaceSpec):VanaraSurfaceResult {
     // Use an inset orbital loop rather than protruding spheres or bony skull holes.
     addOval(new THREE.Vector3(p.x,p.y,p.z+.002),
       .014,.010,.005,
-      new THREE.Color(0x5f483f),new THREE.Color(0x302621));
+      baseTone.clone().multiplyScalar(.84),new THREE.Color(0x302621));
     // iris set inside the upper lid ring, owned by the C1 head joint
     addOval(new THREE.Vector3(p.x,p.y,p.z+.003),.007,.007,.001,
       new THREE.Color(0x705c42),new THREE.Color(0x1f1b19));
@@ -276,32 +330,19 @@ export function buildVanaraSurface(spec:VanaraSurfaceSpec):VanaraSurfaceResult {
   ];
   for(const p of nares){
     addOval(new THREE.Vector3(p.x,p.y,p.z+.001),
-      .0052,.0031,.003,muzzleTone,deep);
+      .0052,.0031,.003,nasalTone,deep);
   }
-  const ears:[THREE.Vector3,THREE.Vector3]=[
-    new THREE.Vector3(cx-spec.halfWidth*1.08,spec.neckY+height*.66,cz-.007),
-    new THREE.Vector3(cx+spec.halfWidth*1.08,spec.neckY+height*.66,cz-.007)
-  ];
-  for(let s=0;s<2;s++){
-    const p=ears[s]!,sign=s===0?-1:1;
-    // Auricular contours are in the YZ plane; outer helix, concha and inset bowl.
-    const n=18,outer:number[]=[],inner:number[]=[];
-    for(let k=0;k<n;k++){
-      const a=k*2*Math.PI/n;
-      const oval=(scale:number,xOffset:number)=>new THREE.Vector3(
-        p.x+sign*xOffset,
-        p.y+.025*shape.earSize*scale*Math.cos(a),
-        p.z+.016*shape.earSize*scale*Math.sin(a)
-      );
-      outer.push(add(oval(1,.011),k/n,.4,fur));
-      inner.push(add(oval(.55,.014),k/n,.6,skin));
-    }
-    const bowl=add(new THREE.Vector3(p.x+sign*.006,p.y,p.z),.5,.5,deep);
-    for(let k=0;k<n;k++){const j=(k+1)%n;
-      faces.push(outer[k]!,outer[j]!,inner[k]!,outer[j]!,inner[j]!,inner[k]!,
-        inner[k]!,inner[j]!,bowl);
-    }
-  }
+  // Ear mass is part of the indexed cranial shell above, not free geometry.
+  // Landmark probes must therefore be on that same deformed surface.
+  const ears:[THREE.Vector3,THREE.Vector3]=[-1,1].map(sign=>{
+    const angle=sign<0?Math.PI:0;
+    const t=.675;
+    const p=new THREE.Vector3(
+      cx+sign*spec.halfWidth*widthProfile(t),
+      spec.neckY+height*t,
+      mix(neckCenterZ,cz,smooth((t-.04)/.38)));
+    return earDisplacement(p,angle,t);
+  }) as [THREE.Vector3,THREE.Vector3];
   if(faces.length/3>spec.maxTriangles)
     throw new Error("C3.5 rebuilt head exceeds 130% measured human-head triangle budget");
   const geometry=new THREE.BufferGeometry();
