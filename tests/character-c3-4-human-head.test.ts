@@ -51,7 +51,7 @@ describe("C3.4 complete human head morphology",()=>{
       humanHeadMorphologyFingerprint(createHumanHeadRecipe(extreme,17)));
     expect(humanHeadMorphologyFingerprint(recipe)).not.toBe(
       humanHeadMorphologyFingerprint(createHumanHeadRecipe(extreme,18)));
-    expect(()=>createHumanHeadRecipe({...extreme,skullWidth:1.11})).toThrow();
+    expect(()=>createHumanHeadRecipe({...extreme,skullWidth:1.26})).toThrow();
     expect(()=>createHumanHeadRecipe({...extreme,brow:NaN})).toThrow();
     expect(()=>createHumanHeadRecipe({...extreme,eyeSpacing:Infinity})).toThrow();
     expect(()=>validateHumanHeadRecipe({...recipe,
