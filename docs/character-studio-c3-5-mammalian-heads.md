@@ -1,3 +1,5 @@
+> **2026-11-13 scope supersession:** C3.5 acceptance is **Vanara only**. The bear prototype described below is an unaccepted legacy preview and its replacement is deferred to C7, per Issue #41. Earlier shared-human-topology primate/bear experimental descriptions remain as historical implementation notes, not the target anatomy. The rejected independent head in PR #48 was closed without merging. New original Vanara facial topology is being developed in draft PR #50, with an audited owner-provided CC BY-NC-ND sculpt used for internal art-direction reference only; no model triangles, vertices or texture data are being reproduced or bundled. Technical/legal audit: [C3.5 reference audit](character-studio-c3-5-hanuman-reference-audit.md). PR #50 is **not** visually accepted or production-ready; CI alone does not sign off facial anatomy, seams or deformation. Merge only after Cloudflare preview and explicit owner approval.
+
 # C3.5 — Primate and bear head-family morphology
 
 **Scope:** Entire C3.5 subphase, primate and bear both required. C3.6 avian
