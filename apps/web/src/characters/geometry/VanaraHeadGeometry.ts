@@ -68,8 +68,10 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const pos=geometry.getAttribute("position");
   const skinIndex=geometry.getAttribute("skinIndex");
   const skinWeight=geometry.getAttribute("skinWeight");
+  const bodyColorAttribute=geometry.getAttribute("color");
+  const bodyNormalAttribute=geometry.getAttribute("normal");
   const index=geometry.getIndex();
-  if(!pos||!skinIndex||!skinWeight||!index)
+  if(!pos||!skinIndex||!skinWeight||!index||!bodyNormalAttribute)
     throw new Error("Vanara replacement requires a skinned source body");
   const neckIndex=spike.graph.joints.findIndex(j=>j.role==="neck");
   const skull=spike.skeleton.bones[head.headJointIndex];
@@ -162,6 +164,11 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     point:new THREE.Vector3().fromBufferAttribute(pos,id),
     ids:[0,1,2,3].map(k=>skinIndex.getComponent(id,k)),
     weights:[0,1,2,3].map(k=>skinWeight.getComponent(id,k)),
+    color:bodyColorAttribute
+      ?new THREE.Color(bodyColorAttribute.getX(id),
+        bodyColorAttribute.getY(id),bodyColorAttribute.getZ(id))
+      :new THREE.Color(0xb38b70),
+    normal:new THREE.Vector3().fromBufferAttribute(bodyNormalAttribute,id),
     angle:(()=>{
       const t=Math.atan2(pos.getZ(id)-neck.z,pos.getX(id)-neck.x);
       return t<0?t+2*Math.PI:t;
@@ -292,6 +299,9 @@ export function replaceVanaraHead(human:AnatomicalHuman,
       color.lerp(nostrilTone,clamp(f.nares*.94,0,.96));
       color.lerp(mouthTone,clamp(f.lip*.92,0,.95));
       color.lerp(earTone,clamp(f.ear*.70,0,.77));
+      // Match the retained C2 material exactly at the join; do not create
+      // a conspicuous dark-fur collar on the human neck.
+      color.lerp(seam.color,1-smooth(t/.17));
       add(point,j/samples,t,color,jawWeight,seam);
       if(row>0){
         const prev=(row-1)*samples+j;
@@ -361,6 +371,22 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   headGeo.setAttribute("skinIndex",new THREE.Uint16BufferAttribute(skinIds,4));
   headGeo.setAttribute("skinWeight",new THREE.Float32BufferAttribute(skinWeights,4));
   headGeo.computeVertexNormals();
+  // The two surfaces use the same position and four bone influences at
+  // ring zero. Match shading too, then gradually blend back to topology-
+  // derived normals so the new head remains smooth above the neck.
+  const headNormals=headGeo.getAttribute("normal");
+  const n=new THREE.Vector3();
+  for(let row=0;row<levels;row++){
+    const strength=1-smooth((row/levels)/.14);
+    if(strength===0)break;
+    for(let j=0;j<samples;j++){
+      const id=row*samples+j;
+      n.fromBufferAttribute(headNormals,id).lerp(
+        seamSamples[j]!.normal,strength).normalize();
+      headNormals.setXYZ(id,n.x,n.y,n.z);
+    }
+  }
+  headNormals.needsUpdate=true;
   headGeo.computeBoundingSphere();
   headGeo.computeBoundingBox();
   const headMaterial=new THREE.MeshStandardMaterial({
