@@ -351,7 +351,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     mesh:headMesh,landmarks,neckCutY:cutY,
     headVertices:headGeo.getAttribute("position").count,
     skullWidthMeters:width*2,skullHeightMeters:height,
-    baselineHumanHeadTriangles,replacementHeadTriangles,
+    baselineHumanHeadTriangles:baselineHeadTriangles,replacementHeadTriangles,
     sourceCalibration:SOURCE_CALIBRATION,
   });
   replacements.set(human,replacement);
