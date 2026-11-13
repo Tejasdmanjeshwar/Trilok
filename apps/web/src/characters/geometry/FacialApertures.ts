@@ -395,7 +395,17 @@ class OwnedSurface {
       const offset=this.topologyIds[i]!*3;
       const norm=new THREE.Vector3(normals[offset]!,normals[offset+1]!,
         normals[offset+2]!);
-      if(norm.lengthSq()<1e-20)throw new Error("C3.5 aperture isolated vertex normal");
+      if(norm.lengthSq()<1e-20) {
+        // A bounded carved disk leaves old source vertices unreferenced.
+        // Keep their original finite normals rather than changing source IDs.
+        if(i>=this.originalCount)
+          throw new Error("C3.5 aperture isolated generated vertex");
+        const previous=new THREE.Vector3(this.normals[i*3]!,
+          this.normals[i*3+1]!,this.normals[i*3+2]!);
+        if(previous.lengthSq()<1e-20)
+          throw new Error("C3.5 aperture source vertex lost original normal");
+        continue;
+      }
       norm.normalize();
       this.normals[i*3]=norm.x;this.normals[i*3+1]=norm.y;this.normals[i*3+2]=norm.z;
     }
