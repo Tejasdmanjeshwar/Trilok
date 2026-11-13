@@ -12,6 +12,7 @@ import { inspectAnatomicalMorphologyBaseline } from "./AnatomicalMorphologyContr
 import { validateSkinningSpike } from "./SkinningSpike";
 import { makeHumanHeadTransform, calibrateHumanHeadLandmarks,
   type HumanHeadLandmarks } from "./HumanHeadDeformation";
+import {replaceVanaraHead} from "./VanaraHeadGeometry";
 import {makeMammalianHeadTransform, calibrateMammalianHeadLandmarks,
   type MammalianHeadLandmarks} from "./MammalianHeadDeformation";
 
@@ -198,9 +199,15 @@ export function applyHumanMorphology(
     const mapBody = (point:THREE.Vector3,index:number) =>
       localTransform ? localTransform.joint(point,index) : transform(point,shape);
     headLandmarks.set(human, calibrateHumanHeadLandmarks(human, headTransform,mapBody));
-    if(mammal)
-      mammalLandmarks.set(human, calibrateMammalianHeadLandmarks(human,
-        headTransform as ReturnType<typeof makeMammalianHeadTransform>, mapBody));
+    if(mammal) {
+      // Only the primate obtains independent head topology in C3.5.
+      // The existing bear is an explicitly unaccepted legacy preview (C7).
+      const landmarks = mammal.family==="primate"
+        ? replaceVanaraHead(human,headTransform,mammal.shape).landmarks
+        : calibrateMammalianHeadLandmarks(human,
+          headTransform as ReturnType<typeof makeMammalianHeadTransform>,mapBody);
+      mammalLandmarks.set(human,landmarks);
+    }
   }
   applied.add(human);
   return Object.freeze({
