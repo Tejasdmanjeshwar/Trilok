@@ -570,11 +570,12 @@ try{
         if(head){
           active!.spike.character.root.updateWorldMatrix(true,true);
           target=head.getWorldPosition(new THREE.Vector3());
-          target.y-=.07;
+          // Explicit close-up views frame the eyes, brows, mouth and jaw together.
+           target.y+=.015;
           camera.position.copy(target).add(selectedView==="head-front"?
-            new THREE.Vector3(0,.04,.38):
-             selectedView==="head-three-quarter"?new THREE.Vector3(.27,.04,.27):
-             new THREE.Vector3(.38,.04,0));
+            new THREE.Vector3(0,.03,.45):
+             selectedView==="head-three-quarter"?new THREE.Vector3(.32,.03,.32):
+             new THREE.Vector3(.45,.03,0));
         }
       }
       if(selectedView==="thumb-web-left"||selectedView==="thumb-web-right"){
