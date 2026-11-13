@@ -24,17 +24,21 @@ export const DEFAULT_HUMAN_HEAD_MORPHOLOGY: Readonly<HumanHeadMorphologyV1> =
     skullWidth: 1, skullHeight: 1, forehead: 1, brow: 1,
     cheeks: 1, jawWidth: 1, chin: 1, faceDepth: 1, eyeSpacing: 1,
   });
-const bounds = Object.freeze({
-  skullWidth: [0.90, 1.10],
-  skullHeight: [0.93, 1.07],
-  forehead: [0.93, 1.07],
-  brow: [0.92, 1.08],
-  cheeks: [0.92, 1.08],
-  jawWidth: [0.91, 1.09],
-  chin: [0.92, 1.08],
-  faceDepth: [0.94, 1.06],
-  eyeSpacing: [0.95, 1.05],
+/** The permanent C3.5 head envelope intentionally permits visible extreme
+ * proportions. Wide ranges are NOT a promise of guaranteed anatomical quality:
+ * the regular lab reports inverted faces during live previews. */
+export const HUMAN_HEAD_CHANNEL_BOUNDS = Object.freeze({
+  skullWidth: [0.75, 1.25],
+  skullHeight: [0.75, 1.25],
+  forehead: [0.75, 1.25],
+  brow: [0.75, 1.25],
+  cheeks: [0.75, 1.25],
+  jawWidth: [0.75, 1.25],
+  chin: [0.75, 1.25],
+  faceDepth: [0.75, 1.25],
+  eyeSpacing: [0.75, 1.25],
 } as const);
+const bounds=HUMAN_HEAD_CHANNEL_BOUNDS;
 type HeadKey = keyof typeof bounds;
 const keys = Object.keys(bounds) as HeadKey[];
 const bodyKeys = [
