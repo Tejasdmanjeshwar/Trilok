@@ -510,6 +510,35 @@ test("C3.4 editing head or body preserves user orbit, pan and zoom until view is
   expect(errors).toEqual([]);
 });
 
+test("C3.5 corrected nose and lips show distinct macaque/bear close-up profiles",async({page})=>{
+  test.setTimeout(150_000);
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  mkdirSync("test-results/c3",{recursive:true});
+  for(const family of ["primate","bear"] as const) {
+    await page.locator("#head-family").selectOption(family);
+    await expect(page.locator("html")).toHaveAttribute("data-c3-mammal-family",family,
+      {timeout:60_000});
+    await page.locator("#mammal-preset").selectOption("stress");
+    await expect(page.locator("#status")).toContainText("head "+family+"/stress");
+    await chooseView(page,"head-front");
+    await page.locator("#viewport").screenshot({
+      path:"test-results/c3/"+test.info().project.name+"-"+family+"-face-front-corrected.png",
+    });
+    await chooseView(page,"head-side");
+    await page.locator("#viewport").screenshot({
+      path:"test-results/c3/"+test.info().project.name+"-"+family+"-face-side-corrected.png",
+    });
+    await choosePose(page,"jaw");
+    await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
+    await page.locator("#viewport").screenshot({
+      path:"test-results/c3/"+test.info().project.name+"-"+family+"-face-jaw-corrected.png",
+    });
+    await choosePose(page,"neutral");
+  }
+});
+
 test("C3.5 primate and bear source family previews retain manually positioned camera",async({page})=>{
   test.setTimeout(150_000);
   const errors:string[]=[];
