@@ -16,11 +16,35 @@ export class HumanPoseCorrectives {
   private readonly originalRelative: boolean;
   private disposed = false;
 
-  constructor(human: AnatomicalHuman) {
+  constructor(human: AnatomicalHuman, options: {
+    /** Only the validated C3.5 source-preserving human facial mesh. */
+    allowDerivedFacialSource?: boolean;
+  } = {}) {
     const {mesh, spike, template} = human;
     const geom = mesh.geometry;
-    if (geom !== template.geometry || geom.morphAttributes.position?.length)
-      throw new Error("C3.3 requires an unmodified morphed CC0 geometry");
+    if (geom.morphAttributes.position?.length)
+      throw new Error("C3.3 requires a rest geometry without existing targets");
+    if (geom !== template.geometry) {
+      if (!options.allowDerivedFacialSource ||
+          spike.graph.headTopologyFamilyId !== "head_human_v1")
+        throw new Error("C3.3 requires an unmodified morphed CC0 geometry");
+      // The facial subdivision preserves every source C2 vertex/attribute
+      // as an exact array prefix. Only this proven ancestry can opt into C3.3
+      // shoulder/hip correctives on the now-refined *single* skinned surface.
+      for (const attribute of ["position","uv","skinIndex","skinWeight"] as const){
+        const source=template.geometry.getAttribute(attribute);
+        const target=geom.getAttribute(attribute);
+        if(!source||!target||target.itemSize!==source.itemSize||
+           target.count<source.count)
+          throw new Error("C3.3 derived face is missing its CC0 source prefix");
+        const src=source.array as ArrayLike<number>;
+        const dst=target.array as ArrayLike<number>;
+        for(let i=0;i<src.length;i++){
+          if(src[i]!==dst[i])
+            throw new Error("C3.3 derived face changed a C2 source attribute");
+        }
+      }
+    }
     const positions = geom.getAttribute("position");
     const skinIndices = geom.getAttribute("skinIndex");
     const skinWeights = geom.getAttribute("skinWeight");
