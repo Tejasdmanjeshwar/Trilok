@@ -30,6 +30,7 @@ describe("C3.5 human facial topology foundation",()=>{
     try{
       const atlas=inspectHumanFacialTopology(human);
       expect(atlas.version).toBe(1);
+      console.log("C3.5 pinned CC0 facial topology audit:",JSON.stringify(atlas.audit));
       expect(atlas.regions.map(r=>r.id)).toEqual([...FACIAL_REGION_IDS]);
       expect(atlas.regions.length).toBe(26);
       for(const region of atlas.regions){
