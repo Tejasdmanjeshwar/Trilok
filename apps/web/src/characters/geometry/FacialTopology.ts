@@ -122,7 +122,11 @@ export function inspectHumanFacialTopology(human: AnatomicalHuman): FacialContro
   if(!(span>.025 && span<.22 && faceHeight>.045 && headHeight>.14))
     throw new Error("C3.5 implausible source-derived facial proportions");
   const eyeLeftX=eyes.eyeLeft.x, eyeRightX=eyes.eyeRight.x;
-  const mouthY=eyes.chin.y+faceHeight*.27;
+  // On the pinned CC0 head the old orbital front probe samples the brow,
+  // not the palpebral fissure. Calibrate eyelids independently of brows.
+  const eyelidY=eyeY-faceHeight*.19;
+  // Align the oral band with the original lip fissure rather than the chin.
+  const mouthY=eyes.chin.y+faceHeight*.39;
   const noseY=eyes.chin.y+faceHeight*.58;
   const r=Math.max(.008,span*.145);
   const front=Math.max(eyes.eyeLeft.z,eyes.eyeRight.z);
@@ -133,10 +137,10 @@ export function inspectHumanFacialTopology(human: AnatomicalHuman): FacialContro
       const sign=side==="left"?-1:1;
       return [
         {id:`brow.${side}`,x,y:eyeY+2*r*.55,z:front,sx:r*1.7,sy:r*.65,sz:r*1.4,boneRole:"head",side},
-        {id:`eyelid.upper.${side}`,x,y:eyeY+r*.36,z:front,sx:r*1.65,sy:r*.52,sz:r*1.25,boneRole:"head",side},
-        {id:`eyelid.lower.${side}`,x,y:eyeY-r*.38,z:front,sx:r*1.65,sy:r*.52,sz:r*1.25,boneRole:"head",side},
-        {id:`eye.inner.${side}`,x:x-sign*r*.89,y:eyeY,z:front,sx:r*.7,sy:r*.72,sz:r,boneRole:"head",side},
-        {id:`eye.outer.${side}`,x:x+sign*r*.94,y:eyeY,z:front,sx:r*.7,sy:r*.72,sz:r,boneRole:"head",side},
+        {id:`eyelid.upper.${side}`,x,y:eyelidY+r*.36,z:front,sx:r*1.65,sy:r*.52,sz:r*1.25,boneRole:"head",side},
+        {id:`eyelid.lower.${side}`,x,y:eyelidY-r*.38,z:front,sx:r*1.65,sy:r*.52,sz:r*1.25,boneRole:"head",side},
+        {id:`eye.inner.${side}`,x:x-sign*r*.89,y:eyelidY,z:front,sx:r*.7,sy:r*.72,sz:r,boneRole:"head",side},
+        {id:`eye.outer.${side}`,x:x+sign*r*.94,y:eyelidY,z:front,sx:r*.7,sy:r*.72,sz:r,boneRole:"head",side},
         {id:`nostril.${side}`,x:centerX+sign*span*.105,y:noseY-faceHeight*.09,z:front,sx:r*.72,sy:r*.68,sz:r*1.3,boneRole:"head",side},
         {id:`cheek.${side}`,x:x+sign*r*.8,y:eyeY-faceHeight*.32,z:front,sx:r*2,sy:faceHeight*.22,sz:faceHeight*.23,boneRole:"head",side},
         {id:`mouth.corner.${side}`,x:centerX+sign*span*.27,y:mouthY,z:front,sx:r*.85,sy:r*.8,sz:r*1.5,boneRole:"jaw",side},
