@@ -154,7 +154,9 @@ export function applyHumanMorphology(
   const alignment = calibrateHumanMorphologyAlignment(human, restSockets, mapJoint);
   alignments.set(human, alignment);
   if (headTransform)
-    headLandmarks.set(human, calibrateHumanHeadLandmarks(human, headTransform, mapJoint));
+    headLandmarks.set(human, calibrateHumanHeadLandmarks(human, headTransform,
+      (point,index) => localTransform
+        ? localTransform.joint(point,index) : transform(point,shape)));
   applied.add(human);
   return Object.freeze({
     generatorVersion: recipe.generatorVersion,
