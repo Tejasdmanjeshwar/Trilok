@@ -21,6 +21,7 @@ export interface VanaraHeadReplacement {
   readonly baselineHumanHeadTriangles: number;
   readonly replacementHeadTriangles: number;
   readonly sourceCalibration: typeof VANARA_SCAN_ID;
+  readonly neckSeamVertices: number;
 }
 const replacements = new WeakMap<AnatomicalHuman, VanaraHeadReplacement>();
 export const getVanaraHeadReplacement = (human: AnatomicalHuman):
@@ -80,10 +81,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const toRoot=(p:THREE.Vector3):THREE.Vector3 =>
     p.applyMatrix4(root.matrixWorld.clone().invert());
   const neck=toRoot(spike.skeleton.bones[neckIndex]!.getWorldPosition(new THREE.Vector3()));
-  const eyeLeft=toRoot(skull.getWorldPosition(new THREE.Vector3()))
-    .add(new THREE.Vector3(-.038,.035,.064));
-  const eyeRight=eyeLeft.clone().add(new THREE.Vector3(.076,0,0));
-  const crown=head.landmarks.crown;
+   const crown=head.landmarks.crown;
   // Head vertical extent derives from the already rebound human foundation.
   // The family-specific topology is independent of the human *face* surface.
   const topY=Math.max(crown.y*shape.stature,neck.y+.245);
@@ -101,6 +99,74 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     if(Math.abs(y-cutY)<.012)nearest.push(i);
   }
   if(nearest.length<12)throw new Error("Vanara neck contour not found");
+  // A render boundary consists of actual source face edges (not an arbitrary
+  // planar cut). Preserve the source vertex/skin identity across UV seams.
+  // The final head ring is position- and skin-identical to this C2 contour.
+  const kept:number[]=[];
+  for(let i=0;i<index.count;i+=3){
+    const a=index.getX(i),b=index.getX(i+1),c=index.getX(i+2);
+    if(Math.max(pos.getY(a),pos.getY(b),pos.getY(c))<=cutY)
+      kept.push(a,b,c);
+  }
+  if(kept.length<index.count*.60||kept.length>index.count*.99)
+    throw new Error("Vanara replacement rejected unexpected neck cut");
+  const baselineHeadTriangles=(index.count-kept.length)/3;
+  const sourceIds=human.template.sourceVertexIds;
+  const edges=new Map<string,{a:number;b:number;count:number}>();
+  for(let i=0;i<kept.length;i+=3){
+    for(let k=0;k<3;k++){
+      const a=kept[i+k]!,b=kept[i+(k+1)%3]!;
+      const sa=sourceIds[a]!,sb=sourceIds[b]!;
+      if(sa===sb)continue;
+      const key=Math.min(sa,sb)+"|"+Math.max(sa,sb);
+      const e=edges.get(key);
+      if(e)e.count++;
+      else edges.set(key,{a,b,count:1});
+    }
+  }
+  const contourIds=new Set<number>();
+  for(const {a,b,count} of edges.values()){
+    if(count!==1)continue;
+    for(const id of [a,b]){
+      if(pos.getY(id)>cutY-.075 &&
+         Math.abs(pos.getX(id)-neck.x)<.16 &&
+         Math.abs(pos.getZ(id)-neck.z)<.20)
+        contourIds.add(sourceIds[id]!);
+    }
+  }
+  const sourceRepresentatives=new Map<number,number>();
+  for(const id of kept){
+    const source=sourceIds[id]!;
+    if(contourIds.has(source)&&!sourceRepresentatives.has(source))
+      sourceRepresentatives.set(source,id);
+  }
+  const contour=[...sourceRepresentatives.values()].sort((a,b)=>{
+    const angle=(id:number)=>{
+      const t=Math.atan2(pos.getZ(id)-neck.z,pos.getX(id)-neck.x);
+      return t<0?t+2*Math.PI:t;
+    };
+    return angle(a)-angle(b);
+  });
+  if(contour.length<24||contour.length>160)
+    throw new Error("Vanara neck contour is not a usable closed ring");
+  const samples=contour.length;
+  const eyeTriangles=2*((10-1)*16*2+32);
+  // Every recipe gets a measured budget and enough resolution for a stable
+  // neck ring. Reserve both eye components and apex triangles up front.
+  const maxLevels=Math.floor((baselineHeadTriangles*1.30-eyeTriangles-samples)/
+    (2*samples))+1;
+  const levels=Math.min(74,maxLevels);
+  if(levels<Math.max(26,Math.ceil((3000-322)/samples)))
+    throw new Error("Vanara neck contour exceeds available head detail budget");
+  const seamSamples=contour.map(id=>({
+    point:new THREE.Vector3().fromBufferAttribute(pos,id),
+    ids:[0,1,2,3].map(k=>skinIndex.getComponent(id,k)),
+    weights:[0,1,2,3].map(k=>skinWeight.getComponent(id,k)),
+    angle:(()=>{
+      const t=Math.atan2(pos.getZ(id)-neck.z,pos.getX(id)-neck.x);
+      return t<0?t+2*Math.PI:t;
+    })(),
+  }));
   const cx=neck.x,cz=neck.z;
   const spans=nearest.filter(i=>Math.abs(pos.getX(i)-cx)<.24 &&
     Math.abs(pos.getZ(i)-cz)<.20);
@@ -120,7 +186,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const earScale=shape.earSize;
   const positions:number[]=[],uvs:number[]=[],colors:number[]=[];
   const skinIds:number[]=[],skinWeights:number[]=[],triangles:number[]=[];
-  const samples=64,levels=48;
+  // Ring resolution follows the actual human neck cut, not a separate cylinder.
   const fur=new THREE.Color(0x625850);
   const faceSkin=new THREE.Color(0xa47c6e);
   const muzzleTone=new THREE.Color(0xa58276);
@@ -129,14 +195,35 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const mouthTone=new THREE.Color(0x38282a);
   const orbitTone=new THREE.Color(0x493334);
   const earTone=new THREE.Color(0x6b4a45);
-  const add=(p:THREE.Vector3,u:number,v:number,c:THREE.Color,jawWeight:number):number=>{
+  const add=(p:THREE.Vector3,u:number,v:number,c:THREE.Color,
+    jawWeight:number,seam?:typeof seamSamples[number]):number=>{
     if(!p.toArray().every(Number.isFinite))
       throw new Error("Vanara external topology contains nonfinite vertex");
     const id=positions.length/3;
     positions.push(p.x,p.y,p.z);uvs.push(u,v);
     colors.push(c.r,c.g,c.b);
-    skinIds.push(head.headJointIndex,head.jawJointIndex,0,0);
-    skinWeights.push(1-jawWeight,jawWeight,0,0);
+    if(seam){
+      const blend=smooth(v/.18);
+      const influences=new Map<number,number>();
+      for(let k=0;k<4;k++){
+        const id=seam.ids[k]!,w=seam.weights[k]!;
+        influences.set(id,(influences.get(id)??0)+w*(1-blend));
+      }
+      influences.set(head.headJointIndex,(influences.get(head.headJointIndex)??0)+
+        blend*(1-jawWeight));
+      influences.set(head.jawJointIndex,(influences.get(head.jawJointIndex)??0)+
+        blend*jawWeight);
+      const ranked=[...influences].filter(([,w])=>w>0)
+        .sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,4);
+      const total=ranked.reduce((s,[,w])=>s+w,0);
+      for(let k=0;k<4;k++){
+        skinIds.push(ranked[k]?.[0]??0);
+        skinWeights.push((ranked[k]?.[1]??0)/total);
+      }
+    }else{
+      skinIds.push(head.headJointIndex,head.jawJointIndex,0,0);
+      skinWeights.push(1-jawWeight,jawWeight,0,0);
+    }
     return id;
   };
   const feature=(x:number,t:number,theta:number):{
@@ -171,7 +258,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     const rz=depth*lerpProfile(t,depthProfile);
     const centerZ=cz+depth*lerpProfile(t,centerProfile);
     for(let j=0;j<samples;j++){
-      const theta=2*Math.PI*j/samples;
+      const seam=seamSamples[j]!;
+      const theta=seam.angle;
       const ux=Math.cos(theta),uz=Math.sin(theta);
       let x=cx+rx*ux;
       const f=feature(x-cx,t,theta);
@@ -186,7 +274,13 @@ export function replaceVanaraHead(human:AnatomicalHuman,
         muzzle+nose+.010*shape.jawMass*f.cheek+.013*shape.browMass*f.brow-
         nostrilIndent-oralIndent-eyeRecess-
         .008*f.ear*bell(t-.58,.067);
-      const point=new THREE.Vector3(x,y,z);
+      // Exact seam skinning makes the first ring track its original C2
+      // boundary under neck/head FK; transition smoothly into skull shape.
+      const join=smooth(t/.14);
+      const point=new THREE.Vector3(
+        THREE.MathUtils.lerp(seam.point.x,x,join),
+        THREE.MathUtils.lerp(seam.point.y,y,join),
+        THREE.MathUtils.lerp(seam.point.z,z,join));
       // The existing C1 jaw bone controls lower-face movement. The transition
       // is smooth through the cheek so no source seam changes at runtime.
       const jawWeight=smooth((.39-t)/.17)*
@@ -198,7 +292,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
       color.lerp(nostrilTone,clamp(f.nares*.94,0,.96));
       color.lerp(mouthTone,clamp(f.lip*.92,0,.95));
       color.lerp(earTone,clamp(f.ear*.70,0,.77));
-      add(point,j/samples,t,color,jawWeight);
+      add(point,j/samples,t,color,jawWeight,seam);
       if(row>0){
         const prev=(row-1)*samples+j;
         const next=(row-1)*samples+(j+1)%samples;
@@ -213,11 +307,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const lastRing=(levels-1)*samples;
   for(let j=0;j<samples;j++)
     triangles.push(lastRing+j,centerTop,lastRing+(j+1)%samples);
-  // Cover the bottom join inside the overlapping C2 neck surface; this
-  // retains a closed replacement head even though the body cut is separate.
-  const centerBottom=add(new THREE.Vector3(cx,baseY,cz),.5,0,fur,0);
-  for(let j=0;j<samples;j++)
-    triangles.push(centerBottom,(j+1)%samples,j);
+  // The base remains open: its contour coincides with the retained C2
+  // neck boundary. A cap would visibly occlude neck skin and split on FK.
   // Append independent spherical eye surfaces to the same skinned geometry.
   // Both globes remain fully bound to the canonical C1 head bone.
   const eyeY=baseY+height*.76;
@@ -282,21 +373,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   // inverses. There are no new gameplay joints, sockets or hit volumes.
   root.add(headMesh);
   headMesh.bind(spike.skeleton,mesh.bindMatrix);
-  // Remove human *render triangles* above the neck; the original C2 vertex,
-  // UV and weight arrays remain intact for human mode and regressions.
-  const kept:number[]=[];
-  for(let i=0;i<index.count;i+=3){
-    const a=index.getX(i),b=index.getX(i+1),c=index.getX(i+2);
-    if(Math.max(pos.getY(a),pos.getY(b),pos.getY(c))<=cutY)
-      kept.push(a,b,c);
-  }
-  if(kept.length<index.count*.60||kept.length>index.count*.99){
-    root.remove(headMesh);headGeo.dispose();headMaterial.dispose();
-    throw new Error("Vanara replacement rejected unexpected neck cut");
-  }
-  // Compare only *removed human head* against the generated head, rather
-  // than whole-body triangles. The actual cut is measured for each recipe.
-  const baselineHeadTriangles=(index.count-kept.length)/3;
+  // Body face removal was staged and validated before allocating the head.
+  // New head uses exactly its removed-face triangle budget.
   const replacementHeadTriangles=triangles.length/3;
   if(replacementHeadTriangles>baselineHeadTriangles*1.30){
     root.remove(headMesh);headGeo.dispose();headMaterial.dispose();
@@ -352,7 +430,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     headVertices:headGeo.getAttribute("position").count,
     skullWidthMeters:width*2,skullHeightMeters:height,
     baselineHumanHeadTriangles:baselineHeadTriangles,replacementHeadTriangles,
-    sourceCalibration:SOURCE_CALIBRATION,
+    sourceCalibration:SOURCE_CALIBRATION,neckSeamVertices:samples,
   });
   replacements.set(human,replacement);
   // C2 owns the original source geometry, C3.5 owns its added head GPU data.
