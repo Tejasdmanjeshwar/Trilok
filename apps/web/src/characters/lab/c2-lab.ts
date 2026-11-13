@@ -8,6 +8,8 @@ import { applyHumanMorphology, getHumanHeadLandmarks,
   getMammalianHeadLandmarks } from "../geometry/HumanMorphology";
 import { HumanPoseCorrectives } from "../geometry/HumanPoseCorrectives";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import {applyLocalVanaraReferenceMorph} from "../geometry/LocalVanaraReferenceMorph";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
 import { loadAnatomicalHuman, type AnatomicalHuman, type AnatomicalLoadStage } from "../geometry/AnatomicalTemplate";
 import { validateSkinningSpike, type SkinningSpike } from "../geometry/SkinningSpike";
@@ -37,6 +39,10 @@ let frame=0;
 let surface="template";
 let currentPose="neutral";
 let currentView="front";
+// Uploaded STL bytes remain only in this browser tab. Never upload, save,
+// include in a build artifact, or emit the reference-derived vertex positions.
+let privateReference:THREE.BufferGeometry|undefined;
+let localReferenceResult:string|undefined;
 const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = {
   neutral:{}, shoulders:{shoulders:1.10}, chest:{chest:1.10},
   waist:{waist:0.90}, hips:{hips:1.10}, arms:{arms:1.06},
@@ -321,6 +327,12 @@ try{
               }));
               if(getMammalianHeadLandmarks(anatomical)?.family!==family)
                 throw new Error("Missing C3.5 family landmark calibration");
+              if(family==="primate"&&privateReference){
+                const report=applyLocalVanaraReferenceMorph(anatomical,privateReference);
+                localReferenceResult=report.modifiedVertices+" CC0 vertices shaped; "+
+                  (report.maximumDisplacementMeters*1000).toFixed(2)+
+                  "mm maximum displacement (experimental, local-only)";
+              }
             }else if(headIsActive()){
               applyHumanMorphology(anatomical,createHumanHeadRecipe({
                 ...DEFAULT_HUMAN_HEAD_MORPHOLOGY,...params,...readHeadOverrides(),
@@ -359,6 +371,10 @@ try{
     correctives?.dispose();correctives=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
+    if(localReferenceResult && selectedFamily()==="primate"){
+      const referenceStatus=document.querySelector<HTMLElement>("#vanara-reference-status");
+      if(referenceStatus)referenceStatus.textContent=localReferenceResult;
+    }
     if(name==="template" && (morphologySelect?.value!=="neutral" ||
       headIsActive() || selectedFamily()!=="human"))
       correctives=new HumanPoseCorrectives(preview as AnatomicalHuman);
@@ -502,6 +518,33 @@ try{
       camera.lookAt(target);controls.target.copy(target);controls.update();
   }
   const labControls=createCharacterLabControls(applyPose,applyView);
+  const privateUpload=document.querySelector<HTMLInputElement>("#vanara-reference-stl");
+  privateUpload?.addEventListener("change",()=>{
+    const file=privateUpload.files?.[0];
+    if(!file)return;
+    const report=document.querySelector<HTMLElement>("#vanara-reference-status");
+    if(file.size>10_000_000||file.size<84){
+      if(report)report.textContent="Invalid or too-large STL (10 MB maximum).";
+      privateUpload.value="";return;
+    }
+    void file.arrayBuffer().then(data=>{
+      if(stopping)return;
+      const geometry=new STLLoader().parse(data);
+      const vertices=geometry.getAttribute("position");
+      if(!vertices||vertices.count<150||vertices.count>300_000){
+        geometry.dispose();
+        throw new Error("Reference mesh is outside the safe private import limit");
+      }
+      privateReference?.dispose();
+      privateReference=geometry;
+      if(report)report.textContent="Private reference loaded locally: "+
+        file.name+" ("+(vertices.count/3).toLocaleString()+" triangles). "+
+        "Select Primate / Vanara to apply the experimental face morph.";
+      if(selectedFamily()==="primate")void switchSurface("template",true);
+    }).catch(reason=>{
+      if(report)report.textContent="Reference import failed: "+String(reason);
+    }).finally(()=>{privateUpload.value="";});
+  });
   const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
   sourceSelect?.addEventListener("change",()=>{
     void switchSurface(sourceSelect.value);
@@ -598,7 +641,8 @@ try{
     inspector?.dispose();inspector=undefined;
     labControls.dispose();
     controls.dispose();correctives?.dispose();correctives=undefined;
-    active?.dispose();fk=undefined;scene.clear();
+    active?.dispose();privateReference?.dispose();
+    privateReference=undefined;fk=undefined;scene.clear();
     renderer?.dispose();renderer?.domElement.remove();
   },{once:true});
 }catch(e){
