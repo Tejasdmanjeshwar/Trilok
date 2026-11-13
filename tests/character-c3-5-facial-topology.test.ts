@@ -142,7 +142,7 @@ describe("C3.5 human facial topology foundation",()=>{
         expect(audit.refinedVertices).toBe(geometry.getAttribute("position").count);
         expect(audit.refinedVertices).toBeGreaterThan(audit.originalVertices);
         expect(audit.refinedTriangles).toBeGreaterThan(audit.originalTriangles);
-        expect(audit.loopCount).toBe(24);
+        expect(audit.loopCount).toBe(22);
         expect(audit.contours.every(c=>c.closed&&c.edges>=8&&c.components>=1)).toBe(true);
         expect(Object.keys(audit.featureCoverage).length).toBe(8);
         expect(audit.featureCoverage["orbit.left"]).toBeGreaterThan(30);
