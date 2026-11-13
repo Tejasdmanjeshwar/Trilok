@@ -6,6 +6,7 @@ import type {HumanHeadTransform} from "./HumanHeadDeformation";
 import {VANARA_SCAN_ENVELOPE, VANARA_SCAN_ID,
   VANARA_SCAN_PROVENANCE} from "./VanaraScanCalibration";
 import {VANARA_JAW_REGISTRATION} from "./VanaraScanRegistration";
+import {calibrateVanaraFace} from "./VanaraFacialTopology";
 
 /**
  * C3.5 Vanara topology experiment. This is an authored procedural *external*
@@ -206,14 +207,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const positions:number[]=[],uvs:number[]=[],colors:number[]=[];
   const skinIds:number[]=[],skinWeights:number[]=[],triangles:number[]=[];
   // Ring resolution follows the actual human neck cut, not a separate cylinder.
-  const fur=new THREE.Color(0x625850);
-  const faceSkin=new THREE.Color(0xa47c6e);
-  const muzzleTone=new THREE.Color(0xa58276);
-  const noseTone=new THREE.Color(0x71554e);
-  const nostrilTone=new THREE.Color(0x2b2124);
-  const mouthTone=new THREE.Color(0x38282a);
-  const orbitTone=new THREE.Color(0x493334);
-  const earTone=new THREE.Color(0x6b4a45);
+  const face=calibrateVanaraFace(height,width,depth,shape);
+  const fur=new THREE.Color(0x67594d);
   const add=(p:THREE.Vector3,u:number,v:number,c:THREE.Color,
     jawWeight:number,seam?:typeof seamSamples[number]):number=>{
     if(!p.toArray().every(Number.isFinite))
@@ -245,31 +240,6 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     }
     return id;
   };
-  const feature=(x:number,t:number,theta:number):{
-    readonly nose:number;readonly nares:number;readonly lip:number;
-    readonly eye:number;readonly ear:number;readonly face:number;
-    readonly cheek:number;readonly muzzle:number;readonly brow:number;
-  }=>{
-    const front=smooth((Math.sin(theta)-.10)/.6);
-    const nose=bell(x,.028*muzzleWidth)*bell(t-.42,.09)*front;
-    const nares=(bell(x-.014,.008)+bell(x+.014,.008))*
-      bell(t-.397,.028)*front;
-    const lip=bell(x,.058*muzzleWidth)*bell(t-lipT,.016)*front;
-    const eyeX=width*(13.2/36.5);
-    const eye=(bell(x-eyeX,.023)+bell(x+eyeX,.023))*
-      bell(t-.76,.064)*front;
-    const ear=bell(Math.abs(x)-width*.99,.038)*
-      bell(t-.64,.135)*(1-front*.38);
-    const face=front*smooth((t-.13)/.21)*(1-smooth((t-.91)/.09));
-    const cheekX=width*(35.2/36.5);
-    const cheek=(bell(x-cheekX,.042)+bell(x+cheekX,.042))*
-      bell(t-.43,.15)*front;
-    const muzzle=bell(x,.079*muzzleWidth)*bell(t-.35,.145)*front;
-    const brow=(bell(x-width*(13.2/36.5),.030)+
-      bell(x+width*(13.2/36.5),.030))*
-      bell(t-.83,.048)*front;
-    return {nose,nares,lip,eye,ear,face,cheek,muzzle,brow};
-  };
   for(let row=0;row<levels;row++){
     const t=row/levels;
     const y=baseY+height*t;
@@ -280,19 +250,10 @@ export function replaceVanaraHead(human:AnatomicalHuman,
       const seam=seamSamples[j]!;
       const theta=seam.angle;
       const ux=Math.cos(theta),uz=Math.sin(theta);
-      let x=cx+rx*ux;
-      const f=feature(x-cx,t,theta);
-      const earPush=.037*earScale*f.ear;
-      x+=Math.sign(ux)*earPush*(1-.34*bell(t-.585,.042));
-      const nose=.026*muzzleScale*f.nose;
-      const muzzle=.042*muzzleScale*f.muzzle;
-      const nostrilIndent=.015*f.nares;
-      const oralIndent=.009*f.lip;
-      const eyeRecess=.013*f.eye;
-      const z=centerZ+rz*uz+
-        muzzle+nose+.010*shape.jawMass*f.cheek+.013*shape.browMass*f.brow-
-        nostrilIndent-oralIndent-eyeRecess-
-        .008*f.ear*bell(t-.58,.067);
+      const originalX=rx*ux;
+      const f=face.sample(originalX,t,theta);
+      const x=cx+originalX+f.lateral;
+      const z=centerZ+rz*uz+f.forward;
       // Exact seam skinning makes the first ring track its original C2
       // boundary under neck/head FK; transition smoothly into skull shape.
       const join=smooth(t/.14);
@@ -302,15 +263,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
         THREE.MathUtils.lerp(seam.point.z,z,join));
       // The existing C1 jaw bone controls lower-face movement. The transition
       // is smooth through the cheek so no source seam changes at runtime.
-      const jawWeight=smooth((jawPivotT-t)/.17)*
-        smooth((Math.sin(theta)+.65)/1.0)*.93;
-      const color=fur.clone().lerp(faceSkin,f.face*.98);
-      color.lerp(muzzleTone,clamp(f.muzzle*.56+f.cheek*.14,0,.85));
-      color.lerp(orbitTone,clamp(f.eye*.70,0,.77));
-      color.lerp(noseTone,clamp(f.nose*.85,0,.88));
-      color.lerp(nostrilTone,clamp(f.nares*.94,0,.96));
-      color.lerp(mouthTone,clamp(f.lip*.92,0,.95));
-      color.lerp(earTone,clamp(f.ear*.70,0,.77));
+      const jawWeight=f.jawWeight;
+      const color=face.color(f);
       // Match the retained C2 material exactly at the join; do not create
       // a conspicuous dark-fur collar on the human neck.
       color.lerp(seam.color,1-smooth(t/.17));
@@ -333,11 +287,11 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   // neck boundary. A cap would visibly occlude neck skin and split on FK.
   // Append independent spherical eye surfaces to the same skinned geometry.
   // Both globes remain fully bound to the canonical C1 head bone.
-  const eyeY=baseY+height*.76;
+  const eyeY=baseY+height*face.eyeT;
   for(const sign of [-1,1]){
-    const eyeX=cx+sign*width*(13.2/36.5);
-    const eyeZ=cz+depth*lerpProfile(.76,centerProfile)+
-      depth*lerpProfile(.76,depthProfile)*.92+.007;
+    const eyeX=cx+sign*face.eyeX;
+    const eyeZ=cz+depth*lerpProfile(face.eyeT,centerProfile)+
+      depth*lerpProfile(face.eyeT,depthProfile)*.92-.012;
     const center=new THREE.Vector3(eyeX,eyeY,eyeZ);
     const first=positions.length/3;
     const stacks=10,slices=16;
@@ -425,13 +379,13 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     new THREE.Vector3(cx+x,baseY+height*t,
       cz+depth*lerpProfile(t,centerProfile)+depth*lerpProfile(t,depthProfile)+zOffset);
   const rest={
-    muzzle:featurePoint(0,.36,.052*muzzleScale),
-    nose:featurePoint(0,.42,.068*muzzleScale),
-    nostrilLeft:featurePoint(-.014,.397,.05*muzzleScale),
-    nostrilRight:featurePoint(.014,.397,.05*muzzleScale),
-    mouth:featurePoint(0,lipT,.04*muzzleScale),
-    earLeft:new THREE.Vector3(cx-width-.03*earScale,baseY+height*.59,cz),
-    earRight:new THREE.Vector3(cx+width+.03*earScale,baseY+height*.59,cz),
+    muzzle:featurePoint(0,.385,.055*shape.muzzleLength),
+    nose:featurePoint(0,face.noseT,.066*shape.muzzleLength),
+    nostrilLeft:featurePoint(-width*.125,face.noseT-.028,.052*shape.muzzleLength),
+    nostrilRight:featurePoint(width*.125,face.noseT-.028,.052*shape.muzzleLength),
+    mouth:featurePoint(0,face.mouthT,.04*shape.muzzleLength),
+    earLeft:new THREE.Vector3(cx-width-.035*shape.earSize,baseY+height*.65,cz),
+    earRight:new THREE.Vector3(cx+width+.035*shape.earSize,baseY+height*.65,cz),
   };
   root.updateWorldMatrix(true,true);
   const local=(point:THREE.Vector3,bone:THREE.Bone):THREE.Vector3=>
