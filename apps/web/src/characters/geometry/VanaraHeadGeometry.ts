@@ -30,6 +30,8 @@ export const getVanaraHeadReplacement = (human: AnatomicalHuman):
   VanaraHeadReplacement | undefined => replacements.get(human);
 
 const clamp = THREE.MathUtils.clamp;
+const bell=(distance:number,radius:number):number=>
+  Math.exp(-2*(distance/Math.max(radius,1e-5))**2);
 const smooth = (x:number):number => {
   const t=clamp(x,0,1);
   return t*t*(3-2*t);
