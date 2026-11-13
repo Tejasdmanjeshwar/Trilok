@@ -212,6 +212,45 @@ describe("C3.5 Vanara independent external head geometry",()=>{
     }finally{human.dispose();}
   },120_000);
 
+  it("keeps mid-face quads bounded against strongly elongated render triangles",()=>{
+    const human=create();
+    try{
+      applyHumanMorphology(human,createMammalianHeadRecipe("primate"));
+      const replacement=getVanaraHeadReplacement(human)!;
+      const pos=replacement.mesh.geometry.getAttribute("position");
+      const ring=replacement.neckSeamVertices;
+      const levels=replacement.cranialRingLevels;
+      expect(levels).toBeGreaterThan(25);
+      const proportions:number[]=[];
+      for(let row=Math.floor(levels*.28);
+        row<Math.floor(levels*.83);row++){
+        for(let j=0;j<ring;j++){
+          const a=new THREE.Vector3().fromBufferAttribute(pos,row*ring+j);
+          const b=new THREE.Vector3().fromBufferAttribute(pos,
+            row*ring+(j+1)%ring);
+          const d=new THREE.Vector3().fromBufferAttribute(pos,
+            (row+1)*ring+j);
+          const e=new THREE.Vector3().fromBufferAttribute(pos,
+            (row+1)*ring+(j+1)%ring);
+          for(const points of [[a,b,d],[b,e,d]]){
+            const lengths=[points[0]!.distanceTo(points[1]!),
+              points[1]!.distanceTo(points[2]!),
+              points[2]!.distanceTo(points[0]!)];
+            const ratio=Math.max(...lengths)/Math.max(1e-7,Math.min(...lengths));
+            expect(Number.isFinite(ratio)).toBe(true);
+            proportions.push(ratio);
+          }
+        }
+      }
+      proportions.sort((a,b)=>a-b);
+      expect(proportions.length).toBeGreaterThan(1500);
+      // Deliberately excludes anatomical neck and apex boundary triangles.
+      // This inexpensive check rejects extreme slivers in the visible face,
+      // but does not substitute for rendered silhouette inspection.
+      expect(proportions[Math.floor(proportions.length*.99)]).toBeLessThan(24);
+    }finally{human.dispose();}
+  },120_000);
+
   it("remains deterministic and updates mouth under canonical jaw FK without shifting the cranial nose",()=>{
     const outputs:string[]=[];
     for(let iteration=0;iteration<2;iteration++){
