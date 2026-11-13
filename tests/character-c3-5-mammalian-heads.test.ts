@@ -190,7 +190,10 @@ describe("C3.5 primate and bear anatomical head families",()=>{
           seen.add([r,g,b].map(n=>n.toFixed(2)).join(","));
         }
         expect(seen.size).toBeGreaterThan(12);
-        const {anatomy}=awaitAnatomy(human,family,stressed);
+        const raw=session(family);
+        let anatomy:ReturnType<typeof makeMammalianHeadTransform>["anatomy"];
+        try {anatomy=makeMammalianHeadTransform(raw,family,stressed).anatomy;}
+        finally {raw.dispose();}
         const n=anatomy.metrics;
         expect(n.noseY).toBeGreaterThan(n.mouthY);
         expect(n.maximumMuzzleProjectionMeters).toBeLessThan(.07);
