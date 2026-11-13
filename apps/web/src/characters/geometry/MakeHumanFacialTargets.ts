@@ -45,7 +45,7 @@ export function validateFacialAtlas(atlas:FacialAtlas,sourceCount:number):Readon
     for(let i=0;i<target.rows.length;i+=4){
       const id=target.rows[i]!;
       if(!Number.isSafeInteger(id)||id<0||id>=sourceCount||seen.has(id)||
-         target.rows.slice(i+1,i+4).some(n=>!Number.isFinite(n)||Math.abs(n)>maxAbs))
+         target.rows.slice(i+1,i+4).some((n:number)=>!Number.isFinite(n)||Math.abs(n)>maxAbs))
         throw new Error("Invalid source facial displacement: "+target.id);
       seen.add(id);
     }
@@ -195,9 +195,9 @@ export class MakeHumanFacialController {
       const amount=Math.abs(weight)*this.scale;
       for(let i=0;i<target.rows.length;i+=4){
         const index=target.rows[i]!*3;
-        delta[index]+=target.rows[i+1]!*amount;
-        delta[index+1]+=target.rows[i+2]!*amount;
-        delta[index+2]+=target.rows[i+3]!*amount;
+        delta[index]=(delta[index]??0)+target.rows[i+1]!*amount;
+        delta[index+1]=(delta[index+1]??0)+target.rows[i+2]!*amount;
+        delta[index+2]=(delta[index+2]??0)+target.rows[i+3]!*amount;
       }
     }
     let affectedVertices=0,finiteFailures=0,seamMismatches=0;
@@ -242,7 +242,7 @@ export class MakeHumanFacialController {
           Math.hypot(values[u]!-values[v]!,values[u+1]!-values[v+1]!,
             values[u+2]!-values[v+2]!);
         for(const [u,v] of [[a,b],[b,c],[c,a]]){
-          const baseline=edge(this.neutral,u,v),now=edge(array,u,v);
+          const baseline=edge(this.neutral,u!,v!),now=edge(array,u!,v!);
           if(baseline>1e-9)maxEdgeStretch=Math.max(maxEdgeStretch,now/baseline);
         }
         if(base>1e-12&&updated/base>4)stretchedTriangles++;
