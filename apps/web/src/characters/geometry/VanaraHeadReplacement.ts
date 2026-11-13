@@ -102,7 +102,7 @@ export function replaceVanaraHead(
     sized.crownHeight)+.002*shape.stature;
   // Build original topology in isolation, before replacing the C2 index.
   const result=buildVanaraSurface({
-    seam,centerX:neck.x,neckY:cutY-.018*shape.stature,
+    seam,centerX:neck.x,neckY:cutY,
     centerZ:sized.centerZ,crownY:crown,
     halfWidth:sized.halfWidth,halfDepth:sized.halfDepth,
     headBone:head.headJointIndex,jawBone:head.jawJointIndex,
