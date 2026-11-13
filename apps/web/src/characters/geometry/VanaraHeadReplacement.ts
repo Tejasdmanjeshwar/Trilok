@@ -39,7 +39,7 @@ export function replaceVanaraHead(
   if(!index||!position||!normal||!boneIds||!boneWeights)
     throw new Error("C3.5 source geometry incomplete");
   const root=spike.character.root;
-  root.updateWorldMatrix(true);
+  root.updateWorldMatrix(true,true);
   const invRoot=root.matrixWorld.clone().invert();
   const neckIndex=spike.graph.joints.findIndex(j=>j.role==="neck");
   if(neckIndex<0)throw new Error("C3.5 C1 neck missing");
@@ -123,7 +123,7 @@ export function replaceVanaraHead(
   newMesh.bind(spike.skeleton,mesh.bindMatrix);
   const skull=spike.skeleton.bones[head.headJointIndex]!;
   const jaw=spike.skeleton.bones[head.jawJointIndex]!;
-  root.updateWorldMatrix(true);
+  root.updateWorldMatrix(true,true);
   const toBone=(point:THREE.Vector3,bone:THREE.Bone)=>
     bone.worldToLocal(point.clone().applyMatrix4(root.matrixWorld));
   const original=result.landmarks;
