@@ -448,3 +448,64 @@ test("C3.4 human head presets, jaw FK, orbital controls and source recovery", as
   await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
   expect(errors).toEqual([]);
 });
+
+test("C3.4 editing head or body preserves user orbit, pan and zoom until view is explicitly changed",async({page})=>{
+  test.setTimeout(150_000);
+  // No residual damping after release: comparisons isolate geometry rebuilds.
+  await page.emulateMedia({reducedMotion:"reduce"});
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  await chooseView(page,"head-front");
+  const viewport=page.locator("#viewport");
+  const initial=await viewport.getAttribute("data-camera-state");
+  expect(initial).not.toBeNull();
+  const rect=await viewport.locator("canvas").boundingBox();
+  expect(rect).not.toBeNull();
+  const x=rect!.x+rect!.width*.5,y=rect!.y+rect!.height*.5;
+  await page.mouse.move(x,y);
+  await page.mouse.down();
+  await page.mouse.move(x+85,y+42,{steps:10});
+  await page.mouse.up();
+  await page.mouse.move(x,y);
+  await page.mouse.down({button:"right"});
+  await page.mouse.move(x+25,y-32,{steps:8});
+  await page.mouse.up({button:"right"});
+  await page.mouse.wheel(0,-310);
+  const manual=JSON.parse((await viewport.getAttribute("data-camera-state"))! ) as number[];
+  expect(manual).toHaveLength(7);
+  expect(manual).not.toEqual(JSON.parse(initial!));
+  const unchanged=async()=>{
+    const next=JSON.parse((await viewport.getAttribute("data-camera-state"))!) as number[];
+    expect(next).toHaveLength(manual.length);
+    for(let k=0;k<manual.length;k++)
+      expect(Math.abs(next[k]!-manual[k]!)).toBeLessThan(1e-5);
+  };
+  await page.locator("#head-preset").selectOption("broad");
+  await expect(page.locator("#status")).toContainText("head broad",{timeout:60_000});
+  await unchanged();
+  await page.locator("#head-preset").selectOption("jaw");
+  await expect(page.locator("#status")).toContainText("head jaw",{timeout:60_000});
+  await unchanged();
+  await page.locator('[data-head-param="skullWidth"]').evaluate(node=>{
+    const slider=node as HTMLInputElement;
+    slider.value="1.06";
+    slider.dispatchEvent(new Event("input",{bubbles:true}));
+    slider.dispatchEvent(new Event("change",{bubbles:true}));
+  });
+  await expect(page.locator("#status")).toContainText("head custom",{timeout:60_000});
+  await unchanged();
+  await page.locator("#morph-preset").selectOption("shoulders");
+  await expect(page.locator("#status")).toContainText("morphology shoulders",{timeout:60_000});
+  await unchanged();
+  await page.locator("#reset-head").click();
+  await expect(page.locator("#head-preset")).toHaveValue("neutral");
+  await expect(page.locator("#status")).toContainText("head original",{timeout:60_000});
+  await unchanged();
+  // The explicit camera selector still takes priority over manual state.
+  await chooseView(page,"side");
+  const explicit=JSON.parse((await viewport.getAttribute("data-camera-state"))!) as number[];
+  expect(explicit).not.toEqual(manual);
+  expect(errors).toEqual([]);
+});

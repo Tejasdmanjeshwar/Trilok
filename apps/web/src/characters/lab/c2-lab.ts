@@ -114,7 +114,16 @@ try{
   const controls=new OrbitControls(camera,renderer.domElement);
   controls.target.set(0,.96,0);
   controls.enableDamping=!matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Read-only diagnostic for phase-gated camera continuity tests. Updated on
+  // user orbit/pan/zoom or explicit view selection, never every render frame.
+  const publishCameraState=()=>{
+    viewport.dataset.cameraState=JSON.stringify([
+      ...camera.position.toArray(),...controls.target.toArray(),camera.zoom,
+    ]);
+  };
+  controls.addEventListener("change",publishCameraState);
   controls.update();
+  publishCameraState();
   scene.add(new THREE.HemisphereLight(0xe9e5df,0x4d5156,2.2));
   const light=new THREE.DirectionalLight(0xffffff,2);
   light.position.set(3,6,4);scene.add(light);
@@ -242,7 +251,10 @@ try{
     refreshOverlay();
   };
   let request=0;
-  async function switchSurface(name:string):Promise<void> {
+  // Morphology rebuilds change only the owned anatomical surface. Preserve
+  // manually orbited/panned/zoomed camera and OrbitControls target; only a
+  // user-selected camera view or an explicit source switch may reframe.
+  async function switchSurface(name:string,preserveCamera=false):Promise<void> {
     if(stopping)return;
     const ticket=++request;
     status!.textContent="Loading "+name+" geometry…";
@@ -340,7 +352,7 @@ try{
   for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
       button.setAttribute("aria-pressed",String(button.dataset.surface===name));
     applyPose(currentPose);applyDebug();
-    applyView(currentView);
+    if(!preserveCamera)applyView(currentView);
     document.documentElement.dataset.c2Ready="true";
     document.documentElement.dataset.c2Source=name;
   }
@@ -422,7 +434,7 @@ try{
     void switchSurface(sourceSelect.value);
   });
   morphologySelect?.addEventListener("change",()=>{
-    void switchSurface("template");
+    void switchSurface("template",true);
   });
   headPresetSelect?.addEventListener("change",()=>{
     const preset=headPresets[headPresetSelect.value];
@@ -430,20 +442,20 @@ try{
     for(const key of headKeys) headSliders.get(key)!.value=
       String(preset[key]??1);
     syncHeadValues();
-    void switchSurface("template");
+    void switchSurface("template",true);
   });
   for(const slider of headSliders.values()){
     slider.addEventListener("input",syncHeadValues);
     slider.addEventListener("change",()=>{
       if(headPresetSelect)headPresetSelect.value="custom";
-      void switchSurface("template");
+      void switchSurface("template",true);
     });
   }
   document.querySelector<HTMLButtonElement>("#reset-head")?.addEventListener(
     "click",()=>{
       for(const slider of headSliders.values())slider.value="1";
       if(headPresetSelect)headPresetSelect.value="neutral";
-      syncHeadValues();void switchSurface("template");
+      syncHeadValues();void switchSurface("template",true);
     });
   const inspectorToggle=document.querySelector<HTMLButtonElement>("#bone-inspector-toggle");
   const inspectorContent=document.querySelector<HTMLElement>("#bone-inspector-content");
