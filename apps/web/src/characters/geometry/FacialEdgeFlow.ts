@@ -149,7 +149,7 @@ class Surface {
   newVertices:FacialControlVertex[]=[];
   nextTopologyId:number;
 
-  constructor(geometry:THREE.BufferGeometry,sourceIds:readonly number[],
+  constructor(geometry:THREE.BufferGeometry,sourceIds:ArrayLike<number>,
     existing:readonly {renderIndex:number;sourceA:number;sourceB:number}[],
     sourceVertexCount:number) {
     this.positions=Array.from(geometry.getAttribute("position").array as ArrayLike<number>);
@@ -326,7 +326,9 @@ class Surface {
         throw new Error("C3.5 contour produced an almost-zero-area triangle");
       for(const v of [a,b,c]){
         const k=this.topologyIds[v]!*3;
-        weighted[k]+=ab.x;weighted[k+1]+=ab.y;weighted[k+2]+=ab.z;
+        weighted[k]=weighted[k]!+ab.x;
+        weighted[k+1]=weighted[k+1]!+ab.y;
+        weighted[k+2]=weighted[k+2]!+ab.z;
       }
     }
     for(let i=0;i<this.topologyIds.length;i++){
