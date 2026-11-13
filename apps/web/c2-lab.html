@@ -119,6 +119,8 @@
     .pose-result { text-align:left; display:flex; flex-direction:column; gap:4px;
       padding:11px 12px; min-width:0 }
     .pose-result[hidden] { display:none!important }
+    input[type="range"][data-head-param] { width:100%; min-height:30px; accent-color:#80b8df; }
+    [data-head-value] { float:right; font-variant-numeric:tabular-nums; color:var(--muted); }
     .pose-result-label { font-weight:700; font-size:13px }
     .pose-result-description { color:var(--muted); font-size:11px; line-height:1.4 }
     .pose-browser-meta { padding:8px 18px; color:var(--muted); border-top:1px solid var(--line); font-size:12px }
@@ -164,7 +166,7 @@
       </div>
     </div>
     <a class="back" href="/">← Combat arena</a>
-    <span class="status-pill">C3.2 · Experimental shape preview</span>
+    <span class="status-pill">C3.4 · Human head & body preview</span>
   </header>
   <div class="workspace">
     <section class="stage" aria-label="Character viewport">
@@ -238,7 +240,7 @@
         </details>
       </section>
       <section class="panel" aria-label="C3 morphology preview">
-        <div class="panel-heading"><h2>C3.2 shape preview</h2><span class="small">Experimental</span></div>
+        <div class="panel-heading"><h2>C3 body preview</h2><span class="small">Experimental</span></div>
         <div class="field">
           <label for="morph-preset">Human proportions</label>
           <select id="morph-preset" aria-label="Choose experimental C3.2 human body proportion">
@@ -254,6 +256,64 @@
         </div>
         <p class="small">Opt-in diagnostic presets only. Changing proportions rebuilds an owned
           neutral source and retains the current test pose; it does not edit or save a character.</p>
+      </section>
+      <section class="panel" aria-label="C3.4 human head morphology">
+        <div class="panel-heading"><h2>C3.4 human head</h2><span class="small">Experimental CC0</span></div>
+        <div class="field">
+          <label for="head-preset">Head proportions</label>
+          <select id="head-preset" aria-label="Choose experimental C3.4 human head preset">
+            <option value="neutral">Original human head</option>
+            <option value="broad">Broad cranium and cheeks</option>
+            <option value="long">Tall cranium and forehead</option>
+            <option value="brow">Prominent brow and orbital spacing</option>
+            <option value="jaw">Broad jaw and chin</option>
+            <option value="stress">Combined head stress</option>
+            <option value="custom" disabled>Custom values</option>
+          </select>
+        </div>
+        <details>
+          <summary>Detailed facial shaping</summary>
+          <div class="field">
+        <div class="field">
+          <label for="head-skullWidth">Skull width <output data-head-value="skullWidth" for="head-skullWidth">1.00</output></label>
+          <input id="head-skullWidth" type="range" data-head-param="skullWidth" min="0.9" max="1.1" step="0.01" value="1" aria-label="C3.4 Skull width" />
+        </div>
+        <div class="field">
+          <label for="head-skullHeight">Skull height <output data-head-value="skullHeight" for="head-skullHeight">1.00</output></label>
+          <input id="head-skullHeight" type="range" data-head-param="skullHeight" min="0.93" max="1.07" step="0.01" value="1" aria-label="C3.4 Skull height" />
+        </div>
+        <div class="field">
+          <label for="head-forehead">Forehead <output data-head-value="forehead" for="head-forehead">1.00</output></label>
+          <input id="head-forehead" type="range" data-head-param="forehead" min="0.93" max="1.07" step="0.01" value="1" aria-label="C3.4 Forehead" />
+        </div>
+        <div class="field">
+          <label for="head-brow">Brow ridge <output data-head-value="brow" for="head-brow">1.00</output></label>
+          <input id="head-brow" type="range" data-head-param="brow" min="0.92" max="1.08" step="0.01" value="1" aria-label="C3.4 Brow ridge" />
+        </div>
+        <div class="field">
+          <label for="head-cheeks">Cheek fullness <output data-head-value="cheeks" for="head-cheeks">1.00</output></label>
+          <input id="head-cheeks" type="range" data-head-param="cheeks" min="0.92" max="1.08" step="0.01" value="1" aria-label="C3.4 Cheek fullness" />
+        </div>
+        <div class="field">
+          <label for="head-jawWidth">Jaw width <output data-head-value="jawWidth" for="head-jawWidth">1.00</output></label>
+          <input id="head-jawWidth" type="range" data-head-param="jawWidth" min="0.91" max="1.09" step="0.01" value="1" aria-label="C3.4 Jaw width" />
+        </div>
+        <div class="field">
+          <label for="head-chin">Chin <output data-head-value="chin" for="head-chin">1.00</output></label>
+          <input id="head-chin" type="range" data-head-param="chin" min="0.92" max="1.08" step="0.01" value="1" aria-label="C3.4 Chin" />
+        </div>
+        <div class="field">
+          <label for="head-faceDepth">Facial depth <output data-head-value="faceDepth" for="head-faceDepth">1.00</output></label>
+          <input id="head-faceDepth" type="range" data-head-param="faceDepth" min="0.94" max="1.06" step="0.01" value="1" aria-label="C3.4 Facial depth" />
+        </div>
+        <div class="field">
+          <label for="head-eyeSpacing">Eye spacing <output data-head-value="eyeSpacing" for="head-eyeSpacing">1.00</output></label>
+          <input id="head-eyeSpacing" type="range" data-head-param="eyeSpacing" min="0.95" max="1.05" step="0.01" value="1" aria-label="C3.4 Eye spacing" />
+        </div>
+          </div>
+        </details>
+        <button type="button" id="reset-head">Reset human head</button>
+        <p class="small">Human-only nine-channel source-derived facial morphology. Head/neck/jaw remain continuous and rigged. Neutral values preserve original anatomy. Not a facial animation editor, animal-head generator or C4 Studio.</p>
       </section>
       <section class="panel bone-panel" aria-label="Bone inspector">
         <div class="bone-panel-header">
