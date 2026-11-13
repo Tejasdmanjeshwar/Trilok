@@ -82,9 +82,23 @@ describe("C3.5 source-contiguous bounded human facial aperture scaffolding",()=>
       const chin=human.jawTipWorldRest!.clone();
       const jawBone=human.spike.bones.get(jaw.id)!;
       const local=jawBone.worldToLocal(chin.clone());
+      const mouthCenter=created.audit.features.find(f=>f.id==="mouth")!.centerVertex;
+      const orbitCenter=created.audit.features.find(f=>f.id==="orbit.left")!.centerVertex;
+      const restMouth=human.mesh.getVertexPosition(mouthCenter,new THREE.Vector3()).clone();
+      const restOrbit=human.mesh.getVertexPosition(orbitCenter,new THREE.Vector3()).clone();
       fk.apply([{jointId:jaw.id,motion:"flexion",radians:.4}]);
       expect(jawBone.localToWorld(local.clone()).y).toBeLessThan(chin.y-.0005);
+      const posedMouth=human.mesh.getVertexPosition(mouthCenter,new THREE.Vector3());
+      const posedOrbit=human.mesh.getVertexPosition(orbitCenter,new THREE.Vector3());
+      expect(posedMouth.toArray().every(Number.isFinite)).toBe(true);
+      expect(posedOrbit.toArray().every(Number.isFinite)).toBe(true);
+      expect(posedOrbit.distanceTo(restOrbit)).toBeLessThan(.0002);
+      expect(posedMouth.distanceTo(restMouth)).toBeGreaterThan(.0005);
       fk.apply([]);
+      expect(human.mesh.getVertexPosition(mouthCenter,new THREE.Vector3())
+        .distanceTo(restMouth)).toBeLessThan(.0002);
+      expect(human.mesh.getVertexPosition(orbitCenter,new THREE.Vector3())
+        .distanceTo(restOrbit)).toBeLessThan(.0002);
       console.log("C3.5 aperture audit:",JSON.stringify(created.audit));
     }finally{human.dispose();}
   },120_000);
