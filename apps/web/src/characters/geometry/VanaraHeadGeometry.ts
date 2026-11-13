@@ -5,7 +5,6 @@ import type {MammalianHeadLandmarks} from "./MammalianHeadDeformation";
 import type {HumanHeadTransform} from "./HumanHeadDeformation";
 import {VANARA_SCAN_ENVELOPE, VANARA_SCAN_ID,
   VANARA_SCAN_PROVENANCE} from "./VanaraScanCalibration";
-import {VANARA_JAW_REGISTRATION} from "./VanaraScanRegistration";
 import {calibrateVanaraFace} from "./VanaraFacialTopology";
 
 /**
@@ -31,8 +30,6 @@ export const getVanaraHeadReplacement = (human: AnatomicalHuman):
   VanaraHeadReplacement | undefined => replacements.get(human);
 
 const clamp = THREE.MathUtils.clamp;
-const bell = (distance:number, radius:number):number =>
-  Math.exp(-2*(distance/Math.max(radius,1e-5))**2);
 const smooth = (x:number):number => {
   const t=clamp(x,0,1);
   return t*t*(3-2*t);
@@ -192,18 +189,6 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const baseDepth=clamp(neckDepth*.87,.035,.080);
   const width=clamp(baseWidth*1.81*shape.skullWidth,.092,.152);
   const depth=clamp(baseDepth*1.72*shape.faceDepth,.073,.136);
-  const muzzleScale=shape.muzzleLength, muzzleWidth=shape.muzzleWidth;
-  const earScale=shape.earSize;
-  // Rest jaw hinge and symphysis derive from the same paired specimen.
-  // The C1 semantic jaw bone stays authoritative; these ratios control
-  // exterior mouth location and the smooth skin-weight transition only.
-  const spanY=VANARA_SCAN_PROVENANCE.scanVerticalMaxMm-
-    VANARA_SCAN_PROVENANCE.scanVerticalMinMm;
-  const jawPivotT=clamp((VANARA_JAW_REGISTRATION.condyleMidpointMm[1]-
-    VANARA_SCAN_PROVENANCE.scanVerticalMinMm)/spanY,.30,.55);
-  const chinT=clamp((VANARA_JAW_REGISTRATION.symphysisMm[1]-
-    VANARA_SCAN_PROVENANCE.scanVerticalMinMm)/spanY,.10,.27);
-  const lipT=chinT+(jawPivotT-chinT)*.43;
   const positions:number[]=[],uvs:number[]=[],colors:number[]=[];
   const skinIds:number[]=[],skinWeights:number[]=[],triangles:number[]=[];
   // Ring resolution follows the actual human neck cut, not a separate cylinder.
