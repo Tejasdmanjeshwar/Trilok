@@ -59,8 +59,10 @@ test("C3.5 regular facial controls expose exact high-amplitude failures and pres
   await expect(root).not.toHaveAttribute("data-c35-inverted-triangles","unavailable");
   // The original source-space independent radial fields are not
   // anatomically safe at large amplitudes. Show, don't hide, those failures.
-  await mouth.fill("300");
-  await mouth.dispatchEvent("input");
+  await mouth.evaluate(el=>{
+    const input=el as HTMLInputElement;
+    input.value="300";input.dispatchEvent(new Event("input",{bubbles:true}));
+  });
   await expect(root).toHaveAttribute("data-c35-inverted-triangles",/^[1-9]\d*$/);
   await expect(page.locator("#c35-stress-audit")).toContainText("INVERTED triangles");
   expect(await page.locator("#viewport").getAttribute("data-camera-state"))
