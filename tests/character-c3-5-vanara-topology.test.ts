@@ -91,6 +91,15 @@ describe("C3.5 Vanara independent external head geometry",()=>{
       const ring=replacement.neckSeamVertices;
       expect(ring).toBeGreaterThan(24);
       expect(ring).toBeLessThan(160);
+      // A disconnected or crossing source contour can match bone weights yet
+      // still produce a visibly torn/bridged neck. Bound adjacent 3D edge
+      // lengths on the actual generated rim, including its closing edge.
+      for(let h=0;h<ring;h++){
+        const a=new THREE.Vector3().fromBufferAttribute(headPos,h);
+        const b=new THREE.Vector3().fromBufferAttribute(headPos,(h+1)%ring);
+        expect(a.distanceTo(b)).toBeLessThan(.045);
+        expect(a.distanceTo(b)).toBeGreaterThan(1e-5);
+      }
       const matched:number[]=[];
       for(let h=0;h<ring;h++){
         const point=new THREE.Vector3().fromBufferAttribute(headPos,h);
