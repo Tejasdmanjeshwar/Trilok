@@ -146,7 +146,7 @@ export function makeLicensedVanaraFaceAnatomy(
       [Math.min(N - 1, ix + 1), iy, dx * (1 - dy)],
       [ix, Math.min(N - 1, iy + 1), (1 - dx) * dy],
       [Math.min(N - 1, ix + 1), Math.min(N - 1, iy + 1), dx * dy],
-    ]) {
+    ] as const) {
       if (depths[yy * N + xx] === 0) continue;
       coverage += weight;
       for (let channel = 0; channel < 3; channel++)
