@@ -6,6 +6,7 @@ import type {HumanHeadTransform} from "./HumanHeadDeformation";
 import {VANARA_SCAN_ENVELOPE, VANARA_SCAN_ID,
   VANARA_SCAN_PROVENANCE} from "./VanaraScanCalibration";
 import {calibrateVanaraFace} from "./VanaraFacialTopology";
+import {measureHumanHeadReference,sizeVanaraCranium} from "./VanaraHeadSizing";
 
 /**
  * C3.5 Vanara topology experiment. This is an authored procedural *external*
@@ -24,6 +25,8 @@ export interface VanaraHeadReplacement {
   readonly replacementHeadTriangles: number;
   readonly sourceCalibration: typeof VANARA_SCAN_ID;
   readonly neckSeamVertices: number;
+  readonly referenceHumanWidthMeters: number;
+  readonly referenceHumanHeightMeters: number;
 }
 const replacements = new WeakMap<AnatomicalHuman, VanaraHeadReplacement>();
 export const getVanaraHeadReplacement = (human: AnatomicalHuman):
@@ -88,14 +91,18 @@ export function replaceVanaraHead(human:AnatomicalHuman,
    const crown=head.landmarks.crown;
   // Head vertical extent derives from the already rebound human foundation.
   // The family-specific topology is independent of the human *face* surface.
-  const topY=Math.max(crown.y*shape.stature,neck.y+.245);
+  // Derive target cranium dimensions from UNMODIFIED C2 human head instead
+  // of multiplying the neck width, which inflated the Vanara in preview.
+  const reference=measureHumanHeadReference(human);
+  const sized=sizeVanaraCranium(reference,shape.stature,shape.breadth,
+    shape.skullWidth,shape.faceDepth);
+  const topY=Math.min(crown.y*shape.stature,
+    sized.crownHeight)+.002*shape.stature;
   const cutY=neck.y+.025*shape.stature;
   const baseY=cutY-.018*shape.stature;
   const height=topY-baseY;
-  // The 76.45 mm registered skeleton envelope sets relative head proportions.
-  // Runtime height is calibrated to the existing C1 neutral rig, not mm scaling.
-  if(!(height>.20&&height<.43))
-    throw new Error("Vanara cranial height outside C1 envelope");
+  if(!(height>.20&&height<.37))
+    throw new Error("Vanara cranial height outside human C1 envelope");
   // Calibrate lateral and sagittal neck size from *rendered skin* near cut.
   const nearest:number[]=[];
   for(let i=0;i<pos.count;i++){
@@ -185,12 +192,10 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     neckWidth=Math.max(neckWidth,Math.abs(pos.getX(i)-cx));
     neckDepth=Math.max(neckDepth,Math.abs(pos.getZ(i)-cz));
   }
-  // The base nests inside the remaining anatomical neck; skull proportions
-  // are independent of the projected human nose.
-  const baseWidth=clamp(neckWidth*.87,.040,.085);
-  const baseDepth=clamp(neckDepth*.87,.035,.080);
-  const width=clamp(baseWidth*1.81*shape.skullWidth,.092,.152);
-  const depth=clamp(baseDepth*1.72*shape.faceDepth,.073,.136);
+  // Head dimensions are measured independently from the pinned human source.
+  // The neck contour is used ONLY to join the surface, never to set skull size.
+  const width=sized.halfWidth;
+  const depth=sized.halfDepth;
   const positions:number[]=[],uvs:number[]=[],colors:number[]=[];
   const skinIds:number[]=[],skinWeights:number[]=[],triangles:number[]=[];
   // Ring resolution follows the actual human neck cut, not a separate cylinder.
@@ -232,10 +237,15 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     const y=baseY+height*t;
     const rx=width*lerpProfile(t,cranialProfile);
     const rz=depth*lerpProfile(t,depthProfile);
-    const centerZ=cz+depth*lerpProfile(t,centerProfile);
+    const centerZ=THREE.MathUtils.lerp(cz,sized.centerZ,smooth(t/.28))+
+      depth*lerpProfile(t,centerProfile)*.52;
     for(let j=0;j<samples;j++){
       const seam=seamSamples[j]!;
-      const theta=seam.angle;
+      // The neck samples are irregularly spaced. Reparameterize rings to a
+      // uniform angular grid over the first 25% of the cranium to eliminate
+      // tall, narrow, stretched triangles without moving the exact C2 rim.
+      const uniformAngle=seamSamples[0]!.angle+Math.PI*2*j/samples;
+      const theta=THREE.MathUtils.lerp(seam.angle,uniformAngle,smooth(t/.25));
       const ux=Math.cos(theta),uz=Math.sin(theta);
       const originalX=rx*ux;
       const f=face.sample(originalX,t,theta);
@@ -266,7 +276,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
       }
     }
   }
-  const centerTop=add(new THREE.Vector3(cx,baseY+height,cz-.023),.5,1,fur,0);
+  const centerTop=add(new THREE.Vector3(cx,baseY+height,
+    sized.centerZ-depth*.03),.5,1,fur,0);
   const lastRing=(levels-1)*samples;
   for(let j=0;j<samples;j++)
     triangles.push(lastRing+j,centerTop,lastRing+(j+1)%samples);
@@ -277,8 +288,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   const eyeY=baseY+height*face.eyeT;
   for(const sign of [-1,1]){
     const eyeX=cx+sign*face.eyeX;
-    const eyeZ=cz+depth*lerpProfile(face.eyeT,centerProfile)+
-      depth*lerpProfile(face.eyeT,depthProfile)*.92-.012;
+    const eyeZ=sized.centerZ+depth*lerpProfile(face.eyeT,centerProfile)*.52+
+      depth*lerpProfile(face.eyeT,depthProfile)*.86-.008;
     const center=new THREE.Vector3(eyeX,eyeY,eyeZ);
     const first=positions.length/3;
     const stacks=10,slices=16;
@@ -287,9 +298,9 @@ export function replaceVanaraHead(human:AnatomicalHuman,
       for(let k=0;k<slices;k++){
         const u=k/slices,theta=u*2*Math.PI;
         const eyePos=center.clone().add(new THREE.Vector3(
-          .017*Math.sin(phi)*Math.cos(theta),
-          .014*Math.cos(phi),
-          .012*Math.sin(phi)*Math.sin(theta)));
+          .014*Math.sin(phi)*Math.cos(theta),
+          .012*Math.cos(phi),
+          .011*Math.sin(phi)*Math.sin(theta)));
         const front=eyePos.z>eyeZ+.001;
         const pupil=bell(eyePos.x-eyeX,.0065)*bell(eyePos.y-eyeY,.0065);
         const iris=bell(eyePos.x-eyeX,.010)*bell(eyePos.y-eyeY,.010);
@@ -306,9 +317,9 @@ export function replaceVanaraHead(human:AnatomicalHuman,
         }
       }
     }
-    const upper=add(center.clone().add(new THREE.Vector3(0,.014,0)),.5,0,
+    const upper=add(center.clone().add(new THREE.Vector3(0,.012,0)),.5,0,
       new THREE.Color(0x211d1e),0);
-    const lower=add(center.clone().add(new THREE.Vector3(0,-.014,0)),.5,1,
+    const lower=add(center.clone().add(new THREE.Vector3(0,-.012,0)),.5,1,
       new THREE.Color(0x211d1e),0);
     for(let k=0;k<slices;k++){
       triangles.push(upper,first+k,first+(k+1)%slices);
@@ -364,7 +375,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
   geometry.computeBoundingBox();
   const featurePoint=(x:number,t:number,zOffset:number):THREE.Vector3 =>
     new THREE.Vector3(cx+x,baseY+height*t,
-      cz+depth*lerpProfile(t,centerProfile)+depth*lerpProfile(t,depthProfile)+zOffset);
+      sized.centerZ+depth*lerpProfile(t,centerProfile)*.52+
+      depth*lerpProfile(t,depthProfile)+zOffset);
   const rest={
     muzzle:featurePoint(0,.385,.055*shape.muzzleLength),
     nose:featurePoint(0,face.noseT,.066*shape.muzzleLength),
@@ -408,6 +420,8 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     mesh:headMesh,landmarks,neckCutY:cutY,
     headVertices:headGeo.getAttribute("position").count,
     skullWidthMeters:width*2,skullHeightMeters:height,
+    referenceHumanWidthMeters:reference.halfWidth*2,
+    referenceHumanHeightMeters:reference.upperCrownY,
     baselineHumanHeadTriangles:baselineHeadTriangles,replacementHeadTriangles,
     sourceCalibration:SOURCE_CALIBRATION,neckSeamVertices:samples,
   });
