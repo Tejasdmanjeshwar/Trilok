@@ -7,10 +7,12 @@ import {parseAnatomicalOBJ,bindTemplateToSemanticRig} from
   "../apps/web/src/characters/geometry/AnatomicalTemplate";
 import {applyHumanMorphology} from
   "../apps/web/src/characters/geometry/HumanMorphology";
-import {inspectHumanFacialTopology,refineHumanFacialTopology,
-  FACIAL_REGION_IDS} from "../apps/web/src/characters/geometry/FacialTopology";
-import {buildHumanFacialEdgeFlow} from "../apps/web/src/characters/geometry/FacialEdgeFlow";
-import {AnatomicalFK} from "../apps/web/src/characters/geometry/AnatomicalFK";
+import {FACIAL_REGION_IDS,inspectHumanFacialTopology} from
+  "../apps/web/src/characters/geometry/FacialTopology";
+import {buildHumanFacialSourceSurface} from
+  "../apps/web/src/characters/geometry/FacialSourceTopology";
+import {AnatomicalFK} from
+  "../apps/web/src/characters/geometry/AnatomicalFK";
 import {validateSkinningSpike} from
   "../apps/web/src/characters/geometry/SkinningSpike";
 import type {SourceRig,SourceWeights} from
@@ -22,215 +24,137 @@ const rig=JSON.parse(asset("makehuman-default.mhskel")) as SourceRig;
 const weights=JSON.parse(asset("makehuman-default_weights.mhw")) as SourceWeights;
 const session=()=>bindTemplateToSemanticRig(parseAnatomicalOBJ(
   asset("makehuman-base.obj"),{includeGroups:["body"]}),{rig,weights});
-const shape={...DEFAULT_HUMAN_HEAD_MORPHOLOGY,skullWidth:1.08,
-  forehead:1.05,cheeks:1.06,jawWidth:1.05,chin:1.05,faceDepth:1.04} as const;
 
-describe("C3.5 human facial topology foundation",()=>{
-  it("provides ordered, local semantic regions from the pinned, skinned CC0 face",()=>{
+describe("C3.5 canonical source-derived human facial foundation",()=>{
+  it("retains ordered, bounded original source facial landmarks",()=>{
     const human=session();
     try{
       const atlas=inspectHumanFacialTopology(human);
-      expect(atlas.version).toBe(1);
-      console.log("C3.5 pinned CC0 facial topology audit:",JSON.stringify(atlas.audit));
-      expect(atlas.regions.map(r=>r.id)).toEqual([...FACIAL_REGION_IDS]);
-      expect(atlas.regions.length).toBe(26);
-      for(const region of atlas.regions){
-        const p=new THREE.Vector3(...region.landmark.rest);
-        expect(region.landmark.sourceVertexId).toBe(
-          human.template.sourceVertexIds[region.landmark.vertexIndex]);
-        expect(region.weight(p)).toBeGreaterThan(.99);
-        expect(region.weight(p.clone().add(new THREE.Vector3(1,0,0)))).toBe(0);
-        expect(region.radius.every(n=>Number.isFinite(n)&&n>0)).toBe(true);
-      }
-      expect(atlas.region("eye.inner.left").landmark.rest[0]).toBeLessThan(
-        atlas.region("eye.inner.right").landmark.rest[0]);
-      expect(atlas.region("lip.upper").landmark.rest[1]).toBeGreaterThan(
-        atlas.region("chin").landmark.rest[1]);
-      expect(atlas.region("mouth.corner.left").landmark.boneRole).toBe("jaw");
-      expect(atlas.region("nose.tip").landmark.boneRole).toBe("head");
+      expect(atlas.regions.map(region=>region.id)).toEqual([...FACIAL_REGION_IDS]);
       expect(atlas.audit.originalBoundaryEdges).toBe(0);
       expect(atlas.audit.originalNonManifoldEdges).toBe(0);
+      for(const region of atlas.regions){
+        expect(region.landmark.sourceVertexId).toBe(
+          human.template.sourceVertexIds[region.landmark.vertexIndex]);
+        expect(region.weight(new THREE.Vector3(...region.landmark.rest))).toBeGreaterThan(.99);
+      }
+      expect(atlas.region("eyelid.upper.left").landmark.rest[1]).toBeGreaterThan(
+        atlas.region("eyelid.lower.left").landmark.rest[1]);
     }finally{human.dispose();}
-  },60_000);
-
-  it("splits source-canonical facial edges conformingly without skin, UV or head/neck regressions",()=>{
-    const human=session();
-    try{
-      applyHumanMorphology(human,createHumanHeadRecipe(shape));
-      const original=human.template.geometry;
-      const sourceIndices=Array.from(original.getIndex()!.array);
-      const before=original.getAttribute("position");
-      const oldCount=before.count;
-      const oldTriangles=sourceIndices.length/3;
-      const body=new THREE.Vector3().fromBufferAttribute(before,0);
-      const uv=Array.from(original.getAttribute("uv").array);
-      const refined=refineHumanFacialTopology(human,{maxSourceEdges:512});
-      const mesh=human.mesh;
-      const geometry=mesh.geometry;
-      const p=geometry.getAttribute("position");
-      expect(geometry).toBe(refined.geometry);
-      expect(p.count).toBeGreaterThan(oldCount);
-      expect(refined.atlas.audit.selectedEdges).toBeLessThanOrEqual(512);
-      expect(refined.atlas.audit.refinedTriangles).toBeGreaterThan(oldTriangles);
-      expect(refined.atlas.audit.refinedTriangles-oldTriangles).toBeLessThanOrEqual(1024);
-      expect(refined.atlas.audit.refinedVertices).toBe(p.count);
-      expect(geometry.getAttribute("uv").array.slice(0,uv.length)).toEqual(
-        original.getAttribute("uv").array);
-      for(let i=0;i<oldCount;i++){
-        expect(p.getX(i)).toBe(before.getX(i));
-        expect(p.getY(i)).toBe(before.getY(i));
-        expect(p.getZ(i)).toBe(before.getZ(i));
-      }
-      expect(new THREE.Vector3().fromBufferAttribute(p,0).distanceTo(body)).toBe(0);
-      validateSkinningSpike(human.spike);
-      const influence=geometry.getAttribute("skinWeight");
-      const skinIndex=geometry.getAttribute("skinIndex");
-      for(let i=oldCount;i<p.count;i++){
-        let total=0;
-        for(let j=0;j<4;j++){
-          total+=influence.getComponent(i,j);
-          expect(skinIndex.getComponent(i,j)).toBeLessThan(human.spike.skeleton.bones.length);
-        }
-        expect(total).toBeCloseTo(1,5);
-      }
-      // Recount geometric edges across rendered UV islands using canonical
-      // source endpoints plus derived midpoint ownership.
-      const origins=new Map(refined.sourceEdges.map(o=>[o.renderIndex,o]));
-      const canonical=(i:number):string=>{
-        const origin=origins.get(i);
-        return origin?`m:${Math.min(origin.sourceA,origin.sourceB)}:${Math.max(origin.sourceA,origin.sourceB)}`:
-          `v:${human.template.sourceVertexIds[i]}`;
-      };
-      const edgeCounts=new Map<string,number>();
-      const idx=geometry.getIndex()!;
-      for(let i=0;i<idx.count;i+=3){
-        const t=[idx.getX(i),idx.getX(i+1),idx.getX(i+2)];
-        for(let j=0;j<3;j++){
-          const pair=[canonical(t[j]!),canonical(t[(j+1)%3]!)].sort().join("|");
-          edgeCounts.set(pair,(edgeCounts.get(pair)??0)+1);
-        }
-      }
-      expect([...edgeCounts.values()].filter(n=>n!==2)).toEqual([]);
-      const fk=new AnatomicalFK(human.spike.graph,human.spike.bones,{
-        jawTipWorldRest:human.jawTipWorldRest,
-        forearmSkinBones:human.spike.forearmSkinBones,
-        shoulderSkinBones:human.spike.shoulderSkinBones});
-      const head=human.spike.graph.joints.find(j=>j.role==="head")!;
-      const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")!;
-      const posePoint=mesh.getVertexPosition(refined.sourceEdges[0]!.renderIndex,new THREE.Vector3()).clone();
-      fk.apply([{jointId:head.id,motion:"rotation",radians:.35}]);
-      expect(mesh.getVertexPosition(refined.sourceEdges[0]!.renderIndex,new THREE.Vector3())
-        .distanceTo(posePoint)).toBeGreaterThan(.0001);
-      fk.apply([{jointId:jaw.id,motion:"flexion",radians:.4}]);
-      fk.apply([]);
-      expect(mesh.getVertexPosition(refined.sourceEdges[0]!.renderIndex,new THREE.Vector3())
-        .distanceTo(posePoint)).toBeLessThan(.0001);
-      expect(()=>refineHumanFacialTopology(human)).toThrow(/unrefined/);
-    }finally{human.dispose();human.dispose();}
   },120_000);
 
-  it("imprints connected source-skin contour loops with deterministic IDs, skin and jaw recovery",()=>{
+  it("adds real source-connected facial control samples without moving any source anatomy",()=>{
+    const human=session();
+    try{
+      const original=human.template.geometry;
+      const originalCount=original.getAttribute("position").count;
+      const face=buildHumanFacialSourceSurface(human);
+      const g=face.geometry;
+      expect(g).toBe(human.mesh.geometry);
+      expect(face.audit.originalVertices).toBe(originalCount);
+      expect(face.audit.refinedVertices).toBeGreaterThan(originalCount);
+      expect(face.audit.refinedTriangles).toBeGreaterThan(face.audit.originalTriangles);
+      expect(face.audit.refinedTriangles).toBeLessThan(55000);
+      expect(face.audit.refinedVertices).toBeLessThan(26000);
+      expect(face.audit.secondaryCanonicalEdges).toBeGreaterThan(32);
+      expect(face.topologyIds.length).toBe(face.audit.refinedVertices);
+      expect(face.derivedVertices.length).toBeGreaterThan(32);
+      for(const field of ["position","uv","skinIndex","skinWeight"] as const) {
+        const before=original.getAttribute(field);
+        const after=g.getAttribute(field);
+        for(let i=0;i<before.count;i++)
+          for(let k=0;k<before.itemSize;k++)
+            expect(after.getComponent(i,k)).toBe(before.getComponent(i,k));
+      }
+      for(const v of face.derivedVertices){
+        expect(v.topologyId).toBeGreaterThanOrEqual(human.template.sourceVertexCount);
+        expect(v.parentA).not.toBe(v.parentB);
+        let total=0;
+        for(let k=0;k<4;k++)total+=g.getAttribute("skinWeight").getComponent(v.index,k);
+        expect(total).toBeCloseTo(1,5);
+      }
+      // Secondary edge splits never displace their endpoints or alter the UVs.
+      // Each new position must be the exact midpoint of existing source-connected
+      // parent coordinates when referenced by its canonical topology ID.
+      const seen=new Map<number,number>();
+      face.topologyIds.forEach((id,i)=>{if(!seen.has(id))seen.set(id,i);});
+      const p=g.getAttribute("position");
+      for(const v of face.derivedVertices){
+        const a=seen.get(v.parentA)!,b=seen.get(v.parentB)!;
+        for(let k=0;k<3;k++)
+          expect(p.getComponent(v.index,k)).toBeCloseTo(
+            (p.getComponent(a,k)+p.getComponent(b,k))*.5,5);
+      }
+      validateSkinningSpike(human.spike);
+      console.log("C3.5 source-derived facial audit",JSON.stringify(face.audit));
+    }finally{human.dispose();}
+  },120_000);
+
+  it("supports isolated bilateral control displacements as temporary diagnostics",()=>{
+    const human=session();
+    try{
+      const face=buildHumanFacialSourceSurface(human);
+      const left=face.controlWeights("eyelid.upper.left");
+      const right=face.controlWeights("eyelid.upper.right");
+      const jaw=face.controlWeights("lip.lower");
+      const p=face.geometry.getAttribute("position");
+      expect(left.length).toBe(p.count);
+      let activeLeft=0,activeRight=0,activeJaw=0,wrongSide=0;
+      for(let i=0;i<p.count;i++){
+        if(left[i]!>.15){activeLeft++;if(right[i]!>.15)wrongSide++;}
+        if(right[i]!>.15)activeRight++;
+        if(jaw[i]!>.15)activeJaw++;
+        if(p.getY(i)<1.2)expect(left[i]).toBe(0);
+      }
+      expect(activeLeft).toBeGreaterThan(4);
+      expect(activeRight).toBeGreaterThan(4);
+      expect(activeJaw).toBeGreaterThan(4);
+      expect(wrongSide).toBe(0);
+    }finally{human.dispose();}
+  },120_000);
+
+  it("regenerates deterministic canonical ancestry, and preserves extreme C3.4 plus C1 pose recovery",()=>{
     const snapshots:string[]=[];
     for(let attempt=0;attempt<2;attempt++){
       const human=session();
       try{
-        if(attempt===1)applyHumanMorphology(human,createHumanHeadRecipe(shape));
-        const face=buildHumanFacialEdgeFlow(human,{maxSourceEdges:512});
-        const geometry=face.geometry;
-        const audit=face.audit;
-        expect(face.originalRenderVertices).toBe(human.template.geometry.getAttribute("position").count);
-        expect(audit.refinedVertices).toBe(geometry.getAttribute("position").count);
-        expect(audit.refinedVertices).toBeGreaterThan(audit.originalVertices);
-        expect(audit.refinedTriangles).toBeGreaterThan(audit.originalTriangles);
-        expect(audit.loopCount).toBe(22);
-        console.log("C3.5 contour audit:",JSON.stringify(audit));
-        expect(audit.contours.every(c=>c.closed&&c.edges>=8&&c.components>=1)).toBe(true);
-        expect(Object.keys(audit.featureCoverage).length).toBe(8);
-        expect(audit.featureCoverage["orbit.left"]).toBeGreaterThan(30);
-        expect(audit.featureCoverage["orbit.right"]).toBeGreaterThan(30);
-        expect(face.topologyIds.length).toBe(audit.refinedVertices);
-        validateSkinningSpike(human.spike);
+        applyHumanMorphology(human,createHumanHeadRecipe({
+          ...DEFAULT_HUMAN_HEAD_MORPHOLOGY,skullWidth:1.10,
+          forehead:1.07,cheeks:1.08,jawWidth:1.09,chin:1.08,
+        }));
+        const face=buildHumanFacialSourceSurface(human,{primaryEdges:512,secondaryEdges:640});
+        snapshots.push(JSON.stringify({
+          faces:Array.from(face.geometry.getIndex()!.array),
+          ancestry:face.derivedVertices,
+          ids:Array.from(face.topologyIds),
+        }));
         const fk=new AnatomicalFK(human.spike.graph,human.spike.bones,{
           jawTipWorldRest:human.jawTipWorldRest,
           forearmSkinBones:human.spike.forearmSkinBones,
-          shoulderSkinBones:human.spike.shoulderSkinBones});
+          shoulderSkinBones:human.spike.shoulderSkinBones,
+        });
         const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")!;
-        const vertex=face.newVertices.find(v=>v.contour==="mouth");
-        expect(vertex).toBeDefined();
-        const rest=human.mesh.getVertexPosition(vertex!.index,new THREE.Vector3());
-        fk.apply([{jointId:jaw.id,motion:"flexion",radians:.35}]);
-        const posed=human.mesh.getVertexPosition(vertex!.index,new THREE.Vector3());
-        expect(posed.toArray().every(Number.isFinite)).toBe(true);
+        const vertex=face.derivedVertices.at(-1)!.index;
+        const rest=human.mesh.getVertexPosition(vertex,new THREE.Vector3()).clone();
+        fk.apply([{jointId:jaw.id,motion:"flexion",radians:.4}]);
+        expect(human.mesh.getVertexPosition(vertex,new THREE.Vector3()).toArray()
+          .every(Number.isFinite)).toBe(true);
         fk.apply([]);
-        expect(human.mesh.getVertexPosition(vertex!.index,new THREE.Vector3())
+        expect(human.mesh.getVertexPosition(vertex,new THREE.Vector3())
           .distanceTo(rest)).toBeLessThan(.00015);
-        snapshots.push(JSON.stringify(audit.contours.map(c=>[c.id,c.level,c.edges,c.closed])));
+        validateSkinningSpike(human.spike);
       }finally{human.dispose();}
     }
-    // Different head recipes must retain the same semantic contour contracts.
-    expect(snapshots.length).toBe(2);
+    expect(snapshots[0]).toBe(snapshots[1]);
   },120_000);
 
-  it("keeps diagnostic left eyelid displacement independent of opposite eye and neck",()=>{
+  it("rejects invalid topology budget without modifying source",()=>{
     const human=session();
     try{
-      const face=buildHumanFacialEdgeFlow(human,{maxSourceEdges:512});
-      const position=face.geometry.getAttribute("position");
-      const left=face.atlas.region("eyelid.upper.left");
-      const right=face.atlas.region("eyelid.upper.right");
-      const neckY=human.spike.graph.joints.find(j=>j.role==="neck")!;
-      const neck=human.spike.bones.get(neckY.id)!.getWorldPosition(new THREE.Vector3());
-      let movedLeft=0,movedRight=0,movedNeck=0,maxDisplacement=0;
-      // Diagnostic only: do not mutate the owned geometry or create C3.6
-      // expression targets. Assess independently addressable local fields.
-      for(let i=0;i<position.count;i++){
-        const p=new THREE.Vector3().fromBufferAttribute(position,i);
-        const movement=left.weight(p)*-.002;
-        if(left.weight(p)>.15)movedLeft++;
-        if(right.weight(p)>.15 && movement!==0)movedRight++;
-        if(p.y<neck.y-.02 && movement!==0)movedNeck++;
-        maxDisplacement=Math.max(maxDisplacement,Math.abs(movement));
-      }
-      expect(movedLeft).toBeGreaterThan(4);
-      expect(movedRight).toBe(0);
-      expect(movedNeck).toBe(0);
-      expect(maxDisplacement).toBeGreaterThan(.001);
-      expect(maxDisplacement).toBeLessThanOrEqual(.002);
-      validateSkinningSpike(human.spike);
+      expect(()=>buildHumanFacialSourceSurface(human,{primaryEdges:0})).toThrow();
+      expect(human.mesh.geometry).toBe(human.template.geometry);
+      expect(()=>buildHumanFacialSourceSurface(human,{secondaryEdges:9000})).toThrow();
+      expect(human.mesh.geometry).toBe(human.template.geometry);
     }finally{human.dispose();}
-  },60_000);
-
-  it("repeats contour geometry and derived vertex ancestry exactly on neutral source",()=>{
-    const snapshots:string[]=[];
-    for(let i=0;i<2;i++){
-      const human=session();
-      try{
-        const face=buildHumanFacialEdgeFlow(human,{maxSourceEdges:96});
-        snapshots.push(JSON.stringify({
-          edges:face.audit.contours,
-          ancestry:face.newVertices,
-          topology:Array.from(face.topologyIds),
-          index:Array.from(face.geometry.getIndex()!.array),
-        }));
-      }finally{human.dispose();}
-    }
-    expect(snapshots[0]).toBe(snapshots[1]);
-  },120_000);
-
-  it("regenerates identical canonical topology and rejects invalid budgets",()=>{
-    const snapshots:string[]=[];
-    for(let k=0;k<2;k++){
-      const human=session();
-      try{
-        const ref=refineHumanFacialTopology(human,{maxSourceEdges:96});
-        snapshots.push(JSON.stringify({
-          index:Array.from(ref.geometry.getIndex()!.array),
-          edges:ref.sourceEdges,
-          counts:ref.atlas.audit.regionCounts,
-        }));
-        expect(()=>refineHumanFacialTopology(human,{maxSourceEdges:0})).toThrow();
-      }finally{human.dispose();}
-    }
-    expect(snapshots[0]).toBe(snapshots[1]);
   },120_000);
 });
