@@ -302,7 +302,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
       rigDiagnostics:{...diagnostic,maxBindDisplacementMeters:displacement},
       vertexCount:geometry.getAttribute("position").count,
       triangleCount:geometry.getIndex()!.count/3,
-      dispose(){if(disposed)return;disposed=true;geometry.dispose();spike.dispose();}};
+      dispose(){if(disposed)return;disposed=true; if(spike.mesh.geometry!==geometry)spike.mesh.geometry.dispose();geometry.dispose();spike.dispose();}};
   }
   const indices:number[]=[],weights:number[]=[];
   const joints=spike.graph.joints;
@@ -352,7 +352,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
   let disposed=false;
   return {spike,mesh:spike.mesh,template,
     vertexCount:position.count,triangleCount:geometry.getIndex()!.count/3,
-    dispose(){if(disposed)return;disposed=true;geometry.dispose();spike.dispose();}};
+    dispose(){if(disposed)return;disposed=true; if(spike.mesh.geometry!==geometry)spike.mesh.geometry.dispose();geometry.dispose();spike.dispose();}};
 }
 export async function loadAnatomicalHuman(signal?:AbortSignal,
   onTiming?:AnatomicalTimingSink,
