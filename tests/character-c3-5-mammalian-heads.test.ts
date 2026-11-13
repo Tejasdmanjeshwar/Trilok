@@ -10,6 +10,8 @@ import {parseAnatomicalOBJ,bindTemplateToSemanticRig} from
 import {applyHumanMorphology,getMammalianHeadLandmarks,getHumanHeadLandmarks,
   getHumanMorphologyAlignment} from
   "../apps/web/src/characters/geometry/HumanMorphology";
+import {makeMammalianHeadTransform} from
+  "../apps/web/src/characters/geometry/MammalianHeadDeformation";
 import {AnatomicalFK} from
   "../apps/web/src/characters/geometry/AnatomicalFK";
 import {inspectAnatomicalMorphologyBaseline} from
@@ -163,6 +165,72 @@ describe("C3.5 primate and bear anatomical head families",()=>{
           .toBeLessThan(.00015);
         expect(()=>applyHumanMorphology(human,createMammalianHeadRecipe(family)))
           .toThrow(/already applied/);
+      }finally{human.dispose();}
+    }
+  },120_000);
+
+
+  it("features calibrated nasal pad, paired recessed nostrils and jaw-mounted mouth",()=>{
+    for(const family of families){
+      const human=session(family);
+      try{
+        const base=human.mesh.geometry.getAttribute("position");
+        const previous=Float32Array.from(base.array as ArrayLike<number>);
+        const recipe=createMammalianHeadRecipe(family,stressed);
+        applyHumanMorphology(human,recipe);
+        const {spike,mesh}=human;
+        const colors=mesh.geometry.getAttribute("color");
+        expect(colors).toBeDefined();
+        expect(colors!.itemSize).toBe(3);
+        expect(colors!.count).toBe(base.count);
+        const seen=new Set<string>();
+        for(let i=0;i<colors!.count;i++){
+          const r=colors!.getX(i),g=colors!.getY(i),b=colors!.getZ(i);
+          expect([r,g,b].every(v=>Number.isFinite(v)&&v>=0&&v<=1)).toBe(true);
+          seen.add([r,g,b].map(n=>n.toFixed(2)).join(","));
+        }
+        expect(seen.size).toBeGreaterThan(12);
+        const raw=session(family);
+        let anatomy:ReturnType<typeof makeMammalianHeadTransform>["anatomy"];
+        try {anatomy=makeMammalianHeadTransform(raw,family,stressed).anatomy;}
+        finally {raw.dispose();}
+        const n=anatomy.metrics;
+        expect(n.noseY).toBeGreaterThan(n.mouthY);
+        expect(n.maximumMuzzleProjectionMeters).toBeLessThan(.07);
+        const left=new THREE.Vector3(-n.nasalHalfWidth*.40,n.noseY-n.noseHeight*.22,n.faceZ+.1);
+        const right=left.clone();right.x=-left.x;
+        const nasal=anatomy.fields(new THREE.Vector3(0,n.noseY,n.faceZ+.1));
+        const naresL=anatomy.fields(left),naresR=anatomy.fields(right);
+        expect(nasal.nosePad).toBeGreaterThan(0);
+        expect(naresL.nostrilLeft).toBeGreaterThan(naresL.nostrilRight);
+        expect(naresR.nostrilRight).toBeGreaterThan(naresR.nostrilLeft);
+        const mouth=anatomy.fields(new THREE.Vector3(0,n.mouthY,n.faceZ+.1));
+        expect(mouth.mouthCrease).toBeGreaterThan(.1);
+        const lm=getMammalianHeadLandmarks(human)!;
+        expect(lm.noseRest[1]).toBeGreaterThan(lm.mouthRest[1]);
+        expect(lm.nostrilLeftRest[0]).toBeLessThan(lm.nostrilRightRest[0]);
+        const fk=new AnatomicalFK(spike.graph,spike.bones,{
+          jawTipWorldRest:human.jawTipWorldRest,
+          forearmSkinBones:spike.forearmSkinBones,
+          shoulderSkinBones:spike.shoulderSkinBones,
+        });
+        const mouthBefore=lm.mouthWorld(),noseBefore=lm.noseWorld();
+        const jaw=spike.graph.joints.find(j=>j.role==="jaw")!;
+        fk.apply([{jointId:jaw.id,motion:"flexion",radians:.45}]);
+        expect(lm.mouthWorld().distanceTo(mouthBefore)).toBeGreaterThan(.001);
+        expect(lm.noseWorld().distanceTo(noseBefore)).toBeLessThan(.00001);
+        fk.apply([]);
+        expect(lm.mouthWorld().distanceTo(mouthBefore)).toBeLessThan(.00001);
+        expect(lm.noseWorld().distanceTo(noseBefore)).toBeLessThan(.00001);
+        let maxDelta=0;
+        for(let i=0;i<base.count;i++){
+          const p=new THREE.Vector3().fromBufferAttribute(base,i);
+          const source=new THREE.Vector3(previous[i*3]!,previous[i*3+1]!,
+            previous[i*3+2]!);
+          maxDelta=Math.max(maxDelta,p.distanceTo(source));
+        }
+        expect(maxDelta).toBeGreaterThan(.01);
+        expect(maxDelta).toBeLessThan(.35);
       }finally{human.dispose();}
     }
   },120_000);

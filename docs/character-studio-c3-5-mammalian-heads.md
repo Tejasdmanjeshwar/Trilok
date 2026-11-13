@@ -49,6 +49,57 @@ root, source-index remap or extra gameplay joints. The head and jaw continue
 to follow C1 FK; both families expose deterministic mouth, ear and orbital
 reference points and preserve the C3.3 socket/IK rest alignment.
 
+## C3.5 anatomical-face correction after owner visual rejection
+
+**Observed defect:** the original C3.5 implementation summed wide, forward
+Gaussian muzzle and nose displacements (bear `0.119 m × muzzleLength`,
+primate `0.072 m × muzzleLength`) over the original human nose and lips.
+This created a smooth pointed extrusion instead of a nostril-bearing nose
+and anatomically readable mouth, with little distinction between species.
+Existing tests checked topology/skin/FK and that a muzzle moved, **not**
+nose, nostrils, lips, pigment boundaries, or exaggerated reach.
+
+The correction replaces that field with `MammalianFaceAnatomy`, a calibrated
+set of independent features on **the original continuous CC0 source surface**:
+a compact nasal pad/rhinarium, mirrored nasal recesses, central mouth line
+with upper and lower lip volume, rounded muzzle-to-cheek transitions, brow
+and orbital depression, ear mound/bowl regions and differentiated facial
+vertex colors. Species profiles have bounded, independently dimensioned
+muzzle projection (design caps: 0.037 m primate; 0.063 m bear), rather than
+adding a second excessive projection over the original nose. The source
+muzzle/nostril/nose/ear landmarks follow the head; a new oral reference
+is mapped to the existing canonical C1 jaw. Geometry/UV/skin ownership,
+root scale, original body representation and C1/C2 combat compatibility
+remain unchanged. Original source-boundary color is preserved below the neck;
+visual anatomical fields are derived without runtime network calls.
+
+**Reference provenance and policy.** Anatomical concept:
+Old World macaque (not an unspecified `monkey` and not a gorilla),
+broadly inspired by relative nasal and oral feature layout; brown bear
+`Ursus arctos` skull/soft-tissue external silhouette. Reference resources,
+not ingested mesh assets:
+- University of Dundee, CC0 brown-bear skull scan:
+  https://sketchfab.com/3d-models/brown-bear-skull-e01dc94d20df4b888c7a6979bffb45a9
+- National Museum of Nature and Science (Japan), brown-bear taxidermy
+  visual reference; **reuse rights not confirmed**:
+  https://yoshimoto.kahaku.go.jp/3d/en/NSMTM32303/
+- MF3D CT-based macaque facial models, documentation:
+  https://mf3d.readthedocs.io/en/main/MF3D-Database.html
+  Noncommercial/share-alike terms prohibit treating these data as
+  unrestricted game source assets. **No MF3D geometry, scans, photos or
+  textures are imported into Trilok.** Feature ratios here are authored
+  stylized constraints, **not** calibrated measurements transcribed from
+  museum or CT meshes.
+
+Additional tests verify opposed nostril localization, mouth-versus-nose
+landmarks, a jaw-following mouth with stable cranial nose, colored face
+regions, finite colors and bounded deformation. Phase-gated browser
+acceptance must assess recognizability from front and side, nose/mouth
+separation, ear/cheek contour, jaw opening and lack of elongated human
+nose artifact. If the result remains visually unconvincing, C3.5 **is not
+accepted**; moving to source-specific face topology should be evaluated
+instead of increasing projection coefficients.
+
 ## Laboratory and verification
 
 The isolated `/c2-lab.html` page adds **Human / Primate / Bear** family
