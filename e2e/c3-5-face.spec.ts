@@ -1,0 +1,48 @@
+import {test,expect} from "@playwright/test";
+import {mkdirSync} from "node:fs";
+
+test("C3.5 opt-in facial refinement preserves head/jaw poses and renders multiple views",async({page})=>{
+  test.setTimeout(180_000);
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto("/c2-lab.html");
+  const root=page.locator("html");
+  await expect(root).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  await expect(root).toHaveAttribute("data-c35-face-ready","false");
+  await page.locator("#view-select").selectOption("head-front");
+  const initialCamera=await page.locator("#viewport").getAttribute("data-camera-state");
+  await page.locator("#c35-face-refinement").check();
+  await expect(root).toHaveAttribute("data-c35-face-ready","true",{timeout:60_000});
+  await expect(root).toHaveAttribute("data-c2-source","template");
+  await expect(root).toHaveAttribute("data-c2-jaw-direction","passed");
+  await expect(page.locator("#c35-face-audit")).toContainText("26 semantic control regions");
+  const refinedVertices=Number(await root.getAttribute("data-c35-face-vertices"));
+  expect(refinedVertices).toBeGreaterThan(1000);
+  // Refinement must preserve user camera, rather than reframe on rebuild.
+  expect(await page.locator("#viewport").getAttribute("data-camera-state")).toBe(initialCamera);
+  const platform=test.info().project.name;
+  mkdirSync("test-results/c35",{recursive:true});
+  for(const view of ["head-front","head-side"]){
+    await page.locator("#view-select").selectOption(view);
+    await expect(page.locator("#view-select")).toHaveValue(view);
+    await page.locator("#viewport").screenshot({
+      path:"test-results/c35/"+platform+"-"+view+"-neutral.png",
+    });
+  }
+  await page.getByText("Geometry overlays",{exact:true}).click();
+  await page.locator('[data-debug="wireframe"]').check();
+  await page.locator("#viewport").screenshot({
+    path:"test-results/c35/"+platform+"-profile-wireframe.png",
+  });
+  await page.locator('[data-debug="wireframe"]').uncheck();
+  await page.locator("#pose-select").selectOption("jaw");
+  await expect(page.locator("#status")).toContainText("jaw");
+  await page.locator("#viewport").screenshot({
+    path:"test-results/c35/"+platform+"-jaw-open-profile.png",
+  });
+  await page.locator("#pose-select").selectOption("neutral");
+  await page.locator("#c35-face-refinement").uncheck();
+  await expect(root).toHaveAttribute("data-c35-face-ready","false",{timeout:60_000});
+  await expect(root).toHaveAttribute("data-c2-source","template");
+  expect(errors).toEqual([]);
+});
