@@ -6,8 +6,7 @@ import { createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY,
   type MammalianHeadMorphologyV1, type MammalianHeadFamilyV1 } from "@trilok/character-core";
 import { applyHumanMorphology, getHumanHeadLandmarks,
   getMammalianHeadLandmarks } from "../geometry/HumanMorphology";
-import { buildHumanFacialEdgeFlow, type FacialEdgeFlowAudit } from "../geometry/FacialEdgeFlow";
-import { buildHumanFacialApertures, type FacialApertureAudit } from "../geometry/FacialApertures";
+import { buildHumanFacialSourceSurface, type FacialSourceAudit } from "../geometry/FacialSourceTopology";
 import { HumanPoseCorrectives } from "../geometry/HumanPoseCorrectives";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
@@ -40,7 +39,6 @@ let surface="template";
 let currentPose="neutral";
 let currentView="front";
 const facialRefinementToggle=document.querySelector<HTMLInputElement>("#c35-face-refinement");
-const facialApertureToggle=document.querySelector<HTMLInputElement>("#c35-face-apertures");
 const facialAuditDisplay=document.querySelector<HTMLElement>("#c35-face-audit");
 const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = {
   neutral:{}, shoulders:{shoulders:1.10}, chest:{chest:1.10},
@@ -307,8 +305,7 @@ try{
     error!.textContent="";
     let preview:Preview;
     const sampleTimings=new Map<AnatomicalLoadStage,number>();
-    let facialAudit:FacialEdgeFlowAudit|undefined;
-    let apertureAudit:FacialApertureAudit|undefined;
+    let facialAudit:FacialSourceAudit|undefined;
     try {
       if(name==="template"){
         const family=selectedFamily();
@@ -343,12 +340,8 @@ try{
         }
         // Independent geometry pass AFTER C3 rest-space shaping and rebinding.
         // This is an authoring/diagnostic preview, not a C3.6 morph operation.
-        if(family==="human" && facialApertureToggle?.checked){
-          const result=buildHumanFacialApertures(anatomical);
-          apertureAudit=result.audit;
-          facialAudit=result.edgeFlow.audit;
-        }else if(family==="human" && facialRefinementToggle?.checked){
-          facialAudit=buildHumanFacialEdgeFlow(anatomical).audit;
+        if(family==="human" && facialRefinementToggle?.checked){
+          facialAudit=buildHumanFacialSourceSurface(anatomical).audit;
         }
       }
       else preview=createContinuousHumanPrototype({step:.047});
@@ -376,19 +369,14 @@ try{
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
     document.documentElement.dataset.c35FaceReady=String(!!facialAudit);
-    document.documentElement.dataset.c35AperturesReady=String(!!apertureAudit);
-    document.documentElement.dataset.c35FaceVertices=String(apertureAudit?.afterVertices??
-      facialAudit?.refinedVertices??0);
-    if(facialAuditDisplay)facialAuditDisplay.textContent=apertureAudit?
-      "C3.5 experimental recesses: "+apertureAudit.afterVertices.toLocaleString()+
-      " vertices; "+apertureAudit.apertureCount+" bounded feature pockets; "+
-      apertureAudit.boundaryEdges+" open edges; "+
-      apertureAudit.nonManifoldEdges+" non-manifold edges. Not an anatomical animation rig." :
-      facialAudit?
-      "C3.5: "+facialAudit.refinedVertices.toLocaleString()+" total vertices ("+
-      (facialAudit.refinedVertices-facialAudit.originalVertices)+" new); "+
+    document.documentElement.dataset.c35AperturesReady="false";
+    document.documentElement.dataset.c35FaceVertices=String(facialAudit?.refinedVertices??0);
+    if(facialAuditDisplay)facialAuditDisplay.textContent=facialAudit?
+      "C3.5 source-derived control mesh: "+
+      facialAudit.refinedVertices.toLocaleString()+" vertices; "+
       facialAudit.refinedTriangles.toLocaleString()+" triangles; "+
-      facialAudit.loopCount+" validated closed contour loops; 26 semantic control regions." :
+      facialAudit.primarySourceEdges+" primary and "+
+      facialAudit.secondaryCanonicalEdges+" secondary source edges; 26 semantic control regions. No invented facial cavities." :
       "Facial topology controls inactive.";
     if(name==="template" && (morphologySelect?.value!=="neutral" ||
       headIsActive() || selectedFamily()!=="human"))
@@ -405,7 +393,6 @@ try{
     for(const slider of headSliders.values()) slider.disabled=name!=="template";
     if(familySelect)familySelect.disabled=name!=="template";
     if(facialRefinementToggle)facialRefinementToggle.disabled=name!=="template" || selectedFamily()!=="human";
-    if(facialApertureToggle)facialApertureToggle.disabled=name!=="template" || selectedFamily()!=="human";
     if(mammalPresetSelect)mammalPresetSelect.disabled=
       name!=="template" || selectedFamily()==="human";
     for(const slider of mammalSliders.values())slider.disabled=
@@ -538,7 +525,6 @@ try{
   }
   const labControls=createCharacterLabControls(applyPose,applyView);
   facialRefinementToggle?.addEventListener("change",()=>void switchSurface("template",true));
-  facialApertureToggle?.addEventListener("change",()=>void switchSurface("template",true));
   const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
   sourceSelect?.addEventListener("change",()=>{
     void switchSurface(sourceSelect.value);
@@ -551,7 +537,6 @@ try{
     for(const slider of mammalSliders.values())
       slider.disabled=selectedFamily()==="human";
     if(facialRefinementToggle)facialRefinementToggle.disabled=selectedFamily()!=="human";
-    if(facialApertureToggle)facialApertureToggle.disabled=selectedFamily()!=="human";
     void switchSurface("template",true);
   });
   mammalPresetSelect?.addEventListener("change",()=>{
