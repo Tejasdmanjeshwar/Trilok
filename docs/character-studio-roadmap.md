@@ -1,6 +1,6 @@
 # Trilok Character Studio — Browser-Native Character System Roadmap (C0–C9)
 
-**Status:** C0/C1 contracts and C2 anatomical foundation are accepted; C2 Phase Acceptance #43289499861 passed on SHA 7d2b888afd8ffa3fe26a5fd1b611b55fe9c81ac5 with owner Cloudflare/Character Lab sign-off (Issue #15 closed). C3.1 merged via PR #40; C3.2 localized shaping and an opt-in Character Lab preview are being implemented. C3 remains unaccepted; C4 and combat migration have not begun.
+**Status:** C0/C1 contracts and C2 anatomical foundation are accepted; C2 Phase Acceptance #43289499861 passed on SHA 7d2b888afd8ffa3fe26a5fd1b611b55fe9c81ac5 with owner Cloudflare/Character Lab sign-off (Issue #15 closed). C3.1 merged via PR #40; C3.2 localized shaping and opt-in Character Lab preview are merged; C3.3 experimental corrections and socket/IK calibration are in progress. C3 remains unaccepted; C4 and combat migration have not begun.
 **Repository baseline at planning time:** main @ db8348bd296a412262781d20a9f444fea474c692; playable 0.4.0-preview.19; combat 0.4-D14.  
 **Scope:** shared, reusable character technology for Ramayana and subsequent campaigns.  
 **First implementation phase:** C0 architecture audit/specification. Review the [C0 ADR](character-studio-c0-architecture.md) and its verification before starting C1.  
@@ -145,7 +145,7 @@ C2 is limited to the reliable anatomical human mesh/rig foundation. Distinct rev
 
 Create bounded body/face parameters, topology families, corrective morphs, bone/IK/socket/refit calculations, stable hashes and extreme-combination tests. Provide custom humanoid heads including primate, avian and bear-like profiles through compatible template families. Dismemberment/disfigurement state remains separate.
 
-**C3 implementation record:** C3.1 [morphology base](character-studio-c3-1-morphology.md) adds deterministic whole-body stature/breadth and neutral rebinds. C3.2 [localized shaping](character-studio-c3-2-local-morphology.md) adds bounded torso and limb proportion channels plus an experimental laboratory preset view, without starting C4. Full C3 acceptance and head-family morphs remain pending. Track [Issue #41](https://github.com/Tejasdmanjeshwar/Trilok/issues/41).\n\n### C4 — Standalone Character Studio
+**C3 implementation record:** C3.1 [morphology base](character-studio-c3-1-morphology.md) adds deterministic whole-body stature/breadth and neutral rebinds. C3.2 [localized shaping](character-studio-c3-2-local-morphology.md) adds bounded torso and limb proportion channels plus an experimental laboratory preset view, without starting C4. C3.3 [experimental pose correctives and alignment](character-studio-c3-3-correctives.md) adds opt-in radial shoulder/hip morphs and measured shape-derived sockets/IK chain reach. Full C3 acceptance, measured contact alignment and head-family morphs remain pending. Track [Issue #41](https://github.com/Tejasdmanjeshwar/Trilok/issues/41).\n\n### C4 — Standalone Character Studio
 
 Deliver lazy-loaded **/studio** interface in existing web application with the *same* runtime character builder, archetypes/presets, orbit + orthographic views, editable controls, undo/redo, serialization, accessibility, debugging overlays, pose previews and regeneration cancellation. UI does not duplicate mesh logic.
 
