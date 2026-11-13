@@ -50,7 +50,7 @@ export function calibrateHumanMorphologyAlignment(
   originals: ReadonlyMap<string, RestSocket>,
   mapRestPoint: (position: THREE.Vector3, parentIndex: number) => THREE.Vector3,
 ): HumanMorphologyAlignment {
-  const { graph, skeleton, character, bones } = human.spike;
+  const { graph, character, bones } = human.spike;
   character.root.updateMatrixWorld(true);
   const sockets = new Map<string, readonly [number, number, number]>();
   for (const socket of graph.sockets) {
@@ -72,7 +72,7 @@ export function calibrateHumanMorphologyAlignment(
   const chains = new Map<HumanIKChainId, HumanIKChain>();
   for (const kind of ["arm", "leg"] as const) {
     for (const side of ["left", "right"] as const) {
-      const id: HumanIKChainId = kind + "_" + side;
+      const id: HumanIKChainId = `${kind}_${side}`;
       const roles = kind === "arm"
         ? ["shoulder_", "elbow_", "wrist_"]
         : ["hip_", "knee_", "ankle_"];
