@@ -111,6 +111,11 @@ export function applyHumanMorphology(
   // C3.4: prepare and validate every computed vertex BEFORE writing geometry,
   // bones or inverse binds. No C1/C3.1/C3.2 code path is rerouted here.
   const stagedPositions = headTransform ? new Float32Array(pos.count * 3) : undefined;
+  const stagedColors = mammal ? new Float32Array(pos.count * 3) : undefined;
+  const faceAnatomy = mammal ?
+    (headTransform as ReturnType<typeof makeMammalianHeadTransform>).anatomy : undefined;
+  const bodyColor = new THREE.Color(0xb38b70);
+  const neutralColor = new THREE.Color(0xffffff);
   if (stagedPositions) {
     for (let i=0; i<pos.count; i++) {
       const mapped = mapVertex(new THREE.Vector3().fromBufferAttribute(pos,i),i);
@@ -119,6 +124,21 @@ export function applyHumanMorphology(
       stagedPositions[i*3]=mapped.x;
       stagedPositions[i*3+1]=mapped.y;
       stagedPositions[i*3+2]=mapped.z;
+      if (stagedColors && faceAnatomy) {
+        const original = new THREE.Vector3().fromBufferAttribute(pos,i);
+        const color = faceAnatomy.color(original);
+        // Source-surface vertex colors make the nasal pad, nostrils, lips and
+        // ear bowl legible while the original CC0 body keeps its prior tone.
+        const face = THREE.MathUtils.clamp(
+          (original.y - (headTransform as ReturnType<typeof makeMammalianHeadTransform>)
+            .landmarks.neck.y) / .065,0,1);
+        const t = face*face*(3-2*face);
+        color.lerp(bodyColor,1-t);
+        color.lerp(neutralColor,0);
+        stagedColors[i*3]=color.r;
+        stagedColors[i*3+1]=color.g;
+        stagedColors[i*3+2]=color.b;
+      }
     }
   }
   const nextBonePositions = oldLocalPositions.map((p, i) => mapJoint(p.clone(), i));
@@ -153,6 +173,15 @@ export function applyHumanMorphology(
     }
   }
   pos.needsUpdate = true;
+  if(stagedColors) {
+    // Vertex colors operate only on this freshly allocated, owned
+    // presentation mesh. C1/2 geometry indices, UVs and weights remain intact.
+    geometry.setAttribute("color",new THREE.Float32BufferAttribute(stagedColors,3));
+    const material=mesh.material as THREE.MeshStandardMaterial;
+    material.vertexColors=true;
+    material.color.set(0xffffff);
+    material.needsUpdate=true;
+  }
   if (localTransform) recomputeSourceNormals(human);
   else normal.needsUpdate = true;
   geometry.computeBoundingBox();
