@@ -268,6 +268,54 @@ describe("C3.5 primate and bear anatomical head families",()=>{
     }
   },120_000);
 
+  it("C3.5 new Vanara surface follows C1 head and jaw and recovers neutral pose",()=>{
+    const human=session("primate");
+    try {
+      applyHumanMorphology(human,createMammalianHeadRecipe("primate",stressed));
+      const replacement=getVanaraReplacement(human)!;
+      expect(replacement).toBeDefined();
+      const surface=replacement.mesh;
+      const position=surface.geometry.getAttribute("position");
+      const indices=surface.geometry.getAttribute("skinIndex");
+      const weights=surface.geometry.getAttribute("skinWeight");
+      const jawId=human.spike.graph.joints.findIndex(j=>j.role==="jaw");
+      expect(jawId).toBeGreaterThanOrEqual(0);
+      let jawSample=-1,best=0;
+      for(let i=0;i<position.count;i++){
+        let w=0;
+        for(let k=0;k<4;k++){
+          if(indices.getComponent(i,k)===jawId)
+            w+=weights.getComponent(i,k);
+        }
+        if(w>best){best=w;jawSample=i;}
+      }
+      expect(best).toBeGreaterThan(.5);
+      const skullSample=Math.floor(replacement.seamVertices+
+        (position.count-replacement.seamVertices)*.65);
+      const restSkull=surface.getVertexPosition(skullSample,new THREE.Vector3()).clone();
+      const restJaw=surface.getVertexPosition(jawSample,new THREE.Vector3()).clone();
+      const fk=new AnatomicalFK(human.spike.graph,human.spike.bones,{
+        jawTipWorldRest:human.jawTipWorldRest,
+        forearmSkinBones:human.spike.forearmSkinBones,
+        shoulderSkinBones:human.spike.shoulderSkinBones,
+      });
+      const head=human.spike.graph.joints.find(j=>j.role==="head")!;
+      fk.apply([{jointId:head.id,motion:"rotation",radians:.30}]);
+      expect(surface.getVertexPosition(skullSample,new THREE.Vector3())
+        .distanceTo(restSkull)).toBeGreaterThan(.001);
+      fk.apply([]);
+      expect(surface.getVertexPosition(skullSample,new THREE.Vector3())
+        .distanceTo(restSkull)).toBeLessThan(.0002);
+      const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")!;
+      fk.apply([{jointId:jaw.id,motion:"flexion",radians:.40}]);
+      expect(surface.getVertexPosition(jawSample,new THREE.Vector3())
+        .distanceTo(restJaw)).toBeGreaterThan(.001);
+      fk.apply([]);
+      expect(surface.getVertexPosition(jawSample,new THREE.Vector3())
+        .distanceTo(restJaw)).toBeLessThan(.0002);
+    }finally{human.dispose();human.dispose();}
+  },120_000);
+
   it("does not accept a mismatched family graph or posed input",()=>{
     const human=session("primate");
     try{
