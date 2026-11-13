@@ -12,6 +12,7 @@ import { inspectAnatomicalMorphologyBaseline } from "./AnatomicalMorphologyContr
 import { validateSkinningSpike } from "./SkinningSpike";
 import { makeHumanHeadTransform, calibrateHumanHeadLandmarks,
   type HumanHeadLandmarks } from "./HumanHeadDeformation";
+import { replaceVanaraHead } from "./VanaraHeadReplacement";
 import {makeMammalianHeadTransform, calibrateMammalianHeadLandmarks,
   type MammalianHeadLandmarks} from "./MammalianHeadDeformation";
 
@@ -198,9 +199,15 @@ export function applyHumanMorphology(
     const mapBody = (point:THREE.Vector3,index:number) =>
       localTransform ? localTransform.joint(point,index) : transform(point,shape);
     headLandmarks.set(human, calibrateHumanHeadLandmarks(human, headTransform,mapBody));
-    if(mammal)
-      mammalLandmarks.set(human, calibrateMammalianHeadLandmarks(human,
-        headTransform as ReturnType<typeof makeMammalianHeadTransform>, mapBody));
+    if(mammal){
+      // The C3.5 primate now has original facial topology. Bear stays the
+      // pre-existing experimental C7-deferred human-topology preview.
+      const landmarks=mammal.family==="primate"
+        ? replaceVanaraHead(human,headTransform,mammal.shape).landmarks
+        : calibrateMammalianHeadLandmarks(human,
+          headTransform as ReturnType<typeof makeMammalianHeadTransform>,mapBody);
+      mammalLandmarks.set(human,landmarks);
+    }
   }
   applied.add(human);
   return Object.freeze({
