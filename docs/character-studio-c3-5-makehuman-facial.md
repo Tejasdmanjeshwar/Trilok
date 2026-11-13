@@ -1,0 +1,19 @@
+# C3.5 — MakeHuman CC0 facial controls (review candidate)
+
+## Provenance and correspondence
+
+Source revision: `a8bc2d54ff0ac92e78ff71431b1023eda42bf482`, matching `assets/makehuman-core.json`. The target manifest `assets/makehuman-facial-v1.json` pins 80 unchanged MakeHuman CC0 sparse `.target` assets by Git blob SHA and byte length. `scripts/fetch-makehuman-facial.mjs` downloads, verifies, parses and compiles original per-source-vertex displacement records during build; no MakeHuman AGPL executable code or manual editor is used. Expression controls currently use the original Caucasian expression-unit set, not the MakeHuman ethnic-macro blending system; facial shape controls use the unqualified original modifier targets. The matching face-poseunits JSON was audited to identify supported facial actions. It is not a source of baked vertex offsets and is not directly interpreted as a skinning animation.
+
+All deltas refer to zero-based source OBJ vertex indices. C2's render UV duplicates preserve `template.sourceVertexIds`, allowing an exact source-to-render scattering without remeshing or changing topology, UVs, four skin influences, canonical joints or the combat domain. Deltas are multiplied by `template.conversionMetersPerSourceUnit` once and applied after C3.4's accepted rest-space shaping. Recomputing shared source normals avoids split UV seam lighting artifacts. Each controller captures a fresh owned baseline, and control combinations iterate the fixed `FACIAL_CONTROLS` order using double-precision accumulation. A shared fetched atlas is reused across Character Lab rebuilds.
+
+## Browser controls
+
+The existing `/c2-lab.html` provides 49 controls for the source eyes, eyelid closure and opening, brows, nose and nostrils, cheeks, lips and mouth, chin, jaw asymmetry and ears. Each has independent signed or unipolar values, explicit stress ranges reaching 1.25× the upstream delta, bilateral presets, asymmetry and reset. Source mouth opening is separate from C1 jaw articulation; `mouthOpen` changes source facial vertices, while jaw FK retains its C1 joint. Presets and sliders edit the actual rigged Character Lab mesh in place, preserving the chosen pose and camera. Front, side, three-quarter, wireframe and C1 jaw poses can be selected independently.
+
+## Validation and acceptance constraints
+
+`MakeHumanFacialController` checks all source IDs and delta coordinates, rejects unknown parameters, stages and checks finite positions, scatters identical deltas to UV seam duplicates, computes source-normal recalculation, and reports exact counts of collapsed triangles (relative surface area below 3%), flipped face orientation (negative baseline/derived normal dot), stretched triangles (area ratio above 4×), zero/finite failures, seam mismatch, the maximal edge stretch and CPU apply milliseconds. These are diagnostics, **not** a complete self-intersection detection algorithm. Existing MakeHuman topology and UV closure are preserved; a deformed surface may still intersect itself. Combined stresses intentionally expose problems rather than automatically hiding them with small slider ranges. Persistent actual geometric inversion or tearing requires correction before visual signoff.
+
+The body and original C3.4 geometry remain unchanged with neutral C3.5 controls. There are no new vertices. No new facial bones, C3.6 authoring system or C4 studio is introduced. The existing mammalian preview is legacy/unaccepted and not modified in C3.5.
+
+**Acceptance is pending:** passing tests alone are insufficient. Verify a pinned SHA of the built site, inspect desktop/touch Chromium screenshots for neutral, eyelid closure, unilateral expression, mouth opening and jaw rotation at multiple angles, test stresses and document visible faults. Do not merge this branch without explicit owner visual acceptance.
