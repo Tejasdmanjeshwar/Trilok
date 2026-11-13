@@ -3,7 +3,7 @@ import * as THREE from "three";
 import {readFileSync} from "node:fs";
 import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from "../apps/web/src/characters/geometry/AnatomicalTemplate";
 import {applyHumanMorphology} from "../apps/web/src/characters/geometry/HumanMorphology";
-import {createHumanHeadRecipe,DEFAULT_HUMAN_HEAD_MORPHOLOGY} from "@trilok/character-core";
+import {createHumanHeadRecipe,DEFAULT_HUMAN_HEAD_MORPHOLOGY} from "../packages/character-core/src/index";
 import {FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,
   validateFacialAtlas,validateFacialWeights,type FacialAtlas} from
   "../apps/web/src/characters/geometry/MakeHumanFacialTargets";
