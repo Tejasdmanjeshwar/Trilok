@@ -6,7 +6,9 @@ import { createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY,
   type MammalianHeadMorphologyV1, type MammalianHeadFamilyV1 } from "@trilok/character-core";
 import { applyHumanMorphology, getHumanHeadLandmarks,
   getMammalianHeadLandmarks } from "../geometry/HumanMorphology";
-import { buildHumanFacialSourceSurface, type FacialSourceAudit } from "../geometry/FacialSourceTopology";
+import { buildHumanFacialSourceSurface, type FacialSourceAudit,
+  type HumanFacialSourceSurface } from "../geometry/FacialSourceTopology";
+import { FacialControlPreview, type FacialControlOffset } from "../geometry/FacialControlPreview";
 import { HumanPoseCorrectives } from "../geometry/HumanPoseCorrectives";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
@@ -32,13 +34,14 @@ let active:Preview|undefined;
 let fk:AnatomicalFK|undefined;
 let correctives:HumanPoseCorrectives|undefined;
 let overlay:THREE.SkeletonHelper|undefined;
+let activeFacialControls:FacialControlPreview|undefined;
+let facialFailureOverlay:THREE.SkinnedMesh|undefined;
 let inspector:BoneInspector|undefined;
 let renderer:THREE.WebGLRenderer|undefined;
 let frame=0;
 let surface="template";
 let currentPose="neutral";
 let currentView="front";
-const facialRefinementToggle=document.querySelector<HTMLInputElement>("#c35-face-refinement");
 const facialAuditDisplay=document.querySelector<HTMLElement>("#c35-face-audit");
 const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = {
   neutral:{}, shoulders:{shoulders:1.10}, chest:{chest:1.10},
@@ -60,6 +63,12 @@ const headPresets: Readonly<Record<string, Partial<HumanHeadMorphologyV1>>> = {
   stress:{skullWidth:1.10,skullHeight:1.07,forehead:1.07,
     brow:1.08,cheeks:1.08,jawWidth:1.09,chin:1.08,
     faceDepth:1.06,eyeSpacing:1.05},
+  extreme:{skullWidth:1.25,skullHeight:1.25,forehead:1.25,
+    brow:1.25,cheeks:1.25,jawWidth:1.25,chin:1.25,
+    faceDepth:1.25,eyeSpacing:1.25},
+  "extreme-min":{skullWidth:.75,skullHeight:.75,forehead:.75,
+    brow:.75,cheeks:.75,jawWidth:.75,chin:.75,
+    faceDepth:.75,eyeSpacing:.75},
 };
 const headSliders = new Map<HeadKey, HTMLInputElement>();
 for (const key of headKeys) {
@@ -79,6 +88,33 @@ const syncHeadValues=():void => {
   }
 };
 syncHeadValues();
+type FacialControlKey="left-eye"|"right-eye"|"mouth"|"left-cheek"|"right-cheek";
+const facialKeys=["left-eye","right-eye","mouth","left-cheek","right-cheek"] as const;
+const facialInputs=new Map<FacialControlKey,HTMLInputElement>();
+for(const key of facialKeys){
+  const slider=document.querySelector<HTMLInputElement>('[data-face-param="'+key+'"]');
+  if(!slider)throw new Error("Missing normal facial control "+key);
+  facialInputs.set(key,slider);
+}
+const facePresetSelect=document.querySelector<HTMLSelectElement>("#c35-expression-preset");
+const facialWarning=document.querySelector<HTMLElement>("#c35-stress-audit");
+const showFailures=document.querySelector<HTMLInputElement>("#c35-show-failures");
+const facePresets:Readonly<Record<string,Partial<Record<FacialControlKey,number>>>>={
+  neutral:{}, "left-eye":{"left-eye":100},
+  "both-eyes":{"left-eye":100,"right-eye":100},
+  mouth:{mouth:100},
+  cheeks:{"left-cheek":100,"right-cheek":-100},
+  combined:{"left-eye":100,"right-eye":100,mouth:100,
+    "left-cheek":100,"right-cheek":-100},
+};
+function syncFacialValues():void {
+  for(const key of facialKeys) {
+    const output=document.querySelector<HTMLOutputElement>(
+      '[data-face-value="'+key+'"]');
+    if(output)output.value=facialInputs.get(key)!.value+"%";
+  }
+}
+syncFacialValues();
 // C3.5: the source C1 head-family ID follows this selector, while the body,
 // shoulders and existing human proportions retain the shared calibrated mesh.
 const familySelect=document.querySelector<HTMLSelectElement>("#head-family");
@@ -294,6 +330,62 @@ try{
     material.wireframe=selected("wireframe");
     refreshOverlay();
   };
+
+  const clearFacialFailureOverlay=():void=>{
+    facialFailureOverlay?.removeFromParent();
+    facialFailureOverlay?.geometry.dispose();
+    if(facialFailureOverlay?.material instanceof THREE.Material)
+      facialFailureOverlay.material.dispose();
+    facialFailureOverlay=undefined;
+  };
+  const facialOffsets=():FacialControlOffset[]=>{
+    const amount=(key:FacialControlKey)=>
+      Number(facialInputs.get(key)!.value)/100;
+    const left=amount("left-eye"),right=amount("right-eye");
+    const mouth=amount("mouth"),cheekL=amount("left-cheek");
+    const cheekR=amount("right-cheek");
+    return [
+      ["eyelid.upper.left",[0,-.003*left,0]],
+      ["eyelid.lower.left",[0,.003*left,0]],
+      ["eyelid.upper.right",[0,-.003*right,0]],
+      ["eyelid.lower.right",[0,.003*right,0]],
+      ["lip.upper",[0,.002*mouth,0]],
+      ["lip.lower",[0,-.005*mouth,0]],
+      ["mouth.corner.left",[-.001*mouth,0,0]],
+      ["mouth.corner.right",[.001*mouth,0,0]],
+      ["cheek.left",[0,0,.006*cheekL]],
+      ["cheek.right",[0,0,.006*cheekR]],
+    ];
+  };
+  function applyFacialControls():void {
+    clearFacialFailureOverlay();
+    if(!activeFacialControls||!active||surface!=="template"){
+      document.documentElement.dataset.c35InvertedTriangles="unavailable";
+      if(facialWarning)facialWarning.textContent=
+        "Facial controls available on the C3.5 human mesh.";
+      return;
+    }
+    const metrics=activeFacialControls.apply(facialOffsets());
+    document.documentElement.dataset.c35InvertedTriangles=
+      String(metrics.invertedTriangles);
+    document.documentElement.dataset.c35SeamError=
+      metrics.seamErrorMeters.toFixed(8);
+    if(facialWarning) {
+      const warning=metrics.invertedTriangles>0;
+      facialWarning.textContent=
+        metrics.invertedTriangles.toLocaleString()+
+        (warning?" INVERTED triangles — inspect red regions":" inverted triangles")+
+        " · "+metrics.displacedVertices.toLocaleString()+" affected vertices"+
+        " · "+(metrics.maxDisplacementMeters*1000).toFixed(1)+" mm max movement"+
+        " · "+(metrics.seamErrorMeters*1000).toFixed(4)+" mm UV seam mismatch.";
+      facialWarning.style.color=warning?"#ff9a91":"#9fd6b7";
+    }
+    if(showFailures?.checked&&metrics.invertedTriangles>0){
+      facialFailureOverlay=activeFacialControls.makeFailureOverlay(
+        active.mesh,metrics.invertedTriangleIndices);
+      active.mesh.parent?.add(facialFailureOverlay);
+    }
+  }
   let request=0;
   // Morphology rebuilds change only the owned anatomical surface. Preserve
   // manually orbited/panned/zoomed camera and OrbitControls target; only a
@@ -306,6 +398,7 @@ try{
     let preview:Preview;
     const sampleTimings=new Map<AnatomicalLoadStage,number>();
     let facialAudit:FacialSourceAudit|undefined;
+    let facialSource:HumanFacialSourceSurface|undefined;
     try {
       if(name==="template"){
         const family=selectedFamily();
@@ -340,8 +433,9 @@ try{
         }
         // Independent geometry pass AFTER C3 rest-space shaping and rebinding.
         // This is an authoring/diagnostic preview, not a C3.6 morph operation.
-        if(family==="human" && facialRefinementToggle?.checked){
-          facialAudit=buildHumanFacialSourceSurface(anatomical).audit;
+        if(family==="human"){
+          facialSource=buildHumanFacialSourceSurface(anatomical);
+          facialAudit=facialSource.audit;
         }
       }
       else preview=createContinuousHumanPrototype({step:.047});
@@ -363,11 +457,14 @@ try{
     overlay?.removeFromParent();overlay?.geometry.dispose();
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     overlay=undefined;
+    clearFacialFailureOverlay();
+    activeFacialControls?.dispose();activeFacialControls=undefined;
     const priorSelectedBone=inspector?.getSelectedBone()?.id;
     inspector?.dispose();inspector=undefined;
     correctives?.dispose();correctives=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
+    if(facialSource)activeFacialControls=new FacialControlPreview(facialSource);
     document.documentElement.dataset.c35FaceReady=String(!!facialAudit);
     document.documentElement.dataset.c35AperturesReady="false";
     document.documentElement.dataset.c35FaceVertices=String(facialAudit?.refinedVertices??0);
@@ -392,7 +489,10 @@ try{
     if(headPresetSelect)headPresetSelect.disabled=name!=="template";
     for(const slider of headSliders.values()) slider.disabled=name!=="template";
     if(familySelect)familySelect.disabled=name!=="template";
-    if(facialRefinementToggle)facialRefinementToggle.disabled=name!=="template" || selectedFamily()!=="human";
+    const faceEnabled=name==="template"&&selectedFamily()==="human";
+    for(const input of facialInputs.values())input.disabled=!faceEnabled;
+    if(facePresetSelect)facePresetSelect.disabled=!faceEnabled;
+    if(showFailures)showFailures.disabled=!faceEnabled;
     if(mammalPresetSelect)mammalPresetSelect.disabled=
       name!=="template" || selectedFamily()==="human";
     for(const slider of mammalSliders.values())slider.disabled=
@@ -433,7 +533,7 @@ try{
     if(priorSelectedBone)inspector.selectBone(priorSelectedBone);
   for(const button of document.querySelectorAll<HTMLButtonElement>("[data-surface]"))
       button.setAttribute("aria-pressed",String(button.dataset.surface===name));
-    applyPose(currentPose);applyDebug();
+    applyPose(currentPose);applyFacialControls();applyDebug();
     if(!preserveCamera)applyView(currentView);
     document.documentElement.dataset.c2Ready="true";
     document.documentElement.dataset.c2Source=name;
@@ -524,7 +624,35 @@ try{
       camera.lookAt(target);controls.target.copy(target);controls.update();
   }
   const labControls=createCharacterLabControls(applyPose,applyView);
-  facialRefinementToggle?.addEventListener("change",()=>void switchSurface("template",true));
+  let faceUpdateRequest=0;
+  const requestFaceUpdate=()=>{
+    if(faceUpdateRequest)cancelAnimationFrame(faceUpdateRequest);
+    faceUpdateRequest=requestAnimationFrame(()=>{
+      faceUpdateRequest=0;
+      try{applyFacialControls();}catch(err){error!.textContent="Facial control: "+String(err);}
+    });
+  };
+  facePresetSelect?.addEventListener("change",()=>{
+    const preset=facePresets[facePresetSelect.value];
+    if(!preset)return;
+    for(const key of facialKeys)facialInputs.get(key)!.value=
+      String(preset[key]??0);
+    syncFacialValues();requestFaceUpdate();
+  });
+  for(const slider of facialInputs.values()){
+    slider.addEventListener("input",()=>{
+      if(facePresetSelect)facePresetSelect.value="custom";
+      syncFacialValues();requestFaceUpdate();
+    });
+    slider.addEventListener("change",requestFaceUpdate);
+  }
+  showFailures?.addEventListener("change",requestFaceUpdate);
+  document.querySelector<HTMLButtonElement>("#c35-reset-facial")
+    ?.addEventListener("click",()=>{
+      for(const slider of facialInputs.values())slider.value="0";
+      if(facePresetSelect)facePresetSelect.value="neutral";
+      syncFacialValues();requestFaceUpdate();
+    });
   const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
   sourceSelect?.addEventListener("change",()=>{
     void switchSurface(sourceSelect.value);
@@ -536,7 +664,6 @@ try{
     if(mammalPresetSelect)mammalPresetSelect.disabled=selectedFamily()==="human";
     for(const slider of mammalSliders.values())
       slider.disabled=selectedFamily()==="human";
-    if(facialRefinementToggle)facialRefinementToggle.disabled=selectedFamily()!=="human";
     void switchSurface("template",true);
   });
   mammalPresetSelect?.addEventListener("change",()=>{
@@ -617,6 +744,9 @@ try{
   void switchSurface("template");
   window.addEventListener("pagehide",()=>{
     stopping=true;request++;cancelAnimationFrame(frame);
+    if(faceUpdateRequest)cancelAnimationFrame(faceUpdateRequest);
+    clearFacialFailureOverlay();
+    activeFacialControls?.dispose();activeFacialControls=undefined;
     overlay?.removeFromParent();overlay?.geometry.dispose();
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     inspector?.dispose();inspector=undefined;
