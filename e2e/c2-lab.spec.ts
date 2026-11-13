@@ -451,6 +451,8 @@ test("C3.4 human head presets, jaw FK, orbital controls and source recovery", as
 
 test("C3.4 editing head or body preserves user orbit, pan and zoom until view is explicitly changed",async({page})=>{
   test.setTimeout(150_000);
+  // No residual damping after release: comparisons isolate geometry rebuilds.
+  await page.emulateMedia({reducedMotion:"reduce"});
   const errors:string[]=[];
   page.on("pageerror",error=>errors.push(error.message));
   await page.goto("/c2-lab.html");
@@ -471,8 +473,6 @@ test("C3.4 editing head or body preserves user orbit, pan and zoom until view is
   await page.mouse.move(x+25,y-32,{steps:8});
   await page.mouse.up({button:"right"});
   await page.mouse.wheel(0,-310);
-  // Damped orbit movement must finish before sampling the manual camera.
-  await page.waitForTimeout(700);
   const manual=JSON.parse((await viewport.getAttribute("data-camera-state"))! ) as number[];
   expect(manual).toHaveLength(7);
   expect(manual).not.toEqual(JSON.parse(initial!));
@@ -488,7 +488,12 @@ test("C3.4 editing head or body preserves user orbit, pan and zoom until view is
   await page.locator("#head-preset").selectOption("jaw");
   await expect(page.locator("#status")).toContainText("head jaw",{timeout:60_000});
   await unchanged();
-  await page.locator('[data-head-param="skullWidth"]').fill("1.06");
+  await page.locator('[data-head-param="skullWidth"]').evaluate(node=>{
+    const slider=node as HTMLInputElement;
+    slider.value="1.06";
+    slider.dispatchEvent(new Event("input",{bubbles:true}));
+    slider.dispatchEvent(new Event("change",{bubbles:true}));
+  });
   await expect(page.locator("#status")).toContainText("head custom",{timeout:60_000});
   await unchanged();
   await page.locator("#morph-preset").selectOption("shoulders");
