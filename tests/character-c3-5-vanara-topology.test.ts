@@ -9,6 +9,9 @@ import {applyHumanMorphology,getMammalianHeadLandmarks} from
   "../apps/web/src/characters/geometry/HumanMorphology";
 import {getVanaraHeadReplacement} from
   "../apps/web/src/characters/geometry/VanaraHeadGeometry";
+import {VANARA_SCAN_ENVELOPE,VANARA_SCAN_ID,VANARA_SCAN_PROVENANCE,
+  VANARA_SCAN_LANDMARKS_MM} from
+  "../apps/web/src/characters/geometry/VanaraScanCalibration";
 import {AnatomicalFK} from
   "../apps/web/src/characters/geometry/AnatomicalFK";
 import type {SourceRig,SourceWeights} from
@@ -23,6 +26,31 @@ const create=()=>bindTemplateToSemanticRig(parseAnatomicalOBJ(
   {rig,weights,headFamily:"primate"});
 
 describe("C3.5 Vanara independent external head geometry",()=>{
+  it("uses pinned Smithsonian cranial/mandibular envelope with bounded stations",()=>{
+    expect(VANARA_SCAN_PROVENANCE.specimen).toBe("USNM 334797");
+    expect(VANARA_SCAN_PROVENANCE.craniumSHA256).toMatch(/^[0-9a-f]{64}$/);
+    expect(VANARA_SCAN_PROVENANCE.mandibleSHA256).toMatch(/^[0-9a-f]{64}$/);
+    expect(VANARA_SCAN_PROVENANCE.craniumFaces).toBe(750000);
+    expect(VANARA_SCAN_PROVENANCE.mandibleFaces).toBe(241727);
+    expect(VANARA_SCAN_ENVELOPE).toHaveLength(21);
+    expect(VANARA_SCAN_LANDMARKS_MM.leftZygomatic[0]).toBeLessThan(0);
+    expect(VANARA_SCAN_LANDMARKS_MM.rightZygomatic[0]).toBeGreaterThan(0);
+    expect(VANARA_SCAN_LANDMARKS_MM.leftOrbitRimProxy[0]).toBeLessThan(0);
+    expect(VANARA_SCAN_LANDMARKS_MM.rightOrbitRimProxy[0]).toBeGreaterThan(0);
+    expect(VANARA_SCAN_PROVENANCE.scanSagittalSpanMm).toBeGreaterThan(100);
+    let previous=-1;
+    for(const [t,width,depth,offset] of VANARA_SCAN_ENVELOPE){
+      expect(t).toBeGreaterThan(previous);previous=t;
+      expect(t).toBeGreaterThanOrEqual(0);
+      expect(t).toBeLessThanOrEqual(1);
+      expect(width).toBeGreaterThanOrEqual(0);
+      expect(width).toBeLessThanOrEqual(1.1);
+      expect(depth).toBeGreaterThanOrEqual(0);
+      expect(depth).toBeLessThanOrEqual(1.1);
+      expect(Number.isFinite(offset)).toBe(true);
+    }
+  });
+
   it("provides a species-specific skinned topology with finite UVs, normalized ownership and nondegenerate faces",()=>{
     const human=create();
     try{
@@ -32,6 +60,11 @@ describe("C3.5 Vanara independent external head geometry",()=>{
       const replacement=getVanaraHeadReplacement(human);
       expect(replacement).toBeDefined();
       const {mesh,headVertices,neckCutY,skullWidthMeters}=replacement!;
+      expect(replacement!.sourceCalibration).toBe(VANARA_SCAN_ID);
+      expect(replacement!.baselineHumanHeadTriangles).toBeGreaterThan(0);
+      expect(replacement!.replacementHeadTriangles).toBeGreaterThan(0);
+      expect(replacement!.replacementHeadTriangles).toBeLessThanOrEqual(
+        replacement!.baselineHumanHeadTriangles*1.3);
       const geometry=mesh.geometry;
       expect(mesh.name).toContain("VANARA_INDEPENDENT");
       expect(mesh.skeleton).toBe(human.spike.skeleton);
