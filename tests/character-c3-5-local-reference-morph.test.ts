@@ -26,8 +26,8 @@ function syntheticReference():THREE.BufferGeometry{
   const vertices:number[]=[];
   const stepsX=48,stepsY=48;
   const surface=(x:number,y:number)=>[
-    x,y,2+0.12*Math.exp(-((x-.15)/.34)**2-((y-2.8)/.55)**2)
-      +.055*Math.exp(-((x+.7)/.34)**2-((y-3.7)/.45)**2)
+    x,y,2+0.12*Math.exp(-Math.pow((x-.15)/.34,2)-Math.pow((y-2.8)/.55,2))
+      +.055*Math.exp(-Math.pow((x+.7)/.34,2)-Math.pow((y-3.7)/.45,2))
   ] as const;
   for(let iy=0;iy<stepsY;iy++)
     for(let ix=0;ix<stepsX;ix++){
