@@ -509,3 +509,51 @@ test("C3.4 editing head or body preserves user orbit, pan and zoom until view is
   expect(explicit).not.toEqual(manual);
   expect(errors).toEqual([]);
 });
+
+test("C3.5 primate and bear source family previews retain manually positioned camera",async({page})=>{
+  test.setTimeout(150_000);
+  const errors:string[]=[];
+  page.on("pageerror",e=>errors.push(e.message));
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:60_000});
+  const family=page.locator("#head-family"),preset=page.locator("#mammal-preset");
+  const viewport=page.locator("#viewport");
+  await chooseView(page,"head-side");
+  const camera=await viewport.getAttribute("data-camera-state");
+  expect(camera).not.toBeNull();
+  mkdirSync("test-results/c3",{recursive:true});
+  const platform=test.info().project.name;
+  for(const species of ["primate","bear"]){
+    await family.selectOption(species);
+    await expect(page.locator("html")).toHaveAttribute("data-c3-mammal-family",species,
+      {timeout:60_000});
+    await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
+    await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
+    await expect(viewport).toHaveAttribute("data-camera-state",camera!);
+    await preset.selectOption("stress");
+    await expect(page.locator("#status")).toContainText("head "+species+"/stress",
+      {timeout:60_000});
+    await expect(viewport).toHaveAttribute("data-camera-state",camera!);
+    await choosePose(page,"jaw");
+    await expect(page.locator("html")).toHaveAttribute("data-c2-jaw-direction","passed");
+    await page.locator("#viewport").screenshot({
+      path:"test-results/c3/"+platform+"-"+species+"-jaw-side.png",
+    });
+    await chooseView(page,"head-front");
+    await page.locator("#viewport").screenshot({
+      path:"test-results/c3/"+platform+"-"+species+"-stress-front.png",
+    });
+    await chooseView(page,"head-side");
+    await page.locator("#reset-mammal").click();
+    await expect(page.locator("#status")).toContainText("head "+species+"/neutral",
+      {timeout:60_000});
+    await expect(viewport).toHaveAttribute("data-camera-state",camera!);
+  }
+  await family.selectOption("human");
+  await expect(page.locator("html")).toHaveAttribute("data-c3-mammal-family","none",
+    {timeout:60_000});
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template");
+  await expect(preset).toBeDisabled();
+  expect(errors).toEqual([]);
+});

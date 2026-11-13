@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import { createHumanLocalRecipe, DEFAULT_HUMAN_LOCAL_MORPHOLOGY,
   type HumanLocalMorphologyV1, createHumanHeadRecipe,
-  DEFAULT_HUMAN_HEAD_MORPHOLOGY, type HumanHeadMorphologyV1 } from "@trilok/character-core";
-import { applyHumanMorphology, getHumanHeadLandmarks } from "../geometry/HumanMorphology";
+  DEFAULT_HUMAN_HEAD_MORPHOLOGY, type HumanHeadMorphologyV1,
+  DEFAULT_MAMMALIAN_HEAD_MORPHOLOGY, createMammalianHeadRecipe,
+  type MammalianHeadMorphologyV1, type MammalianHeadFamilyV1 } from "@trilok/character-core";
+import { applyHumanMorphology, getHumanHeadLandmarks,
+  getMammalianHeadLandmarks } from "../geometry/HumanMorphology";
 import { HumanPoseCorrectives } from "../geometry/HumanPoseCorrectives";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createContinuousHumanPrototype } from "../geometry/ContinuousHumanPrototype";
@@ -72,6 +75,41 @@ const syncHeadValues=():void => {
   }
 };
 syncHeadValues();
+// C3.5: the source C1 head-family ID follows this selector, while the body,
+// shoulders and existing human proportions retain the shared calibrated mesh.
+const familySelect=document.querySelector<HTMLSelectElement>("#head-family");
+const mammalPresetSelect=document.querySelector<HTMLSelectElement>("#mammal-preset");
+type MammalKey="muzzleLength"|"muzzleWidth"|"muzzleHeight"|
+  "earSize"|"browMass"|"jawMass";
+const mammalKeys=["muzzleLength","muzzleWidth","muzzleHeight",
+  "earSize","browMass","jawMass"] as const;
+const mammalPresets:Readonly<Record<string,Partial<MammalianHeadMorphologyV1>>> = {
+  neutral:{}, muzzle:{muzzleLength:1.15},
+  broad:{muzzleWidth:1.12,jawMass:1.12},
+  ears:{earSize:1.15,browMass:1.12},
+  stress:{muzzleLength:1.15,muzzleWidth:1.12,muzzleHeight:1.10,
+    earSize:1.15,browMass:1.12,jawMass:1.12},
+};
+const mammalSliders=new Map<MammalKey,HTMLInputElement>();
+for(const key of mammalKeys){
+  const slider=document.querySelector<HTMLInputElement>(
+    '[data-mammal-param="'+key+'"]');
+  if(!slider)throw new Error("Missing C3.5 mammalian parameter "+key);
+  mammalSliders.set(key,slider);
+}
+const readMammalOverrides=():Partial<MammalianHeadMorphologyV1> =>
+  Object.fromEntries(mammalKeys.map(key=>[key,
+    Number(mammalSliders.get(key)!.value)])) as Partial<MammalianHeadMorphologyV1>;
+const syncMammalValues=():void=>{
+  for(const key of mammalKeys){
+    const output=document.querySelector<HTMLOutputElement>(
+      '[data-mammal-value="'+key+'"]');
+    if(output)output.value=Number(mammalSliders.get(key)!.value).toFixed(2);
+  }
+};
+const selectedFamily=()=>(familySelect?.value??"human") as
+  "human"|MammalianHeadFamilyV1;
+syncMammalValues();
 const performancePanel=document.querySelector<HTMLElement>("#c25-metrics");
 const stageTimings=new Map<AnatomicalLoadStage,number>();
 let lastPoseApplyMs:number|undefined;
@@ -147,7 +185,9 @@ try{
     const t=active.template;
     status!.textContent="C2 diagnostic ready · "+surface+" · "+currentPose+" · "+
       "morphology "+(morphologySelect?.value??"neutral")+
-      " · head "+(headIsActive()?(headPresetSelect?.value??"custom"):"original")+" · "+
+      " · head "+(selectedFamily()==="human" ?
+        (headIsActive()?(headPresetSelect?.value??"custom"):"original") :
+        selectedFamily()+"/"+(mammalPresetSelect?.value??"neutral"))+" · "+
       active.vertexCount.toLocaleString()+" vertices · "+
       active.triangleCount.toLocaleString()+" triangles"+
       (t?" · "+t.sourceVertexCount.toLocaleString()+" source vertices · "+
@@ -263,15 +303,24 @@ try{
     const sampleTimings=new Map<AnatomicalLoadStage,number>();
     try {
       if(name==="template"){
+        const family=selectedFamily();
         const anatomical=await loadAnatomicalHuman(undefined,
-          (stage,ms)=>sampleTimings.set(stage,ms));
+          (stage,ms)=>sampleTimings.set(stage,ms),
+          family==="human"?undefined:family);
         preview=anatomical;
         const preset=morphologySelect?.value??"neutral";
         const params=morphPresets[preset];
         if(!params)throw new Error("Unknown morphology preset "+preset);
-        if(preset!=="neutral" || headIsActive()){
+        if(preset!=="neutral" || headIsActive() || family!=="human"){
           try{
-            if(headIsActive()){
+            if(family!=="human"){
+              applyHumanMorphology(anatomical,createMammalianHeadRecipe(family,{
+                ...DEFAULT_MAMMALIAN_HEAD_MORPHOLOGY,...params,
+                ...readHeadOverrides(),...readMammalOverrides(),
+              }));
+              if(getMammalianHeadLandmarks(anatomical)?.family!==family)
+                throw new Error("Missing C3.5 family landmark calibration");
+            }else if(headIsActive()){
               applyHumanMorphology(anatomical,createHumanHeadRecipe({
                 ...DEFAULT_HUMAN_HEAD_MORPHOLOGY,...params,...readHeadOverrides(),
               }));
@@ -308,14 +357,24 @@ try{
     correctives?.dispose();correctives=undefined;
     if(active){active.spike.character.root.removeFromParent();active.dispose();}
     active=preview;surface=name;
-    if(name==="template" && (morphologySelect?.value!=="neutral" || headIsActive()))
+    if(name==="template" && (morphologySelect?.value!=="neutral" ||
+      headIsActive() || selectedFamily()!=="human"))
       correctives=new HumanPoseCorrectives(preview as AnatomicalHuman);
     document.documentElement.dataset.c3HeadReady =
       name==="template" && !!getHumanHeadLandmarks(preview as AnatomicalHuman)
         ? "true" : "false";
+    document.documentElement.dataset.c3MammalFamily =
+      name==="template" ?
+        (getMammalianHeadLandmarks(preview as AnatomicalHuman)?.family??"none"):
+        "unavailable";
     if(morphologySelect)morphologySelect.disabled=name!=="template";
     if(headPresetSelect)headPresetSelect.disabled=name!=="template";
     for(const slider of headSliders.values()) slider.disabled=name!=="template";
+    if(familySelect)familySelect.disabled=name!=="template";
+    if(mammalPresetSelect)mammalPresetSelect.disabled=
+      name!=="template" || selectedFamily()==="human";
+    for(const slider of mammalSliders.values())slider.disabled=
+      name!=="template" || selectedFamily()==="human";
     document.documentElement.dataset.c3MorphPreset=
       name==="template"?(morphologySelect?.value??"neutral"):"unavailable";
     const sourceSelect=document.querySelector<HTMLSelectElement>("#source-select");
@@ -436,6 +495,34 @@ try{
   morphologySelect?.addEventListener("change",()=>{
     void switchSurface("template",true);
   });
+  familySelect?.addEventListener("change",()=>{
+    if(mammalPresetSelect)mammalPresetSelect.disabled=selectedFamily()==="human";
+    for(const slider of mammalSliders.values())
+      slider.disabled=selectedFamily()==="human";
+    void switchSurface("template",true);
+  });
+  mammalPresetSelect?.addEventListener("change",()=>{
+    const preset=mammalPresets[mammalPresetSelect.value];
+    if(!preset)return;
+    for(const key of mammalKeys)mammalSliders.get(key)!.value=
+      String(preset[key]??1);
+    syncMammalValues();
+    void switchSurface("template",true);
+  });
+  for(const slider of mammalSliders.values()){
+    slider.addEventListener("input",syncMammalValues);
+    slider.addEventListener("change",()=>{
+      if(mammalPresetSelect)mammalPresetSelect.value="custom";
+      void switchSurface("template",true);
+    });
+  }
+  document.querySelector<HTMLButtonElement>("#reset-mammal")?.addEventListener(
+    "click",()=>{
+      for(const slider of mammalSliders.values())slider.value="1";
+      if(mammalPresetSelect)mammalPresetSelect.value="neutral";
+      syncMammalValues();
+      void switchSurface("template",true);
+    });
   headPresetSelect?.addEventListener("change",()=>{
     const preset=headPresets[headPresetSelect.value];
     if(!preset)return;

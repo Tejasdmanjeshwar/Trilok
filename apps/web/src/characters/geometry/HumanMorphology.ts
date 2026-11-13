@@ -4,13 +4,16 @@ import {captureHumanRestSockets, calibrateHumanMorphologyAlignment,
 import { validateHumanMorphologyRecipe, type CharacterRecipeV1,
   type HumanMorphologyV1, HUMAN_LOCAL_GENERATOR_VERSION,
   validateHumanLocalRecipe, HUMAN_HEAD_GENERATOR_VERSION,
-  validateHumanHeadRecipe } from "@trilok/character-core";
+  validateHumanHeadRecipe, MAMMAL_HEAD_GENERATORS,
+  validateMammalianHeadRecipe, MAMMAL_HEAD_TOPOLOGY_FAMILIES } from "@trilok/character-core";
 import { makeHumanLocalTransform, recomputeSourceNormals } from "./HumanLocalDeformation";
 import type { AnatomicalHuman } from "./AnatomicalTemplate";
 import { inspectAnatomicalMorphologyBaseline } from "./AnatomicalMorphologyContract";
 import { validateSkinningSpike } from "./SkinningSpike";
 import { makeHumanHeadTransform, calibrateHumanHeadLandmarks,
   type HumanHeadLandmarks } from "./HumanHeadDeformation";
+import {makeMammalianHeadTransform, calibrateMammalianHeadLandmarks,
+  type MammalianHeadLandmarks} from "./MammalianHeadDeformation";
 
 /**
  * C3.1/C3.2 opt-in, deterministic, rest-space human shape pass. All source IDs,
@@ -21,6 +24,10 @@ import { makeHumanHeadTransform, calibrateHumanHeadLandmarks,
 const applied = new WeakSet<AnatomicalHuman>();
 const alignments = new WeakMap<AnatomicalHuman, HumanMorphologyAlignment>();
 const headLandmarks = new WeakMap<AnatomicalHuman, HumanHeadLandmarks>();
+const mammalLandmarks = new WeakMap<AnatomicalHuman, MammalianHeadLandmarks>();
+/** C3.5 family-specific render reference landmarks, not new C1 joints. */
+export const getMammalianHeadLandmarks = (human: AnatomicalHuman):
+  MammalianHeadLandmarks | undefined => mammalLandmarks.get(human);
 /** C3.4 source-derived facial landmarks follow the posed C1 head joint. */
 export const getHumanHeadLandmarks = (human: AnatomicalHuman):
   HumanHeadLandmarks | undefined => headLandmarks.get(human);
@@ -47,8 +54,12 @@ export function applyHumanMorphology(
   human: AnatomicalHuman,
   recipe: CharacterRecipeV1,
 ): AppliedHumanMorphologyV1 {
-  const headShape = recipe.generatorVersion === HUMAN_HEAD_GENERATOR_VERSION
-    ? validateHumanHeadRecipe(recipe) : undefined;
+  const mammal = Object.values(MAMMAL_HEAD_GENERATORS).includes(
+    recipe.generatorVersion as (typeof MAMMAL_HEAD_GENERATORS)[keyof typeof MAMMAL_HEAD_GENERATORS])
+    ? validateMammalianHeadRecipe(recipe) : undefined;
+  const headShape = mammal?.shape ?? (
+    recipe.generatorVersion === HUMAN_HEAD_GENERATOR_VERSION
+      ? validateHumanHeadRecipe(recipe) : undefined);
   const localShape = headShape ?? (recipe.generatorVersion === HUMAN_LOCAL_GENERATOR_VERSION
     ? validateHumanLocalRecipe(recipe) : undefined);
   const shape = localShape ?? validateHumanMorphologyRecipe(recipe);
@@ -56,7 +67,8 @@ export function applyHumanMorphology(
   inspectAnatomicalMorphologyBaseline(human);
   const {spike, mesh, template} = human;
   if (spike.graph.topologyFamilyId !== recipe.topologyFamilyId ||
-      spike.graph.headTopologyFamilyId !== "head_human_v1" ||
+      spike.graph.headTopologyFamilyId !== (mammal ?
+        MAMMAL_HEAD_TOPOLOGY_FAMILIES[mammal.family] : "head_human_v1") ||
       mesh.geometry !== template.geometry)
     throw new Error("C3 morphology requires the pinned human anatomy/mesh");
   const root = spike.character.root;
@@ -87,7 +99,9 @@ export function applyHumanMorphology(
       throw new Error("Nonfinite C3 rest surface");
   }
   const localTransform = localShape ? makeHumanLocalTransform(human, localShape) : undefined;
-  const headTransform = headShape ? makeHumanHeadTransform(human, headShape) : undefined;
+  const headTransform = mammal
+    ? makeMammalianHeadTransform(human, mammal.family, mammal.shape)
+    : headShape ? makeHumanHeadTransform(human, headShape) : undefined;
   const mapHead = (p: THREE.Vector3): THREE.Vector3 =>
     headTransform ? headTransform.point(p) : p;
   const mapJoint = (p: THREE.Vector3, index: number): THREE.Vector3 =>
@@ -153,10 +167,14 @@ export function applyHumanMorphology(
   validateSkinningSpike(spike);
   const alignment = calibrateHumanMorphologyAlignment(human, restSockets, mapJoint);
   alignments.set(human, alignment);
-  if (headTransform)
-    headLandmarks.set(human, calibrateHumanHeadLandmarks(human, headTransform,
-      (point,index) => localTransform
-        ? localTransform.joint(point,index) : transform(point,shape)));
+  if (headTransform) {
+    const mapBody = (point:THREE.Vector3,index:number) =>
+      localTransform ? localTransform.joint(point,index) : transform(point,shape);
+    headLandmarks.set(human, calibrateHumanHeadLandmarks(human, headTransform,mapBody));
+    if(mammal)
+      mammalLandmarks.set(human, calibrateMammalianHeadLandmarks(human,
+        headTransform as ReturnType<typeof makeMammalianHeadTransform>, mapBody));
+  }
   applied.add(human);
   return Object.freeze({
     generatorVersion: recipe.generatorVersion,
