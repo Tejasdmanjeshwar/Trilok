@@ -25,6 +25,7 @@ export interface VanaraHeadReplacement {
   readonly replacementHeadTriangles: number;
   readonly sourceCalibration: typeof VANARA_SCAN_ID;
   readonly neckSeamVertices: number;
+  readonly cranialRingLevels: number;
   readonly referenceHumanWidthMeters: number;
   readonly referenceHumanHeightMeters: number;
 }
@@ -431,6 +432,7 @@ export function replaceVanaraHead(human:AnatomicalHuman,
     referenceHumanHeightMeters:reference.upperCrownY,
     baselineHumanHeadTriangles:baselineHeadTriangles,replacementHeadTriangles,
     sourceCalibration:SOURCE_CALIBRATION,neckSeamVertices:samples,
+    cranialRingLevels:levels,
   });
   replacements.set(human,replacement);
   // C2 owns the original source geometry, C3.5 owns its added head GPU data.
