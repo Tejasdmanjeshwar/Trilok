@@ -62,6 +62,30 @@ describe("C3.5 original Vanara topology preflight",()=>{
         expect(Math.abs(v.lengthSq())).toBeGreaterThan(0);
         expect(Number.isFinite(angle)).toBe(true);
       }
+      // The complete C2 neck contour must not shift or acquire a dark collar.
+      const seamColors=first.geometry.getAttribute("color");
+      const baseColor=new THREE.Color(0xb38b70);
+      for(let i=0;i<spec.seam.length;i++){
+        expect(seamColors.getX(i)).toBeCloseTo(baseColor.r,5);
+        expect(seamColors.getY(i)).toBeCloseTo(baseColor.g,5);
+        expect(seamColors.getZ(i)).toBeCloseTo(baseColor.b,5);
+      }
+      const faceStart=spec.seam.length;
+      const firstRow=faceStart;
+      const faceX=pos.getX(firstRow);
+      const faceZ=pos.getZ(firstRow);
+      // The first transition ring remains close to the actual neck
+      // circumference; no global forward displacement is allowed.
+      const nearestNeck=Math.min(...spec.seam.map(v=>
+        Math.hypot(faceX-v.point.x,faceZ-v.point.z)));
+      expect(nearestNeck).toBeLessThan(.02);
+      // Ears are now formed by the cranial shell itself, not a separate
+      // floating ear patch: all ear silhouettes are part of main strips.
+      const headFaces=first.geometry.getIndex()!;
+      const maxEarSide=Math.max(...Array.from({length:pos.count},(_,i)=>
+        Math.abs(pos.getX(i))));
+      expect(maxEarSide).toBeGreaterThan(spec.halfWidth);
+      expect(headFaces.count/3).toBe(first.faceTriangles);
       expect(first.landmarks.nostrilLeft.x).toBeLessThan(first.landmarks.nostrilRight.x);
       expect(first.landmarks.nose.y).toBeGreaterThan(first.landmarks.mouth.y);
       expect(first.landmarks.earLeft.x).toBeLessThan(first.landmarks.earRight.x);
