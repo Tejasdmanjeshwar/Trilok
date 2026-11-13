@@ -41,6 +41,17 @@ describe("C3.5 source-contiguous bounded human facial aperture scaffolding",()=>
               .landmark.rest])));
 
       expect(created.audit.apertureCount).toBe(5);
+      const atlas=created.edgeFlow.atlas;
+      const browY=atlas.region("brow.left").landmark.rest[1];
+      const upperY=atlas.region("eyelid.upper.left").landmark.rest[1];
+      const lowerY=atlas.region("eyelid.lower.left").landmark.rest[1];
+      const chinY=atlas.region("chin").landmark.rest[1];
+      // Source-probed eyelids cannot occupy the same supraciliary strip
+      // as the brow; that was the defect observed in rendered screenshots.
+      expect(browY-upperY).toBeGreaterThan((upperY-chinY)*.10);
+      expect(upperY).toBeGreaterThan(lowerY);
+      expect(atlas.region("lip.upper").landmark.rest[1])
+        .toBeGreaterThan(atlas.region("lip.lower").landmark.rest[1]);
       expect(created.audit.features.map(f=>f.id)).toEqual([...FACIAL_APERTURE_IDS]);
       expect(created.audit.boundaryEdges).toBe(0);
       expect(created.audit.nonManifoldEdges).toBe(0);
