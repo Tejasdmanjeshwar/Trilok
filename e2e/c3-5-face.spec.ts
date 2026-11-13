@@ -22,6 +22,18 @@ test("C3.5 opt-in facial refinement preserves head/jaw poses and renders multipl
   expect(await page.locator("#viewport").getAttribute("data-camera-state")).toBe(initialCamera);
   const platform=test.info().project.name;
   mkdirSync("test-results/c35",{recursive:true});
+  // Head-front is the baseline; orbit to a genuine three-quarter render.
+  await page.locator("#view-select").selectOption("head-front");
+  const rect=await page.locator("#viewport canvas").boundingBox();
+  if(!rect)throw new Error("Missing Chromium facial rendering canvas");
+  const x=rect.x+rect.width*.5,y=rect.y+rect.height*.55;
+  await page.mouse.move(x,y);
+  await page.mouse.down();
+  await page.mouse.move(x+rect.width*.17,y,{steps:12});
+  await page.mouse.up();
+  await page.locator("#viewport").screenshot({
+    path:"test-results/c35/"+platform+"-head-three-quarter.png",
+  });
   for(const view of ["head-front","head-side"]){
     await page.locator("#view-select").selectOption(view);
     await expect(page.locator("#view-select")).toHaveValue(view);
