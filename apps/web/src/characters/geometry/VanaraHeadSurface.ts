@@ -149,8 +149,14 @@ export function buildVanaraSurface(spec:VanaraSurfaceSpec):VanaraSurfaceResult {
       const blend=smooth(v/.15);
       const influence=new Map<number,number>();
       if(blend<1){
-        const reference=src??seam.reduce((best,candidate)=>
-          degrees(candidate.point,cx,cz)===degrees(p,cx,cz)?candidate:best,seam[0]!);
+        const angle=degrees(p,cx,cz);
+        const reference=src??seam.reduce((best,candidate)=>{
+          const distance=(item:VanaraNeckSample)=>{
+            const delta=Math.abs(degrees(item.point,cx,cz)-angle);
+            return Math.min(delta,Math.PI*2-delta);
+          };
+          return distance(candidate)<distance(best)?candidate:best;
+        },seam[0]!);
         for(let k=0;k<4;k++)
           influence.set(reference.ids[k]!,
             (influence.get(reference.ids[k]!)??0)+reference.weights[k]!*(1-blend));
