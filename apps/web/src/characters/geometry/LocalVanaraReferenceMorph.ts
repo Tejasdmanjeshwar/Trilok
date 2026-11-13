@@ -113,10 +113,10 @@ function readDepth(field:DepthField,x:number,y:number):number|undefined {
     y1*field.width+ix,y1*field.width+x1];
   if(ids.some(id=>!Number.isFinite(field.depth[id])))return undefined;
   const a=xx-ix,b=yy-iy;
-  return field.depth[ids[0]]!*(1-a)*(1-b)+
-    field.depth[ids[1]]!*a*(1-b)+
-    field.depth[ids[2]]!*(1-a)*b+
-    field.depth[ids[3]]!*a*b;
+  return field.depth[ids[0]!]!*(1-a)*(1-b)+
+    field.depth[ids[1]!]!*a*(1-b)+
+    field.depth[ids[2]!]!*(1-a)*b+
+    field.depth[ids[3]!]!*a*b;
 }
 /** Face-only geometry pass applied to a neutral owned C2 human instance after
  * the ordinary recipe rebuild. All bone transforms and skin references stay
