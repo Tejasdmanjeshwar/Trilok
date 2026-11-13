@@ -115,7 +115,6 @@ export function applyHumanMorphology(
   const faceAnatomy = mammal ?
     (headTransform as ReturnType<typeof makeMammalianHeadTransform>).anatomy : undefined;
   const bodyColor = new THREE.Color(0xb38b70);
-  const neutralColor = new THREE.Color(0xffffff);
   if (stagedPositions) {
     for (let i=0; i<pos.count; i++) {
       const mapped = mapVertex(new THREE.Vector3().fromBufferAttribute(pos,i),i);
@@ -134,7 +133,6 @@ export function applyHumanMorphology(
             .landmarks.neck.y) / .065,0,1);
         const t = face*face*(3-2*face);
         color.lerp(bodyColor,1-t);
-        color.lerp(neutralColor,0);
         stagedColors[i*3]=color.r;
         stagedColors[i*3+1]=color.g;
         stagedColors[i*3+2]=color.b;
