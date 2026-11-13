@@ -54,6 +54,7 @@ export const LAB_CAMERA_VIEWS: readonly { id: string; label: string; group: Came
   { id: "ankle-right", label: "Right ankle", group: "Hips & legs" },
   { id: "head-front", label: "Face close-up", group: "Head" },
   { id: "head-side", label: "Jaw side close-up", group: "Head" },
+  { id: "head-three-quarter", label: "Face three-quarter", group: "Head" },
 ];
 
 function requireElement<T extends HTMLElement>(selector: string): T {
