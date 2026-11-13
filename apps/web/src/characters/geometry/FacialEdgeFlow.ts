@@ -175,10 +175,8 @@ class Surface {
     curve:Curve,level:number):number {
     const index=this.positions.length/3;
     for(let k=0;k<3;k++){
-      const v=mean(this.positions[a*3+k]!,this.positions[b*3+k]!);
       const from=this.positions[a*3+k]!,to=this.positions[b*3+k]!;
       this.positions.push(from+(to-from)*t);
-      void v;
     }
     const normal=new THREE.Vector3(
       this.normals[a*3]!*(1-t)+this.normals[b*3]!*t,
