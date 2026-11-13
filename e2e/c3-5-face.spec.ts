@@ -43,6 +43,11 @@ test("C3.5 opt-in facial refinement preserves head/jaw poses and renders multipl
   }
   await page.getByText("Geometry overlays",{exact:true}).click();
   await page.locator('[data-debug="wireframe"]').check();
+  await page.locator("#view-select").selectOption("head-front");
+  await page.locator("#viewport").screenshot({
+    path:"test-results/c35/"+platform+"-front-wireframe.png",
+  });
+  await page.locator("#view-select").selectOption("head-side");
   await page.locator("#viewport").screenshot({
     path:"test-results/c35/"+platform+"-profile-wireframe.png",
   });
