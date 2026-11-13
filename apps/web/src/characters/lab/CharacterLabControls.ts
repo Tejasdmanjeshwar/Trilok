@@ -185,7 +185,8 @@ export function createCharacterLabControls(
     close();
   };
   const chooseView = (id: string) => {
-    if (id === currentView) return;
+    // Explicitly clicking Front/Side/Rear must reframe even when that preset
+    // was selected before the user manually orbited or pressed Focus.
     onView(id);
     setView(id);
   };
