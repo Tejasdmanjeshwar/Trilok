@@ -26,6 +26,24 @@ function human(){
   return bindTemplateToSemanticRig(template,{rig,weights});
 }
 describe("C3.5 pinned MakeHuman facial data contract",()=>{
+  it("loads and exercises real pinned original MakeHuman deltas for every independent feature",()=>{
+    const generated=JSON.parse(asset("makehuman-facial-v1.json")) as FacialAtlas;
+    const h=human();
+    try{
+      const controller=new MakeHumanFacialController(h,generated);
+      for(const definition of FACIAL_CONTROLS){
+        const diagnostic=controller.apply({[definition.id]:definition.max===1.25?0.8:0.65});
+        expect(diagnostic.affectedVertices,definition.id).toBeGreaterThan(0);
+        expect(diagnostic.seamMismatches,definition.id).toBe(0);
+        expect(diagnostic.finiteFailures,definition.id).toBe(0);
+        expect(diagnostic.triangleCount).toBe(h.triangleCount);
+      }
+      const combined=controller.apply(FACIAL_PRESETS.stress!);
+      expect(combined.affectedVertices).toBeGreaterThan(200);
+      expect(combined.maxEdgeStretch).toBeGreaterThanOrEqual(1);
+      controller.dispose();
+    }finally{h.dispose();}
+  },120_000);
   it("pins original upstream CC0 assets with complete control mapping",()=>{
     expect(manifest.revision).toBe("a8bc2d54ff0ac92e78ff71431b1023eda42bf482");
     expect(manifest.targets.length).toBe(80);
