@@ -46,7 +46,7 @@ Strict TypeScript is enabled. The core has no global mutable state and combat up
 
 Future console releases will need a separate porting strategy: Three.js web builds are not direct console exports.
 
-## Character Studio — C3 in progress\n\nC2 owner sign-off and exact-SHA automated acceptance are recorded in [closed Issue #15](https://github.com/Tejasdmanjeshwar/Trilok/issues/15). C3.1–C3.3 body morphology and correctives are merged. C3.4 opt-in human head morphology is described in [C3.4 notes](docs/character-studio-c3-4-human-head.md). C3.5/6 nonhuman heads and C3.7 acceptance remain pending. This is **not** C3 phase acceptance, C4 Studio, or combat character migration. [Track remaining C3 work](https://github.com/Tejasdmanjeshwar/Trilok/issues/41).\n\n## Character Studio C2.4 targeted deformation milestone
+## Character Studio — C3 in progress\n\nC2 owner sign-off and exact-SHA automated acceptance are recorded in [closed Issue #15](https://github.com/Tejasdmanjeshwar/Trilok/issues/15). C3.1–C3.3 body morphology and correctives are merged. C3.4 opt-in human head morphology is described in [C3.4 notes](docs/character-studio-c3-4-human-head.md). C3.5 [primate/bear source-derived heads](docs/character-studio-c3-5-mammalian-heads.md) are available for experimental preview; visual acceptance is pending. C3.6 avian heads and C3.7 acceptance remain pending. This is **not** C3 phase acceptance, C4 Studio, or combat character migration. [Track remaining C3 work](https://github.com/Tejasdmanjeshwar/Trilok/issues/41).\n\n## Character Studio C2.4 targeted deformation milestone
 
 C2.4's pinned-CC0 anatomical skinning and source-weight corrections include
 headless real-asset shape, seam, articulation, ownership, rest-pose and
