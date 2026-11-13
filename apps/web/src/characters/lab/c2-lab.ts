@@ -439,6 +439,7 @@ try{
     if(name==="template"&&selectedFamily()==="human"){
       try{
         const atlas=await loadFacialAtlas();
+        if(stopping||ticket!==request){preview.dispose();return;}
         // Original source vertex numbers and already-shaped C3.4 neutral rest.
         facialController=new MakeHumanFacialController(preview as AnatomicalHuman,atlas);
         facialDiagnostics=facialController.apply(facialWeights);
