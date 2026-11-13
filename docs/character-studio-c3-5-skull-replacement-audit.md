@@ -82,3 +82,20 @@ This is still a **procedurally authored anatomical reconstruction**, not a direc
 Character Lab now provides an explicit **Focus** button beside Front/Side/Rear that frames the selected semantic bone without changing its role or FK pose. Camera bearing is preserved and the view only reframes when clicked. Selected bone identity is restored after morphology rebuilds, without automatically moving the camera. A pure utility and regression tests verify direction preservation, close-up distance and selected targets.
 
 **Acceptance still pending**: actual screenshot-based front/side/three-quarter and jaw-open review, species-specific oral opening and inner mouth topology, shell/intersection checks, mobile browser controls, owner sign-off and deployment verification. Do not mark C3.5 accepted or merge until these are resolved.
+
+### 2026-11-13 preview feedback — humanoid-scale braincase / soft-tissue pass
+
+Owner inspected the Cloudflare PR preview and confirmed macaque facial features are recognizable, **but rejected the oversized, stretched, skull-like head**. This remains a release blocker, not visual acceptance.
+
+The root causes identified in the generator:
+- Braincase half-width was derived from the live C2 neck contour and could reach **0.152 m** (0.304 m full width) for a standard body; measured MakeHuman upper head is approximately **0.195 m wide** in the corresponding source region. The neck is a seam anchor, **not** a cranial scale proxy.
+- Ring vertices originally followed the irregular angular distribution of the neck rim through every head level, leading to uneven long/sliver triangles despite nondegenerate geometry.
+- Strong orbital hollows, dark eye surfaces, and near-uniform bare facial skin colour read as an exposed skull rather than a living fur-covered primate.
+
+Corrective work in this draft:
+- `VanaraHeadSizing.ts` measures a percentile-trimmed cross-section of the **original, pinned MakeHuman head** from C2 source vertex IDs (before mammalian morphology), then bounds the Vanara braincase width/depth/height to that anatomical reference. Morphology breadth and versioned head controls are still respected. Neck ring positions and weights remain exact.
+- `VanaraHeadGeometry.ts` redistributes the irregular ring angles gradually into regular skull-topology angular samples above the neck seam and uses smaller globe dimensions. This is an improved parametric distribution, not a manually sculpted retopology or guaranteed elimination of all stretched elements.
+- `VanaraFacialTopology.ts` softens bony brow, orbital and chin relief, keeps cheeks and a wider maxillary muzzle, restricts bare facial coloration to the central facial pad, and blends back to a fur-covered crown. The eyes get brown iris/pupil differentiation and limited catchlights.
+- Regression tests compare the generated cranial width **directly to the actual source human-head width**, instead of checking only a permissive 0.16–0.34 m range; the runtime continues enforcing the ≤130% measured human-head triangle budget.
+
+**Do not claim visual quality acceptance from passing TypeScript/Vitest.** The next Cloudflare PR preview needs front, three-quarter, side, head rotation and jaw-open inspection by the owner. Any remaining unnatural size, temple distortions, ear/eye placement, mouth cavities or neck shading are open defects. C3.5 remains draft; C7 bear, C3.6 and C4 remain untouched.
