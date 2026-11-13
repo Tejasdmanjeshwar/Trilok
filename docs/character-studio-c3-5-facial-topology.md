@@ -17,6 +17,14 @@
 
 The opt-in **C3.5 adaptive human facial topology** checkbox in Character Lab can compare source and refined human rendering and wireframes. The status panel provides actual vertex, triangle, and selected edge counts. Lab controls preserve camera orbit while rebuilding. Default original source and all combat behavior remain untouched.
 
+## Measured pinned-source facial density and visual evidence (2026-11-13)
+
+Actual Fast Verify #43466330146 (55 passing Vitest files, typecheck, production build and build identity) measured **14,517 render vertices**, **26,756 triangles** and **19,158 original MakeHuman OBJ source vertex records**, with zero open or non-manifold edges on the imported body source. The unrefined original face has very sparse localized zones: **4 upper-lid control samples per eye**, **13 lower-lid samples per eye**, **6 brow samples per side**, **3 inner-eye corner samples per side**, **9 nose-tip samples**, **14 nostril samples per side**, **23 upper-lip and 18 lower-lip samples**, **8 mouth-corner samples per side**. Region coverage uses a normalized local influence threshold and is not equivalent to anatomical edge-loop count. This is **not sufficient evidence of high-detail eyelid/lip deformation**.
+
+C3.5 Chromium visual run [#43466330263](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43466330263) passed desktop and touch. Its 10 artifact screenshots include front, side, three-quarter, jaw-open and wireframe on both modes. The rendered face remains visibly the existing human source; no missing functional anatomical loops were invented. Neck/body continuity holds in the sample views, and the original C1 jaw pose still opens, but this does not certify absence of contact artifacts or visual realism.
+
+**Outstanding blocker for owner C3.5 acceptance:** localized subdivision of inherited surface triangles increases sampling density but cannot introduce required palpebral rims, mouth aperture topology, separate lips, nostril openings or high-quality facial skinning. Before merging as a fully accepted *high-detail facial topology foundation*, inspect and improve true feature-local anatomical edge-flow and deformation tests (and prove quantitative refined-region counts under facial pose changes). The current implementation is deliberately a **draft/partial foundation**, not completed C3.5.
+
 ## Acceptance and limitations
 
 Vitest should exercise deterministic atlas ordering, bilateral field separation, source skin ownership, canonical edge continuity, UV/geometry preservation, four-weight normalization, C1 head/jaw FK and neutral recovery, budget validation, reproducible generation and idempotent disposal. Verify TypeScript, full Vitest + combat replay, build identity and both Chromium modes in CI. Capture and review **front, three-quarter, profile, jaw open/closed and close wireframe** rendered views on the feature-branch build. Require owner approval before merge.
