@@ -488,9 +488,11 @@ try{
         if(head){
           active!.spike.character.root.updateWorldMatrix(true,true);
           target=head.getWorldPosition(new THREE.Vector3());
-          target.y-=.07;
+          // A user-selected head view should show the brow/eye contours.
+          // Morphology rebuilds still preserve the manually orbited camera.
+          target.y-=.02;
           camera.position.copy(target).add(selectedView==="head-front"?
-            new THREE.Vector3(0,.04,.38):new THREE.Vector3(.38,.04,0));
+            new THREE.Vector3(0,.04,.46):new THREE.Vector3(.46,.04,0));
         }
       }
       if(selectedView==="thumb-web-left"||selectedView==="thumb-web-right"){
