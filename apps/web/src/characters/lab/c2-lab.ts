@@ -15,6 +15,7 @@ import { AnatomicalFK } from "../geometry/AnatomicalFK";
 import { anatomicalPoseById, resolveAnatomicalPose } from "../geometry/AnatomicalPoseMatrix";
 import { createCharacterLabControls } from "./CharacterLabControls";
 import { BoneInspector } from "./BoneInspector";
+import { frameSelectedAnatomicalBone } from "./LabCameraFocus";
 
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
 const status=document.querySelector<HTMLElement>("#status");
@@ -423,18 +424,7 @@ try{
   function focusSelectedBone():void {
     const selection=inspector?.getSelectedBone();
     if(!selection||!active)return;
-    const offset=camera.position.clone().sub(controls.target);
-    const direction=offset.lengthSq()>1e-8?
-      offset.normalize():new THREE.Vector3(0,.08,1).normalize();
-    const role=selection.role;
-    const range=role.startsWith("finger_")?.15:
-      /^(jaw|head|neck)$/.test(role)?.36:
-      /^(wrist|palm_)/.test(role)?.26:
-      /^(shoulder|elbow|hip|knee|ankle)/.test(role)?.48:.58;
-    const distance=Math.max(range,camera.near*3);
-    controls.target.copy(selection.position);
-    camera.position.copy(selection.position).addScaledVector(direction,distance);
-    camera.lookAt(controls.target);
+    frameSelectedAnatomicalBone(camera,controls.target,selection);
     controls.update();
   }
   document.querySelector<HTMLButtonElement>("#focus-selected-bone")
