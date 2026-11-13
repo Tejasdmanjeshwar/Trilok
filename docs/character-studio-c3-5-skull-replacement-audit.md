@@ -40,47 +40,22 @@ A normalized 21-station lateral and sagittal *skeletal* envelope derived from bo
 6. Automated tests: provenance/hash, scale/orientation, manifold and zero-area checks, landmark ordering, vertex normals/UV/weights, matched cranium/mandible pose, jaw-open neutral recovery, skinning extremes, deterministic rebuild/hash and disposal. Browser evidence: paired **front, three-quarter, side, jaw-open** views of both families plus neck transitions, desktop/touch camera continuity, and body extreme coupling. Reject obvious human nose/face remnants or hidden geometry intersections.
 7. Run Fast Verify at the exact PR SHA, inspect required statuses, and merge **only after** passing CI and actual rendered anatomy review. Owner must then inspect the deployment separately before marking Issue #41 C3.5 visually accepted.
 
-## Current repository limitations
+## Architecture and acceptance status
 
-- `MammalianHeadDeformation.ts` and `MammalianFaceAnatomy.ts` deform the pinned MakeHuman head's original indices. Skin weights, UVs and the underlying C2 source topology remain shared. The graph's `head_primate_v1`/`head_bear_v1` labels are **not evidence** that zoological topology is installed.
-- C3.5 tests currently verify bounded offsets, color/nose/jaw fields, C1 identities and replay compatibility; they do **not** establish scan-based geometry or credible zoological silhouettes.
-- The existing C3.5 candidate must not be marked accepted; no claimed direct scanner data, no scan-backed code path and no release of C3.6/C4.
+The legacy `MammalianHeadDeformation.ts` and `MammalianFaceAnatomy.ts`
+still operate on MakeHuman source topology for the experimental bear
+profile (deferred to C7). **Vanara is now routed to an independent generated
+external topology** in `VanaraHeadGeometry.ts`; its cranial cross-sections
+are informed by the acquired USNM 334797 scan pair. This is not a literal
+reskinned skull scan. New facial surface, colours, eyes, lips, and ears are
+procedurally authored, and must be visually reviewed for zoological fidelity.
 
-## Experimental candidate implementation on PR #48 (not final C3.5)
-
-A **new independent procedural head topology** is integrated in the primate-only
-morphology path in `VanaraHeadGeometry.ts`. It creates a versioned-recipe-driven
-macaque-inspired outer cranium, broad buccal cheeks, projecting muzzle, recessed
-bilateral nostrils, lip/oral crease, orbital relief, eyelid pigmentation,
-lateral ear fields, and two skinned eye globes. Instead of projecting the human
-nose, it removes render triangles of the original human head above a calibrated
-neck cut. It reuses existing head and jaw semantic skin bones and keeps the
-original C2 body's vertex attributes and weights. The bear keeps the legacy
-experimental morph and is deferred to C7. A separate C3.5 test checks generated
-vertex attributes, skinned influences, face degeneracy, C1 jaw articulation,
-and deterministic rebuild output.
-
-**Not scan derived:** The current dimensions are authored, stylized procedural
-ratios, NOT measurements extracted from Smithsonian skull meshes. The real
-specimen files have not yet been acquired, checked or imported. This candidate
-is a bounded evaluation of genuine new topology, **not completion** of the
-request to use the Smithsonian skull/mandible as anatomical foundations.
-
-**Not continuous at neck:** The new species-specific head is a separate
-closed skinned mesh whose lower ring overlaps the retained C2 neck surface.
-It is not yet a welded, manifold whole-body mesh, nor does it demonstrate
-final UV/texture, fur, lip interior, external ear folds, tongue or dentition.
-A cap and detached eye-globe components are intentional preview choices.
-The required acceptance gate must include overlap, neck rotation, jaw open,
-3/4 silhouette, cranial/mandibular anatomy, geometric defects under extremes,
-and actual screenshots. In particular a separate mesh is not a claim of
-single-piece topology.
-
-**No release promotion:** do not mark C3.5 accepted, merge, or open C3.6 based
-on a successful unit suite. Confirm exact source suitability and visually
-verify species anatomy first. The existing `docs/character-studio-c3-5-mammalian-heads.md`
-documents the previously merged legacy candidate; this audit supersedes it
-for the new Vanara replacement.
+The Vanara neck join is a separate skinned mesh with a copied C2 boundary,
+not welded global manifold connectivity. The jaw remains the same C1
+semantic joint; calibrated scan landmarks inform the facial envelope but
+do not change legal combat reaction or hit rules. The scanned mandibular
+position is an approximate ROI registration. All C3.5 acceptance and
+Cloudflare deployment requirements remain open pending further verification.
 
 ### Subsequent implementation on PR #48 — scan-calibrated candidate
 
