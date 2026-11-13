@@ -41,8 +41,6 @@ const gaussian=(distance:number,width:number):number=>
   Math.exp(-2*(distance/Math.max(width,1e-5))**2);
 const double=(x:number,x0:number,width:number)=>
   gaussian(x-x0,width)+gaussian(x+x0,width);
-const limited=(x:number,x0:number,width:number)=>
-  smooth((x-(x0-width))/width)* (1-smooth((x-x0)/width));
 
 /** Scan-constrained proportions in head-height normalized coordinates. */
 export function calibrateVanaraFace(height:number,width:number,
@@ -106,7 +104,7 @@ export function calibrateVanaraFace(height:number,width:number,
     // A separately projected midface and mandibular jaw: the nasal bridge is
     // deliberately NOT a stretched human nose.
     const forward=
-      depth*(.42*shape.muzzleLength*muzzleArea+
+      depth*clamp(height/.31,.78,1.24)*(.42*shape.muzzleLength*muzzleArea+
         .20*shape.jawMass*cheek+
         .27*shape.jawMass*jaw+
         .12*nose+.075*nasalBridge+
