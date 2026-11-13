@@ -1,0 +1,37 @@
+name: C3.5 Facial Visual Verification
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/characters/geometry/FacialTopology.ts"
+      - "apps/web/src/characters/geometry/AnatomicalTemplate.ts"
+      - "apps/web/src/characters/lab/c2-lab.ts"
+      - "apps/web/c2-lab.html"
+      - "e2e/c3-5-face.spec.ts"
+      - ".github/workflows/c35-facial-visual.yml"
+permissions:
+  contents: read
+jobs:
+  facial-chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm build
+      - run: pnpm exec playwright test e2e/c3-5-face.spec.ts
+      - name: Upload human facial views
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c35-facial-chromium-${{ github.run_id }}
+          path: |
+            test-results/c35/
+            test-results/**/*.png
+            test-results/**/*.zip
+          if-no-files-found: warn
+          retention-days: 7
