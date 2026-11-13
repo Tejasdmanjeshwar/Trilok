@@ -66,11 +66,11 @@ export function calibrateVanaraFace(height:number,width:number,
   const mouthT=chinT+(jawPivotT-chinT)*.43;
   const noseT=Math.max(mouthT+.11,.46);
   const eyeT=.77;
-  const fur=new THREE.Color(0x67594d);
-  const bare=new THREE.Color(0xac8273);
-  const pad=new THREE.Color(0xb18b7b);
+  const fur=new THREE.Color(0x544b42);
+  const bare=new THREE.Color(0x927164);
+  const pad=new THREE.Color(0x9f7c6e);
   const dark=new THREE.Color(0x36282a);
-  const orbital=new THREE.Color(0x503938);
+  const orbital=new THREE.Color(0x58433d);
   const sample=(x:number,t:number,theta:number):VanaraFaceSample=>{
     const front=smooth((Math.sin(theta)-.11)/.52);
     const flank=1-smooth((Math.sin(theta)+.1)/.65);
@@ -96,35 +96,37 @@ export function calibrateVanaraFace(height:number,width:number,
       (flank+.38*front);
     const concha=gaussian(normalized-1.02,.19)*
       gaussian(t-.65,.083)*(flank+.45*front);
-    const faceMask=front*smooth((t-.13)/.17)*
-      (1-smooth((t-.91)/.095))*
-      (1-smooth((normalized-.75)/.35)*.45);
+    // Fur-covered crown and cheeks, with a softer bare central facial pad.
+    // Do not paint the whole frontal skull the colour of exposed bone.
+    const faceMask=front*smooth((t-.18)/.20)*
+      (1-smooth((t-.83)/.15))*
+      (1-smooth((normalized-.66)/.35)*.52);
     const jawWeight=smooth((jawPivotT-t)/.16)*
       smooth((Math.sin(theta)+.6)/1.03)*.92;
     // A separately projected midface and mandibular jaw: the nasal bridge is
     // deliberately NOT a stretched human nose.
     const forward=
-      depth*clamp(height/.31,.78,1.24)*(.42*shape.muzzleLength*muzzleArea+
-        .20*shape.jawMass*cheek+
-        .27*shape.jawMass*jaw+
-        .12*nose+.075*nasalBridge+
-        .21*shape.browMass*brow-
-        .16*orbit-.14*(nostrilL+nostrilR)-.115*mouth-
-        .10*concha);
+      depth*clamp(height/.31,.78,1.15)*(.47*shape.muzzleLength*muzzleArea+
+        .22*shape.jawMass*cheek+
+        .17*shape.jawMass*jaw+
+        .105*nose+.055*nasalBridge+
+        .11*shape.browMass*brow-
+        .072*orbit-.095*(nostrilL+nostrilR)-.073*mouth-
+        .055*concha);
     const lateral=Math.sign(x)*width*
-      (.24*shape.earSize*ear-.105*concha+
-        .065*cheek);
+      (.16*shape.earSize*ear-.072*concha+
+        .036*cheek);
     return {lateral,forward,cheek,muzzle:muzzleArea,jaw,nose,
       nostrilLeft:nostrilL,nostrilRight:nostrilR,mouth,orbit,brow,
       ear,concha,faceMask,jawWeight};
   };
   const color=(f:VanaraFaceSample):THREE.Color=>{
     const result=fur.clone().lerp(bare,Math.min(f.faceMask,1));
-    result.lerp(pad,clamp(f.muzzle*.55+f.cheek*.23,0,.8));
-    result.lerp(orbital,clamp(f.orbit*.75,0,.72));
-    result.lerp(dark,clamp(f.nostrilLeft*.95+f.nostrilRight*.95+
-      f.mouth*.9,0,.96));
-    result.lerp(new THREE.Color(0x886253),clamp(f.ear*.6-f.concha*.18,0,.72));
+    result.lerp(pad,clamp(f.muzzle*.48+f.cheek*.18,0,.7));
+    result.lerp(orbital,clamp(f.orbit*.32,0,.36));
+    result.lerp(dark,clamp(f.nostrilLeft*.68+f.nostrilRight*.68+
+      f.mouth*.55,0,.84));
+    result.lerp(new THREE.Color(0x785c50),clamp(f.ear*.48-f.concha*.16,0,.59));
     return result;
   };
   return Object.freeze({sample,color,eyeX,eyeT,mouthT,noseT,
