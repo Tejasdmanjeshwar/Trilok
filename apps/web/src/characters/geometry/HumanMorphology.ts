@@ -5,7 +5,7 @@ import { validateHumanMorphologyRecipe, type CharacterRecipeV1,
   type HumanMorphologyV1, HUMAN_LOCAL_GENERATOR_VERSION,
   validateHumanLocalRecipe, HUMAN_HEAD_GENERATOR_VERSION,
   validateHumanHeadRecipe, MAMMAL_HEAD_GENERATORS,
-  validateMammalianHeadRecipe } from "@trilok/character-core";
+  validateMammalianHeadRecipe, MAMMAL_HEAD_TOPOLOGY_FAMILIES } from "@trilok/character-core";
 import { makeHumanLocalTransform, recomputeSourceNormals } from "./HumanLocalDeformation";
 import type { AnatomicalHuman } from "./AnatomicalTemplate";
 import { inspectAnatomicalMorphologyBaseline } from "./AnatomicalMorphologyContract";
@@ -67,7 +67,8 @@ export function applyHumanMorphology(
   inspectAnatomicalMorphologyBaseline(human);
   const {spike, mesh, template} = human;
   if (spike.graph.topologyFamilyId !== recipe.topologyFamilyId ||
-      spike.graph.headTopologyFamilyId !== "head_human_v1" ||
+      spike.graph.headTopologyFamilyId !== (mammal ?
+        MAMMAL_HEAD_TOPOLOGY_FAMILIES[mammal.family] : "head_human_v1") ||
       mesh.geometry !== template.geometry)
     throw new Error("C3 morphology requires the pinned human anatomy/mesh");
   const root = spike.character.root;
