@@ -12,7 +12,7 @@ export class HumanPoseCorrectives {
   readonly roles = ROLES;
   private readonly mesh: THREE.SkinnedMesh;
   private readonly roleJointIds = new Map<CorrectiveJointRole, string>();
-  private readonly originalTargets: readonly THREE.BufferAttribute[];
+  private readonly originalTargets: readonly (THREE.BufferAttribute | THREE.InterleavedBufferAttribute)[];
   private readonly originalRelative: boolean;
   private disposed = false;
 
@@ -47,7 +47,7 @@ export class HumanPoseCorrectives {
       indices.set(role, jointIndex);
       this.roleJointIds.set(role, id);
     }
-    const targets: THREE.BufferAttribute[] = [];
+    const targets: (THREE.BufferAttribute | THREE.InterleavedBufferAttribute)[] = [];
     for (const role of ROLES) {
       const center = centers.get(role)!;
       const axis = distal.get(role)!.clone().sub(center);
