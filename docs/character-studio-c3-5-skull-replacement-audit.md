@@ -1,20 +1,34 @@
 # C3.5 scan-backed head replacement — source and integration gate
 
-**Status (2026-11-13): BLOCKED on acquisition and inspection of the exact scan files.** This audit is part of C3.5, **not** a new numbered subphase, acceptance, or permission to begin C3.6/C4. The existing mammalian C3.5 faces remain human-source morphs. No scan has been bundled or represented as the new head. This document intentionally makes no production-ready or visual-acceptance claim.
+**Status (2026-11-13): SCAN ACQUIRED; registration, seam and rendered acceptance still open.** This audit is part of C3.5, **not** a new numbered subphase, acceptance, or permission to begin C3.6/C4. The existing mammalian C3.5 faces remain human-source morphs. No scan has been bundled or represented as the new head. This document intentionally makes no production-ready or visual-acceptance claim.
 
 ## Source-specific CC0 verification
 
 | Required reference | Identified museum source | Rights evidence | Actual mesh suitability |
 | --- | --- | --- | --- |
-| Bonnet macaque cranium | Smithsonian NMNH, *Macaca radiata*, male, USNM **334797**, [cranium](https://3d.si.edu/object/3d/macaca-radiata-cranium%3A4437e090-6a07-49ea-9e86-862ff3fa9f8d) | Smithsonian item record explicitly marks **Metadata Usage: CC0** and media public domain | **Unverified:** downloaded model bytes, mesh components, normals, topology and anatomical fit have not been examined |
-| Bonnet macaque mandible | Smithsonian NMNH, same *Macaca radiata* individual **USNM 334797**, [mandible](https://3d.si.edu/object/3d/macaca-radiata-mandible%3A3c52a05e-e7fa-441e-ad64-012213802891) | Smithsonian item record explicitly marks **Metadata Usage: CC0** and media public domain | **Unverified:** available full-resolution PLY is described in millimetres; skull-to-jaw registration not tested |
+| Bonnet macaque cranium | Smithsonian NMNH, *Macaca radiata*, male, USNM **334797**, [cranium](https://3d.si.edu/object/3d/macaca-radiata-cranium%3A4437e090-6a07-49ea-9e86-862ff3fa9f8d) | Smithsonian item record explicitly marks **Metadata Usage: CC0** and media public domain | Acquired and audited: 750,000 triangle ASCII PLY, 372,999 exact-welded vertices; 320 boundary edges, 0 non-manifold edges; landmark boxes measured. Detailed manual eye/nasal validation still open |
+| Bonnet macaque mandible | Smithsonian NMNH, same *Macaca radiata* individual **USNM 334797**, [mandible](https://3d.si.edu/object/3d/macaca-radiata-mandible%3A3c52a05e-e7fa-441e-ad64-012213802891) | Smithsonian item record explicitly marks **Metadata Usage: CC0** and media public domain | Acquired and audited: 241,727 triangle ASCII PLY, 120,332 exact-welded vertices; 243 boundary edges, 0 non-manifold edges. Condyle-box registration is approximate, not final anatomical fit |
 | Brown bear skull | University of Dundee D’Arcy Thompson Zoology Museum, *Ursus arctos*, **DUNUC 2030**, [museum record](https://app.dundee.ac.uk/museum/collections/zoology/zoology3d/brownbearskull/index.html), [Sketchfab model](https://sketchfab.com/3d-models/brown-bear-skull-e01dc94d20df4b888c7a6979bffb45a9) | Dundee's [Open Access — CC0 Public Domain collection](https://sketchfab.com/uod_museums/collections/open-access-cc0-public-domain-3b3ffee70cc04e01952dd6803b366074) lists this bear skull. **Model file/embedded textures must still be verified after acquisition.** | **Unverified:** Dundee states 43 cm skull length, Artec Eva scan/OBJ export, but mesh bytes have not been downloaded or inspected |
 
 Do not conflate a different Smithsonian macaque specimen with the matching USNM 334797 cranium/mandible pair. The Dundee scan is skeletal anatomy, **not** a ready-to-rig bear head or an external fur/skin mesh. The material/texture of a scanned skull is not appropriate exterior facial material.
 
-### Access blocker
+### Source acquisition and audit (2026-11-13)
 
-The museum's Dundee link embeds a Sketchfab asset. [Sketchfab's documented Download API](https://sketchfab.com/developers/download-api/downloading-models) requires an authenticated Sketchfab account and returns a short-lived authorized archive URL; anonymous API access cannot be assumed. No linked credentials or authenticated download capability was available to inspect and bundle this exact file in this session. Smithsonian catalogue pages list full-resolution PLY, but actual mesh files have not been obtained in the current execution environment. **No unverified mirror, invented mesh, screenshot-derived reconstruction, or generic bear stand-in should be labeled as these scans.**
+Both supplied files were retrieved from ChatGPT Library `/Trilok/Anatomical References/` and materialized for *offline geometry analysis*; source scans are not committed as runtime assets.
+
+| Artifact | Exact SHA-256 | Input size | Measured topology |
+| --- | --- | ---: | --- |
+| Cranium archive `USNM334797_cranium_-600_dec.zip` | `6f0d0e9a128cfd2671a417d8f379be6fd0c347bf79c85e94a69f6a19cabdef3a` | 33,221,364 bytes | wraps a 151,710,569-byte ASCII PLY |
+| Cranium PLY `USNM334797_cranium_-600_dec.ply` | `11492e50f9ad9593d5437d9cffaeaf825fd14311f639b3f5506437aed1b8b81e` | 151,710,569 bytes | 750,000 triangles, 2,249,996 export vertices; 372,999 unique coordinates after exact welding |
+| Mandible PLY `USNM334797_mandible_-400.ply` | `9b5ea19a9e92bad1f2026f9f7e1eaeeb599bd77ddc289d7ce5eeba33f6db91dc` | 48,153,719 bytes | 241,727 triangles, 725,181 export vertices; 120,332 unique coordinates after exact welding |
+
+Both are ASCII triangle-soup exports (nearly three duplicated vertices per triangle). Exact coordinate welding yields **zero edges with more than two incident faces**, but 320 (cranium) / 243 (mandible) open boundary edges. No faces of near-zero area below 1e-5 square millimetres were detected. These are anatomical scan references, **not runtime geometry**. Note the in-file `Blender 2.80` conversion comment is export metadata; Trilok does not require Blender. The files themselves do **not** declare a linear unit: measurements here assume millimetres based on specimen dimensions, not a proven scanner calibration.
+
+The cranium's bounds are approximately **75.392 × 61.254 × 110.415 mm**, with native axes left-right X, cranio-caudal Y and anterior +Z after visual assessment. Estimated source-space landmark proxies (mm): crown (-1.563, 29.150, -14.352), occiput (-0.593, -13.960, -51.829), rostrum (-2.130, -3.323, 51.242), zygomatics (-35.303, -15.137, -9.163) and (+35.090, -13.719, -6.008), orbital proxies (-11.075, 23.349, 13.411) and (+15.377, 22.686, 11.454). These are medians of source-coordinate selection boxes rather than expert hand-annotated point positions. The upper dental and nasal rim positions require further manual inspection.
+
+The mandible is a separate local frame; a preliminary paired condyle-box proxy translation of approximately **(-1.009, -26.892, +13.113) mm** puts it in a plausible jaw-closed pose. This is **not** anatomical condylar registration, rotational ICP, or final occlusion verification. Its expected positional error may exceed several millimetres.
+
+A normalized 21-station lateral and sagittal *skeletal* envelope derived from both scans is retained in `VanaraScanCalibration.ts` with the specimen identity, exact PLY SHA-256 values, landmark-box proxies and source dimensions. `VanaraHeadGeometry.ts` consumes this envelope for low-poly width, sagittal depth and center profiles; soft tissue, ears, skin colour and eyelids remain procedural designs, not measured skull data. The runtime does not fetch or package either museum mesh.
 
 ## Mandatory asset-acceptance checklist before geometry replacement
 
@@ -67,3 +81,9 @@ on a successful unit suite. Confirm exact source suitability and visually
 verify species anatomy first. The existing `docs/character-studio-c3-5-mammalian-heads.md`
 documents the previously merged legacy candidate; this audit supersedes it
 for the new Vanara replacement.
+
+### Subsequent implementation on PR #48 — scan-calibrated candidate
+
+The head profile now uses the scanned specimen envelope rather than unrelated authored cranial ring widths. The generator records `sourceCalibration: USNM334797-bonnet-macaque-envelope-v1`, compares generated triangles against the number of source human-head triangles removed at the actual neck cut, and rejects any shape above **130%**. An automated test covers the pinned scan constants and the live generator budget.
+
+**Outstanding acceptance blockers:** accurate orbital/nasal/maxillary point annotation, reliable rigid cranium-to-mandible joint registration and bite alignment, watertight or explicitly validated C2 neck interface, credible jaw-open lip/oral cavity geometry, extreme skinning / replay, actual desktop and touch rendered screenshots, and owner visual acceptance. The current separate head **overlaps**, rather than welds to, the retained neck. The scan's bone geometry cannot substitute for a finished skin surface. Fast Verify and browser acceptance on the new PR head must be separately checked. This candidate is not final C3.5 and must remain a draft until resolved.
