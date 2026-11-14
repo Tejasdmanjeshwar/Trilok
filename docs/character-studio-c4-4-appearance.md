@@ -20,3 +20,10 @@ No Save/Load, baking, face Focus (C4.5), pose, equipment or generator were added
 - `tests/character-studio-appearance.test.ts` validates material mutation, real color values, bounds, deferred capability gating, recipe validation, undo/redo and gesture history. Existing strict TypeScript, 1000-seed deterministic combat replay and character tests must pass.
 - `e2e/studio-appearance.spec.ts` exercises real canvas color changes, presets, undo/redo, section separation, reset, desktop/touch fit and screenshot captures. The full browser acceptance workflow is intentionally manual according to `docs/ci-phase-acceptance.md`; CI Verify does not automatically run Chromium.
 - Require exact PR-head Verify (TypeScript, all unit/replays, production build, build identity). Review rendered screenshots before claiming visual acceptance. Confirm merged main SHA and Cloudflare deployed identity **separately**; CI success does not establish visual or deployment success.
+
+## Implementation verification and outstanding acceptance
+
+- [PR #72](https://github.com/Tejasdmanjeshwar/Trilok/pull/72) merged as `072c9ac73159c0c33023907e8dabd047a9d19ceb`.
+- Exact PR-head [Verify run #43614724632](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43614724632) passed strict TypeScript, unit/combat replays, production build and build identity.
+- The focused desktop/touch Chromium journey `e2e/studio-appearance.spec.ts` is committed but has **not** been executed or screenshot-reviewed yet. Rendering and mobile ergonomics must still be accepted from real browser captures.
+- Live Cloudflare deployment and served SHA were not independently verified; final deployment status is outstanding.
