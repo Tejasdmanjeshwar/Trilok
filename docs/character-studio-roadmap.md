@@ -330,3 +330,6 @@ shaping or new combat actors. Expanded desktop/touch captures are defined for
 the C2 Phase Acceptance run. Full runtime performance instrumentation,
 geometry-strain adjudication, inspected mobile/desktop screenshots and the
 manual exact-SHA C2 acceptance workflow remain outstanding. C2 remains open.
+
+
+**C4.7 owner-directed revision:** The approved UI is one-click Random character, replacing the previously merged style/lock/seed panel. Broad source-supported body/facial randomization is implemented in the focused follow-up; final visual inspection is still required. See [generator record](character-studio-c4-7-generator.md).

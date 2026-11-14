@@ -4,7 +4,7 @@ import {
   type StudioControl,type StudioSection,
 } from "./StudioMorphCatalog";
 import {StudioHistory,type StudioHistoryStatus} from "./StudioHistory";
-import {compareGeneratedCharacter,type GeneratorOptions,
+import {compareGeneratedCharacter,
   type GeneratorDifference} from "./StudioGenerator";
 import {reduceStudioRecipe,studioRecipeFingerprint,
   type StudioEditCommand,type StudioRecipeV1} from "./StudioRecipe";
@@ -15,7 +15,7 @@ export interface StudioMorphEditor {
   undo():void;
   redo():void;
   resetAll():void;
-  generate(options:GeneratorOptions):Promise<GeneratorDifference|undefined>;
+  generate(seed:number):Promise<GeneratorDifference|undefined>;
   status():StudioHistoryStatus;
   dispose():void;
 }
@@ -243,12 +243,12 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
     undo(){navigate("undo");},
     redo(){navigate("redo");},
     resetAll(){history.endGesture();dispatch({type:"reset-all"},0);},
-    async generate(options){
+    async generate(seed){
       if(disposed)return undefined;
       history.endGesture();
       if(timeout!==undefined){clearTimeout(timeout);timeout=undefined;}
       const previous=history.current;
-      const command:StudioEditCommand={type:"generate",options};
+      const command:StudioEditCommand={type:"generate",seed};
       let next:StudioRecipeV1;
       try{
         // Compute first: invalid options must not affect history or GPU state.

@@ -81,12 +81,10 @@
 - Keyboard focus order, dialog/slider semantics, labels, contrast, screen reader announcements, 44px-ish mobile touch target goal, reduced motion and platform gestures. Measure initial load, edit latency, FPS and memory/resource disposal on representative desktop and constrained mobile; set release budgets from measured baselines, not invented benchmarks.
 - **Acceptance:** desktop and touch Chromium screenshots reviewed, responsive widths/rotations, no blocking UI, no WebGL leaks across repeat navigation/rebuild, robust context-loss and error retry where feasible.
 
-### C4.7 — Meaningful seeded human generator (final feature)
-- Implement last, after the editor's shared state and supported controls are stable. Use deterministic, versioned PRNG and **profile-based correlated sampling** rather than randomizing every slider independently.
-- Human starter profiles include balanced, athletic/warrior, lean/scout and sturdy/guardian **as design distributions, not fixed hardcoded meshes**. Sample sensible linked groups: age ↔ overall proportions/head ratio; stature ↔ limbs/torso; muscle/fat/build ↔ shoulder/chest/limb mass; face ↔ related nose/cheek/jaw/eye morphology. Respect ancestry/body values without stereotyping or making assumptions about identity.
-- User controls: seed, subtle↔distinctive variation, choose style, lock Face/Body/Age/Appearance or selected features, regenerate only unlocked groups, inspect resulting differences, undo/redo and refine the output manually. Generator seed and version belong in the internal recipe; identical input must reproduce identical full parameters.
-- Reuse existing target validators, supported native ranges, topology and deterministic rebuild. Define bounded retries or safe fallback on anatomically invalid combinations; never yield nonfinite values, collapsed binding or incomplete previews. Avoid indefinitely searching for a valid candidate.
-- **Acceptance:** fixed-seed snapshot and property-based tests, locked-group invariants, same-seed reproducibility, diverse-but-valid profiles, age and extreme regression, editable output, desktop/touch UI screenshots and user visual sign-off. No persistent Save/Load in C4.
+### C4.7 — Simple random human generator (owner-approved revision)
+- Owner feedback supersedes the previous constrained/seed-lock/profile generator design: its outputs were too alike to be useful. The Studio must display only a **Random character** action, without style, locks, variation slider or seed entry.
+- Randomize source-supported body/face/head morph controls, age and appearance, with visibly broad differences. Use a fresh hidden internal seed per click; retain deterministic replay only as an internal contract. A human remains editable and undoable.
+- Never select unsupported extrapolation/stress values or sacrifice anatomy/runtime validity for variation. A random recipe needs real visual inspection, not just numeric validation. Full rendered Phase Acceptance is still mandatory.
 
 ## 5. Verification and release gates
 
@@ -98,7 +96,7 @@ Mandatory test axes:
 - No player-facing milestone/internal strings in Studio DOM/aria/loaded copy (automated audit; About version explicitly allowed); no inaccessible hidden technical labels.
 - Shared runtime and source-target parity, unchanged C1/C2/C3 controls, full supported range, baby-to-child mesh/rig/skin alignment, facial+jaw and shoulder/knee poses; no accidental new topology or art assets.
 - Navigable with keyboard, touch, screen reader semantics and reduced-motion; responsive screenshot coverage at typical phone/tablet/desktop viewports and zoom.
-- Preset, control, reset, history, generator seed/locks, asynchronous cancellation/retry, no stale preview, and complete disposal across repeated sessions.
+- Preset, control, reset, history, random generator, asynchronous cancellation/retry, no stale preview, and complete disposal across repeated sessions.
 - Measured initial loading and interaction responsiveness on representative devices; record actual benchmarks/limitations, avoid unverified claims of constant 60 FPS.
 - C4 must not modify gameplay damage resolution, AI timing or current authoritative combat semantics.
 
