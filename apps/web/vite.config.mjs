@@ -37,13 +37,13 @@ const build = Object.freeze({
 
 // One object is embedded in the UI and emitted as an inspectable manifest.
 export default defineConfig({
-  // Multi-page diagnostic is isolated: / still loads only combat, /c2-lab.html
-  // loads the research rig and is intentionally not the future /studio route.
+  // Isolated multi-page entrypoints: Studio never imports combat or Lab startup.
   build: {
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
         c2Lab: fileURLToPath(new URL("./c2-lab.html", import.meta.url)),
+        studio: fileURLToPath(new URL("./studio/index.html", import.meta.url)),
       },
     },
   },
