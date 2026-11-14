@@ -248,11 +248,10 @@ function calibratedSkinMotionSamples(spike:SkinningSpike,
  * OBJ unit fixtures retain the explicit provisional heuristic for parser tests. */
 export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
   official?:{readonly rig:SourceRig;readonly weights:SourceWeights;
-    readonly onTiming?:AnatomicalTimingSink;
-    readonly headFamily?:"primate"|"bear"}):AnatomicalHuman {
+    readonly onTiming?:AnatomicalTimingSink}):AnatomicalHuman {
   const spike=createSkinningSpike({forearmSkinning:official!==undefined,
     shoulderSkinning:official!==undefined,
-    headFamily:official?.headFamily});
+  });
   const geometry=template.geometry;
   if(official){
     let diagnostic:RigDiagnostics;
@@ -355,8 +354,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
     dispose(){if(disposed)return;disposed=true;geometry.dispose();spike.dispose();}};
 }
 export async function loadAnatomicalHuman(signal?:AbortSignal,
-  onTiming?:AnatomicalTimingSink,
-  headFamily?:"primate"|"bear"):Promise<AnatomicalHuman> {
+  onTiming?:AnatomicalTimingSink):Promise<AnatomicalHuman> {
   const totalStart=performance.now();
   const fetchStart=performance.now();
   const response=await fetch("/anatomy/makehuman-base.obj",{signal});
@@ -386,7 +384,7 @@ export async function loadAnatomicalHuman(signal?:AbortSignal,
     const weightParseStart=performance.now();
     const weights=JSON.parse(rawWeights) as SourceWeights;
     onTiming?.("weight-json",performance.now()-weightParseStart);
-    const human=bindTemplateToSemanticRig(template,{rig,weights,onTiming,headFamily});
+    const human=bindTemplateToSemanticRig(template,{rig,weights,onTiming});
     onTiming?.("total-instantiation",performance.now()-totalStart);
     return human;
   }catch(error){template.geometry.dispose();throw error;}

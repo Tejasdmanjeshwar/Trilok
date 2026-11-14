@@ -22,7 +22,6 @@ export interface SkinningSpike {
   dispose(): void;
 }
 export interface SpikeOptions {
-  readonly headFamily?: "primate" | "bear";
   readonly heightScale?: number;
   readonly shoulderScale?: number;
   /** Add non-twisting proximal skin references for official imported weights. */
@@ -38,9 +37,7 @@ function finiteScale(value:number|undefined,name:string):number {
 export function createSkinningSpike(options:SpikeOptions={}):SkinningSpike {
   const height=finiteScale(options.heightScale,"heightScale");
   const shoulder=finiteScale(options.shoulderScale,"shoulderScale");
-  const graph=createAnatomyPreset(options.headFamily ?
-    {archetype:"animal_head",animalHeadKind:options.headFamily} :
-    {archetype:"human"});
+  const graph=createAnatomyPreset({archetype:"human"});
   const root=new THREE.Group();
   root.name="C2_DIAGNOSTIC_ONLY";
   const bones=new Map<string,THREE.Bone>();

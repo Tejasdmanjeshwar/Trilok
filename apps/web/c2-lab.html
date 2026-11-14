@@ -119,8 +119,8 @@
     .pose-result { text-align:left; display:flex; flex-direction:column; gap:4px;
       padding:11px 12px; min-width:0 }
     .pose-result[hidden] { display:none!important }
-    input[type="range"][data-head-param], input[type="range"][data-mammal-param], input[type="range"][data-facial-control], input[type="range"][data-body-control] { width:100%; min-height:30px; accent-color:#80b8df; }
-    [data-head-value], [data-mammal-value] { float:right; font-variant-numeric:tabular-nums; color:var(--muted); }
+    input[type="range"][data-head-param], input[type="range"][data-facial-control], input[type="range"][data-body-control] { width:100%; min-height:30px; accent-color:#80b8df; }
+    [data-head-value] { float:right; font-variant-numeric:tabular-nums; color:var(--muted); }
     .facial-slider {display:grid!important;grid-template-columns:1fr auto;gap:2px 8px;margin:10px 0!important}
     .facial-slider input {grid-column:1 / -1;width:100%}
     .facial-slider output {font-variant-numeric:tabular-nums;color:var(--accent)}
@@ -170,7 +170,7 @@
       </div>
     </div>
     <a class="back" href="/">← Combat arena</a>
-    <span class="status-pill">C3.5 · Mammalian head & body preview</span>
+    <span class="status-pill">C3.6 · Human anatomy and body preview</span>
   </header>
   <div class="workspace">
     <section class="stage" aria-label="Character viewport">
@@ -363,57 +363,6 @@
         <button type="button" id="c35-reset-facial">Reset facial controls</button>
         <p id="c35-facial-diagnostics" class="small" aria-live="polite">Loading pinned facial atlas…</p>
         <p class="small">Diagnostics count triangle changes versus the current C3.4 rest shape. They are not proof of collision-free anatomy; inspect posed/wireframe views.</p>
-      </section>
-      <section class="panel" aria-label="C3.5 mammalian head families">
-        <div class="panel-heading"><h2>C3.5 mammalian heads</h2><span class="small">Experimental CC0</span></div>
-        <div class="field">
-          <label for="head-family">Head anatomy family</label>
-          <select id="head-family" aria-label="C3.5 head anatomy family">
-            <option value="human">Human (C3.4)</option>
-            <option value="primate">Primate / Vanara</option>
-            <option value="bear">Bear</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="mammal-preset">Mammalian profile</label>
-          <select id="mammal-preset" aria-label="C3.5 mammalian shape preset" disabled>
-            <option value="neutral">Calibrated family profile</option>
-            <option value="muzzle">Extended muzzle</option>
-            <option value="broad">Broad muzzle and jaw</option>
-            <option value="ears">Larger ears and brow</option>
-            <option value="stress">Combined stress</option>
-            <option value="custom" disabled>Custom values</option>
-          </select>
-        </div>
-        <details>
-          <summary>Detailed muzzle, ear and brow shaping</summary>
-          <div class="field">
-            <label for="mammal-muzzleLength">Muzzle projection <output data-mammal-value="muzzleLength" for="mammal-muzzleLength">1.00</output></label>
-            <input id="mammal-muzzleLength" type="range" data-mammal-param="muzzleLength" min="0.85" max="1.15" step="0.01" value="1" aria-label="C3.5 Muzzle projection" />
-          </div>
-          <div class="field">
-            <label for="mammal-muzzleWidth">Muzzle width <output data-mammal-value="muzzleWidth" for="mammal-muzzleWidth">1.00</output></label>
-            <input id="mammal-muzzleWidth" type="range" data-mammal-param="muzzleWidth" min="0.88" max="1.12" step="0.01" value="1" aria-label="C3.5 Muzzle width" />
-          </div>
-          <div class="field">
-            <label for="mammal-muzzleHeight">Muzzle height <output data-mammal-value="muzzleHeight" for="mammal-muzzleHeight">1.00</output></label>
-            <input id="mammal-muzzleHeight" type="range" data-mammal-param="muzzleHeight" min="0.9" max="1.1" step="0.01" value="1" aria-label="C3.5 Muzzle height" />
-          </div>
-          <div class="field">
-            <label for="mammal-earSize">Ear size <output data-mammal-value="earSize" for="mammal-earSize">1.00</output></label>
-            <input id="mammal-earSize" type="range" data-mammal-param="earSize" min="0.85" max="1.15" step="0.01" value="1" aria-label="C3.5 Ear size" />
-          </div>
-          <div class="field">
-            <label for="mammal-browMass">Brow mass <output data-mammal-value="browMass" for="mammal-browMass">1.00</output></label>
-            <input id="mammal-browMass" type="range" data-mammal-param="browMass" min="0.88" max="1.12" step="0.01" value="1" aria-label="C3.5 Brow mass" />
-          </div>
-          <div class="field">
-            <label for="mammal-jawMass">Jaw mass <output data-mammal-value="jawMass" for="mammal-jawMass">1.00</output></label>
-            <input id="mammal-jawMass" type="range" data-mammal-param="jawMass" min="0.88" max="1.12" step="0.01" value="1" aria-label="C3.5 Jaw mass" />
-          </div>
-        </details>
-        <button type="button" id="reset-mammal">Reset mammalian profile</button>
-        <p class="small">Shared, continuous CC0 source-derived head mesh with family-specific cranium, muzzle, ears and jaw fields. The source and rig remain compatible with C1; the mammalian profiles are experimental visual approximations, not scanned zoological topology or a combat actor.</p>
       </section>
       <section class="panel bone-panel" aria-label="Bone inspector">
         <div class="bone-panel-header">

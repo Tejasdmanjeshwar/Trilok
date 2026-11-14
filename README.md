@@ -46,7 +46,9 @@ Strict TypeScript is enabled. The core has no global mutable state and combat up
 
 Future console releases will need a separate porting strategy: Three.js web builds are not direct console exports.
 
-## Character Studio — C3 in progress\n\nC2 owner sign-off and exact-SHA automated acceptance are recorded in [closed Issue #15](https://github.com/Tejasdmanjeshwar/Trilok/issues/15). C3.1–C3.3 body morphology and correctives are merged. C3.4 opt-in human head morphology is described in [C3.4 notes](docs/character-studio-c3-4-human-head.md). C3.5 native MakeHuman facial controls are merged with owner visual approval in PR #54. C3.6 native MakeHuman body morphology is a draft review candidate in PR #56 (not accepted). C3.7 integration/acceptance remains pending. Species heads remain experimental pending C7; Save/Load belongs to C9.
+## Character Studio — C3 in progress
+
+C2 was accepted in [Issue #15](https://github.com/Tejasdmanjeshwar/Trilok/issues/15). C3.1–C3.4 established human morphology and deformation, and C3.5's pinned MakeHuman facial foundation was merged with owner visual approval in [PR #54](https://github.com/Tejasdmanjeshwar/Trilok/pull/54). C3.6 native MakeHuman body controls are still under technical review in [PR #56](https://github.com/Tejasdmanjeshwar/Trilok/pull/56). C3.7 is full C3 integration and acceptance. The rejected Primate/Bear preview is retired; new species-specific heads belong in C7, and persistent Save/Load in C9. Follow the [current roadmap](docs/character-studio-roadmap.md) and [Issue #41](https://github.com/Tejasdmanjeshwar/Trilok/issues/41).
 
 C2.4's pinned-CC0 anatomical skinning and source-weight corrections include
 headless real-asset shape, seam, articulation, ownership, rest-pose and
