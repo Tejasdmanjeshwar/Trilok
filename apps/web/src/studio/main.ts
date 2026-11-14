@@ -112,7 +112,7 @@ host.innerHTML=String.raw`
             <option value="left">Left hand</option>
           </select>
           <p>A reference sword to inspect your character's hand grip.</p>
-          <div class="studio-action-pair">
+          <div class="studio-action-pair studio-weapon-focus">
             <button id="studio-sword-focus" type="button">Focus on gripping hand</button>
           </div>
         </fieldset>
