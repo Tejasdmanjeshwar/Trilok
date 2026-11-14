@@ -124,7 +124,7 @@ host.innerHTML=String.raw`
 </main>`;
 
 const nav=host.querySelector<HTMLElement>(".studio-nav")!;
-const viewLink=nav.querySelector<HTMLElement>('[data-section="view"]')!;
+const poseLink=nav.querySelector<HTMLElement>('[data-section="pose"]')!;
 const moduleIcons:Record<string,string>={body:"♧",face:"◉",appearance:"✦"};
 for(const module of availableStudioModules()){
   const button=document.createElement("button");
@@ -134,7 +134,7 @@ for(const module of availableStudioModules()){
   icon.setAttribute("aria-hidden","true");
   icon.textContent=moduleIcons[module.id]??"✧";
   button.append(icon,document.createTextNode(" "+module.label));
-  nav.insertBefore(button,viewLink);
+  nav.insertBefore(button,poseLink);
 }
 const element=<T extends HTMLElement>(selector:string):T=>{
   const result=host.querySelector<T>(selector);
