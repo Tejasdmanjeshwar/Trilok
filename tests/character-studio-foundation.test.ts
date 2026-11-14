@@ -35,7 +35,10 @@ describe("Character Studio foundation",()=>{
     expect(config).toContain('"./index.html"');
     expect(readFileSync("apps/web/src/main.ts","utf8")).toContain('href="/studio/"');
     const source=readFileSync("apps/web/src/studio/StudioViewport.ts","utf8");
-    expect(source).toContain("loadAnatomicalHuman");
+    const assembly=readFileSync("apps/web/src/studio/StudioHumanModel.ts","utf8");
+    expect(assembly).toContain("loadAnatomicalHuman");
+    expect(assembly).toContain("MakeHumanBodyController");
+    expect(assembly).toContain("MakeHumanFacialController");
     expect(source).not.toContain("createContinuousHumanPrototype");
     expect(source).not.toContain("createAnimatedWarrior");
   });
