@@ -20,7 +20,7 @@ import {ALL_FACIAL_CONTROLS as FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialCon
   type FacialWeights,type FacialDiagnostics} from "../geometry/MakeHumanFacialTargets";
 
 import {BODY_CONTROLS,BODY_PRESETS,MakeHumanBodyController,loadBodyAtlas,
-  type BodyWeights,type BodyDiagnostics} from "../geometry/MakeHumanBodyTargets";
+  setBodyAncestryChannel,type BodyWeights,type BodyDiagnostics} from "../geometry/MakeHumanBodyTargets";
 
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
 const status=document.querySelector<HTMLElement>("#status");
@@ -133,7 +133,11 @@ let bodyWeights:Record<string,number>={};
 let requestBodyRebuild:()=>void=()=>{};
 let bodyInputDelay:ReturnType<typeof setTimeout>|undefined;
 const applyBodyInput=(id:string,value:number,immediate=false):void=>{
-  bodyWeights[id]=value;
+  bodyWeights=id==="macro/african"||id==="macro/asian"||id==="macro/caucasian"?
+    {...setBodyAncestryChannel(bodyWeights,id.slice(6) as "african"|"asian"|"caucasian",value)}:
+    {...bodyWeights,[id]:value};
+  if(id==="macro/african"||id==="macro/asian"||id==="macro/caucasian")
+    syncBodyInputs();
   if(bodyPreset)bodyPreset.value="custom";
   if(bodyInputDelay!==undefined)clearTimeout(bodyInputDelay);
   bodyInputDelay=undefined;
@@ -163,10 +167,10 @@ function buildBodyControls():void{
     output.textContent="0.00";
     const slider=document.createElement("input");
     slider.type="range";slider.min=String(c.min);slider.max=String(c.max);
-    slider.step="0.05";
+    slider.step=c.id.includes("macro/")?"0.001":"0.05";
     slider.dataset.bodyControl=c.id;
     slider.value=String(c.id==="stress/gain"?1:c.id.startsWith("macro/")?
-      (c.id==="macro/african"||c.id==="macro/asian"?0:.5):0);
+      (["macro/african","macro/asian","macro/caucasian"].includes(c.id)?1/3:.5):0);
     slider.setAttribute("aria-label",c.label);
     slider.title=c.id.startsWith("native/")?
       "Original MakeHuman native range "+c.nativeMin+".."+c.nativeMax+
@@ -188,7 +192,7 @@ function syncBodyInputs():void{
     const slider=bodyInputs.get(c.id);
     if(!slider)continue;
     const def=c.id==="stress/gain"?1:c.id.startsWith("macro/")?
-      (c.id==="macro/african"||c.id==="macro/asian"?0:.5):0;
+      (["macro/african","macro/asian","macro/caucasian"].includes(c.id)?1/3:.5):0;
     const value=bodyWeights[c.id]??def;
     slider.value=String(value);
     const output=slider.parentElement?.querySelector("output");
