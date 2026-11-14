@@ -14,6 +14,7 @@ test("reference sword equips, focuses and survives pose changes",async({page})=>
   await expect(page.locator("#studio-sword-focus")).toBeEnabled();
   await page.locator("#studio-sword-focus").click();
   await expect(page.locator("#studio-return-focus")).toBeEnabled();
+  await page.waitForTimeout(650);
   mkdirSync("test-results/studio",{recursive:true});
   await page.screenshot({path:"test-results/studio/"+test.info().project.name+
     "-sword-right-focus.png",fullPage:true});
@@ -21,6 +22,7 @@ test("reference sword equips, focuses and survives pose changes",async({page})=>
   await expect(sword).toHaveValue("right");
   await sword.selectOption("left");
   await page.locator("#studio-sword-focus").click();
+  await page.waitForTimeout(650);
   await page.screenshot({path:"test-results/studio/"+test.info().project.name+
     "-sword-left-focus.png",fullPage:true});
   await sword.selectOption("none");
