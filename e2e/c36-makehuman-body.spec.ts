@@ -78,6 +78,8 @@ test("C3.7 infant ages deform body and skeleton together, including child transi
       const input=node as HTMLInputElement;
       input.value=value;input.dispatchEvent(new Event("change",{bubbles:true}));
     },age);
+    await expect(page.locator("html")).toHaveAttribute("data-c36-body-age",String(Number(age)),
+      {timeout:90_000});
     await expect(page.locator("html")).toHaveAttribute("data-c36-body-ready","true",
       {timeout:90_000});
     await expect(diagnostic).toContainText("Source-affected vertices:",{timeout:90_000});
