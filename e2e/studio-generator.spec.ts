@@ -11,7 +11,10 @@ test("Generate creates a deterministic editable human with undo and redo",async(
   await page.getByRole("button",{name:"Generate",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Create a new character"})).toBeVisible();
   await page.locator("#studio-generator-style").selectOption("scout");
-  await page.locator("#studio-generator-variation").fill(".75");
+  await page.locator("#studio-generator-variation").focus();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#studio-generator-variation-value")).toHaveText("75%");
   await page.locator("#studio-generator-seed").fill("1729");
   await page.locator("#studio-generator-feature").selectOption("face:noseWidth");
   await page.locator("#studio-generator-add").click();
