@@ -15,5 +15,4 @@ export function applyStudioSkinMaterial(
   material.color.setHex(HUMAN_SKIN_TONES[appearance.tone].hex);
   material.roughness=appearance.roughness;
   material.metalness=0;
-  material.needsUpdate=true;
 }
