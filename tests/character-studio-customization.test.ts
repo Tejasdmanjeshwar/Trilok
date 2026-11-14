@@ -10,7 +10,7 @@ import {
   withStudioControl,resetStudioSection,withStudioPreset,controlValue,
   validateStudioMorphState,
 } from "../apps/web/src/studio/StudioMorphCatalog";
-import {DEFAULT_HUMAN_HEAD_MORPHOLOGY} from "@trilok/character-core";
+import {DEFAULT_HUMAN_HEAD_MORPHOLOGY} from "../packages/character-core/src/index";
 
 describe("Character Studio authoritative MakeHuman controls",()=>{
   it("exposes every native body and facial modifier and original bounds",()=>{
