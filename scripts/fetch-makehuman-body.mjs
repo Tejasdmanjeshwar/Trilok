@@ -1,12 +1,15 @@
 // C3.6: original CC0 MakeHuman body targets; immutable Git-blob correspondence.
 // Never imports or executes MakeHuman application code.
 import {createHash} from "node:crypto";
+import {gzipSync} from "node:zlib";
 import {mkdir,readFile,writeFile} from "node:fs/promises";
 import {resolve,dirname} from "node:path";
 
 const root=new URL("../",import.meta.url);
 const manifest=JSON.parse(await readFile(new URL("../assets/makehuman-body-v1.json",import.meta.url),"utf8"));
-const output=resolve(new URL("../apps/web/public/anatomy/makehuman-body-v1.json",import.meta.url).pathname);
+const output=resolve(new URL("../assets/cache/makehuman-body-v1.json",import.meta.url).pathname);
+const publicDir=resolve(new URL("../apps/web/public/anatomy/",import.meta.url).pathname);
+const chunkIndex=resolve(publicDir,"makehuman-body-v1-index.json");
 const revision="a8bc2d54ff0ac92e78ff71431b1023eda42bf482";
 const sha=(bytes,algo="sha256")=>createHash(algo).update(bytes).digest("hex");
 const fingerprint=sha(JSON.stringify(manifest));
@@ -78,3 +81,37 @@ if(cached?.payload&&cached.contentDigest===digest(cached.payload)&&
   console.log("MakeHuman original body atlas compiled:",
     parsed.length,"targets",parsed.reduce((s,t)=>s+t.rows.length/4,0),"deltas");
 }
+
+/** Distribute original source rows across immutable gzip archives. Cloudflare
+ * Workers limits each static asset to 25 MiB; keep each chunk below 12 MiB
+ * and keep the 846-target full atlas outside the public output. */
+const MAX_COMPRESSED_BYTES=12*1024*1024;
+const allTargets=cached?.payload?.targets?.length===manifest.targets.length&&
+  cached?.contentDigest===digest(cached.payload) ? cached.payload.targets :
+  JSON.parse(await readFile(output,"utf8")).payload.targets;
+const chunks=[];
+let cursor=0;
+while(cursor<allTargets.length){
+  let size=0;
+  const group=[];
+  // Cap uncompressed JSON to avoid huge decompression allocations.
+  while(cursor<allTargets.length){
+    const target=allTargets[cursor];
+    const estimated=JSON.stringify(target).length;
+    if(group.length&&size+estimated>12*1024*1024)break;
+    group.push(target);size+=estimated;cursor++;
+  }
+  let compressed=gzipSync(Buffer.from(JSON.stringify({targets:group})),{level:6});
+  if(compressed.length>MAX_COMPRESSED_BYTES)
+    throw new Error("Original CC0 body source chunk exceeds deployable limit");
+  const name="makehuman-body-v1-"+String(chunks.length).padStart(3,"0")+".json.gz";
+  await mkdir(publicDir,{recursive:true});
+  await writeFile(resolve(publicDir,name),compressed);
+  chunks.push({name,targetCount:group.length,sha256:sha(compressed),compressedBytes:compressed.length});
+}
+const index={schemaVersion:1,revision,license:"CC0-1.0",
+  sourceManifestHash:fingerprint,targetCount:manifest.targets.length,chunks};
+await writeFile(chunkIndex,JSON.stringify(index)+"\n");
+console.log("C3.6 cloud deploy chunks:",chunks.length,
+  "largest",Math.max(...chunks.map(c=>c.compressedBytes)),"bytes",
+  "total",chunks.reduce((n,c)=>n+c.compressedBytes,0),"bytes");
