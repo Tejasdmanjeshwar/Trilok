@@ -165,7 +165,8 @@ function buildBodyControls():void{
     output.textContent="0.00";
     const slider=document.createElement("input");
     slider.type="range";slider.min=String(c.min);slider.max=String(c.max);
-    slider.step=c.id.includes("macro/")?"0.001":"0.05";
+    // 0.1875 is the original MakeHuman child-age knot; 0.001 rounds it away.
+    slider.step=c.id==="macro/age"?"0.0005":c.id.includes("macro/")?"0.001":"0.05";
     slider.dataset.bodyControl=c.id;
     slider.value=String(c.id==="stress/gain"?1:c.id.startsWith("macro/")?
       (["macro/african","macro/asian","macro/caucasian"].includes(c.id)?1/3:.5):0);
