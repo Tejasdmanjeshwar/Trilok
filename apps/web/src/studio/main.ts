@@ -204,7 +204,7 @@ expressionSelect.addEventListener("change",()=>{
 });
 const inspectionKeys=["skeleton","wireframe","joints"] as const;
 function syncInspection():void {
-  const next={} as {-[K in keyof StudioInspectionOptions]:boolean};
+  const next:StudioInspectionOptions={skeleton:false,wireframe:false,joints:false};
   for(const key of inspectionKeys)
     next[key]=element<HTMLInputElement>("#studio-inspect-"+key).checked;
   viewport.setInspection(next);
