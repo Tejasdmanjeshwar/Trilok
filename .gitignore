@@ -14,3 +14,9 @@ apps/web/public/anatomy/makehuman-base.obj
 # Pinned CC0 skeleton/weights acquired by the verified build script
 apps/web/public/anatomy/makehuman-default.mhskel
 apps/web/public/anatomy/makehuman-default_weights.mhw
+
+# C3.6 reproducible, SHA-pinned body atlas cache and static chunks.
+# The source manifest is tracked; generated payloads are not.
+assets/cache/
+apps/web/public/anatomy/makehuman-body-v1-*.json.gz
+apps/web/public/anatomy/makehuman-body-v1-index.json
