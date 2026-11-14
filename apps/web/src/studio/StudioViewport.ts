@@ -75,6 +75,8 @@ export function createStudioViewport(
     if(!renderer||disposed)return;
     const width=Math.max(1,element.clientWidth),height=Math.max(1,element.clientHeight);
     renderer.setSize(width,height,false);
+    // Leave room for the viewport help bar on short touch displays.
+    camera.fov=height<500?50:40;
     camera.aspect=width/height;camera.updateProjectionMatrix();
   }
   function onLost(event:Event):void {
