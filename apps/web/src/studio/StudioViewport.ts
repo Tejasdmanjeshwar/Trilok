@@ -10,6 +10,8 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   type StudioFocus,type StudioExpression,type StudioPose,type StudioInspectionOptions}
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
+import {isShortTap,isDoubleTap,focusAreaForSkinTriangle,positionForFocusedAngle,
+  type StudioTap} from "./StudioSurfaceFocus";
 
 export interface StudioViewport {
   load():Promise<void>;
@@ -32,6 +34,7 @@ export interface StudioViewport {
 export function createStudioViewport(
   element:HTMLElement,onReady:()=>void,onFailure:(message:string)=>void,
   onEditError:(message:string)=>void,
+  onSurfaceFocus?:(area:StudioFocus)=>void,
 ):StudioViewport {
   const scene=new THREE.Scene();
   const perspective=new THREE.PerspectiveCamera(40,1,.05,90);
@@ -41,6 +44,45 @@ export function createStudioViewport(
   let transition:{from:THREE.Vector3;to:THREE.Vector3;
     fromTarget:THREE.Vector3;toTarget:THREE.Vector3;start:number}|undefined;
   let priorFocus:{position:THREE.Vector3;target:THREE.Vector3}|undefined;
+  let focusedArea:StudioFocus|undefined;
+  const raycaster=new THREE.Raycaster();
+  const pointerNDC=new THREE.Vector2();
+  let pointerStart:StudioTap|undefined;
+  let previousTap:StudioTap|undefined;
+  const pointers=new Set<number>();
+  const makeTap=(event:PointerEvent):StudioTap=>({
+    x:event.clientX,y:event.clientY,time:performance.now(),pointerType:event.pointerType,
+  });
+  const clearTap=():void=>{pointerStart=undefined;previousTap=undefined;};
+  const onPointerDown=(event:PointerEvent):void=>{
+    if(disposed||contextLost||event.button!==0)return;
+    pointers.add(event.pointerId);
+    if(pointers.size!==1){clearTap();return;}
+    pointerStart=makeTap(event);
+  };
+  const onPointerCancel=(event:PointerEvent):void=>{
+    pointers.delete(event.pointerId);clearTap();
+  };
+  const onPointerUp=(event:PointerEvent):void=>{
+    const wasSingle=pointers.size===1&&pointers.has(event.pointerId);
+    pointers.delete(event.pointerId);
+    if(!wasSingle||!pointerStart){clearTap();return;}
+    const end=makeTap(event),start=pointerStart;
+    pointerStart=undefined;
+    if(!isShortTap(start,end)){previousTap=undefined;return;}
+    if(previousTap&&isDoubleTap(previousTap,end)){
+      previousTap=undefined;
+      const rect=renderer?.domElement.getBoundingClientRect();
+      if(!rect||rect.width<=0||rect.height<=0||!active)return;
+      pointerNDC.set((event.clientX-rect.left)/rect.width*2-1,
+        1-(event.clientY-rect.top)/rect.height*2);
+      raycaster.setFromCamera(pointerNDC,camera);
+      // Raycast exactly the current skinned, posed mesh, not the ground or overlays.
+      const hit=raycaster.intersectObject(active.human.mesh,false)[0];
+      const area=hit?.face?focusAreaForSkinTriangle(active.human,hit.face):undefined;
+      if(area&&hit&&focusAt(area,hit.point))onSurfaceFocus?.(area);
+    }else previousTap=end;
+  };
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
@@ -91,11 +133,23 @@ export function createStudioViewport(
     }
   }
   function setView(view:StudioView):void {
-    priorFocus=undefined;
     const selected=STUDIO_VIEWS[view];
+    if(focusedArea){
+      // A camera preset rotates around the selected anatomy without changing
+      // its focus, close-up zoom, or the saved return-to-previous view.
+      const anchor=transition?.toTarget.clone()??target();
+      const distance=transition?
+        transition.to.distanceTo(anchor):camera.position.distanceTo(anchor);
+      moveTo(positionForFocusedAngle(selected,anchor,distance),anchor);
+      return;
+    }
     moveTo(new THREE.Vector3(...selected.position),new THREE.Vector3(...selected.target));
   }
-  const resetView=()=>setView("three-quarter");
+  function resetView():void {
+    focusedArea=undefined;priorFocus=undefined;
+    const selected=STUDIO_VIEWS["three-quarter"];
+    moveTo(new THREE.Vector3(...selected.position),new THREE.Vector3(...selected.target));
+  }
   function setOrthographic(enabled:boolean):void {
     if(orthographicMode===enabled)return;
     endMotion();
@@ -121,19 +175,29 @@ export function createStudioViewport(
     }
     measure();
   }
-  function focus(area:StudioFocus):boolean {
+  function focusAt(area:StudioFocus,hitPoint?:THREE.Vector3):boolean {
     if(!active||!Object.hasOwn(STUDIO_FOCUS,area))return false;
     const point=focusPosition(active.human,area);
     if(!point)return false;
-    if(!priorFocus)priorFocus={position:camera.position.clone(),target:target()};
-    const direction=camera.position.clone().sub(target()).normalize();
+    // Tapping a visible surface should frame exactly that spot. The menu's
+    // explicit Focus continues to use its anatomical reference joint.
+    const anchor=hitPoint?.clone()??point.target;
+    if(!priorFocus)priorFocus={
+      position:camera.position.clone(),target:target(),
+    };
+    const from=transition?.to.clone()??camera.position.clone();
+    const fromTarget=transition?.toTarget.clone()??target();
+    const direction=from.sub(fromTarget).normalize();
     if(direction.lengthSq()<1e-8)direction.set(0,.08,1).normalize();
-    moveTo(point.target.clone().addScaledVector(direction,point.distance),point.target);
+    focusedArea=area;
+    moveTo(anchor.clone().addScaledVector(direction,point.distance),anchor);
     return true;
   }
+  function focus(area:StudioFocus):boolean{return focusAt(area);}
   function returnFromFocus():void {
     if(!priorFocus)return;
-    const previous=priorFocus;priorFocus=undefined;
+    const previous=priorFocus;
+    priorFocus=undefined;focusedArea=undefined;
     moveTo(previous.position,previous.target);
   }
   function setPose(next:StudioPose):void {
@@ -298,6 +362,11 @@ export function createStudioViewport(
     renderer.domElement.setAttribute("role","img");
     renderer.domElement.addEventListener("webglcontextlost",onLost);
     renderer.domElement.addEventListener("webglcontextrestored",onRestored);
+    renderer.domElement.addEventListener("pointerdown",onPointerDown);
+    renderer.domElement.addEventListener("pointerup",onPointerUp);
+    renderer.domElement.addEventListener("pointercancel",onPointerCancel);
+    // Native gestures and double-click focus are handled by the same pointer
+    // recognizer, so touch devices do not depend on a synthetic dblclick event.
     element.append(renderer.domElement);
     controls=new OrbitControls(camera,renderer.domElement);
     configureControls(controls);
@@ -400,6 +469,7 @@ export function createStudioViewport(
     cancelAnimationFrame(raf);
     resize?.disconnect();
     controls?.dispose();
+    clearTap();pointers.clear();
     disposeInspection();
     posePreview?.dispose();
     active?.dispose();
@@ -410,6 +480,9 @@ export function createStudioViewport(
     if(renderer){
       renderer.domElement.removeEventListener("webglcontextlost",onLost);
       renderer.domElement.removeEventListener("webglcontextrestored",onRestored);
+      renderer.domElement.removeEventListener("pointerdown",onPointerDown);
+      renderer.domElement.removeEventListener("pointerup",onPointerUp);
+      renderer.domElement.removeEventListener("pointercancel",onPointerCancel);
       renderer.dispose();
       renderer.domElement.remove();
     }
