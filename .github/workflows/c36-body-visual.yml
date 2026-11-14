@@ -9,6 +9,9 @@ on:
       - 'e2e/c36-makehuman-body.spec.ts'
       - '.github/workflows/c36-body-visual.yml'
   workflow_dispatch:
+concurrency:
+  group: c36-body-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
