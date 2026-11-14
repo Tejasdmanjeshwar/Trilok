@@ -2,6 +2,7 @@ import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
+import {createStudioGeneratorPanel,type StudioGeneratorPanel} from "./StudioGeneratorPanel";
 import {STUDIO_VIEWS,STUDIO_LIGHTS,type StudioView,type StudioLight} from "./StudioPresentation";
 import {STUDIO_FOCUS,STUDIO_POSES,STUDIO_EXPRESSIONS,
   type StudioFocus,type StudioPose,type StudioExpression}
@@ -31,6 +32,7 @@ host.innerHTML=String.raw`
       <span class="nav-title">EXPLORE</span>
       <button type="button" data-section="character" aria-current="page"><span aria-hidden="true">◈</span> Character</button>
       <button type="button" data-section="pose"><span aria-hidden="true">♙</span> Pose</button>
+      <button type="button" data-section="generate"><span aria-hidden="true">✧</span> Generate</button>
       <button type="button" data-section="view"><span aria-hidden="true">◎</span> View</button>
       <button type="button" data-section="inspection"><span aria-hidden="true">⌕</span> Inspect</button>
     </nav>
@@ -115,6 +117,7 @@ host.innerHTML=String.raw`
         <p class="studio-inspection-note">Pose and inspection are previews only. They do not change your character's shape.</p>
       </div>
       <div id="studio-editor" hidden></div>
+      <div id="studio-generate-editor" hidden></div>
       <div class="studio-inspector-foot"><span class="gold-star" aria-hidden="true">✧</span> A closer look at your next character.</div>
     </aside>
   </div>
@@ -217,12 +220,17 @@ function syncInspection():void {
 for(const key of inspectionKeys)
   element<HTMLInputElement>("#studio-inspect-"+key)
     .addEventListener("change",syncInspection);
+let generatorPanel:StudioGeneratorPanel|undefined;
 const morphEditor=createStudioMorphEditor(element("#studio-editor"),
   recipe=>viewport.applyRecipe(recipe),status=>{
     undoButton.disabled=!status.canUndo;
     redoButton.disabled=!status.canRedo;
     startOverButton.disabled=!status.changed;
+    generatorPanel?.sync(status.recipe);
   });
+generatorPanel=createStudioGeneratorPanel(element("#studio-generate-editor"),
+  options=>morphEditor.generate(options));
+generatorPanel.sync(morphEditor.status().recipe);
 undoButton.addEventListener("click",()=>morphEditor.undo());
 redoButton.addEventListener("click",()=>morphEditor.redo());
 startOverButton.addEventListener("click",()=>{
@@ -281,6 +289,8 @@ const sections={
     description:"Choose a tone and finish, and see the change directly on your character."},
   pose:{context:"STRIKE A POSE",title:"See your character in motion",
     description:"Explore natural movements and expressions. Your character design remains unchanged."},
+  generate:{context:"MAKE IT YOUR OWN",title:"Create a new character",
+    description:"Explore meaningful human variations, keep the features you love, and refine your design."},
   inspection:{context:"A CLOSER LOOK",title:"Inspect the anatomy",
     description:"Reveal the skeleton, joint locations, and underlying surface only when you need them."},
   view:{context:"THE VIEW",title:"Find your angle",
@@ -299,6 +309,7 @@ host.querySelectorAll<HTMLButtonElement>("[data-section]").forEach(button=>
     element(".studio-settings").hidden=editing||id==="pose"||id==="inspection";
     element("#studio-pose-panel").hidden=id!=="pose";
     element("#studio-inspection-panel").hidden=id!=="inspection";
+    element("#studio-generate-editor").hidden=id!=="generate";
     if(editing)morphEditor.show(id);
     element("#studio-context").textContent=sections[id].context;
     element("#studio-title").textContent=sections[id].title;
@@ -307,5 +318,5 @@ host.querySelectorAll<HTMLButtonElement>("[data-section]").forEach(button=>
 void viewport.load();
 window.addEventListener("pagehide",()=>{
   window.removeEventListener("keydown",keyboardHistory);
-  morphEditor.dispose();viewport.dispose();
+  generatorPanel?.dispose();morphEditor.dispose();viewport.dispose();
 },{once:true});
