@@ -119,7 +119,7 @@
     .pose-result { text-align:left; display:flex; flex-direction:column; gap:4px;
       padding:11px 12px; min-width:0 }
     .pose-result[hidden] { display:none!important }
-    input[type="range"][data-head-param], input[type="range"][data-mammal-param], input[type="range"][data-facial-control] { width:100%; min-height:30px; accent-color:#80b8df; }
+    input[type="range"][data-head-param], input[type="range"][data-mammal-param], input[type="range"][data-facial-control], input[type="range"][data-body-control] { width:100%; min-height:30px; accent-color:#80b8df; }
     [data-head-value], [data-mammal-value] { float:right; font-variant-numeric:tabular-nums; color:var(--muted); }
     .facial-slider {display:grid!important;grid-template-columns:1fr auto;gap:2px 8px;margin:10px 0!important}
     .facial-slider input {grid-column:1 / -1;width:100%}
@@ -261,6 +261,32 @@
         </div>
         <p class="small">Opt-in diagnostic presets only. Changing proportions rebuilds an owned
           neutral source and retains the current test pose; it does not edit or save a character.</p>
+      </section>
+      <section class="panel" aria-label="C3.6 native MakeHuman body morphology">
+        <div class="panel-heading"><h2>C3.6 native MakeHuman body</h2><span class="small">Pinned CC0 · human only</span></div>
+        <label for="c36-body-preset">Body anatomy preset</label>
+        <select id="c36-body-preset" aria-label="MakeHuman body presets">
+          <option value="neutral">Original source body</option>
+          <option value="athletic">Athletic</option><option value="muscular">Muscular</option>
+          <option value="heavy">Heavy</option><option value="lean">Lean</option>
+          <option value="tall">Tall</option><option value="short">Short</option>
+          <option value="wideShoulders">Broad shoulders</option>
+          <option value="longArms">Long upper arms</option>
+          <option value="largeHands">Large hands</option>
+          <option value="wideHips">Wide hips</option>
+          <option value="stress">Extreme combined stress</option>
+          <option value="custom" disabled>Custom controls</option>
+        </select>
+        <p class="small">Original indexed MakeHuman body targets, paired limbs, measurements,
+          and interpolated body macros. Signed ranges -1..1 and unipolar 0..1 are native;
+          ±1.25 and extra stress gain are unsupported extrapolation. Changing a slider
+          retains the camera and currently selected pose.</p>
+        <div id="c36-body-controls"></div>
+        <button type="button" id="c36-reset-body">Reset body controls</button>
+        <p id="c36-body-diagnostics" class="small" aria-live="polite">Loading native body atlas…</p>
+        <p class="small">Macro interpolation is experimental until direct executable MakeHuman
+          correspondence is verified. Source deltas do not automatically refit every
+          anatomical rig joint; inspect IK and posed limb alignment before signoff.</p>
       </section>
       <section class="panel" aria-label="C3.4 human head morphology">
         <div class="panel-heading"><h2>C3.4 human head</h2><span class="small">Experimental CC0</span></div>
