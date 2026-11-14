@@ -8,7 +8,7 @@
 
 ## 1. Product intent and non-goals
 
-Build a standalone lazy-loaded **/studio** experience, reachable from a separate tab/navigation entry in the existing Trilok website. Character Studio, the combat renderer, and future gameplay must instantiate the **same versioned character runtime representation**. The Studio should create, customize, validate, preview, save and bake playable characters directly in the browser, including human, Rakshasa/orc-like, Vanara, winged avian-headed **humanoid** (Jatayu-like), and custom animal-headed humanoid archetypes. Later support multiple arms, legs, heads, tails and other anatomy extensions without assuming a fixed humanoid bone count.
+Build a standalone lazy-loaded **/studio** experience, reachable from a separate tab/navigation entry in the existing Trilok website. Character Studio, the combat renderer, and future gameplay must instantiate the **same versioned character runtime representation**. Across the planned phases, the Studio should create, customize, validate, preview, and eventually (in C9 only) save, load and bake playable characters directly in the browser, including human, Rakshasa/orc-like, Vanara, winged avian-headed **humanoid** (Jatayu-like), and custom animal-headed humanoid archetypes. Later support multiple arms, legs, heads, tails and other anatomy extensions without assuming a fixed humanoid bone count.
 
 The target is high-quality **stylized** RPG characters with convincing anatomy and credible motion. Compilation or numerical topology validity is not evidence of AAA visual quality. Visual acceptance needs rendered deformation review and realistic weapon/armor contact. Do not describe an asset as production-quality before those checks.
 
@@ -84,11 +84,11 @@ C1 establishes metadata and validation contracts; C2/C3 must reserve/validate to
 
 ## 5. Browser-native Studio and baking contract
 
-**Studio sections:** archetype selection; body/face morphs; anatomy modules; skin/hair/materials; clothing/armor; rig/IK diagnostics; weapons/grips; deformation and combat pose tests; wounds/dismemberment preview; save/bake. Include orbit and orthographic cameras, lighting presets, visibility controls, keyboard-accessible parameter editing, reduced-motion behavior, undo/redo, deterministic random seed, readable errors and non-destructive reset.
+**Studio sections:** archetype selection; body/face morphs; anatomy modules; skin/hair/materials; clothing/armor; rig/IK diagnostics; weapons/grips; deformation and combat pose tests; wounds/dismemberment preview. Save/load and baking are deliberately deferred to C9, after the Studio and related systems are complete. Include orbit and orthographic cameras, lighting presets, visibility controls, keyboard-accessible parameter editing, reduced-motion behavior, undo/redo, deterministic random seed, readable errors and non-destructive reset.
 
 **Live edit:** mutate immutable recipe state; validate/canonicalize parameters; debounce heavy recomputation; generate in worker where viable; cancel/ignore stale generations; update preview with latest valid version; dispose replaced GPU/CPU resources.
 
-**Save editable:** versioned recipe, topology-family ID, dependency identifiers/versions, seed, archetype schema and optional separate injury state.
+**C9 deferred — Save/Load editable:** only after C4's Studio UI and C5–C8's weapon, animation, archetype and anatomy integrations are complete, add user-facing persistent Save/Load for versioned recipes, topology-family ID, dependency identifiers/versions, seed, archetype schema, and optional separate injury state. Internal in-memory recipe structures, stable hashes, deterministic regeneration and validation may exist earlier; they are **not** a persistent save feature.
 
 **Bake game-ready:** freeze recipe; regenerate deterministically; validate mesh topology/normals/UVs/weights/joints/morphs/sockets/cut boundaries; produce optimized usable SkinnedMesh, materials and LODs; export GLB via Three.js GLTFExporter and sidecar Trilok metadata; **re-import** and verify rig, bounds, region metadata and socket transforms. Retain skeleton/morphs needed at runtime; do not bake an unanimated static mesh. GLB alone does not encode Trilok-specific combat/injury semantics.
 
@@ -143,14 +143,14 @@ C2 is limited to the reliable anatomical human mesh/rig foundation. Distinct rev
 
 ### C3 — Parametric shaping and head families
 
-Create bounded body/face parameters, topology families, corrective morphs, bone/IK/socket/refit calculations, stable hashes and extreme-combination tests. Provide custom humanoid heads including primate, avian and bear-like profiles through compatible template families. Dismemberment/disfigurement state remains separate.
+Create bounded body/face parameters, topology families, corrective morphs, bone/IK/socket/refit calculations, stable hashes and extreme-combination tests. C3 validates internal recipe consistency and deterministic reconstruction, but **does not deliver a user-facing Save/Load feature**. Provide custom humanoid heads including primate, avian and bear-like profiles through compatible template families. Dismemberment/disfigurement state remains separate.
 
 **C3 implementation record:** C3.1 [morphology base](character-studio-c3-1-morphology.md) adds deterministic whole-body stature/breadth and neutral rebinds. C3.2 [localized shaping](character-studio-c3-2-local-morphology.md) adds bounded torso and limb proportion channels plus an experimental laboratory preset view, without starting C4. C3.3 [experimental pose correctives and alignment](character-studio-c3-3-correctives.md) adds opt-in radial shoulder/hip morphs and measured shape-derived sockets/IK chain reach. C3.4 [human head morphology](character-studio-c3-4-human-head.md) adds a versioned human-only face recipe, source-derived cranium/face shaping, jaw/orbital landmarks, and Character Lab parameter controls. C3.5 [primate and bear profiles](character-studio-c3-5-mammalian-heads.md) implements both mammalian morph families over shared continuous CC0 topology, with family-specific C1 descriptors and lab preview; owner visual acceptance is pending. C3.6 avian head and C3.7 integration/acceptance remain pending; C4 stays out of scope. Track [Issue #41](https://github.com/Tejasdmanjeshwar/Trilok/issues/41).\n\n
 **C3.5 revised human-only implementation candidate (2026-11-13, owner review pending):** [draft PR #54](https://github.com/Tejasdmanjeshwar/Trilok/pull/54) adopts 80 original pinned MakeHuman CC0 facial displacement targets as source-indexed modifiers and expression units, preserved with unchanged C2 topology and C3.4 shaping. Includes a TypeScript facial blender, bilateral controls, stress limits, diagnostics and desktop/touch inspection workflow. **This supersedes experimental PR #53's rejected contour/cavity approach; PR #54 is unmerged and not yet accepted.** Future C3.6 advanced morph authoring, C4 studio and C7 species anatomy remain out of scope; the preceding historical C3 description records superseded plans, not current acceptance. See [facial source provenance and acceptance limitations](character-studio-c3-5-makehuman-facial.md).
 
 ### C4 — Standalone Character Studio
 
-Deliver lazy-loaded **/studio** interface in existing web application with the *same* runtime character builder, archetypes/presets, orbit + orthographic views, editable controls, undo/redo, serialization, accessibility, debugging overlays, pose previews and regeneration cancellation. UI does not duplicate mesh logic.
+Deliver lazy-loaded **/studio** interface in existing web application with the *same* runtime character builder, archetypes/presets, orbit + orthographic views, editable controls, undo/redo, internal versioned in-memory recipe state, accessibility, debugging overlays, pose previews and regeneration cancellation. UI does not duplicate mesh logic. **Do not implement user-facing persistent Save/Load, recipe-file import/export, or baking in C4**; these become C9 deliverables after the Lab and Studio capabilities are stable.
 
 ### C5 — Weapon handling and IK
 
@@ -170,7 +170,7 @@ Migrate hit proxies, precision contacts, melee reach, equipment capabilities, pa
 
 ### C9 — Production hardening and baking
 
-Optimize skinning/LOD/texture/meshes and workers; bake and export/import presets and assets; schema migrations; GLB validation; mobile/desktop profiling; seeded regeneration/replay regression; device browser tests; screenshot/pose review; resource lifecycle and failure recovery. Asset production claims need rendered inspection and measurements.
+After the Lab, C4 Studio UI and C5–C8 character-related systems are complete, implement **user-facing Save/Load** of editable characters (versioned recipe data, dependency identity, anatomy topology family, deterministic seeds and migrations), restoring the same appearance and compatible pose/rig state in a fresh Studio session. Then optimize skinning/LOD/texture/meshes and workers; bake and export/import presets and assets; validate GLB and round trips; run mobile/desktop profiling, seeded regeneration/replay regression, device browser tests, screenshot/pose review, resource-lifecycle and failure-recovery checks. No incomplete save UI or premature on-disk format should be required in C3/C4. Asset production claims need rendered inspection and measurements.
 
 ## 7. Quality and performance requirements
 
