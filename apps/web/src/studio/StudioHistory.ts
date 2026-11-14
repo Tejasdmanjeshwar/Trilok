@@ -77,7 +77,6 @@ export class StudioHistory {
   /** A stale result is never allowed to mutate the editing timeline. */
   resolve(revision:number,success:boolean):boolean {
     if(revision!==this.revision)return false;
-    this.endGesture();
     if(success){
       this.good=this.current;
     }else{
@@ -86,11 +85,15 @@ export class StudioHistory {
       for(let i=this.entries.length-1;i>=0;i--)
         if(studioRecipeFingerprint(this.entries[i]!)===signature){target=i;break;}
       if(target<0){
-        this.entries=[this.good];this.index=0;
+        // Last successfully rendered gesture intermediate state may have been
+        // overwritten by a later drag input: restore it at the current point.
+        this.entries.splice(this.index+1);
+        this.entries[this.index]=this.good;
       }else{
         this.entries.splice(target+1);
         this.index=target;
       }
+      this.endGesture();
       this.revision++;
     }
     return true;
