@@ -60,6 +60,59 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
       "macrodetails/height/male-young-averagemuscle-averageweight-maxheight"))
       .toBeCloseTo(.5,8);
   });
+  it("applies MakeHuman baby/child source deltas without an artificial young offset",()=>{
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
+    const samples=validateBodyAtlas(atlas,19158);
+    const human=makeHuman();
+    try{
+      const controller=new MakeHumanBodyController(human,atlas);
+      const original=Float32Array.from(human.mesh.geometry.getAttribute("position").array as ArrayLike<number>);
+      const source=human.template.sourceVertexIds;
+      const scale=human.template.conversionMetersPerSourceUnit;
+      const races=["caucasian","african","asian"] as const;
+      const sexes=["female","male"] as const;
+      // Reference interpolation follows Human._setAgeVals at the immutable
+      // pinned source revision, evaluated independently of the implementation.
+      for(const age of [0,.01,.03,.05,.055,.06,.1875]){
+        const baby=Math.max(0,1-age*5.333);
+        const child=Math.max(0,Math.min(1,5.333*age));
+        const factors=resolveBodyMacroFactors({"macro/age":age});
+        expect([...factors].filter(([id])=>/macrodetails\/(?:african|asian|caucasian)-(?:male|female)-(?:baby|child|young)/.test(id))
+          .every(([,weight])=>weight>=0)).toBe(true);
+        const expected=new Float64Array(human.template.sourceVertexCount*3);
+        for(const race of races)for(const sex of sexes)
+          for(const [stage,weight] of [["baby",baby],["child",child]] as const){
+            const id=`macrodetails/${race}-${sex}-${stage}`;
+            expect(factors.get(id)??0).toBeCloseTo(weight/6,9);
+            const target=samples.get(id)!;
+            for(let j=0;j<target.rows.length;j+=4){
+              const offset=target.rows[j]!*3;
+              for(let axis=0;axis<3;axis++)
+                expected[offset+axis]+=target.rows[j+axis+1]!*scale*weight/6;
+            }
+          }
+        // Verify there is no -young source factor at an infant age; the
+        // published MakeHuman .target files already reference base.obj.
+        for(const race of races)for(const sex of sexes)
+          expect(factors.has(`macrodetails/${race}-${sex}-young`)).toBe(false);
+        const diagnostic=controller.apply({"macro/age":age});
+        expect(diagnostic.finiteFailures).toBe(0);
+        expect(diagnostic.seamMismatches).toBe(0);
+        expect(diagnostic.invertedTriangles,"native infancy age "+age).toBeLessThan(250);
+        const position=human.mesh.geometry.getAttribute("position");
+        for(let i=0;i<position.count;i++){
+          const offset=source[i]!*3;
+          for(let axis=0;axis<3;axis++)
+            expect(Math.abs(position.getComponent(i,axis)-
+              original[i*3+axis]!-expected[offset+axis]!)).toBeLessThan(3e-6);
+        }
+      }
+      const young=resolveBodyMacroFactors({"macro/age":.5});
+      for(const race of races)for(const sex of sexes)
+        expect(young.get(`macrodetails/${race}-${sex}-young`)).toBeCloseTo(1/6,9);
+      controller.dispose();
+    }finally{human.dispose();}
+  },120_000);
   it("maps source endpoints exactly, with identical deltas on original UV duplicates",()=>{
     const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
     const human=makeHuman();
