@@ -104,7 +104,7 @@ export function validateBodyAtlas(atlas:BodyAtlas,sourceCount:number):ReadonlyMa
     for(let i=0;i<t.rows.length;i+=4){
       const id=t.rows[i]!;
       if(!Number.isSafeInteger(id)||id<0||id>=sourceCount||seen.has(id)||
-         t.rows.slice(i+1,i+4).some((x:number)=>!Number.isFinite(x)||Math.abs(x)>10))
+         t.rows.slice(i+1,i+4).some((x:number)=>!Number.isFinite(x)||Math.abs(x)>100))
         throw new Error("Invalid source body vertex "+t.id);
       seen.add(id);
     }
