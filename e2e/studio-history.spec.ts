@@ -10,7 +10,7 @@ test("Character Studio history undoes and redoes body, face, presets and reset",
   await page.locator('[data-view="side"]').click();
   await page.getByRole("button",{name:"Body",exact:true}).click();
   const age=page.locator('[data-control-id="body:macro/age"] input[type=number]');
-  await age.fill(".03");await age.press("Tab");
+  await age.fill("0.03");await age.press("Tab");
   await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
   await expect(page.locator("#studio-undo")).toBeEnabled();
   await page.locator("#studio-undo").click();
@@ -47,7 +47,7 @@ test("Undo during pending edits restores a consistent in-memory preview",async({
   await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
   await page.getByRole("button",{name:"Body",exact:true}).click();
   const age=page.locator('[data-control-id="body:macro/age"] input[type=number]');
-  await age.fill(".05");await age.press("Tab");
+  await age.fill("0.05");await age.press("Tab");
   await page.locator("#studio-undo").click();
   await expect(age).toHaveValue("0.5");
   await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
