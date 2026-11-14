@@ -1,6 +1,6 @@
 # Trilok Character Studio — C4 Product, UX and Implementation Plan
 
-**Status:** C4.1 [PR #67](https://github.com/Tejasdmanjeshwar/Trilok/pull/67), C4.2 [PR #69](https://github.com/Tejasdmanjeshwar/Trilok/pull/69), C4.3 [PR #71](https://github.com/Tejasdmanjeshwar/Trilok/pull/71), and C4.4 [PR #72](https://github.com/Tejasdmanjeshwar/Trilok/pull/72) merged. C4.5 is implemented on its focused feature branch pending Verify and visual review; C4.6–C4.7, full C4 acceptance, focused desktop/touch screenshot review and deployed Cloudflare SHA verification remain outstanding.  
+**Status:** C4.1 [PR #67](https://github.com/Tejasdmanjeshwar/Trilok/pull/67), C4.2 [PR #69](https://github.com/Tejasdmanjeshwar/Trilok/pull/69), C4.3 [PR #71](https://github.com/Tejasdmanjeshwar/Trilok/pull/71), and C4.4 [PR #72](https://github.com/Tejasdmanjeshwar/Trilok/pull/72) merged. C4.5 [PR #74](https://github.com/Tejasdmanjeshwar/Trilok/pull/74) merged after exact-head Verify (339 tests) and Workers Builds; focused Chromium visual review and deployment identity are not yet verified. C4.6–C4.7, full C4 acceptance, focused desktop/touch screenshot review and deployed Cloudflare SHA verification remain outstanding.  
 **Tracker:** [Issue #65](https://github.com/Tejasdmanjeshwar/Trilok/issues/65)  
 **Prerequisites:** Existing C1–C3 human runtime, source-pinned MakeHuman body/face morphology, C2 Character Lab, existing Phase Acceptance workflow. Issue #41 remains a separate C3 record; do not silently claim closure.  
 **Execution:** C4.1 through C4.7 in focused PRs; do not implement all slices in one branch.  
@@ -112,6 +112,6 @@ Mandatory test axes:
 
 C4 UI contracts may support these in the future, but actual navigation must not promise them ahead of functionality.
 
-## 7. Immediate handoff — C4.1 only
+## 7. Original C4.1 handoff (historical; completed)
 
 Inspect latest main, README, roadmap, this plan, C0 ADR, Character Lab runtime, Vite entrypoints and CI. Implement a new responsive lazy-loaded `/studio` with attractive accessible layout, large existing skinned human preview, essential camera/lighting actions, loading/failure states, a main-site navigation link and clean first-class product wording. Never show development phase codes or engineering strings in Studio. Use the shared human builder; no duplicate morphology, no generator implementation, no C4.2–C4.7, no C5–C9, no user-facing Save/Load. Add strict TS/unit and focused desktop/touch Chromium UI/visual checks, update docs, open PR, merge only after exact-head Verify, then check resulting main and deployed preview separately.
