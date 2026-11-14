@@ -54,8 +54,8 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
     expect([...weight.keys()].some(k=>k.startsWith("macrodetails/height/"))).toBe(false);
     expect([...weight.keys()].some(k=>k.startsWith("macrodetails/proportions/"))).toBe(false);
     const age=resolveBodyMacroFactors({"macro/age":.1875});
-    expect(age.get("macrodetails/caucasian-male-child")).toBeCloseTo(1/6,8);
-    expect(age.has("macrodetails/caucasian-male-baby")).toBe(false);
+    expect(age.get("macrodetails/caucasian-male-child")).toBeCloseTo((.1875*5.333)/6,10);
+    expect(age.get("macrodetails/caucasian-male-baby")).toBeCloseTo((1-.1875*5.333)/6,10);
     expect(resolveBodyMacroFactors({"macro/height":1}).get(
       "macrodetails/height/male-young-averagemuscle-averageweight-maxheight"))
       .toBeCloseTo(.5,8);
