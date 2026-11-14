@@ -10,7 +10,7 @@ The official original JSON modifier metadata maps 142 direct native body control
 
 `MakeHumanBodyController` stages original source-indexed delta sums in a float64 accumulator, then scatters the exact displacement to all existing render UV duplicates, recomputes source-shared normals and publishes objective triangle degradation and timing diagnostics. The controller does not create geometry, change source IDs/UVs/index buffers/skin weights or write gameplay state. Body shaping is composed **before** C3.5 facial controls on a fresh owned C2 template, allowing facial controller baselines to derive from the currently shaped body, without repeatedly adding the same displacement. Legacy C3.2 presets/C3.4 head presets remain opt-in and use their original code paths. Body controls/presets retain user camera and current pose during the owned-surface rebuild.
 
-Experimental macro evaluation uses deterministic piecewise interpolation among original gender/age/ethnicity and universal muscle/weight, height/proportion source target families, with an explicit neutral baseline subtraction. This is a data-based approximation to MakeHuman's dependency engine, **not yet a validated executable-oracle recreation of all macro dependencies**. Breast size and firmness and some specialist modifier interpolation may require additional source-derived dependency rules. In addition, source-body vertex moves do not yet derive new C1 joint offsets, inverse-binds or IK/socket refits, so substantial limb-length and stature morphs require additional coupled skeleton tests and corrective implementation.
+Experimental macro evaluation uses deterministic piecewise interpolation among original gender/age/ethnicity and universal muscle/weight, height/proportion source target families, with an explicit neutral baseline subtraction. This is a data-based approximation to MakeHuman's dependency engine, **not yet a validated executable-oracle recreation of all macro dependencies**. Breast size and firmness and some specialist modifier interpolation may require additional source-derived dependency rules. In addition, an initial source-skin-weighted C1 rest-joint, inverse-bind and socket/IK refit is now implemented. Exact anatomical alignment for all macros and posed extremes remains unverified.
 
 ## Review and validation
 
@@ -21,6 +21,6 @@ Visual reviewer: visit the branch-specific Cloudflare preview `/c2-lab.html` onl
 ## Outstanding acceptance blockers
 
 1. Verify exact authored target behavior against a matching pinned MakeHuman executable or independent golden reference for macro and dependent modifiers.
-2. Refit and test C1 rest joints, bind inverses, semantic sockets and IK chains for the whole native body/macro envelope, including elbow/wrist/knee/ankle and neck articulation.
+2. Complete coupled C1 rest-joint, bind inverse, socket and IK validation for the full macro envelope, including wrists, knees, ankles and neck; the initial refit is not full anatomical certification.
 3. Inspect Chromium screenshots for original head + body combinations and resolve reproducible native-range clipping, inversions, seams and self-intersections.
 4. Confirm a working Cloudflare preview and report exact candidate SHA. Owner visual approval is mandatory.
