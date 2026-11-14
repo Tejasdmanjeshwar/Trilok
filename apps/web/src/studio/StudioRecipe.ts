@@ -1,3 +1,4 @@
+import { DEFAULT_HUMAN_HEAD_MORPHOLOGY } from "@trilok/character-core";
 import {
   defaultStudioMorphState, resetStudioSection, STUDIO_PRESETS,
   STUDIO_CONTROL_BY_ID,
@@ -34,7 +35,8 @@ export function validateStudioRecipe(recipe:StudioRecipeV1):void {
     recipe.generatorVersion!=="studio-human-v1"||
     !Number.isSafeInteger(recipe.seed)||recipe.seed<1||recipe.seed>0xffffffff||
     !exactKeys(recipe.selectedPresets,["body","face"])||
-    !exactKeys(recipe.morphology,["body","face","shape"]))
+    !exactKeys(recipe.morphology,["body","face","shape"])||
+    !exactKeys(recipe.morphology.shape,Object.keys(DEFAULT_HUMAN_HEAD_MORPHOLOGY)))
     throw new Error("Invalid in-memory character definition");
   for(const section of ["body","face"] as const){
     const preset=recipe.selectedPresets[section];
