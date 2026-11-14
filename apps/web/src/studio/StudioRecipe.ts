@@ -1,5 +1,6 @@
 import {
   defaultStudioMorphState, resetStudioSection, STUDIO_PRESETS,
+  STUDIO_CONTROL_BY_ID,
   validateStudioMorphState, withStudioControl, withStudioPreset,
   type StudioMorphState, type StudioSection,
 } from "./StudioMorphCatalog";
@@ -84,15 +85,8 @@ export function reduceStudioRecipe(recipe:StudioRecipeV1,
     });
   }
   if(command.type==="adjust"){
-    const section=command.id.startsWith("face:")?"face":
-      command.id.startsWith("body:")?"body":
-      command.id.startsWith("shape:")?undefined:undefined;
-    const target=section??(
-      // Local/head shape has no cross-category side effects.
-      ["skullWidth","skullHeight","forehead","brow","cheeks","jawWidth",
-       "chin","faceDepth","eyeSpacing"].includes(command.id.slice(6))
-        ?"face":"body"
-    );
+    const target=STUDIO_CONTROL_BY_ID.get(command.id)?.category;
+    if(!target)throw new Error("Unknown character feature");
     return freezeRecipe({
       ...recipe,morphology:withStudioControl(recipe.morphology,command.id,command.value),
       selectedPresets:{...recipe.selectedPresets,[target]:"custom"},
