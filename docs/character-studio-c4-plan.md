@@ -1,6 +1,6 @@
 # Trilok Character Studio — C4 Product, UX and Implementation Plan
 
-**Status:** C4.1 foundation merged in [PR #67](https://github.com/Tejasdmanjeshwar/Trilok/pull/67); C4.2–C4.7 remain unimplemented. Full C4 acceptance and deployed Cloudflare SHA are outstanding.  
+**Status:** C4.1 foundation merged in [PR #67](https://github.com/Tejasdmanjeshwar/Trilok/pull/67), C4.2 body/face customization merged in [PR #69](https://github.com/Tejasdmanjeshwar/Trilok/pull/69). C4.3–C4.7 are outstanding. C4.2 browser screenshot review, final C4 acceptance, and deployed Cloudflare SHA remain unverified.  
 **Tracker:** [Issue #65](https://github.com/Tejasdmanjeshwar/Trilok/issues/65)  
 **Prerequisites:** Existing C1–C3 human runtime, source-pinned MakeHuman body/face morphology, C2 Character Lab, existing Phase Acceptance workflow. Issue #41 remains a separate C3 record; do not silently claim closure.  
 **Execution:** C4.1 through C4.7 in focused PRs; do not implement all slices in one branch.  
