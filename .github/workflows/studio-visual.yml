@@ -1,0 +1,38 @@
+name: Studio Visual
+on:
+  pull_request:
+    paths:
+      - 'apps/web/src/studio/**'
+      - 'e2e/studio*.spec.ts'
+      - 'tests/character-studio*.test.ts'
+      - '.github/workflows/studio-visual.yml'
+permissions:
+  contents: read
+concurrency:
+  group: studio-visual-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  studio-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Capture desktop and touch inspection screenshots
+        run: pnpm exec playwright test e2e/studio-inspection.spec.ts e2e/studio.spec.ts
+      - name: Upload inspection screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-visual-${{ github.event.pull_request.number }}
+          path: |
+            test-results/studio/**/*.png
+            test-results/**/*.png
+          if-no-files-found: ignore
+          retention-days: 14
