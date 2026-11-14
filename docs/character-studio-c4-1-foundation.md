@@ -14,6 +14,10 @@ Tracker: Issue #65. This is an incremental implementation record, not final C4 a
 
 This phase displays the existing neutral human and currently supported viewing functionality only. Interactive body/face parameters and presets are C4.2; history and in-memory recipes are C4.3; appearance, enhanced pose inspection, refinement and random generation follow later. No Save/Load, baking, combat authority changes, or additional archetypes were implemented.
 
-## Verification gates
+## Verification evidence
 
-Exact PR-head Verify must pass strict TS, all unit and replay tests, build, and build identity. Focused Chromium screenshots are emitted under test-results/studio when the e2e test runs, and require visual review before signoff. Verify Cloudflare /studio deep link and deployment SHA separately after merge; CI success alone is not a deployment or visual acceptance claim.
+- [PR #67](https://github.com/Tejasdmanjeshwar/Trilok/pull/67) merged into main as `172465dbfb6e2c43aa6e5978d6f4fcf62f1ebc51`.
+- Exact final PR head `16b28961e142f96dc426ab5bd60d704d52b927d6` passed [Verify run #43602051590](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43602051590): strict TypeScript, 311 Vitest tests (including deterministic combat replay), build, and manifest identity.
+- Prior PR head `5ef7c8700573f2007fc75d6195339a7878925519` passed desktop/touch Studio Playwright tests in [run #43601744824](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43601744824), with screenshots in artifact `studio-browser-evidence`. The UI screenshots were inspected. The touch screenshot exposed partial feet overlap with the stage footer; final head adjusts compact-screen field of view. Updated touch screenshot review of that final tweak remains outstanding.
+- Regular Verify was restored to its existing browser-free CI policy. Full Phase Acceptance still owns comprehensive Chromium checks.
+- Cloudflare /studio and deployed build identity could not be independently retrieved from this environment. Do not equate merged code or CI with verified live deployment.
