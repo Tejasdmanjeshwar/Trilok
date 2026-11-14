@@ -13,7 +13,14 @@ host.innerHTML=String.raw`
       <span class="studio-divider" aria-hidden="true"></span>
       <div><p class="eyebrow">TRILOK</p><h1>Character Studio</h1></div>
     </div>
-    <a class="studio-exit" href="/">Return to game <span aria-hidden="true">↗</span></a>
+    <div class="studio-header-actions">
+      <div class="studio-edit-actions" role="group" aria-label="Character editing">
+        <button type="button" id="studio-undo" aria-label="Undo character adjustment" title="Undo · Ctrl+Z" disabled>↶ <span>Undo</span></button>
+        <button type="button" id="studio-redo" aria-label="Redo character adjustment" title="Redo · Ctrl+Shift+Z" disabled>↷ <span>Redo</span></button>
+        <button type="button" id="studio-start-over" title="Restore the original character" disabled>Start over</button>
+      </div>
+      <a class="studio-exit" href="/">Return to game <span aria-hidden="true">↗</span></a>
+    </div>
   </header>
   <div class="studio-workspace">
     <nav class="studio-nav" aria-label="Character sections">
@@ -94,8 +101,38 @@ const viewport=createStudioViewport(element("#studio-viewport"),()=>{
   loading.hidden=true;failure.hidden=false;message.textContent=reason;
   document.documentElement.dataset.studioReady="false";
 },reason=>{editStatus.textContent=reason;});
+const undoButton=element<HTMLButtonElement>("#studio-undo");
+const redoButton=element<HTMLButtonElement>("#studio-redo");
+const startOverButton=element<HTMLButtonElement>("#studio-start-over");
 const morphEditor=createStudioMorphEditor(element("#studio-editor"),
-  next=>viewport.applyMorphology(next));
+  recipe=>viewport.applyMorphology(recipe.morphology),status=>{
+    undoButton.disabled=!status.canUndo;
+    redoButton.disabled=!status.canRedo;
+    startOverButton.disabled=!status.changed;
+  });
+undoButton.addEventListener("click",()=>morphEditor.undo());
+redoButton.addEventListener("click",()=>morphEditor.redo());
+startOverButton.addEventListener("click",()=>{
+  if(morphEditor.status().changed&&
+    window.confirm("Restore the original character? You can undo this change.")){
+    morphEditor.resetAll();
+  }
+});
+function keyboardHistory(event:KeyboardEvent):void {
+  if(!(event.ctrlKey||event.metaKey)||event.altKey||event.isComposing)return;
+  const target=event.target;
+  if(target instanceof HTMLTextAreaElement||target instanceof HTMLInputElement&&
+      target.type!=="range"||target instanceof HTMLElement&&target.isContentEditable)return;
+  const key=event.key.toLowerCase();
+  if(key==="z"){
+    event.preventDefault();
+    if(event.shiftKey)morphEditor.redo();
+    else morphEditor.undo();
+  }else if(key==="y"){
+    event.preventDefault();morphEditor.redo();
+  }
+}
+window.addEventListener("keydown",keyboardHistory);
 element<HTMLButtonElement>("#studio-retry").addEventListener("click",()=>{
   failure.hidden=true;loading.hidden=false;
   void viewport.load();
@@ -147,4 +184,7 @@ host.querySelectorAll<HTMLButtonElement>("[data-section]").forEach(button=>
     element("#studio-description").textContent=sections[id].description;
   }));
 void viewport.load();
-window.addEventListener("pagehide",()=>{morphEditor.dispose();viewport.dispose();},{once:true});
+window.addEventListener("pagehide",()=>{
+  window.removeEventListener("keydown",keyboardHistory);
+  morphEditor.dispose();viewport.dispose();
+},{once:true});
