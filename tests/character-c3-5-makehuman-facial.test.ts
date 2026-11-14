@@ -5,7 +5,7 @@ import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from "../apps/web/src/char
 import {applyHumanMorphology} from "../apps/web/src/characters/geometry/HumanMorphology";
 import {createHumanHeadRecipe,DEFAULT_HUMAN_HEAD_MORPHOLOGY} from "../packages/character-core/src/index";
 import {ALL_FACIAL_CONTROLS,FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,
-  validateFacialAtlas,validateFacialWeights,type FacialAtlas} from
+  coordinateFacialJawPose,validateFacialAtlas,validateFacialWeights,type FacialAtlas} from
   "../apps/web/src/characters/geometry/MakeHumanFacialTargets";
 import type {SourceRig,SourceWeights} from "../apps/web/src/characters/geometry/OfficialHumanRig";
 
@@ -93,6 +93,48 @@ describe("C3.5 pinned MakeHuman facial data contract",()=>{
         }
       }
       ctrl.dispose();
+    }finally{instance.dispose();}
+  },120_000);
+  it("coordinates native mouth-open target with independent C1 jaw flexion",()=>{
+    const atlas=JSON.parse(asset("makehuman-facial-v1.json")) as FacialAtlas;
+    const instance=human();
+    try{
+      const controller=new MakeHumanFacialController(instance,atlas);
+      expect(controller.sourceJawOpeningRadians).toBe(0);
+      const jawId=instance.spike.graph.joints.find(j=>j.role==="jaw")!.id;
+      const headId=instance.spike.graph.joints.find(j=>j.role==="head")!.id;
+      const jaw={jointId:jawId,motion:"flexion",radians:.5};
+      const head={jointId:headId,motion:"rotation",radians:.3};
+      expect(coordinateFacialJawPose([jaw,head],jawId,0)).toEqual([jaw,head]);
+      const original=Float32Array.from(instance.mesh.geometry.getAttribute("position").array as ArrayLike<number>);
+      controller.apply({"native/expression/mouth-open":1});
+      const opened=controller.sourceJawOpeningRadians;
+      // Source tail vertex displacement measured against the original CC0
+      // sagittal mandible: target already supplies substantial opening.
+      expect(opened).toBeGreaterThan(.1);
+      expect(opened).toBeLessThan(.5);
+      const native=Float32Array.from(instance.mesh.geometry.getAttribute("position").array as ArrayLike<number>);
+      const coordinated=coordinateFacialJawPose([jaw,head],jawId,opened);
+      expect(coordinated[0]!.radians).toBeCloseTo(.5-opened,6);
+      expect(coordinated[1]).toEqual(head);
+      expect(coordinated[0]!.radians).toBeGreaterThan(0);
+      expect(coordinateFacialJawPose([jaw],jawId,1)[0]!.radians).toBe(0);
+      expect(coordinateFacialJawPose([jaw],jawId,1)).toEqual(
+        coordinateFacialJawPose([jaw],jawId,1));
+      // Expression data must stay original; coordination changes only
+      // presentation FK, not source vertices, UV seams or skin ownership.
+      expect(Array.from(instance.mesh.geometry.getAttribute("position").array)).toEqual(Array.from(native));
+      expect(Array.from(native)).not.toEqual(Array.from(original));
+      controller.apply({mouthOpen:1});
+      expect(controller.sourceJawOpeningRadians).toBeCloseTo(opened,6);
+      controller.apply({"native/expression/mouth-open":1,
+        "native/race-african":.4,"native/race-asian":.2});
+      expect(controller.sourceJawOpeningRadians).toBeGreaterThan(0);
+      controller.apply({});
+      expect(controller.sourceJawOpeningRadians).toBe(0);
+      expect(Array.from(instance.mesh.geometry.getAttribute("position").array)).toEqual(Array.from(original));
+      expect(()=>coordinateFacialJawPose([jaw],jawId,Number.NaN)).toThrow();
+      controller.dispose();
     }finally{instance.dispose();}
   },120_000);
   it("rejects nonfinite, out-of-range, unexpected and invalid source targets",()=>{

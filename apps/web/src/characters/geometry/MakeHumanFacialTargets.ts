@@ -134,6 +134,24 @@ export const ALL_FACIAL_CONTROLS:readonly FacialControl[] = [...FACIAL_CONTROLS,
   {id:"native/race-asian",label:"Asian ancestry weight",group:"Native ancestry blend",positive:"expression/units/asian/mouth-open",min:0,max:1},
 ];
 
+/** Coordinate a source expression that already opens the jaw with a separate
+ * C1 presentation FK command. Keep native morph deltas intact, and remove only
+ * overlapping *additional* sagittal opening. Other poses and independent
+ * articulation remain unchanged. This must never alter gameplay authority.
+ */
+export function coordinateFacialJawPose<T extends {
+  readonly jointId:string; readonly motion:string; readonly radians:number;
+}>(targets:readonly T[],jawId:string|undefined,
+  expressionOpeningRadians:number):readonly T[] {
+  if(!jawId||!Number.isFinite(expressionOpeningRadians)||
+     expressionOpeningRadians<0)
+    throw new Error("Invalid C3.7 jaw expression coordination");
+  if(expressionOpeningRadians===0)return targets;
+  return targets.map(target=>
+    target.jointId===jawId&&target.motion==="flexion"&&target.radians>0
+      ? {...target,radians:Math.max(0,target.radians-expressionOpeningRadians)}
+      : target);
+}
 export type FacialWeights=Readonly<Record<string,number>>;
 export const FACIAL_PRESETS:Readonly<Record<string,FacialWeights>>={
   neutral:{},
@@ -182,6 +200,10 @@ export class MakeHumanFacialController {
   private readonly indices:THREE.BufferAttribute|undefined;
   private readonly scale:number;
   private readonly human:AnatomicalHuman;
+  private readonly jawOpeningBasis?:Readonly<{rest:THREE.Vector3;axis:THREE.Vector3}>;
+  private lastSourceJawOpening=0;
+  /** Source-pose overlap only: exact CC0 facial vertices remain untouched. */
+  get sourceJawOpeningRadians():number{return this.lastSourceJawOpening;}
   private disposed=false;
   constructor(human:AnatomicalHuman,atlas:FacialAtlas){
     this.human=human;
@@ -196,12 +218,68 @@ export class MakeHumanFacialController {
       throw new Error("C3.5 requires original MakeHuman source vertex mapping");
     this.indices=human.mesh.geometry.getIndex()??undefined;
     this.neutral=Float32Array.from(this.position.array as ArrayLike<number>);
+    // Capture unposed rest coordinates once: facial previews can be edited while
+    // C1 jaw FK is active, so live jaw transforms are not a valid rest reference.
+    const jaw=human.spike.graph.joints.find(j=>j.role==="jaw");
+    const head=human.spike.graph.joints.find(j=>j.role==="head");
+    const neck=human.spike.graph.joints.find(j=>j.role==="neck");
+    if(jaw&&head&&neck&&human.jawTipWorldRest){
+      human.spike.character.root.updateMatrixWorld(true);
+      const inverseRoot=human.spike.character.root.matrixWorld.clone().invert();
+      const at=(id:string):THREE.Vector3=>
+        human.spike.bones.get(id)!.getWorldPosition(new THREE.Vector3())
+          .applyMatrix4(inverseRoot);
+      const hinge=at(jaw.id);
+      const rest=human.jawTipWorldRest.clone().applyMatrix4(inverseRoot).sub(hinge);
+      const up=at(head.id).sub(at(neck.id)).normalize();
+      const anterior=rest.clone().addScaledVector(up,-rest.dot(up)).normalize();
+      if(rest.lengthSq()>1e-10&&up.lengthSq()>1e-10&&anterior.lengthSq()>1e-10)
+        this.jawOpeningBasis={rest,axis:up.cross(anterior).normalize()};
+    }
     const mapping=new Map<number,number[]>();
     human.template.sourceVertexIds.forEach((sourceId,renderId)=>{
       const list=mapping.get(sourceId)??[];
       list.push(renderId);mapping.set(sourceId,list);
     });
     this.sourceToRender=mapping;
+  }
+  /** Estimate the rigid-jaw component already contained in the source
+   * mouth-open expression. MakeHuman's CC0 target translates the original
+   * jaw-tail landmark; C1 FK also rotates that same mandibular segment.
+   * Use its pinned helper vertices and the actual neutral C1 jaw/neck/head
+   * landmarks, not a hardcoded adult jaw angle or a synthetic face target.
+   * This only informs presentation pose coordination; never edits morphs. */
+  private measureSourceJawOpening(weights:FacialWeights):number {
+    const value=(weights.mouthOpen??0)+(weights["native/expression/mouth-open"]??0);
+    if(value<=0)return 0;
+    const {sourceRig,template}=this.human;
+    const tail=sourceRig?.bones.jaw?.tail;
+    const ids=tail?sourceRig?.joints[tail]:undefined;
+    if(!ids?.length||!this.jawOpeningBasis)return 0;
+    const displacement=new THREE.Vector3();
+    const included=new Set(ids);
+    const african=weights["native/race-african"]??0;
+    const asian=weights["native/race-asian"]??0;
+    for(const [race,ancestry] of [["caucasian",1-african-asian],
+      ["african",african],["asian",asian]] as const){
+      if(!ancestry)continue;
+      const target=this.targets.get("expression/units/"+race+"/mouth-open");
+      if(!target)throw new Error("Missing original MakeHuman mouth-open source "+race);
+      for(let k=0;k<target.rows.length;k+=4){
+        if(!included.has(target.rows[k]!))continue;
+        displacement.x+=target.rows[k+1]!*value*ancestry;
+        displacement.y+=target.rows[k+2]!*value*ancestry;
+        displacement.z+=target.rows[k+3]!*value*ancestry;
+      }
+    }
+    displacement.multiplyScalar(template.conversionMetersPerSourceUnit/ids.length);
+    const {rest,axis}=this.jawOpeningBasis;
+    const projected=(v:THREE.Vector3)=>v.addScaledVector(axis,-v.dot(axis));
+    const before=projected(rest.clone());
+    const after=projected(rest.clone().add(displacement));
+    const angle=Math.atan2(axis.dot(before.clone().cross(after)),before.dot(after));
+    if(!Number.isFinite(angle))throw new Error("Nonfinite MakeHuman jaw expression opening");
+    return Math.max(0,angle);
   }
   apply(weights:FacialWeights):FacialDiagnostics {
     if(this.disposed)throw new Error("C3.5 facial controller disposed");
@@ -280,6 +358,7 @@ export class MakeHumanFacialController {
         if(base>1e-12&&updated/base>4)stretchedTriangles++;
       }
     }
+    const sourceJawOpening=this.measureSourceJawOpening(weights);
     const pos=this.position;
     // Validate the complete staged result before committing it.
     if(finiteFailures||seamMismatches)throw new Error(
@@ -291,6 +370,7 @@ export class MakeHumanFacialController {
     recomputeSourceNormals(this.human);
     this.human.mesh.geometry.computeBoundingSphere();
     this.human.mesh.geometry.computeBoundingBox();
+    this.lastSourceJawOpening=sourceJawOpening;
     return {affectedVertices,seamMismatches,finiteFailures,collapsedTriangles,
       invertedTriangles,stretchedTriangles,maxEdgeStretch,
       triangleCount:(triangles?.length??0)/3,elapsedMs:performance.now()-start};

@@ -15,7 +15,7 @@ import { createCharacterLabControls } from "./CharacterLabControls";
 import { BoneInspector } from "./BoneInspector";
 import { frameSelectedAnatomicalBone } from "./LabCameraFocus";
 import {ALL_FACIAL_CONTROLS as FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,loadFacialAtlas,
-  type FacialWeights,type FacialDiagnostics} from "../geometry/MakeHumanFacialTargets";
+  coordinateFacialJawPose,type FacialWeights,type FacialDiagnostics} from "../geometry/MakeHumanFacialTargets";
 
 import {BODY_CONTROLS,BODY_PRESETS,MakeHumanBodyController,loadBodyAtlas,
   setBodyAncestryChannel,type BodyWeights,type BodyDiagnostics} from "../geometry/MakeHumanBodyTargets";
@@ -39,6 +39,7 @@ let renderer:THREE.WebGLRenderer|undefined;
 let frame=0;
 let surface="template";
 let currentPose="neutral";
+let refreshCurrentPose:()=>void=()=>{};
 let currentView="front";
 let facialController:MakeHumanFacialController|undefined;
 let facialDiagnostics:FacialDiagnostics|undefined;
@@ -74,6 +75,7 @@ function buildFacialControls():void{
       readout.value=value.toFixed(2);
       if(facialPreset)facialPreset.value="custom";
       updateFacialPreview();
+      refreshCurrentPose();
     });
     label.append(title,readout,slider);facialPanel.append(label);
     facialInputs.set(control.id,slider);
@@ -115,12 +117,14 @@ facialPreset?.addEventListener("change",()=>{
   const preset=FACIAL_PRESETS[facialPreset.value];
   if(!preset)return;
   facialWeights={...preset};syncFacialInputs();updateFacialPreview();
+  refreshCurrentPose();
 });
 document.querySelector<HTMLButtonElement>("#c35-reset-facial")?.addEventListener(
   "click",()=>{
     facialWeights={};syncFacialInputs();
     if(facialPreset)facialPreset.value="neutral";
     updateFacialPreview();
+    refreshCurrentPose();
   });
 let bodyDiagnostics:BodyDiagnostics|undefined;
 const bodyPanel=document.querySelector<HTMLElement>("#c36-body-controls");
@@ -408,9 +412,19 @@ try{
     if(!active||!fk)return;
     currentPose=name;
     const targets=resolveAnatomicalPose(anatomicalPoseById(name),active.spike.graph,fk);
+    const jawId=active.spike.graph.joints.find(j=>j.role==="jaw")?.id;
+    const coordinated=facialController
+      ? coordinateFacialJawPose(targets,jawId,facialController.sourceJawOpeningRadians)
+      : targets;
+    // Read-only browser evidence for the composed jaw opening. Does not
+    // affect native source vertices or the C1 semantic pose definition.
+    const effectiveJaw=coordinated.find(t=>t.jointId===jawId&&t.motion==="flexion");
+    document.documentElement.dataset.c37JawEffectiveRadians=String(effectiveJaw?.radians??0);
+    document.documentElement.dataset.c37JawSourceRadians=
+      String(facialController?.sourceJawOpeningRadians??0);
     const poseStart=performance.now();
-    fk.apply(targets);
-    correctives?.apply(targets);
+    fk.apply(coordinated);
+    correctives?.apply(coordinated);
     active.spike.character.root.updateWorldMatrix(true,true);
     lastPoseApplyMs=performance.now()-poseStart;
     // Explicit, bounded diagnostic sampling; not part of normal rendering.
@@ -424,6 +438,7 @@ try{
     inspector?.update();
     details();
   }
+  refreshCurrentPose=()=>{if(active&&fk)applyPose(currentPose);};
   const applyDebug=()=>{
     if(!active)return;
     const material=active.mesh.material as THREE.MeshStandardMaterial;

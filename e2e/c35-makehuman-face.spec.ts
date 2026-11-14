@@ -30,13 +30,26 @@ test("C3.5 original MakeHuman facial targets render with camera-stable unilatera
   await capture("native-nose-max-front","head-front");
   await capture("native-nose-max-side","head-side");
   await page.locator("#c35-reset-facial").click();
+  // Compare C1-only jaw motion against source-only mouth opening and the
+  // coordinated composition. All three remain separate authoring controls.
+  await capture("jaw-only","head-three-quarter","jaw");
+  await capture("jaw-only-front","head-front","jaw");
+  await page.locator("#pose-select").selectOption("neutral");
   const nativeMouth=page.locator('[data-facial-control="native/expression/mouth-open"]');
   await nativeMouth.evaluate(node=>{
     const input=node as HTMLInputElement;input.value="1";
     input.dispatchEvent(new Event("input",{bubbles:true}));
   });
   await capture("native-mouth-max-front","head-front");
+  const sourceOpening=Number(await page.locator("html").getAttribute("data-c37-jaw-source-radians"));
+  expect(sourceOpening).toBeGreaterThan(.1);
   await capture("native-mouth-max-jaw","head-three-quarter","jaw");
+  const effectiveOpening=Number(await page.locator("html").getAttribute("data-c37-jaw-effective-radians"));
+  expect(effectiveOpening).toBeGreaterThanOrEqual(0);
+  expect(effectiveOpening).toBeLessThan(.4);
+  expect(effectiveOpening+sourceOpening).toBeCloseTo(.4,5);
+  await capture("native-mouth-max-jaw-front","head-front","jaw");
+  await capture("native-mouth-max-jaw-side","head-side","jaw");
   await page.locator("#c35-reset-facial").click();
   await preset.selectOption("blink");
   await expect(page.locator('[data-facial-control="leftLid"]')).toHaveValue("1");
