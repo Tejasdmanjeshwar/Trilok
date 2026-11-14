@@ -16,3 +16,7 @@ Scope: one procedural reference sword and single-hand gripping in Studio only. N
 - The sword is a reference silhouette, not production weapon artwork. Fully coordinated arm IK is deliberately deferred.
 
 These unsatisfied gates must be closed before marking C5.1 accepted in Issue #81. Keep the legacy combat weapon/origin unchanged and do not proceed to C5.2 on the strength of compilation alone.
+
+## First rendered inspection (pre-final candidate)
+
+The temporary dedicated browser run [#43637117045](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43637117045) passed desktop and touch interactions and uploaded right/left screenshots (artifact 14130214713). Visual review found the sword silhouette visible, but the camera close-up screenshots were captured during focus transition, so they do **not** prove finger contact. The e2e fixture now waits for the focus animation to settle. The separate browser workflow was removed to respect the repository's tested policy reserving Chromium jobs for manual Phase Acceptance. Run the existing Phase Acceptance workflow explicitly on the final candidate when ready. Initial Verify [#43637116974](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43637116974) exposed schematic-rig tests and the CI policy violation; those were corrected on the branch, without weakening the CI policy. Subsequent branch Verify runs must pass before merge.
