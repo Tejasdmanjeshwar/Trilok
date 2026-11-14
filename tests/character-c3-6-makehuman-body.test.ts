@@ -164,6 +164,8 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
       bRoot.position.set(1.2,.4,-.8);
       bRoot.rotation.y=.72;
       bRoot.updateMatrixWorld(true);
+      // The world-space landmark accompanies its character when the root moves.
+      b.jawTipWorldRest?.applyMatrix4(bRoot.matrixWorld);
       const aCtrl=new MakeHumanBodyController(a,atlas);
       const bCtrl=new MakeHumanBodyController(b,atlas);
       const recipe={"native/neck/neck-scale-horiz-decr-incr":.8};
