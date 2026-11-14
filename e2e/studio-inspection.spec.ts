@@ -12,6 +12,13 @@ test("Studio focus, orthographic, pose and inspection preserve customization",as
   await region.selectOption("face");
   await page.locator("#studio-focus").click();
   await expect(page.locator("#studio-return-focus")).toBeEnabled();
+  // Orientation presets must retain an explicitly selected face, even when
+  // changing angle before the smooth Focus transition finishes.
+  for(const view of ["side","rear","front","three-quarter"]){
+    await page.locator('[data-view="'+view+'"]').click();
+    await expect(page.locator("#studio-return-focus")).toBeEnabled();
+    await expect(region).toHaveValue("face");
+  }
   await page.locator("#studio-return-focus").click();
   await expect(page.locator("#studio-return-focus")).toBeDisabled();
   await page.locator("#studio-orthographic").check();
@@ -47,4 +54,32 @@ test("Studio focus, orthographic, pose and inspection preserve customization",as
   mkdirSync("test-results/studio",{recursive:true});
   await page.screenshot({path:"test-results/studio/"+test.info().project.name+"-inspection.png",fullPage:true});
   expect(errors).toEqual([]);
+});
+
+test("Double-tapping the rendered character focuses the hit anatomy and allows angle changes",async({page})=>{
+  test.setTimeout(150_000);
+  await page.goto("/studio/");
+  await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
+  const canvas=page.locator("#studio-viewport canvas");
+  const rect=await canvas.boundingBox();
+  expect(rect).not.toBeNull();
+  const x=rect!.x+rect!.width/2,y=rect!.y+rect!.height/2;
+  if(test.info().project.name.startsWith("touch")){
+    await page.touchscreen.tap(x,y);
+    await page.touchscreen.tap(x,y);
+  }else{
+    await page.mouse.click(x,y,{clickCount:2,delay:70});
+  }
+  await expect(page.locator("#studio-return-focus")).toBeEnabled({timeout:10_000});
+  const chosen=await page.locator("#studio-focus-area").inputValue();
+  expect(chosen).not.toBe("");
+  await page.getByRole("button",{name:"View",exact:true}).click();
+  for(const view of ["front","side","rear"]){
+    await page.locator('[data-view="'+view+'"]').click();
+    await expect(page.locator("#studio-return-focus")).toBeEnabled();
+    await expect(page.locator("#studio-focus-area")).toHaveValue(chosen);
+  }
+  await page.locator("#studio-return-focus").click();
+  await expect(page.locator("#studio-return-focus")).toBeDisabled();
+  await page.locator("#studio-reset").click();
 });

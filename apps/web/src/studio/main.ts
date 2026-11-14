@@ -51,7 +51,7 @@ host.innerHTML=String.raw`
         <button id="studio-retry" type="button">Try again</button>
       </div>
       <div class="studio-stage-bottom">
-        <div class="studio-hint">Drag to turn <span aria-hidden="true">·</span> Scroll or pinch to zoom <span aria-hidden="true">·</span> Two fingers to move</div>
+        <div class="studio-hint">Drag to turn <span aria-hidden="true">·</span> Double-tap a body area to focus <span aria-hidden="true">·</span> Scroll or pinch to zoom <span aria-hidden="true">·</span> Two fingers to move</div>
         <button type="button" id="studio-reset" aria-label="Reset camera to three-quarter view">Reset view ↺</button>
       </div>
     </section>
@@ -150,7 +150,12 @@ const viewport=createStudioViewport(element("#studio-viewport"),()=>{
 },reason=>{
   loading.hidden=true;failure.hidden=false;message.textContent=reason;
   document.documentElement.dataset.studioReady="false";
-},reason=>{editStatus.textContent=reason;});
+},reason=>{editStatus.textContent=reason;},area=>{
+  focusArea.value=area;
+  focused=true;
+  element<HTMLButtonElement>("#studio-return-focus").disabled=false;
+  setPressed("view","");
+});
 const undoButton=element<HTMLButtonElement>("#studio-undo");
 const redoButton=element<HTMLButtonElement>("#studio-redo");
 const startOverButton=element<HTMLButtonElement>("#studio-start-over");
@@ -257,7 +262,7 @@ host.querySelectorAll<HTMLButtonElement>("[data-view]").forEach(button=>
   button.addEventListener("click",()=>{
     const view=button.dataset.view as StudioView;
     if(!Object.hasOwn(STUDIO_VIEWS,view))return;
-    viewport.setView(view);clearFocus();setPressed("view",view);
+    viewport.setView(view);setPressed("view",view);
   }));
 host.querySelectorAll<HTMLButtonElement>("[data-light]").forEach(button=>
   button.addEventListener("click",()=>{
@@ -279,7 +284,7 @@ const sections={
   inspection:{context:"A CLOSER LOOK",title:"Inspect the anatomy",
     description:"Reveal the skeleton, joint locations, and underlying surface only when you need them."},
   view:{context:"THE VIEW",title:"Find your angle",
-    description:"Choose a perspective and light to see every detail. You can freely turn, move, and zoom the character at any time."},
+    description:"Double-tap a body part to focus. Camera angles keep that area in view until you choose Previous view or Reset view."},
 } as const;
 host.querySelectorAll<HTMLButtonElement>("[data-section]").forEach(button=>
   button.addEventListener("click",()=>{
