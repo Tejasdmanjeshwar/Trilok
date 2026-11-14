@@ -1,3 +1,4 @@
+import {createStudioAppearancePanel} from "./StudioAppearancePanel";
 import {
   STUDIO_CONTROLS,STUDIO_PRESETS,controlValue,findStudioControls,
   type StudioControl,type StudioSection,
@@ -7,7 +8,7 @@ import {type StudioEditCommand,type StudioRecipeV1} from "./StudioRecipe";
 
 type Preview=(recipe:StudioRecipeV1)=>Promise<boolean>;
 export interface StudioMorphEditor {
-  show(section:StudioSection):void;
+  show(section:StudioSection|"appearance"):void;
   undo():void;
   redo():void;
   resetAll():void;
@@ -62,6 +63,7 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
 
   function syncValues():void{
     const recipe=history.current;
+    appearancePanel.sync(recipe);
     preset.value=recipe.selectedPresets[section]==="custom"?"":recipe.selectedPresets[section];
     for(const c of STUDIO_CONTROLS){
       const row=list.querySelector<HTMLElement>('[data-control-id="'+CSS.escape(c.id)+'"]');
@@ -170,6 +172,10 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
     }
     syncValues();
   }
+  const appearancePanel=createStudioAppearancePanel(root,
+    (command,delay=0)=>dispatch(command,delay),
+    key=>history.beginGesture(key),()=>history.endGesture());
+  root.append(message);
   function refreshSection():void {
     history.endGesture();
     preset.replaceChildren(new Option("Custom",""));
@@ -204,7 +210,15 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
   refreshSection();
   notify();
   return {
-    show(next){if(disposed)return;section=next;refreshSection();},
+    show(next){
+      if(disposed)return;
+      history.endGesture();
+      const showingAppearance=next==="appearance";
+      container.hidden=showingAppearance;
+      appearancePanel.element.hidden=!showingAppearance;
+      if(showingAppearance)appearancePanel.sync(history.current);
+      else {section=next;refreshSection();}
+    },
     undo(){navigate("undo");},
     redo(){navigate("redo");},
     resetAll(){history.endGesture();dispatch({type:"reset-all"},0);},
@@ -212,7 +226,7 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
     dispose(){
       disposed=true;
       if(timeout!==undefined)clearTimeout(timeout);
-      container.remove();
+      container.remove();appearancePanel.dispose();
     },
   };
 }

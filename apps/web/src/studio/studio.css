@@ -203,3 +203,36 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
   .studio-edit-actions button{min-height:44px}
   .studio-exit{max-width:none;white-space:nowrap}
 }
+
+/* Appearance: literal swatches match the skin material, not invented textures. */
+.studio-appearance-editor{display:grid;gap:23px;padding-top:20px}
+.studio-appearance-fieldset{border:0;padding:0;margin:0;min-width:0}
+.studio-appearance-fieldset legend{font-size:14px;font-weight:750;color:#f4eee2;padding:0;margin:0}
+.studio-appearance-description{font-size:12px;line-height:1.5;color:#aebbc2;margin:8px 0 16px}
+.studio-tone-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.studio-tone-choice{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  min-height:79px;min-width:0;background:#182530;border:1px solid #4d5c66;border-radius:10px;
+  color:#dce3df;font-size:10px;font-weight:650;padding:8px 3px;text-align:center}
+.studio-tone-choice .studio-tone-sample{width:33px;height:33px;flex-shrink:0;border-radius:50%;
+  border:2px solid #ffffff56;box-shadow:inset 0 0 6px #00000028}
+.studio-tone-choice[aria-pressed="true"] .studio-tone-sample{outline:2px solid #f4d8a3;outline-offset:3px}
+.studio-tone-choice:hover,.studio-finish-choice:hover{border-color:#dfbd82}
+.studio-finish-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.studio-finish-choice{min-height:45px;border:1px solid #52616c;border-radius:9px;
+  background:#17232e;color:#e3e8e6;padding:8px;font-size:11px;font-weight:650}
+.studio-finish-slider{margin-top:20px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.studio-finish-slider label{grid-column:1/-1;font-size:12px;font-weight:650;color:#e5e7e3}
+.studio-finish-slider input{width:100%;min-width:0;accent-color:#e3bd78;min-height:44px}
+.studio-finish-slider output{min-width:36px;font-size:12px;align-self:center;text-align:right;
+  font-variant-numeric:tabular-nums;color:#e6d8c4}
+.studio-appearance-note{font-size:11px;color:#aeb8c2;line-height:1.55;margin:0}
+@media(max-width:800px){
+  .studio-tone-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .studio-appearance-editor{gap:18px;padding-top:14px}
+  .studio-tone-choice{min-height:78px}
+}
+@media(forced-colors:active){
+  .studio-tone-choice[aria-pressed="true"],.studio-finish-choice[aria-pressed="true"]{
+    outline:2px solid Highlight;
+  }
+}

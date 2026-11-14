@@ -1,3 +1,4 @@
+import {DEFAULT_STUDIO_APPEARANCE,validateStudioAppearance,withSkinTone,withSkinRoughness,withFinishPreset,type StudioAppearanceV1,type SkinToneId,type FinishPresetId} from "./StudioAppearance";
 import { DEFAULT_HUMAN_HEAD_MORPHOLOGY } from "@trilok/character-core";
 import {
   defaultStudioMorphState, resetStudioSection, STUDIO_PRESETS,
@@ -15,13 +16,18 @@ export interface StudioRecipeV1 {
   readonly generatorVersion:"studio-human-v1";
   readonly seed:number;
   readonly morphology:StudioMorphState;
+  readonly appearance:StudioAppearanceV1;
   readonly selectedPresets:Readonly<Record<StudioSection,string>>;
 }
 export type StudioEditCommand =
   | Readonly<{type:"adjust";id:string;value:number}>
   | Readonly<{type:"preset";section:StudioSection;preset:string}>
   | Readonly<{type:"reset-section";section:StudioSection}>
-  | Readonly<{type:"reset-all"}>;
+  | Readonly<{type:"reset-all"}>
+  | Readonly<{type:"appearance-tone";tone:SkinToneId}>
+  | Readonly<{type:"appearance-roughness";roughness:number}>
+  | Readonly<{type:"appearance-finish";preset:FinishPresetId}>
+  | Readonly<{type:"reset-appearance"}>;
 
 const exactKeys=(value:unknown,keys:readonly string[]):boolean=>
   !!value&&typeof value==="object"&&!Array.isArray(value)&&
@@ -29,7 +35,7 @@ const exactKeys=(value:unknown,keys:readonly string[]):boolean=>
 
 export function validateStudioRecipe(recipe:StudioRecipeV1):void {
   if(!exactKeys(recipe,["schemaVersion","archetypeId","topologyFamilyId",
-    "generatorVersion","seed","morphology","selectedPresets"])||
+    "generatorVersion","seed","morphology","appearance","selectedPresets"])||
     recipe.schemaVersion!==1||recipe.archetypeId!=="human"||
     recipe.topologyFamilyId!=="humanoid_biped_v1"||
     recipe.generatorVersion!=="studio-human-v1"||
@@ -44,6 +50,7 @@ export function validateStudioRecipe(recipe:StudioRecipeV1):void {
       throw new Error("Unknown character style");
   }
   validateStudioMorphState(recipe.morphology);
+  validateStudioAppearance(recipe.appearance);
 }
 function freezeRecipe(recipe:StudioRecipeV1):StudioRecipeV1 {
   validateStudioRecipe(recipe);
@@ -55,6 +62,7 @@ function freezeRecipe(recipe:StudioRecipeV1):StudioRecipeV1 {
       shape:Object.freeze({...recipe.morphology.shape}),
     }),
     selectedPresets:Object.freeze({...recipe.selectedPresets}),
+    appearance:Object.freeze({...recipe.appearance}),
   });
 }
 export function initialStudioRecipe():StudioRecipeV1 {
@@ -62,6 +70,7 @@ export function initialStudioRecipe():StudioRecipeV1 {
     schemaVersion:1,archetypeId:"human",topologyFamilyId:"humanoid_biped_v1",
     generatorVersion:"studio-human-v1",seed:1,
     morphology:defaultStudioMorphState(),
+    appearance:DEFAULT_STUDIO_APPEARANCE,
     selectedPresets:{body:"neutral",face:"neutral"},
   });
 }
@@ -70,6 +79,10 @@ export function reduceStudioRecipe(recipe:StudioRecipeV1,
   command:StudioEditCommand):StudioRecipeV1 {
   validateStudioRecipe(recipe);
   if(command.type==="reset-all")return initialStudioRecipe();
+  if(command.type==="reset-appearance")return freezeRecipe({...recipe,appearance:DEFAULT_STUDIO_APPEARANCE});
+  if(command.type==="appearance-tone")return freezeRecipe({...recipe,appearance:withSkinTone(recipe.appearance,command.tone)});
+  if(command.type==="appearance-roughness")return freezeRecipe({...recipe,appearance:withSkinRoughness(recipe.appearance,command.roughness)});
+  if(command.type==="appearance-finish")return freezeRecipe({...recipe,appearance:withFinishPreset(recipe.appearance,command.preset)});
   if(command.type==="reset-section"){
     const section=command.section;
     if(section!=="body"&&section!=="face")throw new Error("Unknown character section");
@@ -105,6 +118,7 @@ export function studioRecipeFingerprint(recipe:StudioRecipeV1):string {
   return JSON.stringify([recipe.schemaVersion,recipe.archetypeId,
     recipe.topologyFamilyId,recipe.generatorVersion,recipe.seed,
     sorted(recipe.morphology.body),sorted(recipe.morphology.face),
-    sorted(recipe.morphology.shape),recipe.selectedPresets.body,
+    sorted(recipe.morphology.shape),recipe.appearance.tone,
+    recipe.appearance.roughness,recipe.selectedPresets.body,
     recipe.selectedPresets.face]);
 }
