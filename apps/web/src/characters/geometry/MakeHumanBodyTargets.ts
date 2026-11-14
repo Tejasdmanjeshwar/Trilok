@@ -36,8 +36,9 @@ export const BODY_CONTROLS:readonly BodyControl[]=[
   ...[
     ["sex","Sex (female to male)",.5],
     ["age","Age (baby to old)",.5],
-    ["african","African ancestry",0],
-    ["asian","Asian ancestry",0],
+    ["african","African ancestry",1/3],
+    ["asian","Asian ancestry",1/3],
+    ["caucasian","Caucasian ancestry",1/3],
     ["weight","Weight (min to max)",.5],
     ["muscle","Muscularity (min to max)",.5],
     ["height","Stature (min to max)",.5],
@@ -52,7 +53,8 @@ export const BODY_CONTROLS:readonly BodyControl[]=[
     group:"Stress inspection",min:0,max:1.5,nativeMin:0,nativeMax:1},
 ];
 export const BODY_MACRO_DEFAULTS:Readonly<BodyWeights>=Object.freeze({
-  "macro/sex":.5,"macro/age":.5,"macro/african":0,"macro/asian":0,
+  "macro/sex":.5,"macro/age":.5,"macro/african":1/3,
+  "macro/asian":1/3,"macro/caucasian":1/3,
   "macro/weight":.5,"macro/muscle":.5,"macro/height":.5,
   "macro/proportions":.5,"macro/breastSize":.5,
   "macro/breastFirmness":.5,"stress/gain":1,
@@ -86,8 +88,10 @@ export function validateBodyWeights(weights:BodyWeights):void{
     if(!c||!Number.isFinite(value)||value<c.min||value>c.max)
       throw new Error("C3.6 body parameter outside preview range: "+id);
   }
-  if((weights["macro/african"]??0)+(weights["macro/asian"]??0)>1+1e-8)
-    throw new Error("MakeHuman body ancestry sum exceeds 1");
+  const ancestry=["african","asian","caucasian"].map(k=>
+    weights["macro/"+k]??1/3);
+  if(Math.abs(ancestry.reduce((a,n)=>a+n,0)-1)>1e-7)
+    throw new Error("MakeHuman native ancestry weights must sum to 1");
 }
 export function validateBodyAtlas(atlas:BodyAtlas,sourceCount:number):ReadonlyMap<string,BodyTarget>{
   if(atlas?.payload?.schemaVersion!==1||
@@ -133,12 +137,33 @@ function axes(value:number,names:readonly string[],anchors:readonly number[]):
   }
   return [[names.at(-1)!,1]];
 }
-const ageAxis=(v:number)=>axes(v,["baby","child","young","old"],[0,.25,.5,1]);
+// Original MakeHuman human.py _setAgeVals(): baby→child 0.1875,
+// child→young 0.5, young→old 1.0.
+const ageAxis=(v:number)=>axes(v,["baby","child","young","old"],[0,.1875,.5,1]);
 const rangeAxis=(v:number,prefix:string)=>axes(v,
   ["min"+prefix,"average"+prefix,"max"+prefix],[0,.5,1]);
 const sexAxis=(v:number)=>[["female",1-v],["male",v]] as const;
-const ancestryAxis=(african:number,asian:number)=>
-  [["caucasian",1-african-asian],["african",african],["asian",asian]] as const;
+const ancestryAxis=(african:number,asian:number,caucasian:number)=>
+  [["caucasian",caucasian],["african",african],["asian",asian]] as const;
+/** Original MakeHuman height/proportion macro targets have no center target.
+ * Default 0.5 is strictly ZERO weight, not 50% of each extreme. */
+const extremeAxis=(value:number,lo:string,hi:string):readonly (readonly [string,number])[]=>[
+  [lo,Math.max(0,1-2*value)],[hi,Math.max(0,2*value-1)],
+];
+/** Native MakeHuman ethnic slider normalization: retain edited channel and
+ * renormalize the remaining two in their prior ratio (equal if both zero). */
+export function setBodyAncestryChannel(previous:BodyWeights,
+  edited:"african"|"asian"|"caucasian",value:number):BodyWeights{
+  if(!Number.isFinite(value)||value<0||value>1)
+    throw new Error("Invalid MakeHuman ancestry channel");
+  const channels=["african","asian","caucasian"] as const;
+  const others=channels.filter(k=>k!==edited);
+  const prior=others.map(k=>previous["macro/"+k]??1/3);
+  const total=prior[0]!+prior[1]!;
+  return {...previous,["macro/"+edited]:value,
+    ["macro/"+others[0]!]:total>0?(1-value)*prior[0]!/total:(1-value)/2,
+    ["macro/"+others[1]!]:total>0?(1-value)*prior[1]!/total:(1-value)/2};
+}
 /** Numerically stable, sorted target factors; independent of recipe key order. */
 export function resolveBodyMacroFactors(weights:BodyWeights):ReadonlyMap<string,number>{
   validateBodyWeights(weights);
@@ -147,28 +172,29 @@ export function resolveBodyMacroFactors(weights:BodyWeights):ReadonlyMap<string,
   const add=(id:string,value:number)=>{
     if(value!==0)result.set(id,(result.get(id)??0)+value);
   };
-  const neutral=["sex","age","african","asian","muscle","weight","height","proportions","breastSize","breastFirmness"]
+  const neutral=["sex","age","african","asian","caucasian","muscle","weight","height","proportions","breastSize","breastFirmness"]
     .every(k=>w(k)===BODY_MACRO_DEFAULTS["macro/"+k]);
   if(neutral)return result;
-  for(const [race,raceW] of ancestryAxis(w("african"),w("asian")))
+  for(const [race,raceW] of ancestryAxis(w("african"),w("asian"),w("caucasian")))
     for(const [sex,sexW] of sexAxis(w("sex")))
       for(const [age,ageW] of ageAxis(w("age"))){
         const factor=raceW*sexW*ageW;
         add("macrodetails/"+race+"-"+sex+"-"+age,factor);
       }
   // Rest-corrected macro ancestry/age/gender: same shape baseline on first load.
-  for(const [sex,sexW] of sexAxis(.5))
-    add("macrodetails/caucasian-"+sex+"-young",-sexW);
+  for(const [race,raceW] of ancestryAxis(1/3,1/3,1/3))
+    for(const [sex,sexW] of sexAxis(.5))
+      add("macrodetails/"+race+"-"+sex+"-young",-raceW*sexW);
   const distributions=(sex:string,age:string,factor:number)=>{
     for(const [muscle,muscleW] of rangeAxis(w("muscle"),"muscle"))
       for(const [weight,weightW] of rangeAxis(w("weight"),"weight")){
         const f=factor*muscleW*weightW;
         add("macrodetails/universal-"+sex+"-"+age+"-"+muscle+"-"+weight,f);
-        for(const [height,heightW] of axes(w("height"),["minheight","maxheight"],[0,1]))
+        for(const [height,heightW] of extremeAxis(w("height"),"minheight","maxheight"))
           add("macrodetails/height/"+sex+"-"+age+"-"+muscle+"-"+weight+"-"+height,
             f*heightW);
-        if(age!=="baby")for(const [p,pW] of axes(w("proportions"),
-          ["uncommonproportions","idealproportions"],[0,1]))
+        if(age!=="baby")for(const [p,pW] of extremeAxis(w("proportions"),
+          "uncommonproportions","idealproportions"))
           add("macrodetails/proportions/"+sex+"-"+age+"-"+muscle+"-"+weight+"-"+p,
             f*pW);
       }
@@ -199,10 +225,7 @@ export function resolveBodyMacroFactors(weights:BodyWeights):ReadonlyMap<string,
   const baselines=(sex:string,age:string,factor:number)=>{
     const m="averagemuscle-averageweight";
     add("macrodetails/universal-"+sex+"-"+age+"-"+m,-factor);
-    for(const [height,f] of axes(.5,["minheight","maxheight"],[0,1]))
-      add("macrodetails/height/"+sex+"-"+age+"-"+m+"-"+height,-factor*f);
-    for(const [p,f] of axes(.5,["uncommonproportions","idealproportions"],[0,1]))
-      add("macrodetails/proportions/"+sex+"-"+age+"-"+m+"-"+p,-factor*f);
+
   };
   for(const [sex,sexW] of sexAxis(.5))baselines(sex,"young",sexW);
   return new Map([...result].filter(([,v])=>Math.abs(v)>1e-12).sort(([a],[b])=>a.localeCompare(b)));
