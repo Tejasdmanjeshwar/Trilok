@@ -12,15 +12,17 @@ import {validateStudioMorphState,type StudioMorphState} from "./StudioMorphCatal
  * source controllers; never silently approximate native MakeHuman targets. */
 export interface StudioHumanModel {
   readonly human:AnatomicalHuman;
-  setFace(face:FacialWeights):Promise<void>;
+  setFace(face:FacialWeights,accept:()=>boolean):Promise<boolean>;
   dispose():void;
 }
-export async function buildStudioHuman(state:StudioMorphState):Promise<StudioHumanModel>{
+export async function buildStudioHuman(state:StudioMorphState,
+  signal?:AbortSignal):Promise<StudioHumanModel>{
   validateStudioMorphState(state);
-  const human=await loadAnatomicalHuman();
+  const human=await loadAnatomicalHuman(signal);
   let face:MakeHumanFacialController|undefined;
   let disposed=false;
   try {
+    if(signal?.aborted)throw new Error("Preview superseded");
     if(Object.keys(state.shape).some(key=>
       state.shape[key as keyof typeof state.shape] !==
         DEFAULT_HUMAN_HEAD_MORPHOLOGY[key as keyof typeof state.shape])){
@@ -28,20 +30,28 @@ export async function buildStudioHuman(state:StudioMorphState):Promise<StudioHum
     }
     if(Object.keys(state.body).length){
       const atlas=await loadBodyAtlas();
+      if(signal?.aborted)throw new Error("Preview superseded");
       const body=new MakeHumanBodyController(human,atlas);
       try{body.apply(state.body);}finally{body.dispose();}
     }
     if(Object.keys(state.face).length){
-      face=new MakeHumanFacialController(human,await loadFacialAtlas());
+      const atlas=await loadFacialAtlas();
+      if(signal?.aborted)throw new Error("Preview superseded");
+      face=new MakeHumanFacialController(human,atlas);
       face.apply(state.face);
     }
+    if(signal?.aborted)throw new Error("Preview superseded");
     return {
       human,
-      async setFace(weights){
+      async setFace(weights,accept){
         if(disposed)throw new Error("Character preview has closed");
-        if(!face)face=new MakeHumanFacialController(human,await loadFacialAtlas());
-        if(disposed)return;
+        // No in-place mutation after an awaited load unless the caller's
+        // generation is still current. Older face edits must be invisible.
+        const atlas=face?undefined:await loadFacialAtlas();
+        if(disposed||!accept())return false;
+        if(!face)face=new MakeHumanFacialController(human,atlas!);
         face.apply(weights);
+        return true;
       },
       dispose(){
         if(disposed)return;
