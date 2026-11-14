@@ -181,6 +181,81 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
       aCtrl.dispose();bCtrl.dispose();
     }finally{a.dispose();b.dispose();}
   },120_000);
+  it("keeps infant age 0..0.1875 surface, source joints and IK aligned",()=>{
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
+    const instance=makeHuman();
+    try {
+      const rig=instance.sourceRig!;
+      const ctrl=new MakeHumanBodyController(instance,atlas);
+      const sourceIds=instance.template.sourceVertexIds;
+      const scale=instance.template.conversionMetersPerSourceUnit;
+      const targetMap=validateBodyAtlas(atlas,instance.template.sourceVertexCount);
+      const base=Float32Array.from(instance.mesh.geometry.getAttribute("position").array as ArrayLike<number>);
+      const head=instance.spike.graph.joints.find(j=>j.role==="head")!;
+      const headBone=instance.spike.bones.get(head.id)!;
+      const headRef=rig.joints[rig.bones.head!.head]!;
+      const baseline=headBone.getWorldPosition(new THREE.Vector3());
+      for(const age of [0,.01,.03,.05,.055,.06,.1,.1875]){
+        const weights={"macro/age":age};
+        const factors=resolveBodyMacroFactors(weights);
+        const expectedDelta=new THREE.Vector3();
+        for(const [id,amount] of factors){
+          const target=targetMap.get(id)!;
+          const rowMap=new Map<number,readonly number[]>();
+          for(let i=0;i<target.rows.length;i+=4)
+            rowMap.set(target.rows[i]!,target.rows.slice(i+1,i+4));
+          for(const source of headRef){
+            const row=rowMap.get(source);
+            if(row)expectedDelta.add(new THREE.Vector3(row[0]!,row[1]!,row[2]!)
+              .multiplyScalar(amount*scale/headRef.length));
+          }
+        }
+        const result=ctrl.apply(weights);
+        expect(result.finiteFailures, "age "+age).toBe(0);
+        expect(result.seamMismatches, "age "+age).toBe(0);
+        const actual=headBone.getWorldPosition(new THREE.Vector3()).sub(baseline);
+        expect(actual.distanceTo(expectedDelta), "age "+age+" exact head joint")
+          .toBeLessThan(2e-5);
+        const alignment=getHumanMorphologyAlignment(instance)!;
+        for(const chain of alignment.chains.values()){
+          expect(chain.upperMeters, "age "+age+" "+chain.id).toBeGreaterThan(1e-5);
+          expect(chain.lowerMeters, "age "+age+" "+chain.id).toBeGreaterThan(1e-5);
+        }
+        expect(Array.from(instance.mesh.geometry.getAttribute("position").array))
+          .not.toEqual(Array.from(base));
+      }
+      ctrl.apply({});
+      expect(Array.from(instance.mesh.geometry.getAttribute("position").array))
+        .toEqual(Array.from(base));
+    }finally{instance.dispose();}
+  },120_000);
+  it("rolls back joints and geometry if IK registration rejects a staged morphology",()=>{
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
+    const human=makeHuman();
+    try{
+      const ctrl=new MakeHumanBodyController(human,atlas);
+      const bones=human.spike.skeleton.bones;
+      const oldPositions=bones.map(b=>b.position.clone());
+      const oldInverse=human.spike.skeleton.boneInverses.map(m=>m.clone());
+      const oldGeometry=Float32Array.from(human.mesh.geometry.getAttribute("position").array as ArrayLike<number>);
+      const alignment=getHumanMorphologyAlignment(human);
+      const joint=human.spike.graph.joints.find(j=>j.role==="wrist_left")!;
+      const originalRole=joint.role;
+      // Replace a role only in this owned fixture to deliberately invalidate
+      // post-refit chain lookup, not to weaken any runtime acceptance threshold.
+      (joint as {role:string}).role="unmapped_test_role";
+      try{
+        expect(()=>ctrl.apply({"macro/age":0})).toThrow(/Missing C3.3 chain joint/);
+      }finally{(joint as {role:string}).role=originalRole;}
+      expect(Array.from(human.mesh.geometry.getAttribute("position").array))
+        .toEqual(Array.from(oldGeometry));
+      bones.forEach((b,i)=>expect(b.position.distanceTo(oldPositions[i]!)).toBeLessThan(1e-7));
+      human.spike.skeleton.boneInverses.forEach((m,i)=>
+        expect(m.elements).toEqual(oldInverse[i]!.elements));
+      expect(getHumanMorphologyAlignment(human)).toBe(alignment);
+      expect(ctrl.apply({"macro/age":.05}).finiteFailures).toBe(0);
+    }finally{human.dispose();}
+  },120_000);
   it("uses insertion-order-independent macro factors and preserves neutral geometry",()=>{
     const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
     const human=makeHuman();

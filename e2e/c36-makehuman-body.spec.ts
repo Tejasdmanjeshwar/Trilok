@@ -58,3 +58,36 @@ test("C3.6 pinned original MakeHuman body morphology and camera preservation",as
   await expect(page.locator("#c35-facial-diagnostics")).toContainText("Source-affected vertices:");
   expect(errors).toEqual([]);
 });
+
+
+test("C3.7 infant ages deform body and skeleton together, including child transition",async({page})=>{
+  test.setTimeout(240_000);
+  const errors:string[]=[];
+  page.on("pageerror",e=>errors.push(e.message));
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/c2-lab.html");
+  await expect(page.locator("html")).toHaveAttribute("data-c2-source","template",{timeout:90_000});
+  const slider=page.locator('[data-body-control="macro/age"]');
+  const diagnostic=page.locator("#c36-body-diagnostics");
+  const viewport=page.locator("#viewport");
+  const platform=test.info().project.name;
+  mkdirSync("test-results/c37",{recursive:true});
+  const originalCamera=await viewport.getAttribute("data-camera-state");
+  for(const age of ["0","0.03","0.05","0.06","0.1875"]){
+    await slider.evaluate((node,value)=>{
+      const input=node as HTMLInputElement;
+      input.value=value;input.dispatchEvent(new Event("change",{bubbles:true}));
+    },age);
+    await expect(page.locator("html")).toHaveAttribute("data-c36-body-age",String(Number(age)),
+      {timeout:90_000});
+    await expect(page.locator("html")).toHaveAttribute("data-c36-body-ready","true",
+      {timeout:90_000});
+    await expect(diagnostic).toContainText("Source-affected vertices:",{timeout:90_000});
+    await expect(diagnostic).not.toContainText("source unavailable");
+    expect(await viewport.getAttribute("data-camera-state")).toBe(originalCamera);
+    if(age==="0"||age==="0.05"||age==="0.06"){
+      await viewport.screenshot({path:`test-results/c37/${platform}-age-${age}.png`});
+    }
+  }
+  expect(errors).toEqual([]);
+});

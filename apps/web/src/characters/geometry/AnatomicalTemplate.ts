@@ -31,6 +31,8 @@ export interface AnatomicalHuman {
   readonly mesh: THREE.SkinnedMesh;
   readonly template: AnatomicalTemplate;
   readonly rigDiagnostics?: RigDiagnostics;
+  /** The pinned CC0 joint vertex map used by MakeHuman to refit rest joints. */
+  readonly sourceRig?: SourceRig;
   /** Source jaw tip rest-world position; used to calibrate sagittal opening. */
   readonly jawTipWorldRest?: THREE.Vector3;
   readonly vertexCount: number;
@@ -297,7 +299,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
       validateSkinningSpike(spike);
     }catch(error){geometry.dispose();spike.dispose();throw error;}
     let disposed=false;
-    return {spike,mesh:spike.mesh,template,jawTipWorldRest,
+    return {spike,mesh:spike.mesh,template,jawTipWorldRest,sourceRig:official.rig,
       rigDiagnostics:{...diagnostic,maxBindDisplacementMeters:displacement},
       vertexCount:geometry.getAttribute("position").count,
       triangleCount:geometry.getIndex()!.count/3,

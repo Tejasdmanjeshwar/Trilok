@@ -80,7 +80,9 @@ export function calibrateHumanMorphologyAlignment(
       const positions = ids.map(j => bones.get(j)!.getWorldPosition(new THREE.Vector3()));
       const upperMeters = positions[0]!.distanceTo(positions[1]!);
       const lowerMeters = positions[1]!.distanceTo(positions[2]!);
-      if (![upperMeters, lowerMeters].every(n => Number.isFinite(n) && n > .08))
+      // Infant and nonstandard humanoid limbs can be shorter than 8 cm.
+      // Reject only numerically collapsed chains; source-derived anatomy sets size.
+      if (![upperMeters, lowerMeters].every(n => Number.isFinite(n) && n > 1e-5))
         throw new Error("Invalid shaped IK chain " + id);
       chains.set(id, Object.freeze({
         id, proximalJointId: ids[0]!, middleJointId: ids[1]!,
