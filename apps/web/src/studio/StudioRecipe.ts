@@ -1,5 +1,5 @@
-import {generateStudioCharacter,validateGeneratorOptions,
-  STUDIO_GENERATOR_VERSION,type GeneratorOptions} from "./StudioGenerator";
+import {generateStudioCharacter,validateGeneratorSeed,
+  STUDIO_GENERATOR_VERSION} from "./StudioGenerator";
 import {DEFAULT_STUDIO_APPEARANCE,validateStudioAppearance,withSkinTone,withSkinRoughness,withFinishPreset,type StudioAppearanceV1,type SkinToneId,type FinishPresetId} from "./StudioAppearance";
 import { DEFAULT_HUMAN_HEAD_MORPHOLOGY } from "@trilok/character-core";
 import {
@@ -15,7 +15,7 @@ export interface StudioRecipeV1 {
   readonly schemaVersion:1;
   readonly archetypeId:"human";
   readonly topologyFamilyId:"humanoid_biped_v1";
-  readonly generatorVersion:"studio-human-v1";
+  readonly generatorVersion:typeof STUDIO_GENERATOR_VERSION;
   readonly seed:number;
   readonly morphology:StudioMorphState;
   readonly appearance:StudioAppearanceV1;
@@ -30,7 +30,7 @@ export type StudioEditCommand =
   | Readonly<{type:"appearance-roughness";roughness:number}>
   | Readonly<{type:"appearance-finish";preset:FinishPresetId}>
   | Readonly<{type:"reset-appearance"}>
-  | Readonly<{type:"generate";options:GeneratorOptions}>;
+  | Readonly<{type:"generate";seed:number}>;
 
 const exactKeys=(value:unknown,keys:readonly string[]):boolean=>
   !!value&&typeof value==="object"&&!Array.isArray(value)&&
@@ -83,8 +83,8 @@ export function reduceStudioRecipe(recipe:StudioRecipeV1,
   validateStudioRecipe(recipe);
   if(command.type==="reset-all")return initialStudioRecipe();
   if(command.type==="generate"){
-    validateGeneratorOptions(command.options);
-    const result=generateStudioCharacter(recipe,command.options);
+    validateGeneratorSeed(command.seed);
+    const result=generateStudioCharacter(command.seed);
     return freezeRecipe({
       ...recipe,...result,
       generatorVersion:STUDIO_GENERATOR_VERSION,
