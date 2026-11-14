@@ -16,7 +16,7 @@ import { anatomicalPoseById, resolveAnatomicalPose } from "../geometry/Anatomica
 import { createCharacterLabControls } from "./CharacterLabControls";
 import { BoneInspector } from "./BoneInspector";
 import { frameSelectedAnatomicalBone } from "./LabCameraFocus";
-import {FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,loadFacialAtlas,
+import {ALL_FACIAL_CONTROLS as FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,loadFacialAtlas,
   type FacialWeights,type FacialDiagnostics} from "../geometry/MakeHumanFacialTargets";
 
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
@@ -65,6 +65,7 @@ function buildFacialControls():void{
     slider.step="0.05";slider.value="0";
     slider.dataset.facialControl=control.id;
     slider.setAttribute("aria-label",control.label);
+    slider.title=control.description??"Native MakeHuman ranges: [-1,1] or [0,1]; 1.25 is deliberate unsupported extrapolation";
     slider.addEventListener("input",()=>{
       const value=Number(slider.value);
       if(value===0)delete facialWeights[control.id];
