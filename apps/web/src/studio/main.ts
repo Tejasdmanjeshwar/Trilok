@@ -1,5 +1,6 @@
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
+import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {STUDIO_VIEWS,STUDIO_LIGHTS,type StudioView,type StudioLight} from "./StudioPresentation";
 
 const host=document.querySelector<HTMLElement>("#studio-app");
@@ -18,6 +19,8 @@ host.innerHTML=String.raw`
     <nav class="studio-nav" aria-label="Character sections">
       <span class="nav-title">EXPLORE</span>
       <button type="button" data-section="character" aria-current="page"><span aria-hidden="true">◈</span> Character</button>
+      <button type="button" data-section="body"><span aria-hidden="true">♧</span> Body</button>
+      <button type="button" data-section="face"><span aria-hidden="true">◉</span> Face</button>
       <button type="button" data-section="view"><span aria-hidden="true">◎</span> View</button>
     </nav>
     <section class="studio-stage" aria-label="Character preview">
@@ -67,6 +70,7 @@ host.innerHTML=String.raw`
           </div>
         </fieldset>
       </div>
+      <div id="studio-editor" hidden></div>
       <div class="studio-inspector-foot"><span class="gold-star" aria-hidden="true">✧</span> A closer look at your next character.</div>
     </aside>
   </div>
@@ -80,13 +84,18 @@ const element=<T extends HTMLElement>(selector:string):T=>{
 const loading=element<HTMLElement>("#studio-loading");
 const failure=element<HTMLElement>("#studio-error");
 const message=element<HTMLElement>("#studio-error-message");
+const editStatus=document.createElement("div");
+editStatus.id="studio-edit-status";editStatus.className="studio-visual-status";
+element("#studio-viewport").after(editStatus);
 const viewport=createStudioViewport(element("#studio-viewport"),()=>{
   loading.hidden=true;failure.hidden=true;
   document.documentElement.dataset.studioReady="true";
 },reason=>{
   loading.hidden=true;failure.hidden=false;message.textContent=reason;
   document.documentElement.dataset.studioReady="false";
-});
+},reason=>{editStatus.textContent=reason;});
+const morphEditor=createStudioMorphEditor(element("#studio-editor"),
+  next=>viewport.applyMorphology(next));
 element<HTMLButtonElement>("#studio-retry").addEventListener("click",()=>{
   failure.hidden=true;loading.hidden=false;
   void viewport.load();
@@ -114,6 +123,10 @@ host.querySelectorAll<HTMLButtonElement>("[data-light]").forEach(button=>
 const sections={
   character:{context:"YOUR CHARACTER",title:"Meet your character",
     description:"A human foundation ready to explore. Rotate and zoom to examine the silhouette, face, and proportions."},
+  body:{context:"SCULPT THE BODY",title:"Shape the silhouette",
+    description:"Explore human proportions, age and build. Choose an area for finer shaping."},
+  face:{context:"SCULPT THE FACE",title:"Shape the face",
+    description:"Refine facial anatomy and expressions with precise independent controls."},
   view:{context:"THE VIEW",title:"Find your angle",
     description:"Choose a perspective and light to see every detail. You can freely turn, move, and zoom the character at any time."},
 } as const;
@@ -125,9 +138,13 @@ host.querySelectorAll<HTMLButtonElement>("[data-section]").forEach(button=>
       if(item===button)item.setAttribute("aria-current","page");
       else item.removeAttribute("aria-current");
     }
+    const editing=id==="body"||id==="face";
+    element("#studio-editor").hidden=!editing;
+    element(".studio-settings").hidden=editing;
+    if(editing)morphEditor.show(id);
     element("#studio-context").textContent=sections[id].context;
     element("#studio-title").textContent=sections[id].title;
     element("#studio-description").textContent=sections[id].description;
   }));
 void viewport.load();
-window.addEventListener("pagehide",()=>viewport.dispose(),{once:true});
+window.addEventListener("pagehide",()=>{morphEditor.dispose();viewport.dispose();},{once:true});
