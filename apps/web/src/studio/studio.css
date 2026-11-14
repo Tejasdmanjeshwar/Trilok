@@ -169,3 +169,28 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
 @media(max-height:520px) and (orientation:landscape){
   .studio-inspector{max-height:calc(100dvh - 94px);overflow-y:auto}
 }
+
+/* In-memory editing commands: visible, compact, keyboard- and touch-accessible. */
+.studio-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
+.studio-edit-actions{display:flex;align-items:center;gap:5px;min-width:0}
+.studio-edit-actions button{min-height:44px;border-radius:9px;border:1px solid #52616b;
+  background:#1c2832;color:#f2e5d3;padding:7px 11px;white-space:nowrap;
+  font-size:12px;font-weight:650}
+.studio-edit-actions button:hover:not(:disabled){background:#46505a;border-color:#d5b47e}
+.studio-edit-actions button:disabled{opacity:.4;cursor:default}
+.studio-edit-actions button:focus-visible{outline:3px solid #f6d99f;outline-offset:2px}
+#studio-start-over{color:#ead6b9;border-color:#75634e}
+@media(max-width:800px){
+  .studio-header-actions{gap:6px}
+  .studio-edit-actions button{padding:6px 8px}
+  .studio-edit-actions button span{display:none}
+}
+@media(max-width:500px){
+  .studio-header{gap:5px}
+  .studio-heading{gap:7px}
+  .studio-header-actions{gap:4px}
+  .studio-edit-actions{gap:3px}
+  .studio-edit-actions button{min-height:44px;font-size:14px;padding:5px 7px}
+  #studio-start-over{font-size:10px;padding:5px 6px}
+  .studio-exit{padding:9px 6px;max-width:92px;text-align:center;white-space:normal;line-height:1.2}
+}
