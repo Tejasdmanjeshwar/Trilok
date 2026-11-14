@@ -154,7 +154,8 @@ export function createStudioViewport(
       JSON.stringify(state.shape)===JSON.stringify(currentMorphology.shape);
     if(faceOnly){
       try{
-        const changed=await active!.setFace(state.face,valid);
+        const sameFace=JSON.stringify(state.face)===JSON.stringify(currentMorphology.face);
+        const changed=sameFace||await active!.setFace(state.face,valid);
         if(!changed||!valid())return false;
         applyStudioSkinMaterial(active!.human.mesh,appearance);
         currentAppearance=appearance;
