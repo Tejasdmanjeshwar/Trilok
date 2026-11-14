@@ -137,9 +137,17 @@ function axes(value:number,names:readonly string[],anchors:readonly number[]):
   }
   return [[names.at(-1)!,1]];
 }
-// Original MakeHuman human.py _setAgeVals(): baby→child 0.1875,
-// child→young 0.5, young→old 1.0.
-const ageAxis=(v:number)=>axes(v,["baby","child","young","old"],[0,.1875,.5,1]);
+/** Pinned MakeHuman Human._setAgeVals exact native factor constants. */
+function ageAxis(v:number):readonly (readonly [string,number])[]{
+  if(v<.5){
+    const baby=Math.max(0,1-v*5.333);
+    const young=Math.max(0,(v-.1875)*3.2);
+    const child=Math.max(0,Math.min(1,5.333*v)-young);
+    return [["baby",baby],["child",child],["young",young]];
+  }
+  const old=Math.max(0,2*v-1);
+  return [["young",1-old],["old",old]];
+}
 const rangeAxis=(v:number,prefix:string)=>axes(v,
   ["min"+prefix,"average"+prefix,"max"+prefix],[0,.5,1]);
 const sexAxis=(v:number)=>[["female",1-v],["male",v]] as const;
