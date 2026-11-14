@@ -502,12 +502,15 @@ try{
           " · max edge stretch: "+bodyDiagnostics.maxEdgeStretch.toFixed(2)+"×"+
           (bodyDiagnostics.unsupportedExtrapolation?" · unsupported stress":" · native-range preview");
         document.documentElement.dataset.c36BodyReady="true";
+        document.documentElement.dataset.c36BodyAge=String(bodyWeights["macro/age"]??.5);
       }catch(e){
         if(bodyStatus)bodyStatus.textContent="C3.6 body source unavailable: "+String(e);
         document.documentElement.dataset.c36BodyReady="false";
+        delete document.documentElement.dataset.c36BodyAge;
       }
     }else{
       document.documentElement.dataset.c36BodyReady="true";
+      document.documentElement.dataset.c36BodyAge="0.5";
       if(bodyStatus)bodyStatus.textContent="Neutral original source body · select a preset or adjust an anatomical control";
     }
     for(const slider of bodyInputs.values())slider.disabled=
