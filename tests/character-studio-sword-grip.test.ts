@@ -49,6 +49,19 @@ describe("single-hand sword contracts",()=>{
     fk.apply(swordGripTargets(rig.graph,hand,
       calibrateGripSpreads(rig.graph,rig.bones,fk.frames,hand)));
     const weapon=new StudioSwordPreview(model,hand);
+    // The blade/handle axis must cross the fist, not run along the wrist
+    // toward the fingertips (the visually incorrect prior construction).
+    const pos=(role:string):THREE.Vector3=>{
+      const joint=rig.graph.joints.find(j=>j.role===role&&
+        (role.startsWith("finger_")?j.id.includes("arm["+hand+",0]"):true))!;
+      return rig.bones.get(joint.id)!.getWorldPosition(new THREE.Vector3());
+    };
+    rig.character.root.updateWorldMatrix(true,true);
+    const axis=new THREE.Vector3(0,1,0).transformDirection(weapon.object.matrix);
+    const fingerDirection=pos("finger_middle_0").sub(pos("wrist_"+hand)).normalize();
+    const knuckleLine=pos("finger_index_0").sub(pos("finger_little_0")).normalize();
+    expect(Math.abs(axis.dot(fingerDirection))).toBeLessThan(.12);
+    expect(axis.dot(knuckleLine)).toBeGreaterThan(.95);
     validateWeaponGrip(weapon.descriptor,rig.graph);
     expect(weapon.object.children.length).toBeGreaterThan(6);
     const initial=weapon.object.matrix.clone();
