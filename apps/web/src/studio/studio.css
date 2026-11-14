@@ -267,3 +267,18 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
   .studio-extra-panel{padding-top:15px}
   .studio-action-pair button{min-height:48px}
 }
+
+/* Studio accessibility and touch ergonomics: no extra persistent chrome. */
+.studio-viewport canvas:focus-visible{outline:3px solid #f6d99f;outline-offset:-4px}
+.studio-morph-editor select,.studio-morph-editor input[type=search],
+.studio-text-button,.studio-control-fields input[type=number]{min-height:44px}
+.studio-control-fields input[type=range]{min-height:44px}
+.studio-nav button{min-height:44px}
+.studio-control-summary{margin:0}
+@media(max-width:800px){
+  .studio-nav button:focus-visible{scroll-margin-inline:12px}
+  .studio-stage{isolation:isolate}
+}
+@media(forced-colors:active){
+  .studio-control,.studio-settings button,.studio-extra-panel button{border:1px solid CanvasText}
+}
