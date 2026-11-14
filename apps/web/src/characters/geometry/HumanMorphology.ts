@@ -34,6 +34,12 @@ export const getHumanHeadLandmarks = (human: AnatomicalHuman):
 /** Optional C3.3 presentation-only socket/IK metadata for a shaped instance. */
 export const getHumanMorphologyAlignment = (human: AnatomicalHuman):
   HumanMorphologyAlignment | undefined => alignments.get(human);
+/** Register source-derived C3.6 rest-joint/IK refit without touching legacy
+ * C3.1–C3.4 recipe/application lifecycle. */
+export function registerHumanSourceBodyAlignment(human:AnatomicalHuman,
+  alignment:HumanMorphologyAlignment):void {
+  alignments.set(human,alignment);
+}
 const transform = (v: THREE.Vector3, shape: HumanMorphologyV1): THREE.Vector3 =>
   v.set(v.x * shape.breadth, v.y * shape.stature, v.z * shape.breadth);
 
