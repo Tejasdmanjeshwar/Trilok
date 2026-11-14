@@ -371,6 +371,30 @@ export function createStudioViewport(
     if(!document.hidden)draw();
     if(active)onReady();else void load();
   }
+  function onCanvasKey(event:KeyboardEvent):void {
+    if(disposed||!controls||contextLost)return;
+    const key=event.key;
+    if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","+","=","-","_"].includes(key))return;
+    event.preventDefault();
+    endMotion();
+    const anchor=controls.target;
+    const spherical=new THREE.Spherical().setFromVector3(camera.position.clone().sub(anchor));
+    const angle=THREE.MathUtils.degToRad(12);
+    if(key==="ArrowLeft")spherical.theta-=angle;
+    if(key==="ArrowRight")spherical.theta+=angle;
+    if(key==="ArrowUp")spherical.phi=Math.max(.08,spherical.phi-angle);
+    if(key==="ArrowDown")spherical.phi=Math.min(Math.PI-.08,spherical.phi+angle);
+    if(["+","=","-","_"].includes(key)){
+      const factor=key==="+"||key==="="?1.2:1/1.2;
+      if(camera instanceof THREE.OrthographicCamera){
+        camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,controls.minZoom,controls.maxZoom);
+        camera.updateProjectionMatrix();
+      }else spherical.radius=THREE.MathUtils.clamp(spherical.radius/factor,
+        controls.minDistance,controls.maxDistance);
+    }
+    camera.position.copy(anchor).add(new THREE.Vector3().setFromSpherical(spherical));
+    camera.lookAt(anchor);controls.update();
+  }
   function initialize():void {
     if(renderer)return;
     renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:"high-performance",
@@ -379,7 +403,9 @@ export function createStudioViewport(
     renderer.toneMapping=THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure=1.1;
     renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.75));
-    renderer.domElement.setAttribute("aria-label","Interactive three-dimensional character preview");
+    renderer.domElement.setAttribute("aria-label","Interactive character preview: arrow keys turn, plus and minus zoom; double-tap a body part to focus");
+    renderer.domElement.tabIndex=0;
+    renderer.domElement.addEventListener("keydown",onCanvasKey);
     renderer.domElement.setAttribute("role","img");
     renderer.domElement.addEventListener("webglcontextlost",onLost);
     renderer.domElement.addEventListener("webglcontextrestored",onRestored);
