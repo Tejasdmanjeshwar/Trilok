@@ -61,7 +61,7 @@ if(cached?.payload&&cached.contentDigest===digest(cached.payload)&&
         if(parts.length!==4)throw new Error("Malformed MakeHuman target "+entry.id);
         const values=parts.map(Number),id=values[0];
         if(!Number.isSafeInteger(id)||id<0||id>=100000||seen.has(id)||
-           values.slice(1).some(v=>!Number.isFinite(v)||Math.abs(v)>10))
+           values.slice(1).some(v=>!Number.isFinite(v)||Math.abs(v)>100))
           throw new Error("Invalid MakeHuman displacement "+entry.id);
         seen.add(id);
         if(values.slice(1).some(v=>v!==0))rows.push(...values);
