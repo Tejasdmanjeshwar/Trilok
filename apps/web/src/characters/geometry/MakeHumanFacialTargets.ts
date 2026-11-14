@@ -1,3 +1,4 @@
+import {NATIVE_MAKEHUMAN_FACE_MODIFIERS,NATIVE_MAKEHUMAN_EXPRESSION_UNITS} from "./NativeMakeHumanFacialControls";
 import * as THREE from "three";
 import type {AnatomicalHuman} from "./AnatomicalTemplate";
 import {recomputeSourceNormals} from "./HumanLocalDeformation";
@@ -19,7 +20,7 @@ export interface FacialAtlas {
   readonly contentDigest:string;
 }
 export const PINNED_FACIAL_REVISION="a8bc2d54ff0ac92e78ff71431b1023eda42bf482";
-const MAX_TARGETS=256;
+const MAX_TARGETS=512;
 const MAX_ENTRIES=20000;
 const maxAbs=10;
 export function validateFacialAtlas(atlas:FacialAtlas,sourceCount:number):ReadonlyMap<string,FacialTarget> {
@@ -36,7 +37,7 @@ export function validateFacialAtlas(atlas:FacialAtlas,sourceCount:number):Readon
   const map=new Map<string,FacialTarget>();
   for(const target of atlas.payload.targets){
     if(typeof target.id!=="string"||
-       !/^(expression\/units\/caucasian|eyes|nose|cheek|mouth|chin|ears|asym)\/[a-z0-9/-]+$/.test(target.id)||
+       !/^(expression\/units\/(caucasian|asian|african)|head|forehead|eyebrows|eyes|nose|cheek|mouth|chin|ears|asym)\/[a-z0-9/-]+$/.test(target.id)||
        map.has(target.id)||!Array.isArray(target.rows)||
        target.rows.length<4||target.rows.length>MAX_ENTRIES*4||
        target.rows.length%4!==0)
@@ -112,6 +113,27 @@ export const FACIAL_CONTROLS:readonly FacialControl[]=[
   {id:"rightEarlobe",label:"Right ear lobe",group:"Ears",negative:"ears/r-ear-lobe-decr",positive:"ears/r-ear-lobe-incr",min:-1.25,max:1.25},
 ] as const;
 
+/** Native range is -1..1 for bipolar and 0..1 for unipolar.
+ * The additional 25% is deliberately unsupported stress extrapolation. */
+export const NATIVE_FACIAL_CONTROLS:readonly FacialControl[] = [
+  ...NATIVE_MAKEHUMAN_FACE_MODIFIERS.map(m=>({
+    id:"native/"+m.id,label:m.target.replace(/-/g," "),group:"Native "+m.group,
+    positive:m.positive,negative:"negative" in m?m.negative:undefined,
+    min:m.nativeMin===-1?-1.25:0,max:1.25,
+    description:"MakeHuman native: "+m.nativeMin+" to 1; beyond 1 stress only",
+  })),
+  ...NATIVE_MAKEHUMAN_EXPRESSION_UNITS.map(id=>({
+    id:"native/"+id.replace("expression/units/caucasian/","expression/"),
+    label:id.split("/").at(-1)!.replace(/-/g," "),group:"Native expression units",
+    positive:id,min:0,max:1.25,
+    description:"MakeHuman native 0 to 1; beyond 1 stress only",
+  })),
+];
+export const ALL_FACIAL_CONTROLS:readonly FacialControl[] = [...FACIAL_CONTROLS,...NATIVE_FACIAL_CONTROLS,
+  {id:"native/race-african",label:"African ancestry weight",group:"Native ancestry blend",positive:"expression/units/african/mouth-open",min:0,max:1},
+  {id:"native/race-asian",label:"Asian ancestry weight",group:"Native ancestry blend",positive:"expression/units/asian/mouth-open",min:0,max:1},
+];
+
 export type FacialWeights=Readonly<Record<string,number>>;
 export const FACIAL_PRESETS:Readonly<Record<string,FacialWeights>>={
   neutral:{},
@@ -130,7 +152,7 @@ export const FACIAL_PRESETS:Readonly<Record<string,FacialWeights>>={
 export function validateFacialWeights(weights:FacialWeights):void {
   if(typeof weights!=="object"||weights===null||Array.isArray(weights))
     throw new Error("Invalid C3.5 facial control recipe");
-  const byId=new Map(FACIAL_CONTROLS.map(c=>[c.id,c]));
+  const byId=new Map(ALL_FACIAL_CONTROLS.map(c=>[c.id,c]));
   for(const [key,value] of Object.entries(weights)){
     const definition=byId.get(key);
     if(!definition||!Number.isFinite(value)||value<definition.min||value>definition.max)
@@ -164,7 +186,7 @@ export class MakeHumanFacialController {
   constructor(human:AnatomicalHuman,atlas:FacialAtlas){
     this.human=human;
     this.targets=validateFacialAtlas(atlas,human.template.sourceVertexCount);
-    if(!FACIAL_CONTROLS.every(c=>this.targets.has(c.positive)&&
+    if(!ALL_FACIAL_CONTROLS.every(c=>this.targets.has(c.positive)&&
        (!c.negative||this.targets.has(c.negative))))
       throw new Error("Missing pinned MakeHuman facial controls");
     this.scale=human.template.conversionMetersPerSourceUnit;
@@ -188,17 +210,27 @@ export class MakeHumanFacialController {
     const array=Float32Array.from(this.neutral);
     const delta=new Float64Array(this.human.template.sourceVertexCount*3);
     // Canonical ordering makes object insertion order irrelevant.
-    for(const control of FACIAL_CONTROLS){
-      const weight=weights[control.id]??0;
-      if(!weight)continue;
-      const target=this.targets.get(weight<0?control.negative!:control.positive)!;
-      const amount=Math.abs(weight)*this.scale;
-      for(let i=0;i<target.rows.length;i+=4){
-        const index=target.rows[i]!*3;
-        delta[index]=(delta[index]??0)+target.rows[i+1]!*amount;
-        delta[index+1]=(delta[index+1]??0)+target.rows[i+2]!*amount;
-        delta[index+2]=(delta[index+2]??0)+target.rows[i+3]!*amount;
+    const african=weights["native/race-african"]??0;
+    const asian=weights["native/race-asian"]??0;
+    if(african+asian>1+1e-8)throw new Error("MakeHuman ancestry weights exceed 1");
+    const applyTarget=(item:FacialTarget,factor:number)=>{
+      for(let i=0;i<item.rows.length;i+=4){
+        const index=item.rows[i]!*3;
+        delta[index]=(delta[index]??0)+item.rows[i+1]!*factor;
+        delta[index+1]=(delta[index+1]??0)+item.rows[i+2]!*factor;
+        delta[index+2]=(delta[index+2]??0)+item.rows[i+3]!*factor;
       }
+    };
+    for(const control of ALL_FACIAL_CONTROLS){
+      const weight=weights[control.id]??0;
+      if(!weight||control.id.startsWith("native/race-"))continue;
+      const id=weight<0?control.negative!:control.positive;
+      const amount=Math.abs(weight)*this.scale;
+      if(id.startsWith("expression/units/caucasian/")){
+        for(const [race,factor] of [["caucasian",1-african-asian],["african",african],["asian",asian]] as const){
+          if(factor)applyTarget(this.targets.get(id.replace("caucasian",race))!,amount*factor);
+        }
+      }else applyTarget(this.targets.get(id)!,amount);
     }
     let affectedVertices=0,finiteFailures=0,seamMismatches=0;
     for(const [sourceId,renderIds] of this.sourceToRender){
