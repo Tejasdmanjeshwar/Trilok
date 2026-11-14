@@ -276,7 +276,7 @@ export class MakeHumanFacialController {
     const {rest,axis}=this.jawOpeningBasis;
     const projected=(v:THREE.Vector3)=>v.addScaledVector(axis,-v.dot(axis));
     const before=projected(rest.clone());
-    const after=projected(rest.add(displacement));
+    const after=projected(rest.clone().add(displacement));
     const angle=Math.atan2(axis.dot(before.clone().cross(after)),before.dot(after));
     if(!Number.isFinite(angle))throw new Error("Nonfinite MakeHuman jaw expression opening");
     return Math.max(0,angle);
