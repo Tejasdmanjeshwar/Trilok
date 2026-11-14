@@ -4,7 +4,7 @@ import {createStudioViewport} from "./StudioViewport";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {STUDIO_VIEWS,STUDIO_LIGHTS,type StudioView,type StudioLight} from "./StudioPresentation";
 import {STUDIO_FOCUS,STUDIO_POSES,STUDIO_EXPRESSIONS,
-  type StudioFocus,type StudioPose,type StudioExpression,type StudioInspectionOptions}
+  type StudioFocus,type StudioPose,type StudioExpression}
   from "./StudioInspection";
 
 const host=document.querySelector<HTMLElement>("#studio-app");
