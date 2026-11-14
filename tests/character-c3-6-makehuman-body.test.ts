@@ -171,6 +171,9 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
       const recipe={"native/neck/neck-scale-horiz-decr-incr":.8};
       aCtrl.apply(recipe);
       bCtrl.apply(recipe);
+      // A second refit must not misclassify a moved neutral root as FK motion.
+      aCtrl.apply(recipe);
+      bCtrl.apply(recipe);
       expect(a.jawTipWorldRest).toBeDefined();
       expect(b.jawTipWorldRest).toBeDefined();
       const expected=a.jawTipWorldRest!.clone().applyMatrix4(bRoot.matrixWorld);
