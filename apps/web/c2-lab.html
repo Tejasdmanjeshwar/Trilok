@@ -119,8 +119,12 @@
     .pose-result { text-align:left; display:flex; flex-direction:column; gap:4px;
       padding:11px 12px; min-width:0 }
     .pose-result[hidden] { display:none!important }
-    input[type="range"][data-head-param], input[type="range"][data-mammal-param] { width:100%; min-height:30px; accent-color:#80b8df; }
+    input[type="range"][data-head-param], input[type="range"][data-mammal-param], input[type="range"][data-facial-control] { width:100%; min-height:30px; accent-color:#80b8df; }
     [data-head-value], [data-mammal-value] { float:right; font-variant-numeric:tabular-nums; color:var(--muted); }
+    .facial-slider {display:grid!important;grid-template-columns:1fr auto;gap:2px 8px;margin:10px 0!important}
+    .facial-slider input {grid-column:1 / -1;width:100%}
+    .facial-slider output {font-variant-numeric:tabular-nums;color:var(--accent)}
+    .facial-group-heading {font-size:12px;border-top:1px solid var(--line);padding-top:10px;margin:14px 0 6px}
     .pose-result-label { font-weight:700; font-size:13px }
     .pose-result-description { color:var(--muted); font-size:11px; line-height:1.4 }
     .pose-browser-meta { padding:8px 18px; color:var(--muted); border-top:1px solid var(--line); font-size:12px }
@@ -315,6 +319,24 @@
         </details>
         <button type="button" id="reset-head">Reset human head</button>
         <p class="small">Human-only nine-channel source-derived facial morphology. Head/neck/jaw remain continuous and rigged. Neutral values preserve original anatomy. Not a facial animation editor, animal-head generator or C4 Studio.</p>
+      </section>
+      <section class="panel" aria-label="C3.5 MakeHuman facial control foundation">
+        <div class="panel-heading"><h2>C3.5 source-derived face</h2><span class="small">Pinned CC0 · human only</span></div>
+        <label for="c35-facial-preset">Facial pose preset</label>
+        <select id="c35-facial-preset" aria-label="MakeHuman facial presets">
+          <option value="neutral">Neutral</option><option value="blink">Bilateral blink</option>
+          <option value="asymmetric">Asymmetric expression</option>
+          <option value="surprised">Surprised</option><option value="smile">Smile</option>
+          <option value="wide">Wide anatomy</option><option value="stress">Extreme combined stress</option>
+          <option value="custom" disabled>Custom controls</option>
+        </select>
+        <p class="small">All sliders use pinned original MakeHuman vertex-indexed targets; no artificial face cavities or new vertices. Values above 1 are intentional experimental stress ranges.</p>
+        <details><summary>Independent anatomical and expression controls</summary>
+          <div id="c35-facial-controls"></div>
+        </details>
+        <button type="button" id="c35-reset-facial">Reset facial controls</button>
+        <p id="c35-facial-diagnostics" class="small" aria-live="polite">Loading pinned facial atlas…</p>
+        <p class="small">Diagnostics count triangle changes versus the current C3.4 rest shape. They are not proof of collision-free anatomy; inspect posed/wireframe views.</p>
       </section>
       <section class="panel" aria-label="C3.5 mammalian head families">
         <div class="panel-heading"><h2>C3.5 mammalian heads</h2><span class="small">Experimental CC0</span></div>

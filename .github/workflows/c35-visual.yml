@@ -1,0 +1,42 @@
+name: C3.5 Visual Verification
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'apps/web/c2-lab.html'
+      - 'assets/makehuman-facial-v1.json'
+      - 'scripts/fetch-makehuman-facial.mjs'
+      - 'scripts/fetch-makehuman-core.mjs'
+      - 'e2e/c35-makehuman-face.spec.ts'
+      - '.github/workflows/c35-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  face-visual:
+    if: github.head_ref == 'feature/c3-5-makehuman-facial-controls' || github.ref_name == 'feature/c3-5-makehuman-facial-controls'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm build
+      - name: Verify candidate SHA build identity
+        run: node scripts/verify-build-identity.mjs
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Render C3.5 desktop/touch matrix
+        run: pnpm exec playwright test e2e/c35-makehuman-face.spec.ts
+      - name: Upload exact candidate face screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c35-facial-chromium-screenshots
+          path: test-results/c35/**/*.png
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,3544 @@
+{
+  "schemaVersion": 1,
+  "revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+  "license": "CC0-1.0",
+  "licenseEvidence": "https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/LICENSE.md",
+  "origin": "https://github.com/makehumancommunity/makehuman",
+  "baseMesh": "makehuman/data/3dobjs/base.obj",
+  "sourceVertexIndexing": "MakeHuman 0-based .target vertex indices in base.obj v order; includeGroups body maps render UV duplicates to original source ids",
+  "poseMetadata": "makehuman/data/poseunits/face-poseunits.json",
+  "modifierMetadata": "makehuman/data/modifiers/modeling_modifiers.json",
+  "targets": [
+    {
+      "id": "asym/asym-jaw-1-l",
+      "path": "makehuman/data/targets/asym/asym-jaw-1-l.target",
+      "rawBytes": 5068,
+      "gitBlobSha1": "6e1f4437716e309da3f83e03b6c62ee43f641936"
+    },
+    {
+      "id": "asym/asym-jaw-1-r",
+      "path": "makehuman/data/targets/asym/asym-jaw-1-r.target",
+      "rawBytes": 4804,
+      "gitBlobSha1": "f7401b533b45e7c7b0e86be11a016827538ecfad"
+    },
+    {
+      "id": "asym/asym-mouth-1-l",
+      "path": "makehuman/data/targets/asym/asym-mouth-1-l.target",
+      "rawBytes": 16850,
+      "gitBlobSha1": "d15667833a39ff87265514ae7a5799f8882a9134"
+    },
+    {
+      "id": "asym/asym-mouth-1-r",
+      "path": "makehuman/data/targets/asym/asym-mouth-1-r.target",
+      "rawBytes": 17178,
+      "gitBlobSha1": "4cf39ef5369c4478f2e89fe5658b0a5cc927a1f0"
+    },
+    {
+      "id": "cheek/l-cheek-bones-decr",
+      "path": "makehuman/data/targets/cheek/l-cheek-bones-decr.target",
+      "rawBytes": 2290,
+      "gitBlobSha1": "f73509ca144f0c26df74f8023bcf9927a07ab89a"
+    },
+    {
+      "id": "cheek/l-cheek-bones-incr",
+      "path": "makehuman/data/targets/cheek/l-cheek-bones-incr.target",
+      "rawBytes": 1519,
+      "gitBlobSha1": "b239a7d2b2e186ac39628d30fa085e407e44894e"
+    },
+    {
+      "id": "cheek/l-cheek-inner-decr",
+      "path": "makehuman/data/targets/cheek/l-cheek-inner-decr.target",
+      "rawBytes": 1480,
+      "gitBlobSha1": "affa2db60b3f749658bff89412745a99231bef11"
+    },
+    {
+      "id": "cheek/l-cheek-inner-incr",
+      "path": "makehuman/data/targets/cheek/l-cheek-inner-incr.target",
+      "rawBytes": 2373,
+      "gitBlobSha1": "2be3502aad88713d5151d8d51cc95d18d1d40189"
+    },
+    {
+      "id": "cheek/l-cheek-trans-down",
+      "path": "makehuman/data/targets/cheek/l-cheek-trans-down.target",
+      "rawBytes": 3599,
+      "gitBlobSha1": "d0fdf062fe973452ed1cfeeb2ec61a31285a747d"
+    },
+    {
+      "id": "cheek/l-cheek-trans-up",
+      "path": "makehuman/data/targets/cheek/l-cheek-trans-up.target",
+      "rawBytes": 2277,
+      "gitBlobSha1": "89744b50429ec96153422534fa2a404c69217b39"
+    },
+    {
+      "id": "cheek/l-cheek-volume-decr",
+      "path": "makehuman/data/targets/cheek/l-cheek-volume-decr.target",
+      "rawBytes": 3619,
+      "gitBlobSha1": "cfdffa3a12d995e7ab79fc29ccfb9a47e4ab4d42"
+    },
+    {
+      "id": "cheek/l-cheek-volume-incr",
+      "path": "makehuman/data/targets/cheek/l-cheek-volume-incr.target",
+      "rawBytes": 4754,
+      "gitBlobSha1": "829d1aa7ad776a878e8de244ac09f1e38598e5f7"
+    },
+    {
+      "id": "cheek/r-cheek-bones-decr",
+      "path": "makehuman/data/targets/cheek/r-cheek-bones-decr.target",
+      "rawBytes": 2123,
+      "gitBlobSha1": "601def048f75d6f985d4cb0dff7f9a8163f8fea8"
+    },
+    {
+      "id": "cheek/r-cheek-bones-incr",
+      "path": "makehuman/data/targets/cheek/r-cheek-bones-incr.target",
+      "rawBytes": 1514,
+      "gitBlobSha1": "6bfa79028e0a5cae65deb782c733e75c65ae020a"
+    },
+    {
+      "id": "cheek/r-cheek-inner-decr",
+      "path": "makehuman/data/targets/cheek/r-cheek-inner-decr.target",
+      "rawBytes": 1275,
+      "gitBlobSha1": "fde5e87fa424459278a00cfb45a002dba6ad05e6"
+    },
+    {
+      "id": "cheek/r-cheek-inner-incr",
+      "path": "makehuman/data/targets/cheek/r-cheek-inner-incr.target",
+      "rawBytes": 2974,
+      "gitBlobSha1": "1be9d09682e7dbee22229eb84d6ab8950bb8853e"
+    },
+    {
+      "id": "cheek/r-cheek-trans-down",
+      "path": "makehuman/data/targets/cheek/r-cheek-trans-down.target",
+      "rawBytes": 3382,
+      "gitBlobSha1": "780ca7abb30f2789f87fbd856998783a77d70759"
+    },
+    {
+      "id": "cheek/r-cheek-trans-up",
+      "path": "makehuman/data/targets/cheek/r-cheek-trans-up.target",
+      "rawBytes": 2122,
+      "gitBlobSha1": "0fef9cd934a928f8ffd3a7624f763a4a037582cd"
+    },
+    {
+      "id": "cheek/r-cheek-volume-decr",
+      "path": "makehuman/data/targets/cheek/r-cheek-volume-decr.target",
+      "rawBytes": 3274,
+      "gitBlobSha1": "b115fe9ecc0790daaf773d5f61e7ec51ebf71fb1"
+    },
+    {
+      "id": "cheek/r-cheek-volume-incr",
+      "path": "makehuman/data/targets/cheek/r-cheek-volume-incr.target",
+      "rawBytes": 4690,
+      "gitBlobSha1": "5fc4fda0ce4de86c630251050c17ff9e1da9d428"
+    },
+    {
+      "id": "chin/chin-bones-decr",
+      "path": "makehuman/data/targets/chin/chin-bones-decr.target",
+      "rawBytes": 3902,
+      "gitBlobSha1": "a95b8e6296f3147240bda356875b706c4359dfef"
+    },
+    {
+      "id": "chin/chin-bones-incr",
+      "path": "makehuman/data/targets/chin/chin-bones-incr.target",
+      "rawBytes": 11831,
+      "gitBlobSha1": "c4be5381866fafba57b499e83ba5712da284b592"
+    },
+    {
+      "id": "chin/chin-cleft-decr",
+      "path": "makehuman/data/targets/chin/chin-cleft-decr.target",
+      "rawBytes": 1001,
+      "gitBlobSha1": "3ccb921f56576454edfe9b19fa8c636454952f98"
+    },
+    {
+      "id": "chin/chin-cleft-incr",
+      "path": "makehuman/data/targets/chin/chin-cleft-incr.target",
+      "rawBytes": 1323,
+      "gitBlobSha1": "64ce85b41b9e0aebb8ad292de574720a5f6bdf7b"
+    },
+    {
+      "id": "chin/chin-height-decr",
+      "path": "makehuman/data/targets/chin/chin-height-decr.target",
+      "rawBytes": 4603,
+      "gitBlobSha1": "abf9afbfc1b45944f3984fa27f0da2f70ffd48c3"
+    },
+    {
+      "id": "chin/chin-height-incr",
+      "path": "makehuman/data/targets/chin/chin-height-incr.target",
+      "rawBytes": 9131,
+      "gitBlobSha1": "16600f6a37c7bad1ba4c666d257e90091ad7286b"
+    },
+    {
+      "id": "chin/chin-jaw-drop-decr",
+      "path": "makehuman/data/targets/chin/chin-jaw-drop-decr.target",
+      "rawBytes": 1561,
+      "gitBlobSha1": "4e61f6dd8857665e0642efc4d925ade1372eeb54"
+    },
+    {
+      "id": "chin/chin-jaw-drop-incr",
+      "path": "makehuman/data/targets/chin/chin-jaw-drop-incr.target",
+      "rawBytes": 1415,
+      "gitBlobSha1": "056fa59e6bb282d1cbb56d74ede6887188a73cf2"
+    },
+    {
+      "id": "chin/chin-prognathism-decr",
+      "path": "makehuman/data/targets/chin/chin-prognathism-decr.target",
+      "rawBytes": 7788,
+      "gitBlobSha1": "199d1d7f8b9f6b0fb344b674458104acd445e062"
+    },
+    {
+      "id": "chin/chin-prognathism-incr",
+      "path": "makehuman/data/targets/chin/chin-prognathism-incr.target",
+      "rawBytes": 5360,
+      "gitBlobSha1": "9cbb7901993784f82f97cf4573fddd246fd60a9c"
+    },
+    {
+      "id": "chin/chin-prominent-decr",
+      "path": "makehuman/data/targets/chin/chin-prominent-decr.target",
+      "rawBytes": 3522,
+      "gitBlobSha1": "20b9007a5ee9bc671e54d70b5cb93d95314c0ef6"
+    },
+    {
+      "id": "chin/chin-prominent-incr",
+      "path": "makehuman/data/targets/chin/chin-prominent-incr.target",
+      "rawBytes": 2338,
+      "gitBlobSha1": "06038d8062647d7845c9b14599c969d180062211"
+    },
+    {
+      "id": "chin/chin-triangle",
+      "path": "makehuman/data/targets/chin/chin-triangle.target",
+      "rawBytes": 7024,
+      "gitBlobSha1": "05a8040058be8dfb4961fe42ffb68ce65daf5458"
+    },
+    {
+      "id": "chin/chin-width-decr",
+      "path": "makehuman/data/targets/chin/chin-width-decr.target",
+      "rawBytes": 2853,
+      "gitBlobSha1": "5dcb2e236c7fe8c28b2e21b4ae5d0abd8510a2f4"
+    },
+    {
+      "id": "chin/chin-width-incr",
+      "path": "makehuman/data/targets/chin/chin-width-incr.target",
+      "rawBytes": 3706,
+      "gitBlobSha1": "ce13cc1c443cf705c5ef50ac6360a73801315fd7"
+    },
+    {
+      "id": "ears/l-ear-flap-decr",
+      "path": "makehuman/data/targets/ears/l-ear-flap-decr.target",
+      "rawBytes": 5494,
+      "gitBlobSha1": "1d0a07b01fc528a50a17eb8fedac9ca05e3bd08b"
+    },
+    {
+      "id": "ears/l-ear-flap-incr",
+      "path": "makehuman/data/targets/ears/l-ear-flap-incr.target",
+      "rawBytes": 5850,
+      "gitBlobSha1": "8376c9cc298175668afca7bea11d2faccf2770fb"
+    },
+    {
+      "id": "ears/l-ear-lobe-decr",
+      "path": "makehuman/data/targets/ears/l-ear-lobe-decr.target",
+      "rawBytes": 1254,
+      "gitBlobSha1": "b3fa688486a4cac953bb33947473f2a714799d86"
+    },
+    {
+      "id": "ears/l-ear-lobe-incr",
+      "path": "makehuman/data/targets/ears/l-ear-lobe-incr.target",
+      "rawBytes": 1064,
+      "gitBlobSha1": "c354a770a1158468ea6b84d236160aed37085cdd"
+    },
+    {
+      "id": "ears/l-ear-rot-backward",
+      "path": "makehuman/data/targets/ears/l-ear-rot-backward.target",
+      "rawBytes": 8440,
+      "gitBlobSha1": "6ac6cb0f03ad14a73212229c57fe53406dd2b504"
+    },
+    {
+      "id": "ears/l-ear-rot-forward",
+      "path": "makehuman/data/targets/ears/l-ear-rot-forward.target",
+      "rawBytes": 8689,
+      "gitBlobSha1": "834d358db8081867a462d3a532cb713787a1149f"
+    },
+    {
+      "id": "ears/l-ear-scale-decr",
+      "path": "makehuman/data/targets/ears/l-ear-scale-decr.target",
+      "rawBytes": 11395,
+      "gitBlobSha1": "d38b06d1d504edbeb3ae4d3357b8bbe432a21a07"
+    },
+    {
+      "id": "ears/l-ear-scale-depth-decr",
+      "path": "makehuman/data/targets/ears/l-ear-scale-depth-decr.target",
+      "rawBytes": 6750,
+      "gitBlobSha1": "2ff959cd269c6fa375c99533891ce464c98f6638"
+    },
+    {
+      "id": "ears/l-ear-scale-depth-incr",
+      "path": "makehuman/data/targets/ears/l-ear-scale-depth-incr.target",
+      "rawBytes": 6732,
+      "gitBlobSha1": "0385aaa2aa9c148955baaef8f436e593e662dae7"
+    },
+    {
+      "id": "ears/l-ear-scale-incr",
+      "path": "makehuman/data/targets/ears/l-ear-scale-incr.target",
+      "rawBytes": 11526,
+      "gitBlobSha1": "6f945f8353c0ff7433d67db92a7a6bee8156c566"
+    },
+    {
+      "id": "ears/l-ear-scale-vert-decr",
+      "path": "makehuman/data/targets/ears/l-ear-scale-vert-decr.target",
+      "rawBytes": 6771,
+      "gitBlobSha1": "d7d134e37105f25c3d82d5b900a90d94f897660d"
+    },
+    {
+      "id": "ears/l-ear-scale-vert-incr",
+      "path": "makehuman/data/targets/ears/l-ear-scale-vert-incr.target",
+      "rawBytes": 6761,
+      "gitBlobSha1": "6eb7567921e9f203d94c19ec06ad7d06fd99fecd"
+    },
+    {
+      "id": "ears/l-ear-shape-pointed",
+      "path": "makehuman/data/targets/ears/l-ear-shape-pointed.target",
+      "rawBytes": 2860,
+      "gitBlobSha1": "6f1088bff46b73abade9816fe9c3716020c82703"
+    },
+    {
+      "id": "ears/l-ear-shape-round",
+      "path": "makehuman/data/targets/ears/l-ear-shape-round.target",
+      "rawBytes": 7729,
+      "gitBlobSha1": "62bca16030953a205ea53418ff2327681cdfe9db"
+    },
+    {
+      "id": "ears/l-ear-shape-square",
+      "path": "makehuman/data/targets/ears/l-ear-shape-square.target",
+      "rawBytes": 4104,
+      "gitBlobSha1": "1edce88e6ad5b99d02622f8c10314f1e3351407d"
+    },
+    {
+      "id": "ears/l-ear-shape-triangle",
+      "path": "makehuman/data/targets/ears/l-ear-shape-triangle.target",
+      "rawBytes": 5615,
+      "gitBlobSha1": "750fc44c2e84bc90bdbb25daf6a943e7a4068f42"
+    },
+    {
+      "id": "ears/l-ear-trans-backward",
+      "path": "makehuman/data/targets/ears/l-ear-trans-backward.target",
+      "rawBytes": 7839,
+      "gitBlobSha1": "cf72461b5b72c0c59a65a0fb2db49161c3aa4f80"
+    },
+    {
+      "id": "ears/l-ear-trans-down",
+      "path": "makehuman/data/targets/ears/l-ear-trans-down.target",
+      "rawBytes": 7611,
+      "gitBlobSha1": "836b69d8f4491d54f7620d299ac217231d2441cf"
+    },
+    {
+      "id": "ears/l-ear-trans-forward",
+      "path": "makehuman/data/targets/ears/l-ear-trans-forward.target",
+      "rawBytes": 8167,
+      "gitBlobSha1": "add5b845b944d6e496311d0df0993e2358ee9db2"
+    },
+    {
+      "id": "ears/l-ear-trans-up",
+      "path": "makehuman/data/targets/ears/l-ear-trans-up.target",
+      "rawBytes": 7126,
+      "gitBlobSha1": "d901d6d157c42ad0040c9482324ddf4f464da2f4"
+    },
+    {
+      "id": "ears/l-ear-wing-decr",
+      "path": "makehuman/data/targets/ears/l-ear-wing-decr.target",
+      "rawBytes": 7567,
+      "gitBlobSha1": "0a02364a7babbddcf9724de3a4c0bcaed286dfc2"
+    },
+    {
+      "id": "ears/l-ear-wing-incr",
+      "path": "makehuman/data/targets/ears/l-ear-wing-incr.target",
+      "rawBytes": 6488,
+      "gitBlobSha1": "ef7f645871ebbae3011568e4be639c211c3fc2ef"
+    },
+    {
+      "id": "ears/r-ear-flap-decr",
+      "path": "makehuman/data/targets/ears/r-ear-flap-decr.target",
+      "rawBytes": 5021,
+      "gitBlobSha1": "40719ae13df31fd600fcfa0efdd1f27e42ebb8ff"
+    },
+    {
+      "id": "ears/r-ear-flap-incr",
+      "path": "makehuman/data/targets/ears/r-ear-flap-incr.target",
+      "rawBytes": 5735,
+      "gitBlobSha1": "c1fa5243f76730ee7bd26c11deee7e34a50f5ad0"
+    },
+    {
+      "id": "ears/r-ear-lobe-decr",
+      "path": "makehuman/data/targets/ears/r-ear-lobe-decr.target",
+      "rawBytes": 1215,
+      "gitBlobSha1": "cbb1523f204d1885b5983d6fe05d60382f716daf"
+    },
+    {
+      "id": "ears/r-ear-lobe-incr",
+      "path": "makehuman/data/targets/ears/r-ear-lobe-incr.target",
+      "rawBytes": 1038,
+      "gitBlobSha1": "5b55b7e486cc1bf72b3e621ffc782859a98119ea"
+    },
+    {
+      "id": "ears/r-ear-rot-backward",
+      "path": "makehuman/data/targets/ears/r-ear-rot-backward.target",
+      "rawBytes": 8026,
+      "gitBlobSha1": "6b3ac589dee900adc54ffc40e1ba5e9b217fb04c"
+    },
+    {
+      "id": "ears/r-ear-rot-forward",
+      "path": "makehuman/data/targets/ears/r-ear-rot-forward.target",
+      "rawBytes": 8255,
+      "gitBlobSha1": "0cd760d1c24d882ff7588079ed384b4a2d1d0054"
+    },
+    {
+      "id": "ears/r-ear-scale-decr",
+      "path": "makehuman/data/targets/ears/r-ear-scale-decr.target",
+      "rawBytes": 11095,
+      "gitBlobSha1": "64d5cc902d58f176b70f8860199469d5d8db5191"
+    },
+    {
+      "id": "ears/r-ear-scale-depth-decr",
+      "path": "makehuman/data/targets/ears/r-ear-scale-depth-decr.target",
+      "rawBytes": 6356,
+      "gitBlobSha1": "d9de451b0aad2e1fa0bb264b50f7ec6560568c70"
+    },
+    {
+      "id": "ears/r-ear-scale-depth-incr",
+      "path": "makehuman/data/targets/ears/r-ear-scale-depth-incr.target",
+      "rawBytes": 6339,
+      "gitBlobSha1": "02eb00cb357359805385888a31db1c1182556844"
+    },
+    {
+      "id": "ears/r-ear-scale-incr",
+      "path": "makehuman/data/targets/ears/r-ear-scale-incr.target",
+      "rawBytes": 10827,
+      "gitBlobSha1": "d795b17ef87c79e8fb4c0396405bfe17c49fc534"
+    },
+    {
+      "id": "ears/r-ear-scale-vert-decr",
+      "path": "makehuman/data/targets/ears/r-ear-scale-vert-decr.target",
+      "rawBytes": 6373,
+      "gitBlobSha1": "77b06c8e2c9037587c7402bdfff780492cd38b6e"
+    },
+    {
+      "id": "ears/r-ear-scale-vert-incr",
+      "path": "makehuman/data/targets/ears/r-ear-scale-vert-incr.target",
+      "rawBytes": 6363,
+      "gitBlobSha1": "85fefdb2c8e8b4247c9bb66537fdd2862cf723d8"
+    },
+    {
+      "id": "ears/r-ear-shape-pointed",
+      "path": "makehuman/data/targets/ears/r-ear-shape-pointed.target",
+      "rawBytes": 2733,
+      "gitBlobSha1": "cb2faba9601510c02994d21c7ee8bf58a102ad19"
+    },
+    {
+      "id": "ears/r-ear-shape-round",
+      "path": "makehuman/data/targets/ears/r-ear-shape-round.target",
+      "rawBytes": 7348,
+      "gitBlobSha1": "fc02e58ad3f37d57834391f8cf171b5bd40fd40d"
+    },
+    {
+      "id": "ears/r-ear-shape-square",
+      "path": "makehuman/data/targets/ears/r-ear-shape-square.target",
+      "rawBytes": 3906,
+      "gitBlobSha1": "9fc523f636f63729ccf46efbebe008f33019294d"
+    },
+    {
+      "id": "ears/r-ear-shape-triangle",
+      "path": "makehuman/data/targets/ears/r-ear-shape-triangle.target",
+      "rawBytes": 5345,
+      "gitBlobSha1": "607c1805983ec83fca4fc24a8fbb1a5fda533574"
+    },
+    {
+      "id": "ears/r-ear-trans-backward",
+      "path": "makehuman/data/targets/ears/r-ear-trans-backward.target",
+      "rawBytes": 7347,
+      "gitBlobSha1": "4f402ca88faff86c62a0f8be801f6e36d52bde50"
+    },
+    {
+      "id": "ears/r-ear-trans-down",
+      "path": "makehuman/data/targets/ears/r-ear-trans-down.target",
+      "rawBytes": 7134,
+      "gitBlobSha1": "8b85f83ba438ed54e73ff29128faf1e572bfd2f6"
+    },
+    {
+      "id": "ears/r-ear-trans-forward",
+      "path": "makehuman/data/targets/ears/r-ear-trans-forward.target",
+      "rawBytes": 7664,
+      "gitBlobSha1": "289eefcee9eac6db053dfb524e13112fad989781"
+    },
+    {
+      "id": "ears/r-ear-trans-up",
+      "path": "makehuman/data/targets/ears/r-ear-trans-up.target",
+      "rawBytes": 6649,
+      "gitBlobSha1": "cda7f57efeeab4151849eca7b51dce37f344c6d3"
+    },
+    {
+      "id": "ears/r-ear-wing-decr",
+      "path": "makehuman/data/targets/ears/r-ear-wing-decr.target",
+      "rawBytes": 6898,
+      "gitBlobSha1": "7dcce6b920a781775e4e5f64314d90a7e9bedecf"
+    },
+    {
+      "id": "ears/r-ear-wing-incr",
+      "path": "makehuman/data/targets/ears/r-ear-wing-incr.target",
+      "rawBytes": 6481,
+      "gitBlobSha1": "47ffbdc792b2d5ffb31c9ccdb24205c872e53c36"
+    },
+    {
+      "id": "expression/units/african/eye-left-closure",
+      "path": "makehuman/data/targets/expression/units/african/eye-left-closure.target",
+      "rawBytes": 3859,
+      "gitBlobSha1": "bcf411d8f2fe82bec8e3fff710c1d02ab9550c2b"
+    },
+    {
+      "id": "expression/units/african/eye-left-opened-up",
+      "path": "makehuman/data/targets/expression/units/african/eye-left-opened-up.target",
+      "rawBytes": 3967,
+      "gitBlobSha1": "043487311dd8e1eae98cc8d335585f2185aaf7b6"
+    },
+    {
+      "id": "expression/units/african/eye-left-slit",
+      "path": "makehuman/data/targets/expression/units/african/eye-left-slit.target",
+      "rawBytes": 5136,
+      "gitBlobSha1": "94c8e27657c6a0f1d4e17d8c74c58267c15da97a"
+    },
+    {
+      "id": "expression/units/african/eye-right-closure",
+      "path": "makehuman/data/targets/expression/units/african/eye-right-closure.target",
+      "rawBytes": 3686,
+      "gitBlobSha1": "840e6ed7bbe2a866b5db48cea694305e2867503b"
+    },
+    {
+      "id": "expression/units/african/eye-right-opened-up",
+      "path": "makehuman/data/targets/expression/units/african/eye-right-opened-up.target",
+      "rawBytes": 3801,
+      "gitBlobSha1": "bfdefbf44ceaaf5fe929ac9d4803934737bc5cc7"
+    },
+    {
+      "id": "expression/units/african/eye-right-slit",
+      "path": "makehuman/data/targets/expression/units/african/eye-right-slit.target",
+      "rawBytes": 5118,
+      "gitBlobSha1": "06fd36a1a54532e74b5cd71bdeb0a7fb49e3c3da"
+    },
+    {
+      "id": "expression/units/african/eyebrows-left-down",
+      "path": "makehuman/data/targets/expression/units/african/eyebrows-left-down.target",
+      "rawBytes": 1629,
+      "gitBlobSha1": "f961f523304949b35cd46476ab7561989a9062f4"
+    },
+    {
+      "id": "expression/units/african/eyebrows-left-extern-up",
+      "path": "makehuman/data/targets/expression/units/african/eyebrows-left-extern-up.target",
+      "rawBytes": 2029,
+      "gitBlobSha1": "9a66e8922f64db1619644dcb8b9a5b4e9518776c"
+    },
+    {
+      "id": "expression/units/african/eyebrows-left-inner-up",
+      "path": "makehuman/data/targets/expression/units/african/eyebrows-left-inner-up.target",
+      "rawBytes": 1321,
+      "gitBlobSha1": "4a53c7be25173be8e14692dacb6562340c5b8069"
+    },
+    {
+      "id": "expression/units/african/eyebrows-left-up",
+      "path": "makehuman/data/targets/expression/units/african/eyebrows-left-up.target",
+      "rawBytes": 1381,
+      "gitBlobSha1": "e67c79a77e01ed938b3008eb1d28a1d9e662c2ec"
+    },
+    {
+      "id": "expression/units/african/eyebrows-right-down",
+      "path": "makehuman/data/targets/expression/units/african/eyebrows-right-down.target",
+      "rawBytes": 1579,
+      "gitBlobSha1": "b8ae4adf116118711a10bb3e2ef9b3b582588c42"
+    },
+    {
+      "id": "expression/units/african/eyebrows-right-extern-up",
+      "path": "makehuman/data/targets/expression/units/african/eyebrows-right-extern-up.target",
+      "rawBytes": 1990,
+      "gitBlobSha1": "f0b6170a820e1249535a21b66fc3d5c0fbc02fcd"
+    },
+    {
+      "id": "expression/units/african/eyebrows-right-inner-up",
+      "path": "makehuman/data/targets/expression/units/african/eyebrows-right-inner-up.target",
+      "rawBytes": 1256,
+      "gitBlobSha1": "e4824f320fced97f03f94e0b67e3f974cd323b7b"
+    },
+    {
+      "id": "expression/units/african/eyebrows-right-up",
+      "path": "makehuman/data/targets/expression/units/african/eyebrows-right-up.target",
+      "rawBytes": 1486,
+      "gitBlobSha1": "3efb6f0aafab20ef882ee28a1c2980daa93c98a6"
+    },
+    {
+      "id": "expression/units/african/mouth-compression",
+      "path": "makehuman/data/targets/expression/units/african/mouth-compression.target",
+      "rawBytes": 12995,
+      "gitBlobSha1": "8cd74a0db2dddc3201285fca8eb228be852020b6"
+    },
+    {
+      "id": "expression/units/african/mouth-corner-puller",
+      "path": "makehuman/data/targets/expression/units/african/mouth-corner-puller.target",
+      "rawBytes": 14083,
+      "gitBlobSha1": "cdb834d28857efa04e38f3c67d1cd1a69fd8712c"
+    },
+    {
+      "id": "expression/units/african/mouth-depression",
+      "path": "makehuman/data/targets/expression/units/african/mouth-depression.target",
+      "rawBytes": 11714,
+      "gitBlobSha1": "917a1982a8a1ad0296a3e7a6abdf358bb0729cc8"
+    },
+    {
+      "id": "expression/units/african/mouth-depression-retraction",
+      "path": "makehuman/data/targets/expression/units/african/mouth-depression-retraction.target",
+      "rawBytes": 10441,
+      "gitBlobSha1": "35a24996a6fae66b0833cada1b9bbf45946a9cb6"
+    },
+    {
+      "id": "expression/units/african/mouth-elevation",
+      "path": "makehuman/data/targets/expression/units/african/mouth-elevation.target",
+      "rawBytes": 11080,
+      "gitBlobSha1": "e1563b7cb5e88fd301883ba5dff69dfe0d803405"
+    },
+    {
+      "id": "expression/units/african/mouth-eversion",
+      "path": "makehuman/data/targets/expression/units/african/mouth-eversion.target",
+      "rawBytes": 7115,
+      "gitBlobSha1": "20902da31291a3fe7ed7b5174a7cdbf95630eea6"
+    },
+    {
+      "id": "expression/units/african/mouth-open",
+      "path": "makehuman/data/targets/expression/units/african/mouth-open.target",
+      "rawBytes": 26993,
+      "gitBlobSha1": "3969ccf506d825c027c2f20c4cafa6996d754068"
+    },
+    {
+      "id": "expression/units/african/mouth-parling",
+      "path": "makehuman/data/targets/expression/units/african/mouth-parling.target",
+      "rawBytes": 3915,
+      "gitBlobSha1": "e8c2d60329f1afa3612acd2da192befce426d9f8"
+    },
+    {
+      "id": "expression/units/african/mouth-part-later",
+      "path": "makehuman/data/targets/expression/units/african/mouth-part-later.target",
+      "rawBytes": 18050,
+      "gitBlobSha1": "c9478e7ca9a14f48a23ee15cb732e0f493027cb9"
+    },
+    {
+      "id": "expression/units/african/mouth-protusion",
+      "path": "makehuman/data/targets/expression/units/african/mouth-protusion.target",
+      "rawBytes": 13755,
+      "gitBlobSha1": "52bdb2ebb2254ac26236e62d35fda5730b01c5a6"
+    },
+    {
+      "id": "expression/units/african/mouth-pursing",
+      "path": "makehuman/data/targets/expression/units/african/mouth-pursing.target",
+      "rawBytes": 15125,
+      "gitBlobSha1": "e03410512c52d7302100f85ad0de9ff625bfb118"
+    },
+    {
+      "id": "expression/units/african/mouth-retraction",
+      "path": "makehuman/data/targets/expression/units/african/mouth-retraction.target",
+      "rawBytes": 12832,
+      "gitBlobSha1": "a363178a7164abd8ae57367a9c411c57effea5f7"
+    },
+    {
+      "id": "expression/units/african/mouth-upward-retraction",
+      "path": "makehuman/data/targets/expression/units/african/mouth-upward-retraction.target",
+      "rawBytes": 15296,
+      "gitBlobSha1": "8e49cf7f72bf2d3e78642c190ca98183443c9f76"
+    },
+    {
+      "id": "expression/units/african/neck-platysma",
+      "path": "makehuman/data/targets/expression/units/african/neck-platysma.target",
+      "rawBytes": 16169,
+      "gitBlobSha1": "836d3b91cfa07fa75a358e008edf72780bcbd5c7"
+    },
+    {
+      "id": "expression/units/african/nose-compression",
+      "path": "makehuman/data/targets/expression/units/african/nose-compression.target",
+      "rawBytes": 1491,
+      "gitBlobSha1": "c38400c63fa2f9e82d8b55b66740c67f513350b2"
+    },
+    {
+      "id": "expression/units/african/nose-depression",
+      "path": "makehuman/data/targets/expression/units/african/nose-depression.target",
+      "rawBytes": 4548,
+      "gitBlobSha1": "ccfe98aaa01679a2ac0c488aa9661b82d72b29ee"
+    },
+    {
+      "id": "expression/units/african/nose-left-dilatation",
+      "path": "makehuman/data/targets/expression/units/african/nose-left-dilatation.target",
+      "rawBytes": 1833,
+      "gitBlobSha1": "68782a4fd0f697d5c88b2be7e2657cc3fcc3112a"
+    },
+    {
+      "id": "expression/units/african/nose-left-elevation",
+      "path": "makehuman/data/targets/expression/units/african/nose-left-elevation.target",
+      "rawBytes": 3385,
+      "gitBlobSha1": "301411cbb6a2d0aed33d2b5e4ed57d51c431cc92"
+    },
+    {
+      "id": "expression/units/african/nose-right-dilatation",
+      "path": "makehuman/data/targets/expression/units/african/nose-right-dilatation.target",
+      "rawBytes": 1833,
+      "gitBlobSha1": "902451893f15530060df9765c9333b8f8b22b101"
+    },
+    {
+      "id": "expression/units/african/nose-right-elevation",
+      "path": "makehuman/data/targets/expression/units/african/nose-right-elevation.target",
+      "rawBytes": 3349,
+      "gitBlobSha1": "1b42d562122fe25360177b985dee2686a5fcd512"
+    },
+    {
+      "id": "expression/units/asian/eye-left-closure",
+      "path": "makehuman/data/targets/expression/units/asian/eye-left-closure.target",
+      "rawBytes": 3926,
+      "gitBlobSha1": "9d79b6be9dc69a69c065e608fcc6e13db5de7d36"
+    },
+    {
+      "id": "expression/units/asian/eye-left-opened-up",
+      "path": "makehuman/data/targets/expression/units/asian/eye-left-opened-up.target",
+      "rawBytes": 3967,
+      "gitBlobSha1": "043487311dd8e1eae98cc8d335585f2185aaf7b6"
+    },
+    {
+      "id": "expression/units/asian/eye-left-slit",
+      "path": "makehuman/data/targets/expression/units/asian/eye-left-slit.target",
+      "rawBytes": 5263,
+      "gitBlobSha1": "2c19b6486a878e91324fdbb6b58cb4007d36744a"
+    },
+    {
+      "id": "expression/units/asian/eye-right-closure",
+      "path": "makehuman/data/targets/expression/units/asian/eye-right-closure.target",
+      "rawBytes": 3756,
+      "gitBlobSha1": "1b15e49f9e441fdf4a81a6db652487432ef6884e"
+    },
+    {
+      "id": "expression/units/asian/eye-right-opened-up",
+      "path": "makehuman/data/targets/expression/units/asian/eye-right-opened-up.target",
+      "rawBytes": 3801,
+      "gitBlobSha1": "bfdefbf44ceaaf5fe929ac9d4803934737bc5cc7"
+    },
+    {
+      "id": "expression/units/asian/eye-right-slit",
+      "path": "makehuman/data/targets/expression/units/asian/eye-right-slit.target",
+      "rawBytes": 2939,
+      "gitBlobSha1": "2528231574ae468917097340cc89fbab9cb5cbc8"
+    },
+    {
+      "id": "expression/units/asian/eyebrows-left-down",
+      "path": "makehuman/data/targets/expression/units/asian/eyebrows-left-down.target",
+      "rawBytes": 1629,
+      "gitBlobSha1": "f961f523304949b35cd46476ab7561989a9062f4"
+    },
+    {
+      "id": "expression/units/asian/eyebrows-left-extern-up",
+      "path": "makehuman/data/targets/expression/units/asian/eyebrows-left-extern-up.target",
+      "rawBytes": 1977,
+      "gitBlobSha1": "a56604f85b72ab6e153ccb27e8f6834ce0e8eafc"
+    },
+    {
+      "id": "expression/units/asian/eyebrows-left-inner-up",
+      "path": "makehuman/data/targets/expression/units/asian/eyebrows-left-inner-up.target",
+      "rawBytes": 1321,
+      "gitBlobSha1": "4a53c7be25173be8e14692dacb6562340c5b8069"
+    },
+    {
+      "id": "expression/units/asian/eyebrows-left-up",
+      "path": "makehuman/data/targets/expression/units/asian/eyebrows-left-up.target",
+      "rawBytes": 1381,
+      "gitBlobSha1": "e67c79a77e01ed938b3008eb1d28a1d9e662c2ec"
+    },
+    {
+      "id": "expression/units/asian/eyebrows-right-down",
+      "path": "makehuman/data/targets/expression/units/asian/eyebrows-right-down.target",
+      "rawBytes": 1579,
+      "gitBlobSha1": "b8ae4adf116118711a10bb3e2ef9b3b582588c42"
+    },
+    {
+      "id": "expression/units/asian/eyebrows-right-extern-up",
+      "path": "makehuman/data/targets/expression/units/asian/eyebrows-right-extern-up.target",
+      "rawBytes": 2194,
+      "gitBlobSha1": "e259dd09fab9e33e7884ff31a392a0e70502e492"
+    },
+    {
+      "id": "expression/units/asian/eyebrows-right-inner-up",
+      "path": "makehuman/data/targets/expression/units/asian/eyebrows-right-inner-up.target",
+      "rawBytes": 1256,
+      "gitBlobSha1": "e4824f320fced97f03f94e0b67e3f974cd323b7b"
+    },
+    {
+      "id": "expression/units/asian/eyebrows-right-up",
+      "path": "makehuman/data/targets/expression/units/asian/eyebrows-right-up.target",
+      "rawBytes": 1486,
+      "gitBlobSha1": "3efb6f0aafab20ef882ee28a1c2980daa93c98a6"
+    },
+    {
+      "id": "expression/units/asian/mouth-compression",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-compression.target",
+      "rawBytes": 13039,
+      "gitBlobSha1": "7bc80221c4f714c273924aad5616c8a710bf21f2"
+    },
+    {
+      "id": "expression/units/asian/mouth-corner-puller",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-corner-puller.target",
+      "rawBytes": 15163,
+      "gitBlobSha1": "d68d7ad1f2b34d63e160a032704fe511279c7f0c"
+    },
+    {
+      "id": "expression/units/asian/mouth-depression",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-depression.target",
+      "rawBytes": 12263,
+      "gitBlobSha1": "acb7c49e8c299fd28063ac97701d3c5fd040707b"
+    },
+    {
+      "id": "expression/units/asian/mouth-depression-retraction",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-depression-retraction.target",
+      "rawBytes": 10615,
+      "gitBlobSha1": "278fd1c4891cc2322bf12856f48f1958450ace0b"
+    },
+    {
+      "id": "expression/units/asian/mouth-elevation",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-elevation.target",
+      "rawBytes": 11716,
+      "gitBlobSha1": "114367275833961c98dbb70a1f296744e5e76f62"
+    },
+    {
+      "id": "expression/units/asian/mouth-eversion",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-eversion.target",
+      "rawBytes": 8071,
+      "gitBlobSha1": "a18c4a26bc30aea7ba6856ea42a89dfedb7d948e"
+    },
+    {
+      "id": "expression/units/asian/mouth-open",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-open.target",
+      "rawBytes": 26859,
+      "gitBlobSha1": "9f390cbdb800a91c75a40fbe1e1d7dfe5771a132"
+    },
+    {
+      "id": "expression/units/asian/mouth-parling",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-parling.target",
+      "rawBytes": 4095,
+      "gitBlobSha1": "f38d835ac0b7b76654dc76502bb5353f0e90efec"
+    },
+    {
+      "id": "expression/units/asian/mouth-part-later",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-part-later.target",
+      "rawBytes": 18823,
+      "gitBlobSha1": "77cf3f23d18df7d09d2a8c147a48962e5c21d4c0"
+    },
+    {
+      "id": "expression/units/asian/mouth-protusion",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-protusion.target",
+      "rawBytes": 13672,
+      "gitBlobSha1": "5a695d8e533cf71ae7437c674ecdf12325fcea27"
+    },
+    {
+      "id": "expression/units/asian/mouth-pursing",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-pursing.target",
+      "rawBytes": 17135,
+      "gitBlobSha1": "27b17dc1321b0c5c6557031b46ab8b952ddd14fc"
+    },
+    {
+      "id": "expression/units/asian/mouth-retraction",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-retraction.target",
+      "rawBytes": 13698,
+      "gitBlobSha1": "8886c3576391a8e9eafd6f56908ee648a435f227"
+    },
+    {
+      "id": "expression/units/asian/mouth-upward-retraction",
+      "path": "makehuman/data/targets/expression/units/asian/mouth-upward-retraction.target",
+      "rawBytes": 15436,
+      "gitBlobSha1": "b200f312293fee7c8d87cd9c7da63fbc221cd970"
+    },
+    {
+      "id": "expression/units/asian/neck-platysma",
+      "path": "makehuman/data/targets/expression/units/asian/neck-platysma.target",
+      "rawBytes": 17628,
+      "gitBlobSha1": "ee39512519b999915a52a80e74083d131cd2e64d"
+    },
+    {
+      "id": "expression/units/asian/nose-compression",
+      "path": "makehuman/data/targets/expression/units/asian/nose-compression.target",
+      "rawBytes": 1491,
+      "gitBlobSha1": "c38400c63fa2f9e82d8b55b66740c67f513350b2"
+    },
+    {
+      "id": "expression/units/asian/nose-depression",
+      "path": "makehuman/data/targets/expression/units/asian/nose-depression.target",
+      "rawBytes": 4618,
+      "gitBlobSha1": "df0bb5d8dffb70415ff04d955c77d6da6f75bd79"
+    },
+    {
+      "id": "expression/units/asian/nose-left-dilatation",
+      "path": "makehuman/data/targets/expression/units/asian/nose-left-dilatation.target",
+      "rawBytes": 1841,
+      "gitBlobSha1": "617711d1d712d89e0d43476e7f12d6a267c83212"
+    },
+    {
+      "id": "expression/units/asian/nose-left-elevation",
+      "path": "makehuman/data/targets/expression/units/asian/nose-left-elevation.target",
+      "rawBytes": 3681,
+      "gitBlobSha1": "4859d969a1954318bd10c7efbf7eb1fd93ded4f9"
+    },
+    {
+      "id": "expression/units/asian/nose-right-dilatation",
+      "path": "makehuman/data/targets/expression/units/asian/nose-right-dilatation.target",
+      "rawBytes": 1839,
+      "gitBlobSha1": "7149815006387ab98d39578bd31a0e75627d7bc5"
+    },
+    {
+      "id": "expression/units/asian/nose-right-elevation",
+      "path": "makehuman/data/targets/expression/units/asian/nose-right-elevation.target",
+      "rawBytes": 3639,
+      "gitBlobSha1": "b03da31a72f7a9aada6dfbd9091af5dd8fadbd87"
+    },
+    {
+      "id": "expression/units/caucasian/eye-left-closure",
+      "path": "makehuman/data/targets/expression/units/caucasian/eye-left-closure.target",
+      "rawBytes": 3946,
+      "gitBlobSha1": "f2024832c3f1ba20dee602aa5c9b6f9837d4969e"
+    },
+    {
+      "id": "expression/units/caucasian/eye-left-opened-up",
+      "path": "makehuman/data/targets/expression/units/caucasian/eye-left-opened-up.target",
+      "rawBytes": 3967,
+      "gitBlobSha1": "043487311dd8e1eae98cc8d335585f2185aaf7b6"
+    },
+    {
+      "id": "expression/units/caucasian/eye-left-slit",
+      "path": "makehuman/data/targets/expression/units/caucasian/eye-left-slit.target",
+      "rawBytes": 5136,
+      "gitBlobSha1": "94c8e27657c6a0f1d4e17d8c74c58267c15da97a"
+    },
+    {
+      "id": "expression/units/caucasian/eye-right-closure",
+      "path": "makehuman/data/targets/expression/units/caucasian/eye-right-closure.target",
+      "rawBytes": 3776,
+      "gitBlobSha1": "ce1995bbca64c354d584a5a78bec31ca9bebabfa"
+    },
+    {
+      "id": "expression/units/caucasian/eye-right-opened-up",
+      "path": "makehuman/data/targets/expression/units/caucasian/eye-right-opened-up.target",
+      "rawBytes": 3801,
+      "gitBlobSha1": "bfdefbf44ceaaf5fe929ac9d4803934737bc5cc7"
+    },
+    {
+      "id": "expression/units/caucasian/eye-right-slit",
+      "path": "makehuman/data/targets/expression/units/caucasian/eye-right-slit.target",
+      "rawBytes": 5118,
+      "gitBlobSha1": "06fd36a1a54532e74b5cd71bdeb0a7fb49e3c3da"
+    },
+    {
+      "id": "expression/units/caucasian/eyebrows-left-down",
+      "path": "makehuman/data/targets/expression/units/caucasian/eyebrows-left-down.target",
+      "rawBytes": 1629,
+      "gitBlobSha1": "f961f523304949b35cd46476ab7561989a9062f4"
+    },
+    {
+      "id": "expression/units/caucasian/eyebrows-left-extern-up",
+      "path": "makehuman/data/targets/expression/units/caucasian/eyebrows-left-extern-up.target",
+      "rawBytes": 1977,
+      "gitBlobSha1": "a56604f85b72ab6e153ccb27e8f6834ce0e8eafc"
+    },
+    {
+      "id": "expression/units/caucasian/eyebrows-left-inner-up",
+      "path": "makehuman/data/targets/expression/units/caucasian/eyebrows-left-inner-up.target",
+      "rawBytes": 1321,
+      "gitBlobSha1": "4a53c7be25173be8e14692dacb6562340c5b8069"
+    },
+    {
+      "id": "expression/units/caucasian/eyebrows-left-up",
+      "path": "makehuman/data/targets/expression/units/caucasian/eyebrows-left-up.target",
+      "rawBytes": 1381,
+      "gitBlobSha1": "e67c79a77e01ed938b3008eb1d28a1d9e662c2ec"
+    },
+    {
+      "id": "expression/units/caucasian/eyebrows-right-down",
+      "path": "makehuman/data/targets/expression/units/caucasian/eyebrows-right-down.target",
+      "rawBytes": 1579,
+      "gitBlobSha1": "b8ae4adf116118711a10bb3e2ef9b3b582588c42"
+    },
+    {
+      "id": "expression/units/caucasian/eyebrows-right-extern-up",
+      "path": "makehuman/data/targets/expression/units/caucasian/eyebrows-right-extern-up.target",
+      "rawBytes": 2194,
+      "gitBlobSha1": "e259dd09fab9e33e7884ff31a392a0e70502e492"
+    },
+    {
+      "id": "expression/units/caucasian/eyebrows-right-inner-up",
+      "path": "makehuman/data/targets/expression/units/caucasian/eyebrows-right-inner-up.target",
+      "rawBytes": 1256,
+      "gitBlobSha1": "e4824f320fced97f03f94e0b67e3f974cd323b7b"
+    },
+    {
+      "id": "expression/units/caucasian/eyebrows-right-up",
+      "path": "makehuman/data/targets/expression/units/caucasian/eyebrows-right-up.target",
+      "rawBytes": 1486,
+      "gitBlobSha1": "3efb6f0aafab20ef882ee28a1c2980daa93c98a6"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-compression",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-compression.target",
+      "rawBytes": 13039,
+      "gitBlobSha1": "7bc80221c4f714c273924aad5616c8a710bf21f2"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-corner-puller",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-corner-puller.target",
+      "rawBytes": 15163,
+      "gitBlobSha1": "d68d7ad1f2b34d63e160a032704fe511279c7f0c"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-depression",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-depression.target",
+      "rawBytes": 12263,
+      "gitBlobSha1": "acb7c49e8c299fd28063ac97701d3c5fd040707b"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-depression-retraction",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-depression-retraction.target",
+      "rawBytes": 10224,
+      "gitBlobSha1": "0aa2363fd0b17a3b9a18da536db001ac8d7c21dc"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-elevation",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-elevation.target",
+      "rawBytes": 11104,
+      "gitBlobSha1": "92cec43d12af5d0767b88cf8f039dcc6873cb894"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-eversion",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-eversion.target",
+      "rawBytes": 8071,
+      "gitBlobSha1": "a18c4a26bc30aea7ba6856ea42a89dfedb7d948e"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-open",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-open.target",
+      "rawBytes": 26815,
+      "gitBlobSha1": "b311ca53b5adc1e1494ab95aafb11b8d9ef76ec5"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-parling",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-parling.target",
+      "rawBytes": 4095,
+      "gitBlobSha1": "f38d835ac0b7b76654dc76502bb5353f0e90efec"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-part-later",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-part-later.target",
+      "rawBytes": 17879,
+      "gitBlobSha1": "9c8ff3339811120268f0f7d901b77d85b525bf72"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-protusion",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-protusion.target",
+      "rawBytes": 14207,
+      "gitBlobSha1": "115a56badd0c12cfd175d905aae5d71f5245fe65"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-pursing",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-pursing.target",
+      "rawBytes": 16023,
+      "gitBlobSha1": "53e09085beb52202123b9994931ae5d3c5951d2a"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-retraction",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-retraction.target",
+      "rawBytes": 13698,
+      "gitBlobSha1": "8886c3576391a8e9eafd6f56908ee648a435f227"
+    },
+    {
+      "id": "expression/units/caucasian/mouth-upward-retraction",
+      "path": "makehuman/data/targets/expression/units/caucasian/mouth-upward-retraction.target",
+      "rawBytes": 15436,
+      "gitBlobSha1": "b200f312293fee7c8d87cd9c7da63fbc221cd970"
+    },
+    {
+      "id": "expression/units/caucasian/neck-platysma",
+      "path": "makehuman/data/targets/expression/units/caucasian/neck-platysma.target",
+      "rawBytes": 17628,
+      "gitBlobSha1": "ee39512519b999915a52a80e74083d131cd2e64d"
+    },
+    {
+      "id": "expression/units/caucasian/nose-compression",
+      "path": "makehuman/data/targets/expression/units/caucasian/nose-compression.target",
+      "rawBytes": 1491,
+      "gitBlobSha1": "c38400c63fa2f9e82d8b55b66740c67f513350b2"
+    },
+    {
+      "id": "expression/units/caucasian/nose-depression",
+      "path": "makehuman/data/targets/expression/units/caucasian/nose-depression.target",
+      "rawBytes": 4618,
+      "gitBlobSha1": "df0bb5d8dffb70415ff04d955c77d6da6f75bd79"
+    },
+    {
+      "id": "expression/units/caucasian/nose-left-dilatation",
+      "path": "makehuman/data/targets/expression/units/caucasian/nose-left-dilatation.target",
+      "rawBytes": 1841,
+      "gitBlobSha1": "617711d1d712d89e0d43476e7f12d6a267c83212"
+    },
+    {
+      "id": "expression/units/caucasian/nose-left-elevation",
+      "path": "makehuman/data/targets/expression/units/caucasian/nose-left-elevation.target",
+      "rawBytes": 3681,
+      "gitBlobSha1": "4859d969a1954318bd10c7efbf7eb1fd93ded4f9"
+    },
+    {
+      "id": "expression/units/caucasian/nose-right-dilatation",
+      "path": "makehuman/data/targets/expression/units/caucasian/nose-right-dilatation.target",
+      "rawBytes": 1839,
+      "gitBlobSha1": "7149815006387ab98d39578bd31a0e75627d7bc5"
+    },
+    {
+      "id": "expression/units/caucasian/nose-right-elevation",
+      "path": "makehuman/data/targets/expression/units/caucasian/nose-right-elevation.target",
+      "rawBytes": 3639,
+      "gitBlobSha1": "b03da31a72f7a9aada6dfbd9091af5dd8fadbd87"
+    },
+    {
+      "id": "eyebrows/eyebrows-angle-down",
+      "path": "makehuman/data/targets/eyebrows/eyebrows-angle-down.target",
+      "rawBytes": 8604,
+      "gitBlobSha1": "277df665253475ad716d6e004231a6fd1ad173fe"
+    },
+    {
+      "id": "eyebrows/eyebrows-angle-up",
+      "path": "makehuman/data/targets/eyebrows/eyebrows-angle-up.target",
+      "rawBytes": 5809,
+      "gitBlobSha1": "f48e6a51102baebf6504b86d945e6a199bbd2251"
+    },
+    {
+      "id": "eyebrows/eyebrows-trans-backward",
+      "path": "makehuman/data/targets/eyebrows/eyebrows-trans-backward.target",
+      "rawBytes": 3863,
+      "gitBlobSha1": "cd96dc010963a578df250028750a394c15f97b5b"
+    },
+    {
+      "id": "eyebrows/eyebrows-trans-down",
+      "path": "makehuman/data/targets/eyebrows/eyebrows-trans-down.target",
+      "rawBytes": 6641,
+      "gitBlobSha1": "817a260d19e1b4a650e522f8d776d97973298ae6"
+    },
+    {
+      "id": "eyebrows/eyebrows-trans-forward",
+      "path": "makehuman/data/targets/eyebrows/eyebrows-trans-forward.target",
+      "rawBytes": 6053,
+      "gitBlobSha1": "11c1d10ea85926ab69c44ea6b408d510e4347472"
+    },
+    {
+      "id": "eyebrows/eyebrows-trans-up",
+      "path": "makehuman/data/targets/eyebrows/eyebrows-trans-up.target",
+      "rawBytes": 7877,
+      "gitBlobSha1": "0301a19e92fefc665c266ab03ba6fbfa0187ddd3"
+    },
+    {
+      "id": "eyes/l-eye-bag-decr",
+      "path": "makehuman/data/targets/eyes/l-eye-bag-decr.target",
+      "rawBytes": 1721,
+      "gitBlobSha1": "397e6f6163cc264a5d1a1cec6f2833e4adcaf752"
+    },
+    {
+      "id": "eyes/l-eye-bag-height-decr",
+      "path": "makehuman/data/targets/eyes/l-eye-bag-height-decr.target",
+      "rawBytes": 2726,
+      "gitBlobSha1": "7adf2fc52d9f86332354f87fc401a65e3fc480c0"
+    },
+    {
+      "id": "eyes/l-eye-bag-height-incr",
+      "path": "makehuman/data/targets/eyes/l-eye-bag-height-incr.target",
+      "rawBytes": 2762,
+      "gitBlobSha1": "f2e909d7ca694c2152719aa0f2fc0d2332227f4c"
+    },
+    {
+      "id": "eyes/l-eye-bag-in",
+      "path": "makehuman/data/targets/eyes/l-eye-bag-in.target",
+      "rawBytes": 1128,
+      "gitBlobSha1": "afe8221cde58fa33dd2a5e8a917aa814132b34cb"
+    },
+    {
+      "id": "eyes/l-eye-bag-incr",
+      "path": "makehuman/data/targets/eyes/l-eye-bag-incr.target",
+      "rawBytes": 1584,
+      "gitBlobSha1": "6903e08158a69eab86cd66428c9a546b2af69d2b"
+    },
+    {
+      "id": "eyes/l-eye-bag-out",
+      "path": "makehuman/data/targets/eyes/l-eye-bag-out.target",
+      "rawBytes": 1934,
+      "gitBlobSha1": "782786408ec8b0121fee50fc6c85d7077ed1aa5e"
+    },
+    {
+      "id": "eyes/l-eye-corner1-down",
+      "path": "makehuman/data/targets/eyes/l-eye-corner1-down.target",
+      "rawBytes": 4141,
+      "gitBlobSha1": "17ad53b0e55bc1098d2b96360d424a06d6a1e3c7"
+    },
+    {
+      "id": "eyes/l-eye-corner1-up",
+      "path": "makehuman/data/targets/eyes/l-eye-corner1-up.target",
+      "rawBytes": 3934,
+      "gitBlobSha1": "a926c102244eb2fd993c32d80c392d71a05b1ed3"
+    },
+    {
+      "id": "eyes/l-eye-corner2-down",
+      "path": "makehuman/data/targets/eyes/l-eye-corner2-down.target",
+      "rawBytes": 4100,
+      "gitBlobSha1": "2729f50a061476d7661d0206c1ec8cd9d0b35749"
+    },
+    {
+      "id": "eyes/l-eye-corner2-up",
+      "path": "makehuman/data/targets/eyes/l-eye-corner2-up.target",
+      "rawBytes": 3884,
+      "gitBlobSha1": "6b18c6da0b5a3240b2072629b589988587d107ee"
+    },
+    {
+      "id": "eyes/l-eye-epicanthus-in",
+      "path": "makehuman/data/targets/eyes/l-eye-epicanthus-in.target",
+      "rawBytes": 1919,
+      "gitBlobSha1": "eca8f0ec274f157b5b35fe00a4bceac85506db81"
+    },
+    {
+      "id": "eyes/l-eye-epicanthus-out",
+      "path": "makehuman/data/targets/eyes/l-eye-epicanthus-out.target",
+      "rawBytes": 2125,
+      "gitBlobSha1": "e8e1b2f67c5abd05e33314fd95cf4aae3ca8dfaa"
+    },
+    {
+      "id": "eyes/l-eye-eyefold-angle-down",
+      "path": "makehuman/data/targets/eyes/l-eye-eyefold-angle-down.target",
+      "rawBytes": 1332,
+      "gitBlobSha1": "996dab0e0f8c159fbf5540a9b7601d69cec98a5e"
+    },
+    {
+      "id": "eyes/l-eye-eyefold-angle-up",
+      "path": "makehuman/data/targets/eyes/l-eye-eyefold-angle-up.target",
+      "rawBytes": 1355,
+      "gitBlobSha1": "3c9196d3c8c698a230738b4b25fab31f7a7ba164"
+    },
+    {
+      "id": "eyes/l-eye-eyefold-concave",
+      "path": "makehuman/data/targets/eyes/l-eye-eyefold-concave.target",
+      "rawBytes": 822,
+      "gitBlobSha1": "bd9b307e97472b7fae77542efdc3df9c31e9aaca"
+    },
+    {
+      "id": "eyes/l-eye-eyefold-convex",
+      "path": "makehuman/data/targets/eyes/l-eye-eyefold-convex.target",
+      "rawBytes": 1108,
+      "gitBlobSha1": "25a1ef1048e6f3efd35c7d42ad686142a94f1ede"
+    },
+    {
+      "id": "eyes/l-eye-eyefold-down",
+      "path": "makehuman/data/targets/eyes/l-eye-eyefold-down.target",
+      "rawBytes": 1733,
+      "gitBlobSha1": "7cdfecb231e7ccd4f2dc5f59e95a0dc5a1a64e8c"
+    },
+    {
+      "id": "eyes/l-eye-eyefold-up",
+      "path": "makehuman/data/targets/eyes/l-eye-eyefold-up.target",
+      "rawBytes": 1060,
+      "gitBlobSha1": "e85fdd4de7a3292308cc0a49c0194fd0958a3644"
+    },
+    {
+      "id": "eyes/l-eye-height1-decr",
+      "path": "makehuman/data/targets/eyes/l-eye-height1-decr.target",
+      "rawBytes": 3153,
+      "gitBlobSha1": "c439f4b1225ca14db6456055bf8f83ad334d2f12"
+    },
+    {
+      "id": "eyes/l-eye-height1-incr",
+      "path": "makehuman/data/targets/eyes/l-eye-height1-incr.target",
+      "rawBytes": 4053,
+      "gitBlobSha1": "92d07424d66dce950602a58bb3a7ac831d54c2a4"
+    },
+    {
+      "id": "eyes/l-eye-height2-decr",
+      "path": "makehuman/data/targets/eyes/l-eye-height2-decr.target",
+      "rawBytes": 8855,
+      "gitBlobSha1": "8f61d233b9ac805da40315b9ae25f22b55fac605"
+    },
+    {
+      "id": "eyes/l-eye-height2-incr",
+      "path": "makehuman/data/targets/eyes/l-eye-height2-incr.target",
+      "rawBytes": 6758,
+      "gitBlobSha1": "d08a8df682bbe3bc915139506b6ae0c39fd711f6"
+    },
+    {
+      "id": "eyes/l-eye-height3-decr",
+      "path": "makehuman/data/targets/eyes/l-eye-height3-decr.target",
+      "rawBytes": 5480,
+      "gitBlobSha1": "02ba18d310856c415e9da4e2a4ecc24ed196eb75"
+    },
+    {
+      "id": "eyes/l-eye-height3-incr",
+      "path": "makehuman/data/targets/eyes/l-eye-height3-incr.target",
+      "rawBytes": 8511,
+      "gitBlobSha1": "d62e17c104ce6ecaa801e25136cb9cd71c43e59a"
+    },
+    {
+      "id": "eyes/l-eye-push1-in",
+      "path": "makehuman/data/targets/eyes/l-eye-push1-in.target",
+      "rawBytes": 7006,
+      "gitBlobSha1": "2853cd7329490e6689ac60a786af1f2bd08186c4"
+    },
+    {
+      "id": "eyes/l-eye-push1-out",
+      "path": "makehuman/data/targets/eyes/l-eye-push1-out.target",
+      "rawBytes": 7289,
+      "gitBlobSha1": "991e30d7aeccf565aa3bf48d9f37fb513d25d3b9"
+    },
+    {
+      "id": "eyes/l-eye-push2-in",
+      "path": "makehuman/data/targets/eyes/l-eye-push2-in.target",
+      "rawBytes": 4878,
+      "gitBlobSha1": "4344293c740fd3924c6e1270c53245899cf95cd4"
+    },
+    {
+      "id": "eyes/l-eye-push2-out",
+      "path": "makehuman/data/targets/eyes/l-eye-push2-out.target",
+      "rawBytes": 4858,
+      "gitBlobSha1": "6f5e8878debd76c69b088d4f61ef0fd9ba616348"
+    },
+    {
+      "id": "eyes/l-eye-scale-decr",
+      "path": "makehuman/data/targets/eyes/l-eye-scale-decr.target",
+      "rawBytes": 12544,
+      "gitBlobSha1": "7f47cbfccf2cf19c26e8aa82951983347b6cbec5"
+    },
+    {
+      "id": "eyes/l-eye-scale-incr",
+      "path": "makehuman/data/targets/eyes/l-eye-scale-incr.target",
+      "rawBytes": 13397,
+      "gitBlobSha1": "d5c265bd69f4fc16a53fdac6b17e0ed88ba5822f"
+    },
+    {
+      "id": "eyes/l-eye-trans-down",
+      "path": "makehuman/data/targets/eyes/l-eye-trans-down.target",
+      "rawBytes": 11654,
+      "gitBlobSha1": "50237b4d864bb2664b7127a3023f0901190b886b"
+    },
+    {
+      "id": "eyes/l-eye-trans-in",
+      "path": "makehuman/data/targets/eyes/l-eye-trans-in.target",
+      "rawBytes": 11686,
+      "gitBlobSha1": "ac34a61661c9990501830debe3ac39312a3c015a"
+    },
+    {
+      "id": "eyes/l-eye-trans-out",
+      "path": "makehuman/data/targets/eyes/l-eye-trans-out.target",
+      "rawBytes": 12444,
+      "gitBlobSha1": "a29b10fb143b38ad67e423beaa92dad2c554c696"
+    },
+    {
+      "id": "eyes/l-eye-trans-up",
+      "path": "makehuman/data/targets/eyes/l-eye-trans-up.target",
+      "rawBytes": 11077,
+      "gitBlobSha1": "1f3ae0ab7d37d4ede82152dbc8b1dfe470eef290"
+    },
+    {
+      "id": "eyes/r-eye-bag-decr",
+      "path": "makehuman/data/targets/eyes/r-eye-bag-decr.target",
+      "rawBytes": 1637,
+      "gitBlobSha1": "d26fda8824527f605a7981b07191c413841963ec"
+    },
+    {
+      "id": "eyes/r-eye-bag-height-decr",
+      "path": "makehuman/data/targets/eyes/r-eye-bag-height-decr.target",
+      "rawBytes": 2546,
+      "gitBlobSha1": "5c2b6598b8f696c362072be8107607f3c536677d"
+    },
+    {
+      "id": "eyes/r-eye-bag-height-incr",
+      "path": "makehuman/data/targets/eyes/r-eye-bag-height-incr.target",
+      "rawBytes": 2419,
+      "gitBlobSha1": "c5e4b3d2edaad2eceafaa8b926377bb2b10ca248"
+    },
+    {
+      "id": "eyes/r-eye-bag-in",
+      "path": "makehuman/data/targets/eyes/r-eye-bag-in.target",
+      "rawBytes": 1073,
+      "gitBlobSha1": "e6a95be08d7727e606ce7bf3b334431f6a0a35b3"
+    },
+    {
+      "id": "eyes/r-eye-bag-incr",
+      "path": "makehuman/data/targets/eyes/r-eye-bag-incr.target",
+      "rawBytes": 1274,
+      "gitBlobSha1": "84c13a9308ec8fc5a2ac8b2136468be54fe6f1ce"
+    },
+    {
+      "id": "eyes/r-eye-bag-out",
+      "path": "makehuman/data/targets/eyes/r-eye-bag-out.target",
+      "rawBytes": 1909,
+      "gitBlobSha1": "f1ed27d970d4417da0bf08b6748eab7cc82ea6b3"
+    },
+    {
+      "id": "eyes/r-eye-corner1-down",
+      "path": "makehuman/data/targets/eyes/r-eye-corner1-down.target",
+      "rawBytes": 3558,
+      "gitBlobSha1": "91f910fce13c4716d7dd0e982fbd17419c053010"
+    },
+    {
+      "id": "eyes/r-eye-corner1-up",
+      "path": "makehuman/data/targets/eyes/r-eye-corner1-up.target",
+      "rawBytes": 3444,
+      "gitBlobSha1": "afe85c31622ab1ceb8c3991807a3dbc4eb213eeb"
+    },
+    {
+      "id": "eyes/r-eye-corner2-down",
+      "path": "makehuman/data/targets/eyes/r-eye-corner2-down.target",
+      "rawBytes": 3724,
+      "gitBlobSha1": "6e9eda53044792a649cc8e0585bef2c4652e4a4f"
+    },
+    {
+      "id": "eyes/r-eye-corner2-up",
+      "path": "makehuman/data/targets/eyes/r-eye-corner2-up.target",
+      "rawBytes": 3523,
+      "gitBlobSha1": "eafcafdcfce97d770ce10de29c879951620aa506"
+    },
+    {
+      "id": "eyes/r-eye-epicanthus-in",
+      "path": "makehuman/data/targets/eyes/r-eye-epicanthus-in.target",
+      "rawBytes": 1793,
+      "gitBlobSha1": "3b1ed295346ea92672db7dd46b315a7c90033bdf"
+    },
+    {
+      "id": "eyes/r-eye-epicanthus-out",
+      "path": "makehuman/data/targets/eyes/r-eye-epicanthus-out.target",
+      "rawBytes": 2046,
+      "gitBlobSha1": "0083fc16bc0b0f3c4b8bbd24c8bc2bef6a291139"
+    },
+    {
+      "id": "eyes/r-eye-eyefold-angle-down",
+      "path": "makehuman/data/targets/eyes/r-eye-eyefold-angle-down.target",
+      "rawBytes": 1273,
+      "gitBlobSha1": "0667920c100b81626eac6a5ed985d66efa253070"
+    },
+    {
+      "id": "eyes/r-eye-eyefold-angle-up",
+      "path": "makehuman/data/targets/eyes/r-eye-eyefold-angle-up.target",
+      "rawBytes": 1255,
+      "gitBlobSha1": "985f5916120983d6cc226761f39238b643ccfd88"
+    },
+    {
+      "id": "eyes/r-eye-eyefold-concave",
+      "path": "makehuman/data/targets/eyes/r-eye-eyefold-concave.target",
+      "rawBytes": 794,
+      "gitBlobSha1": "867e60e7fa039948d6200bbdbdff787a6285c1f1"
+    },
+    {
+      "id": "eyes/r-eye-eyefold-convex",
+      "path": "makehuman/data/targets/eyes/r-eye-eyefold-convex.target",
+      "rawBytes": 1069,
+      "gitBlobSha1": "0de13355bf4ad6c9ee58836b6b67f14c0804448e"
+    },
+    {
+      "id": "eyes/r-eye-eyefold-down",
+      "path": "makehuman/data/targets/eyes/r-eye-eyefold-down.target",
+      "rawBytes": 1653,
+      "gitBlobSha1": "3e176da0176d58a141efae631649f381fe58c228"
+    },
+    {
+      "id": "eyes/r-eye-eyefold-up",
+      "path": "makehuman/data/targets/eyes/r-eye-eyefold-up.target",
+      "rawBytes": 1015,
+      "gitBlobSha1": "fbb92049a9b512470e80129130d8d46b70e53cc1"
+    },
+    {
+      "id": "eyes/r-eye-height1-decr",
+      "path": "makehuman/data/targets/eyes/r-eye-height1-decr.target",
+      "rawBytes": 2818,
+      "gitBlobSha1": "25e45fd8b79c39011bf6638e4c67a44b9a090497"
+    },
+    {
+      "id": "eyes/r-eye-height1-incr",
+      "path": "makehuman/data/targets/eyes/r-eye-height1-incr.target",
+      "rawBytes": 3586,
+      "gitBlobSha1": "d767359af03d60777d07955f7dd6e01fc1c1d4e6"
+    },
+    {
+      "id": "eyes/r-eye-height2-decr",
+      "path": "makehuman/data/targets/eyes/r-eye-height2-decr.target",
+      "rawBytes": 8469,
+      "gitBlobSha1": "dc8a8cd33556d89fc4f9436136dcbb40f078fed0"
+    },
+    {
+      "id": "eyes/r-eye-height2-incr",
+      "path": "makehuman/data/targets/eyes/r-eye-height2-incr.target",
+      "rawBytes": 5514,
+      "gitBlobSha1": "48b03b4221e6292bbfd7fb847838adced8673258"
+    },
+    {
+      "id": "eyes/r-eye-height3-decr",
+      "path": "makehuman/data/targets/eyes/r-eye-height3-decr.target",
+      "rawBytes": 4650,
+      "gitBlobSha1": "62d4954004712c8fd15f487f433c3cbfaa149487"
+    },
+    {
+      "id": "eyes/r-eye-height3-incr",
+      "path": "makehuman/data/targets/eyes/r-eye-height3-incr.target",
+      "rawBytes": 8184,
+      "gitBlobSha1": "c65ef9d97ea63ca4ea3dea79193ff6d946358d4f"
+    },
+    {
+      "id": "eyes/r-eye-push1-in",
+      "path": "makehuman/data/targets/eyes/r-eye-push1-in.target",
+      "rawBytes": 5934,
+      "gitBlobSha1": "f986ebecd21da88702720541f5afded503b04621"
+    },
+    {
+      "id": "eyes/r-eye-push1-out",
+      "path": "makehuman/data/targets/eyes/r-eye-push1-out.target",
+      "rawBytes": 6955,
+      "gitBlobSha1": "533bde432f588689d3442e7e6eea05b791d6793b"
+    },
+    {
+      "id": "eyes/r-eye-push2-in",
+      "path": "makehuman/data/targets/eyes/r-eye-push2-in.target",
+      "rawBytes": 4636,
+      "gitBlobSha1": "43f7ebe83e2d826ca63c1c288d8a086764541386"
+    },
+    {
+      "id": "eyes/r-eye-push2-out",
+      "path": "makehuman/data/targets/eyes/r-eye-push2-out.target",
+      "rawBytes": 4231,
+      "gitBlobSha1": "c16ede63ef61a08f8e7c03df44e77da3106f2c61"
+    },
+    {
+      "id": "eyes/r-eye-scale-decr",
+      "path": "makehuman/data/targets/eyes/r-eye-scale-decr.target",
+      "rawBytes": 12118,
+      "gitBlobSha1": "25f037d20cf606d8d75de3d78de680391bc187a2"
+    },
+    {
+      "id": "eyes/r-eye-scale-incr",
+      "path": "makehuman/data/targets/eyes/r-eye-scale-incr.target",
+      "rawBytes": 12192,
+      "gitBlobSha1": "69d59969c72a2de6e5aa961f5c19ed974a811ae0"
+    },
+    {
+      "id": "eyes/r-eye-trans-down",
+      "path": "makehuman/data/targets/eyes/r-eye-trans-down.target",
+      "rawBytes": 10766,
+      "gitBlobSha1": "c62c882f87c28b551b8ef7a5894d8863fe59ba0f"
+    },
+    {
+      "id": "eyes/r-eye-trans-in",
+      "path": "makehuman/data/targets/eyes/r-eye-trans-in.target",
+      "rawBytes": 10176,
+      "gitBlobSha1": "61dfdd93ec87c3611c1b5579cdc3000a791da59d"
+    },
+    {
+      "id": "eyes/r-eye-trans-out",
+      "path": "makehuman/data/targets/eyes/r-eye-trans-out.target",
+      "rawBytes": 12783,
+      "gitBlobSha1": "d472830cb66fa981a5e3effb3c5058615f0bced3"
+    },
+    {
+      "id": "eyes/r-eye-trans-up",
+      "path": "makehuman/data/targets/eyes/r-eye-trans-up.target",
+      "rawBytes": 10241,
+      "gitBlobSha1": "71b40794378be023bbda78cacddb6f193f81edfd"
+    },
+    {
+      "id": "forehead/forehead-nubian-decr",
+      "path": "makehuman/data/targets/forehead/forehead-nubian-decr.target",
+      "rawBytes": 9083,
+      "gitBlobSha1": "ec32fad4a141605581fe6adb16fac5fa33d0e18f"
+    },
+    {
+      "id": "forehead/forehead-nubian-incr",
+      "path": "makehuman/data/targets/forehead/forehead-nubian-incr.target",
+      "rawBytes": 9321,
+      "gitBlobSha1": "64220c4f64d93cfb2b1d09dcb5d864d3130e1b54"
+    },
+    {
+      "id": "forehead/forehead-scale-vert-decr",
+      "path": "makehuman/data/targets/forehead/forehead-scale-vert-decr.target",
+      "rawBytes": 5993,
+      "gitBlobSha1": "14f32072dfafe96483ef69176b6efe8d47837f87"
+    },
+    {
+      "id": "forehead/forehead-scale-vert-incr",
+      "path": "makehuman/data/targets/forehead/forehead-scale-vert-incr.target",
+      "rawBytes": 5565,
+      "gitBlobSha1": "356167ebfb1f723f4dd01176f9974aad59588786"
+    },
+    {
+      "id": "forehead/forehead-temple-decr",
+      "path": "makehuman/data/targets/forehead/forehead-temple-decr.target",
+      "rawBytes": 2078,
+      "gitBlobSha1": "1687d0d3034f3c100e74da44c60326584e95e1b2"
+    },
+    {
+      "id": "forehead/forehead-temple-incr",
+      "path": "makehuman/data/targets/forehead/forehead-temple-incr.target",
+      "rawBytes": 5697,
+      "gitBlobSha1": "31f3e0d77040e21f8e7284a0be25fb93845f3779"
+    },
+    {
+      "id": "forehead/forehead-trans-backward",
+      "path": "makehuman/data/targets/forehead/forehead-trans-backward.target",
+      "rawBytes": 5330,
+      "gitBlobSha1": "64fdfd72f143a4e439241b1a9735afa76720d2b3"
+    },
+    {
+      "id": "forehead/forehead-trans-forward",
+      "path": "makehuman/data/targets/forehead/forehead-trans-forward.target",
+      "rawBytes": 6969,
+      "gitBlobSha1": "52022201b62085616e0532282a5bf84395b8232e"
+    },
+    {
+      "id": "head/head-age-decr",
+      "path": "makehuman/data/targets/head/head-age-decr.target",
+      "rawBytes": 75981,
+      "gitBlobSha1": "232a0d981159f9f7af7ba9eeefa5a394b135e3d9"
+    },
+    {
+      "id": "head/head-age-incr",
+      "path": "makehuman/data/targets/head/head-age-incr.target",
+      "rawBytes": 59255,
+      "gitBlobSha1": "54440c85e23e77fa51bc0585e324806deac24e4f"
+    },
+    {
+      "id": "head/head-angle-in",
+      "path": "makehuman/data/targets/head/head-angle-in.target",
+      "rawBytes": 68747,
+      "gitBlobSha1": "e77e2ae31fd38903d9aa241906c447621fd45c5d"
+    },
+    {
+      "id": "head/head-angle-out",
+      "path": "makehuman/data/targets/head/head-angle-out.target",
+      "rawBytes": 72434,
+      "gitBlobSha1": "accd2edaae6c1493229c339936abf8a75f89b31e"
+    },
+    {
+      "id": "head/head-back-scale-depth-decr",
+      "path": "makehuman/data/targets/head/head-back-scale-depth-decr.target",
+      "rawBytes": 8977,
+      "gitBlobSha1": "2542236af30ff64c927a84842154b31f81d90d17"
+    },
+    {
+      "id": "head/head-back-scale-depth-incr",
+      "path": "makehuman/data/targets/head/head-back-scale-depth-incr.target",
+      "rawBytes": 9220,
+      "gitBlobSha1": "bc8fabcee1a62504d0ede7e4c6a3cc25e821947d"
+    },
+    {
+      "id": "head/head-diamond",
+      "path": "makehuman/data/targets/head/head-diamond.target",
+      "rawBytes": 11876,
+      "gitBlobSha1": "dcf75f3a29750b2c984c48e81eb6dfcb781260e6"
+    },
+    {
+      "id": "head/head-fat-decr",
+      "path": "makehuman/data/targets/head/head-fat-decr.target",
+      "rawBytes": 14347,
+      "gitBlobSha1": "f373e9d9fcdf33261258fe5d0cc8752ed0d6da9c"
+    },
+    {
+      "id": "head/head-fat-incr",
+      "path": "makehuman/data/targets/head/head-fat-incr.target",
+      "rawBytes": 14473,
+      "gitBlobSha1": "529dac99fe294f54c39d0951ba3e4a8cefe2bf32"
+    },
+    {
+      "id": "head/head-invertedtriangular",
+      "path": "makehuman/data/targets/head/head-invertedtriangular.target",
+      "rawBytes": 32815,
+      "gitBlobSha1": "72e2f495ec58eac71a154286b5ccbd9c6111aed5"
+    },
+    {
+      "id": "head/head-oval",
+      "path": "makehuman/data/targets/head/head-oval.target",
+      "rawBytes": 36452,
+      "gitBlobSha1": "66d8131706f7a95b763171c336801a76710f2971"
+    },
+    {
+      "id": "head/head-rectangular",
+      "path": "makehuman/data/targets/head/head-rectangular.target",
+      "rawBytes": 10633,
+      "gitBlobSha1": "96e3a75213cd895da863a5c405106321f73f5007"
+    },
+    {
+      "id": "head/head-round",
+      "path": "makehuman/data/targets/head/head-round.target",
+      "rawBytes": 32961,
+      "gitBlobSha1": "86cde92780be65f10c267f2bee96ba3a1f1f4542"
+    },
+    {
+      "id": "head/head-scale-depth-decr",
+      "path": "makehuman/data/targets/head/head-scale-depth-decr.target",
+      "rawBytes": 73849,
+      "gitBlobSha1": "028b75474019ec3bd1783f8e5f56c3e9c277ff9e"
+    },
+    {
+      "id": "head/head-scale-depth-incr",
+      "path": "makehuman/data/targets/head/head-scale-depth-incr.target",
+      "rawBytes": 69299,
+      "gitBlobSha1": "71b67fa9d5d7e67e3fd08135e1527c1842b8113d"
+    },
+    {
+      "id": "head/head-scale-horiz-decr",
+      "path": "makehuman/data/targets/head/head-scale-horiz-decr.target",
+      "rawBytes": 81690,
+      "gitBlobSha1": "753ceb60c831ec55a01cf986a12aeb18193059c8"
+    },
+    {
+      "id": "head/head-scale-horiz-incr",
+      "path": "makehuman/data/targets/head/head-scale-horiz-incr.target",
+      "rawBytes": 83156,
+      "gitBlobSha1": "9a32e90f7bd4d0a90092052d89137a365e272a67"
+    },
+    {
+      "id": "head/head-scale-vert-decr",
+      "path": "makehuman/data/targets/head/head-scale-vert-decr.target",
+      "rawBytes": 77948,
+      "gitBlobSha1": "aec0d7ec5f3016ea4c5528e1ccf2b45ee7ebb826"
+    },
+    {
+      "id": "head/head-scale-vert-incr",
+      "path": "makehuman/data/targets/head/head-scale-vert-incr.target",
+      "rawBytes": 78317,
+      "gitBlobSha1": "4477d8ce567dd06f256270582134fbcbc6134e04"
+    },
+    {
+      "id": "head/head-square",
+      "path": "makehuman/data/targets/head/head-square.target",
+      "rawBytes": 12618,
+      "gitBlobSha1": "8d156ed42db13219844e01bf4ab3185d9205befa"
+    },
+    {
+      "id": "head/head-trans-backward",
+      "path": "makehuman/data/targets/head/head-trans-backward.target",
+      "rawBytes": 74770,
+      "gitBlobSha1": "ed797b89089c6fb1001ddfc9f9fdf9b6ef44b226"
+    },
+    {
+      "id": "head/head-trans-down",
+      "path": "makehuman/data/targets/head/head-trans-down.target",
+      "rawBytes": 76202,
+      "gitBlobSha1": "46d8ff3cc928a9a72b223bc19095050902c55061"
+    },
+    {
+      "id": "head/head-trans-forward",
+      "path": "makehuman/data/targets/head/head-trans-forward.target",
+      "rawBytes": 69655,
+      "gitBlobSha1": "43d0a8bdc3e097dafc2a55ce73fae2ff5efdd611"
+    },
+    {
+      "id": "head/head-trans-in",
+      "path": "makehuman/data/targets/head/head-trans-in.target",
+      "rawBytes": 75186,
+      "gitBlobSha1": "9972050acb7df4569948525604d4f3ebd6629dfe"
+    },
+    {
+      "id": "head/head-trans-out",
+      "path": "makehuman/data/targets/head/head-trans-out.target",
+      "rawBytes": 69677,
+      "gitBlobSha1": "255f6128284f336c69130c0e0b482f3881845c25"
+    },
+    {
+      "id": "head/head-trans-up",
+      "path": "makehuman/data/targets/head/head-trans-up.target",
+      "rawBytes": 69100,
+      "gitBlobSha1": "40ea42f4f93f80895251800acda70a1ab7fc6b78"
+    },
+    {
+      "id": "head/head-triangular",
+      "path": "makehuman/data/targets/head/head-triangular.target",
+      "rawBytes": 12676,
+      "gitBlobSha1": "58d3d74ce498c1415475776e7cfa81f29de7d3d2"
+    },
+    {
+      "id": "mouth/mouth-angles-down",
+      "path": "makehuman/data/targets/mouth/mouth-angles-down.target",
+      "rawBytes": 7962,
+      "gitBlobSha1": "0dfa74a955adc067e7c5c59241a28b6c0b5063b8"
+    },
+    {
+      "id": "mouth/mouth-angles-up",
+      "path": "makehuman/data/targets/mouth/mouth-angles-up.target",
+      "rawBytes": 6450,
+      "gitBlobSha1": "acf41bf7dc58f10bf1bae52e8935ee03712e4f80"
+    },
+    {
+      "id": "mouth/mouth-cupidsbow-decr",
+      "path": "makehuman/data/targets/mouth/mouth-cupidsbow-decr.target",
+      "rawBytes": 1291,
+      "gitBlobSha1": "27cbba7c738c097ba9ca25aa4b6890b95642bebd"
+    },
+    {
+      "id": "mouth/mouth-cupidsbow-incr",
+      "path": "makehuman/data/targets/mouth/mouth-cupidsbow-incr.target",
+      "rawBytes": 2045,
+      "gitBlobSha1": "55dfb70f2d69effa8e1f7efc9d18b23f504c0022"
+    },
+    {
+      "id": "mouth/mouth-cupidsbow-width-decr",
+      "path": "makehuman/data/targets/mouth/mouth-cupidsbow-width-decr.target",
+      "rawBytes": 2174,
+      "gitBlobSha1": "ddeca234e24fc649f5fca81a6d0467b627f73017"
+    },
+    {
+      "id": "mouth/mouth-cupidsbow-width-incr",
+      "path": "makehuman/data/targets/mouth/mouth-cupidsbow-width-incr.target",
+      "rawBytes": 2202,
+      "gitBlobSha1": "4299c38b6ae0dc89fd5ede2df630c68d374ca2f3"
+    },
+    {
+      "id": "mouth/mouth-dimples-in",
+      "path": "makehuman/data/targets/mouth/mouth-dimples-in.target",
+      "rawBytes": 1112,
+      "gitBlobSha1": "59c68a7e82f79778139ef20bdbda8b423537bb42"
+    },
+    {
+      "id": "mouth/mouth-dimples-out",
+      "path": "makehuman/data/targets/mouth/mouth-dimples-out.target",
+      "rawBytes": 1560,
+      "gitBlobSha1": "cfafaffd62626339580ab32361fc9eeee6d9944c"
+    },
+    {
+      "id": "mouth/mouth-laugh-lines-in",
+      "path": "makehuman/data/targets/mouth/mouth-laugh-lines-in.target",
+      "rawBytes": 1663,
+      "gitBlobSha1": "83034b7d3170069ef99a1247c236bb2275277158"
+    },
+    {
+      "id": "mouth/mouth-laugh-lines-out",
+      "path": "makehuman/data/targets/mouth/mouth-laugh-lines-out.target",
+      "rawBytes": 1755,
+      "gitBlobSha1": "375bd5afd943f4fb7785f51e2aeefb62b6b05632"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-ext-down",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-ext-down.target",
+      "rawBytes": 1460,
+      "gitBlobSha1": "73346260164d2c8ea032b8770de63a357f3cd24f"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-ext-up",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-ext-up.target",
+      "rawBytes": 1893,
+      "gitBlobSha1": "8d45aeeecbf454ce44979ee7b69dd0fde86523f8"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-height-decr",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-height-decr.target",
+      "rawBytes": 2272,
+      "gitBlobSha1": "04bad759ff5b20d98530746706d0bd25cd11fdec"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-height-incr",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-height-incr.target",
+      "rawBytes": 1682,
+      "gitBlobSha1": "f06b3f9fbb6621e1c45fd71fc5ba89cd237828b1"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-middle-down",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-middle-down.target",
+      "rawBytes": 1299,
+      "gitBlobSha1": "d33cd241a957a3270d9e116fbb4f8f767587b407"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-middle-up",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-middle-up.target",
+      "rawBytes": 1388,
+      "gitBlobSha1": "d6cfa776b40996df74b6dc887f48aac620473d41"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-volume-decr",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-volume-decr.target",
+      "rawBytes": 1828,
+      "gitBlobSha1": "7a7add98ca5e667cb14d1dab09ad67bd95661e2d"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-volume-incr",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-volume-incr.target",
+      "rawBytes": 3585,
+      "gitBlobSha1": "b3a27855023b20b8eee8b885d81033083d75feaa"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-width-decr",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-width-decr.target",
+      "rawBytes": 2150,
+      "gitBlobSha1": "882e8b14d806f9f9ffed3686d9f70a6942500d80"
+    },
+    {
+      "id": "mouth/mouth-lowerlip-width-incr",
+      "path": "makehuman/data/targets/mouth/mouth-lowerlip-width-incr.target",
+      "rawBytes": 2772,
+      "gitBlobSha1": "3c40be4a73b6e703eff5a07edf26299e3a8836fd"
+    },
+    {
+      "id": "mouth/mouth-philtrum-volume-decr",
+      "path": "makehuman/data/targets/mouth/mouth-philtrum-volume-decr.target",
+      "rawBytes": 1073,
+      "gitBlobSha1": "c8a5bac449b584002a9f54d0299557e4d09be4c7"
+    },
+    {
+      "id": "mouth/mouth-philtrum-volume-incr",
+      "path": "makehuman/data/targets/mouth/mouth-philtrum-volume-incr.target",
+      "rawBytes": 890,
+      "gitBlobSha1": "71cafda15cc28392e811c0bbf4e26263b4197b79"
+    },
+    {
+      "id": "mouth/mouth-scale-depth-decr",
+      "path": "makehuman/data/targets/mouth/mouth-scale-depth-decr.target",
+      "rawBytes": 7437,
+      "gitBlobSha1": "2e8f3ef4465d55ab820921935b8dc888a4e6df69"
+    },
+    {
+      "id": "mouth/mouth-scale-depth-incr",
+      "path": "makehuman/data/targets/mouth/mouth-scale-depth-incr.target",
+      "rawBytes": 7513,
+      "gitBlobSha1": "9bf0c1470f6d9ac3703cc149dbc66f282351c54e"
+    },
+    {
+      "id": "mouth/mouth-scale-horiz-decr",
+      "path": "makehuman/data/targets/mouth/mouth-scale-horiz-decr.target",
+      "rawBytes": 12644,
+      "gitBlobSha1": "10bf9d864e59ca075fe0ff195653a008c3a0afaa"
+    },
+    {
+      "id": "mouth/mouth-scale-horiz-incr",
+      "path": "makehuman/data/targets/mouth/mouth-scale-horiz-incr.target",
+      "rawBytes": 15657,
+      "gitBlobSha1": "d066e8ef5312242765c9ca3dd8cbbb04119da278"
+    },
+    {
+      "id": "mouth/mouth-scale-vert-decr",
+      "path": "makehuman/data/targets/mouth/mouth-scale-vert-decr.target",
+      "rawBytes": 7495,
+      "gitBlobSha1": "f48d2ec43ee399ba786c93763c604c0b61434017"
+    },
+    {
+      "id": "mouth/mouth-scale-vert-incr",
+      "path": "makehuman/data/targets/mouth/mouth-scale-vert-incr.target",
+      "rawBytes": 13436,
+      "gitBlobSha1": "7ed51d95760dc8ab290954e4f4f3a5f171a872a2"
+    },
+    {
+      "id": "mouth/mouth-trans-backward",
+      "path": "makehuman/data/targets/mouth/mouth-trans-backward.target",
+      "rawBytes": 17919,
+      "gitBlobSha1": "4cc54a3a13459ad17a2e66f66bd5d8987b7955a4"
+    },
+    {
+      "id": "mouth/mouth-trans-down",
+      "path": "makehuman/data/targets/mouth/mouth-trans-down.target",
+      "rawBytes": 17308,
+      "gitBlobSha1": "058bd87c3ad1606eb31d01f5b530dd5dbcfe2af7"
+    },
+    {
+      "id": "mouth/mouth-trans-forward",
+      "path": "makehuman/data/targets/mouth/mouth-trans-forward.target",
+      "rawBytes": 16083,
+      "gitBlobSha1": "293f6adca775a4b712768da0851dc102bc606d7d"
+    },
+    {
+      "id": "mouth/mouth-trans-in",
+      "path": "makehuman/data/targets/mouth/mouth-trans-in.target",
+      "rawBytes": 17509,
+      "gitBlobSha1": "09463945114647814f61914310b37c45dc258102"
+    },
+    {
+      "id": "mouth/mouth-trans-out",
+      "path": "makehuman/data/targets/mouth/mouth-trans-out.target",
+      "rawBytes": 17645,
+      "gitBlobSha1": "2e86ca9b5410411aa4154233d50176b378c4248b"
+    },
+    {
+      "id": "mouth/mouth-trans-up",
+      "path": "makehuman/data/targets/mouth/mouth-trans-up.target",
+      "rawBytes": 16864,
+      "gitBlobSha1": "c5bcfd832f0a990299e0d35854fba3a81aa1f7c5"
+    },
+    {
+      "id": "mouth/mouth-upperlip-ext-down",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-ext-down.target",
+      "rawBytes": 2993,
+      "gitBlobSha1": "2b65b767b80be40bde4ed7bf5fd203980f4279db"
+    },
+    {
+      "id": "mouth/mouth-upperlip-ext-up",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-ext-up.target",
+      "rawBytes": 1817,
+      "gitBlobSha1": "44e7a02b58b56f1e82b0edbd9414b3d48da8d91b"
+    },
+    {
+      "id": "mouth/mouth-upperlip-height-decr",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-height-decr.target",
+      "rawBytes": 3695,
+      "gitBlobSha1": "636f1a5a0eb9ec748d01e099097ec54895a486b3"
+    },
+    {
+      "id": "mouth/mouth-upperlip-height-incr",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-height-incr.target",
+      "rawBytes": 4290,
+      "gitBlobSha1": "3ee26a4c929089912689e0243afe20ef722d7319"
+    },
+    {
+      "id": "mouth/mouth-upperlip-middle-down",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-middle-down.target",
+      "rawBytes": 2436,
+      "gitBlobSha1": "5ee4061a0d61d36bc894f218ab91d56353ca721c"
+    },
+    {
+      "id": "mouth/mouth-upperlip-middle-up",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-middle-up.target",
+      "rawBytes": 2311,
+      "gitBlobSha1": "4718288fcc2b104f8d654d57e974116f818775a8"
+    },
+    {
+      "id": "mouth/mouth-upperlip-volume-decr",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-volume-decr.target",
+      "rawBytes": 2649,
+      "gitBlobSha1": "71712e691cac1ddcb4f3c23b5024cdaf54341cf6"
+    },
+    {
+      "id": "mouth/mouth-upperlip-volume-incr",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-volume-incr.target",
+      "rawBytes": 3600,
+      "gitBlobSha1": "57261c7dab665aca7169d5bb7acddf0c002f6786"
+    },
+    {
+      "id": "mouth/mouth-upperlip-width-decr",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-width-decr.target",
+      "rawBytes": 2954,
+      "gitBlobSha1": "985ba0e329811f11301049914e456c0fcaf2a306"
+    },
+    {
+      "id": "mouth/mouth-upperlip-width-incr",
+      "path": "makehuman/data/targets/mouth/mouth-upperlip-width-incr.target",
+      "rawBytes": 10647,
+      "gitBlobSha1": "8ec8fc4ced1621dfd6efc80676a92e68c5259400"
+    },
+    {
+      "id": "nose/nose-base-down",
+      "path": "makehuman/data/targets/nose/nose-base-down.target",
+      "rawBytes": 5246,
+      "gitBlobSha1": "a86cbac107a35514910738531d228c4550da9834"
+    },
+    {
+      "id": "nose/nose-base-up",
+      "path": "makehuman/data/targets/nose/nose-base-up.target",
+      "rawBytes": 4783,
+      "gitBlobSha1": "a01e89886889d64a711927040670be14cea93d1a"
+    },
+    {
+      "id": "nose/nose-compression-compress",
+      "path": "makehuman/data/targets/nose/nose-compression-compress.target",
+      "rawBytes": 2149,
+      "gitBlobSha1": "8bde78546cdc06f230d54a1b8c44d6792e0d6f7d"
+    },
+    {
+      "id": "nose/nose-compression-uncompress",
+      "path": "makehuman/data/targets/nose/nose-compression-uncompress.target",
+      "rawBytes": 1137,
+      "gitBlobSha1": "cb87e11a893da8b091143f4090ec1ebf9ebbb082"
+    },
+    {
+      "id": "nose/nose-curve-concave",
+      "path": "makehuman/data/targets/nose/nose-curve-concave.target",
+      "rawBytes": 1906,
+      "gitBlobSha1": "a88ad96f6b1a6a54a6bc17bea70d94642e18dcba"
+    },
+    {
+      "id": "nose/nose-curve-convex",
+      "path": "makehuman/data/targets/nose/nose-curve-convex.target",
+      "rawBytes": 1459,
+      "gitBlobSha1": "f6dd8ea23eb030e7d15d476643e145b1cedc6c1d"
+    },
+    {
+      "id": "nose/nose-flaring-decr",
+      "path": "makehuman/data/targets/nose/nose-flaring-decr.target",
+      "rawBytes": 3350,
+      "gitBlobSha1": "41841e105cef328a7fba92e0c2769b83866cda33"
+    },
+    {
+      "id": "nose/nose-flaring-incr",
+      "path": "makehuman/data/targets/nose/nose-flaring-incr.target",
+      "rawBytes": 3072,
+      "gitBlobSha1": "e58d1629024e930462fa7e8729a021927007ccc9"
+    },
+    {
+      "id": "nose/nose-greek-decr",
+      "path": "makehuman/data/targets/nose/nose-greek-decr.target",
+      "rawBytes": 1041,
+      "gitBlobSha1": "cdb1b6e6616265ef9407ac987c235d6c4b12eb23"
+    },
+    {
+      "id": "nose/nose-greek-incr",
+      "path": "makehuman/data/targets/nose/nose-greek-incr.target",
+      "rawBytes": 1331,
+      "gitBlobSha1": "10730c3dad68b19c3559bd556684dffa74bb5c9f"
+    },
+    {
+      "id": "nose/nose-hump-decr",
+      "path": "makehuman/data/targets/nose/nose-hump-decr.target",
+      "rawBytes": 1114,
+      "gitBlobSha1": "56080a5e4bbb575772865b1d621c3052a47c6436"
+    },
+    {
+      "id": "nose/nose-hump-incr",
+      "path": "makehuman/data/targets/nose/nose-hump-incr.target",
+      "rawBytes": 6836,
+      "gitBlobSha1": "771e672af9cde15ee4065cff688ed9e6a41ba3fd"
+    },
+    {
+      "id": "nose/nose-nostrils-angle-down",
+      "path": "makehuman/data/targets/nose/nose-nostrils-angle-down.target",
+      "rawBytes": 3393,
+      "gitBlobSha1": "6b505d03c225782b10a963ba05343b439a169623"
+    },
+    {
+      "id": "nose/nose-nostrils-angle-up",
+      "path": "makehuman/data/targets/nose/nose-nostrils-angle-up.target",
+      "rawBytes": 4046,
+      "gitBlobSha1": "f30591845a753e23d78ef4428d03ce6879dfdd98"
+    },
+    {
+      "id": "nose/nose-nostrils-width-decr",
+      "path": "makehuman/data/targets/nose/nose-nostrils-width-decr.target",
+      "rawBytes": 4128,
+      "gitBlobSha1": "b397e656f584bcc2c62cfd51ba78d5a93eca341a"
+    },
+    {
+      "id": "nose/nose-nostrils-width-incr",
+      "path": "makehuman/data/targets/nose/nose-nostrils-width-incr.target",
+      "rawBytes": 4538,
+      "gitBlobSha1": "a2384cdeabc8742afcb83033d3f5dc9738fe0acd"
+    },
+    {
+      "id": "nose/nose-point-down",
+      "path": "makehuman/data/targets/nose/nose-point-down.target",
+      "rawBytes": 2313,
+      "gitBlobSha1": "295f094b7f920a57ae87aa5d88a210a1a550e4ae"
+    },
+    {
+      "id": "nose/nose-point-up",
+      "path": "makehuman/data/targets/nose/nose-point-up.target",
+      "rawBytes": 1672,
+      "gitBlobSha1": "eed95dc4473457c3b0c83bfb61563fd139d29a5a"
+    },
+    {
+      "id": "nose/nose-point-width-decr",
+      "path": "makehuman/data/targets/nose/nose-point-width-decr.target",
+      "rawBytes": 1796,
+      "gitBlobSha1": "a1d2e432bb5e9feef308a36795c9f7494a834a2c"
+    },
+    {
+      "id": "nose/nose-point-width-incr",
+      "path": "makehuman/data/targets/nose/nose-point-width-incr.target",
+      "rawBytes": 1483,
+      "gitBlobSha1": "2f5e8f665ddcd504d0f7728b05dc0b69adb36ca7"
+    },
+    {
+      "id": "nose/nose-scale-depth-decr",
+      "path": "makehuman/data/targets/nose/nose-scale-depth-decr.target",
+      "rawBytes": 5811,
+      "gitBlobSha1": "14d3d352991f2790a48126d6fa9ca257597f82a4"
+    },
+    {
+      "id": "nose/nose-scale-depth-incr",
+      "path": "makehuman/data/targets/nose/nose-scale-depth-incr.target",
+      "rawBytes": 5762,
+      "gitBlobSha1": "3041ea16b94843a994fd43e40949ca4b6a928c96"
+    },
+    {
+      "id": "nose/nose-scale-horiz-decr",
+      "path": "makehuman/data/targets/nose/nose-scale-horiz-decr.target",
+      "rawBytes": 5074,
+      "gitBlobSha1": "1e1bdd6e53d61c7a03593ec643c8311d23df916b"
+    },
+    {
+      "id": "nose/nose-scale-horiz-incr",
+      "path": "makehuman/data/targets/nose/nose-scale-horiz-incr.target",
+      "rawBytes": 7568,
+      "gitBlobSha1": "abc36f4e9813600c89414fd64edcab332332c753"
+    },
+    {
+      "id": "nose/nose-scale-vert-decr",
+      "path": "makehuman/data/targets/nose/nose-scale-vert-decr.target",
+      "rawBytes": 5431,
+      "gitBlobSha1": "6ae733a320701da48e11b080ae08df86e27aaa01"
+    },
+    {
+      "id": "nose/nose-scale-vert-incr",
+      "path": "makehuman/data/targets/nose/nose-scale-vert-incr.target",
+      "rawBytes": 6648,
+      "gitBlobSha1": "27e807475d76583e5dfade11c24d6dfd33d7ba1b"
+    },
+    {
+      "id": "nose/nose-septumangle-decr",
+      "path": "makehuman/data/targets/nose/nose-septumangle-decr.target",
+      "rawBytes": 6329,
+      "gitBlobSha1": "5c27cb089dc8b38e99da17c620c1a2c592359078"
+    },
+    {
+      "id": "nose/nose-septumangle-incr",
+      "path": "makehuman/data/targets/nose/nose-septumangle-incr.target",
+      "rawBytes": 5590,
+      "gitBlobSha1": "5e036fc30d859d9475d432199891f2257f5ef7a5"
+    },
+    {
+      "id": "nose/nose-trans-backward",
+      "path": "makehuman/data/targets/nose/nose-trans-backward.target",
+      "rawBytes": 9950,
+      "gitBlobSha1": "5e46afd01c2d9ced8070a189781dc9651dfca38a"
+    },
+    {
+      "id": "nose/nose-trans-down",
+      "path": "makehuman/data/targets/nose/nose-trans-down.target",
+      "rawBytes": 6689,
+      "gitBlobSha1": "1a9c6bbff37c63e22054d7ffae40c7db5d514736"
+    },
+    {
+      "id": "nose/nose-trans-forward",
+      "path": "makehuman/data/targets/nose/nose-trans-forward.target",
+      "rawBytes": 6808,
+      "gitBlobSha1": "0736d18ee4d16fa0286fb7dcab3efed47f7cb10a"
+    },
+    {
+      "id": "nose/nose-trans-in",
+      "path": "makehuman/data/targets/nose/nose-trans-in.target",
+      "rawBytes": 9151,
+      "gitBlobSha1": "46fe174b47b15f1cdf158edf337eb6da2a1ceb1a"
+    },
+    {
+      "id": "nose/nose-trans-out",
+      "path": "makehuman/data/targets/nose/nose-trans-out.target",
+      "rawBytes": 8580,
+      "gitBlobSha1": "cf9b34d6a92bf94cdb329ea697cdaef3a2cb8895"
+    },
+    {
+      "id": "nose/nose-trans-up",
+      "path": "makehuman/data/targets/nose/nose-trans-up.target",
+      "rawBytes": 8106,
+      "gitBlobSha1": "d98d2f2e59599c673d0b285136745aa78c0b3dc0"
+    },
+    {
+      "id": "nose/nose-volume-decr",
+      "path": "makehuman/data/targets/nose/nose-volume-decr.target",
+      "rawBytes": 1274,
+      "gitBlobSha1": "bd81130c1fffe6dc96c2a26c334cd00276d03c74"
+    },
+    {
+      "id": "nose/nose-volume-incr",
+      "path": "makehuman/data/targets/nose/nose-volume-incr.target",
+      "rawBytes": 3076,
+      "gitBlobSha1": "12fd5f4e9f46ec6eac3fdf73278d6c10f002e4ed"
+    },
+    {
+      "id": "nose/nose-width1-decr",
+      "path": "makehuman/data/targets/nose/nose-width1-decr.target",
+      "rawBytes": 1526,
+      "gitBlobSha1": "ccdacedc38a0366d665c1e0e7605d84521e499f4"
+    },
+    {
+      "id": "nose/nose-width1-incr",
+      "path": "makehuman/data/targets/nose/nose-width1-incr.target",
+      "rawBytes": 1507,
+      "gitBlobSha1": "db108799ff4614f32bb33f5e7ae4781a2a82349c"
+    },
+    {
+      "id": "nose/nose-width2-decr",
+      "path": "makehuman/data/targets/nose/nose-width2-decr.target",
+      "rawBytes": 1272,
+      "gitBlobSha1": "354361051245182de1224f90acbfdcaf976e4034"
+    },
+    {
+      "id": "nose/nose-width2-incr",
+      "path": "makehuman/data/targets/nose/nose-width2-incr.target",
+      "rawBytes": 2000,
+      "gitBlobSha1": "fe9831852f3dd30adf4260e40533ccd7a694c664"
+    },
+    {
+      "id": "nose/nose-width3-decr",
+      "path": "makehuman/data/targets/nose/nose-width3-decr.target",
+      "rawBytes": 4617,
+      "gitBlobSha1": "dd49e74cbe91727ccb5db006276d311387e8cd1f"
+    },
+    {
+      "id": "nose/nose-width3-incr",
+      "path": "makehuman/data/targets/nose/nose-width3-incr.target",
+      "rawBytes": 6595,
+      "gitBlobSha1": "1c7bb6daa3ce7d75778d8f37af1953528e928378"
+    }
+  ],
+  "nativeModifierRevision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+  "nativeModifiers": [
+    {
+      "id": "head/head-age-decr-incr",
+      "group": "head",
+      "target": "head-age",
+      "negative": "head/head-age-decr",
+      "positive": "head/head-age-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-angle-in-out",
+      "group": "head",
+      "target": "head-angle",
+      "negative": "head/head-angle-in",
+      "positive": "head/head-angle-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-fat-decr-incr",
+      "group": "head",
+      "target": "head-fat",
+      "negative": "head/head-fat-decr",
+      "positive": "head/head-fat-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-oval",
+      "group": "head",
+      "target": "head-oval",
+      "positive": "head/head-oval",
+      "nativeMin": 0,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-round",
+      "group": "head",
+      "target": "head-round",
+      "positive": "head/head-round",
+      "nativeMin": 0,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-rectangular",
+      "group": "head",
+      "target": "head-rectangular",
+      "positive": "head/head-rectangular",
+      "nativeMin": 0,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-square",
+      "group": "head",
+      "target": "head-square",
+      "positive": "head/head-square",
+      "nativeMin": 0,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-triangular",
+      "group": "head",
+      "target": "head-triangular",
+      "positive": "head/head-triangular",
+      "nativeMin": 0,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-invertedtriangular",
+      "group": "head",
+      "target": "head-invertedtriangular",
+      "positive": "head/head-invertedtriangular",
+      "nativeMin": 0,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-diamond",
+      "group": "head",
+      "target": "head-diamond",
+      "positive": "head/head-diamond",
+      "nativeMin": 0,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-scale-depth-decr-incr",
+      "group": "head",
+      "target": "head-scale-depth",
+      "negative": "head/head-scale-depth-decr",
+      "positive": "head/head-scale-depth-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-scale-horiz-decr-incr",
+      "group": "head",
+      "target": "head-scale-horiz",
+      "negative": "head/head-scale-horiz-decr",
+      "positive": "head/head-scale-horiz-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-scale-vert-decr-incr",
+      "group": "head",
+      "target": "head-scale-vert",
+      "negative": "head/head-scale-vert-decr",
+      "positive": "head/head-scale-vert-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-trans-in-out",
+      "group": "head",
+      "target": "head-trans",
+      "negative": "head/head-trans-in",
+      "positive": "head/head-trans-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-trans-down-up",
+      "group": "head",
+      "target": "head-trans",
+      "negative": "head/head-trans-down",
+      "positive": "head/head-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-trans-backward-forward",
+      "group": "head",
+      "target": "head-trans",
+      "negative": "head/head-trans-backward",
+      "positive": "head/head-trans-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "head/head-back-scale-depth-decr-incr",
+      "group": "head",
+      "target": "head-back-scale-depth",
+      "negative": "head/head-back-scale-depth-decr",
+      "positive": "head/head-back-scale-depth-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "forehead/forehead-trans-backward-forward",
+      "group": "forehead",
+      "target": "forehead-trans",
+      "negative": "forehead/forehead-trans-backward",
+      "positive": "forehead/forehead-trans-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "forehead/forehead-scale-vert-decr-incr",
+      "group": "forehead",
+      "target": "forehead-scale-vert",
+      "negative": "forehead/forehead-scale-vert-decr",
+      "positive": "forehead/forehead-scale-vert-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "forehead/forehead-nubian-decr-incr",
+      "group": "forehead",
+      "target": "forehead-nubian",
+      "negative": "forehead/forehead-nubian-decr",
+      "positive": "forehead/forehead-nubian-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "forehead/forehead-temple-decr-incr",
+      "group": "forehead",
+      "target": "forehead-temple",
+      "negative": "forehead/forehead-temple-decr",
+      "positive": "forehead/forehead-temple-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyebrows/eyebrows-trans-backward-forward",
+      "group": "eyebrows",
+      "target": "eyebrows-trans",
+      "negative": "eyebrows/eyebrows-trans-backward",
+      "positive": "eyebrows/eyebrows-trans-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyebrows/eyebrows-angle-down-up",
+      "group": "eyebrows",
+      "target": "eyebrows-angle",
+      "negative": "eyebrows/eyebrows-angle-down",
+      "positive": "eyebrows/eyebrows-angle-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyebrows/eyebrows-trans-down-up",
+      "group": "eyebrows",
+      "target": "eyebrows-trans",
+      "negative": "eyebrows/eyebrows-trans-down",
+      "positive": "eyebrows/eyebrows-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-bag-decr-incr",
+      "group": "eyes",
+      "target": "r-eye-bag",
+      "negative": "eyes/r-eye-bag-decr",
+      "positive": "eyes/r-eye-bag-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-bag-in-out",
+      "group": "eyes",
+      "target": "r-eye-bag",
+      "negative": "eyes/r-eye-bag-in",
+      "positive": "eyes/r-eye-bag-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-bag-height-decr-incr",
+      "group": "eyes",
+      "target": "r-eye-bag-height",
+      "negative": "eyes/r-eye-bag-height-decr",
+      "positive": "eyes/r-eye-bag-height-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-eyefold-angle-down-up",
+      "group": "eyes",
+      "target": "r-eye-eyefold-angle",
+      "negative": "eyes/r-eye-eyefold-angle-down",
+      "positive": "eyes/r-eye-eyefold-angle-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-epicanthus-in-out",
+      "group": "eyes",
+      "target": "r-eye-epicanthus",
+      "negative": "eyes/r-eye-epicanthus-in",
+      "positive": "eyes/r-eye-epicanthus-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-eyefold-concave-convex",
+      "group": "eyes",
+      "target": "r-eye-eyefold",
+      "negative": "eyes/r-eye-eyefold-concave",
+      "positive": "eyes/r-eye-eyefold-convex",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-eyefold-down-up",
+      "group": "eyes",
+      "target": "r-eye-eyefold",
+      "negative": "eyes/r-eye-eyefold-down",
+      "positive": "eyes/r-eye-eyefold-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-height1-decr-incr",
+      "group": "eyes",
+      "target": "r-eye-height1",
+      "negative": "eyes/r-eye-height1-decr",
+      "positive": "eyes/r-eye-height1-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-height2-decr-incr",
+      "group": "eyes",
+      "target": "r-eye-height2",
+      "negative": "eyes/r-eye-height2-decr",
+      "positive": "eyes/r-eye-height2-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-height3-decr-incr",
+      "group": "eyes",
+      "target": "r-eye-height3",
+      "negative": "eyes/r-eye-height3-decr",
+      "positive": "eyes/r-eye-height3-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-push1-in-out",
+      "group": "eyes",
+      "target": "r-eye-push1",
+      "negative": "eyes/r-eye-push1-in",
+      "positive": "eyes/r-eye-push1-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-push2-in-out",
+      "group": "eyes",
+      "target": "r-eye-push2",
+      "negative": "eyes/r-eye-push2-in",
+      "positive": "eyes/r-eye-push2-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-trans-in-out",
+      "group": "eyes",
+      "target": "r-eye-trans",
+      "negative": "eyes/r-eye-trans-in",
+      "positive": "eyes/r-eye-trans-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-trans-down-up",
+      "group": "eyes",
+      "target": "r-eye-trans",
+      "negative": "eyes/r-eye-trans-down",
+      "positive": "eyes/r-eye-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-scale-decr-incr",
+      "group": "eyes",
+      "target": "r-eye-scale",
+      "negative": "eyes/r-eye-scale-decr",
+      "positive": "eyes/r-eye-scale-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-corner1-down-up",
+      "group": "eyes",
+      "target": "r-eye-corner1",
+      "negative": "eyes/r-eye-corner1-down",
+      "positive": "eyes/r-eye-corner1-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/r-eye-corner2-down-up",
+      "group": "eyes",
+      "target": "r-eye-corner2",
+      "negative": "eyes/r-eye-corner2-down",
+      "positive": "eyes/r-eye-corner2-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-bag-decr-incr",
+      "group": "eyes",
+      "target": "l-eye-bag",
+      "negative": "eyes/l-eye-bag-decr",
+      "positive": "eyes/l-eye-bag-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-bag-in-out",
+      "group": "eyes",
+      "target": "l-eye-bag",
+      "negative": "eyes/l-eye-bag-in",
+      "positive": "eyes/l-eye-bag-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-bag-height-decr-incr",
+      "group": "eyes",
+      "target": "l-eye-bag-height",
+      "negative": "eyes/l-eye-bag-height-decr",
+      "positive": "eyes/l-eye-bag-height-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-eyefold-angle-down-up",
+      "group": "eyes",
+      "target": "l-eye-eyefold-angle",
+      "negative": "eyes/l-eye-eyefold-angle-down",
+      "positive": "eyes/l-eye-eyefold-angle-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-epicanthus-in-out",
+      "group": "eyes",
+      "target": "l-eye-epicanthus",
+      "negative": "eyes/l-eye-epicanthus-in",
+      "positive": "eyes/l-eye-epicanthus-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-eyefold-concave-convex",
+      "group": "eyes",
+      "target": "l-eye-eyefold",
+      "negative": "eyes/l-eye-eyefold-concave",
+      "positive": "eyes/l-eye-eyefold-convex",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-eyefold-down-up",
+      "group": "eyes",
+      "target": "l-eye-eyefold",
+      "negative": "eyes/l-eye-eyefold-down",
+      "positive": "eyes/l-eye-eyefold-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-height1-decr-incr",
+      "group": "eyes",
+      "target": "l-eye-height1",
+      "negative": "eyes/l-eye-height1-decr",
+      "positive": "eyes/l-eye-height1-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-height2-decr-incr",
+      "group": "eyes",
+      "target": "l-eye-height2",
+      "negative": "eyes/l-eye-height2-decr",
+      "positive": "eyes/l-eye-height2-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-height3-decr-incr",
+      "group": "eyes",
+      "target": "l-eye-height3",
+      "negative": "eyes/l-eye-height3-decr",
+      "positive": "eyes/l-eye-height3-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-push1-in-out",
+      "group": "eyes",
+      "target": "l-eye-push1",
+      "negative": "eyes/l-eye-push1-in",
+      "positive": "eyes/l-eye-push1-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-push2-in-out",
+      "group": "eyes",
+      "target": "l-eye-push2",
+      "negative": "eyes/l-eye-push2-in",
+      "positive": "eyes/l-eye-push2-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-trans-in-out",
+      "group": "eyes",
+      "target": "l-eye-trans",
+      "negative": "eyes/l-eye-trans-in",
+      "positive": "eyes/l-eye-trans-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-trans-down-up",
+      "group": "eyes",
+      "target": "l-eye-trans",
+      "negative": "eyes/l-eye-trans-down",
+      "positive": "eyes/l-eye-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-scale-decr-incr",
+      "group": "eyes",
+      "target": "l-eye-scale",
+      "negative": "eyes/l-eye-scale-decr",
+      "positive": "eyes/l-eye-scale-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-corner1-down-up",
+      "group": "eyes",
+      "target": "l-eye-corner1",
+      "negative": "eyes/l-eye-corner1-down",
+      "positive": "eyes/l-eye-corner1-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "eyes/l-eye-corner2-down-up",
+      "group": "eyes",
+      "target": "l-eye-corner2",
+      "negative": "eyes/l-eye-corner2-down",
+      "positive": "eyes/l-eye-corner2-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-trans-down-up",
+      "group": "nose",
+      "target": "nose-trans",
+      "negative": "nose/nose-trans-down",
+      "positive": "nose/nose-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-trans-backward-forward",
+      "group": "nose",
+      "target": "nose-trans",
+      "negative": "nose/nose-trans-backward",
+      "positive": "nose/nose-trans-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-trans-in-out",
+      "group": "nose",
+      "target": "nose-trans",
+      "negative": "nose/nose-trans-in",
+      "positive": "nose/nose-trans-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-scale-vert-decr-incr",
+      "group": "nose",
+      "target": "nose-scale-vert",
+      "negative": "nose/nose-scale-vert-decr",
+      "positive": "nose/nose-scale-vert-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-scale-horiz-decr-incr",
+      "group": "nose",
+      "target": "nose-scale-horiz",
+      "negative": "nose/nose-scale-horiz-decr",
+      "positive": "nose/nose-scale-horiz-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-scale-depth-decr-incr",
+      "group": "nose",
+      "target": "nose-scale-depth",
+      "negative": "nose/nose-scale-depth-decr",
+      "positive": "nose/nose-scale-depth-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-nostrils-width-decr-incr",
+      "group": "nose",
+      "target": "nose-nostrils-width",
+      "negative": "nose/nose-nostrils-width-decr",
+      "positive": "nose/nose-nostrils-width-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-point-width-decr-incr",
+      "group": "nose",
+      "target": "nose-point-width",
+      "negative": "nose/nose-point-width-decr",
+      "positive": "nose/nose-point-width-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-base-down-up",
+      "group": "nose",
+      "target": "nose-base",
+      "negative": "nose/nose-base-down",
+      "positive": "nose/nose-base-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-width1-decr-incr",
+      "group": "nose",
+      "target": "nose-width1",
+      "negative": "nose/nose-width1-decr",
+      "positive": "nose/nose-width1-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-width2-decr-incr",
+      "group": "nose",
+      "target": "nose-width2",
+      "negative": "nose/nose-width2-decr",
+      "positive": "nose/nose-width2-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-width3-decr-incr",
+      "group": "nose",
+      "target": "nose-width3",
+      "negative": "nose/nose-width3-decr",
+      "positive": "nose/nose-width3-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-compression-compress-uncompress",
+      "group": "nose",
+      "target": "nose-compression",
+      "negative": "nose/nose-compression-compress",
+      "positive": "nose/nose-compression-uncompress",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-curve-concave-convex",
+      "group": "nose",
+      "target": "nose-curve",
+      "negative": "nose/nose-curve-concave",
+      "positive": "nose/nose-curve-convex",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-greek-decr-incr",
+      "group": "nose",
+      "target": "nose-greek",
+      "negative": "nose/nose-greek-decr",
+      "positive": "nose/nose-greek-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-hump-decr-incr",
+      "group": "nose",
+      "target": "nose-hump",
+      "negative": "nose/nose-hump-decr",
+      "positive": "nose/nose-hump-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-volume-decr-incr",
+      "group": "nose",
+      "target": "nose-volume",
+      "negative": "nose/nose-volume-decr",
+      "positive": "nose/nose-volume-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-nostrils-angle-down-up",
+      "group": "nose",
+      "target": "nose-nostrils-angle",
+      "negative": "nose/nose-nostrils-angle-down",
+      "positive": "nose/nose-nostrils-angle-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-point-down-up",
+      "group": "nose",
+      "target": "nose-point",
+      "negative": "nose/nose-point-down",
+      "positive": "nose/nose-point-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-septumangle-decr-incr",
+      "group": "nose",
+      "target": "nose-septumangle",
+      "negative": "nose/nose-septumangle-decr",
+      "positive": "nose/nose-septumangle-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "nose/nose-flaring-decr-incr",
+      "group": "nose",
+      "target": "nose-flaring",
+      "negative": "nose/nose-flaring-decr",
+      "positive": "nose/nose-flaring-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-scale-horiz-decr-incr",
+      "group": "mouth",
+      "target": "mouth-scale-horiz",
+      "negative": "mouth/mouth-scale-horiz-decr",
+      "positive": "mouth/mouth-scale-horiz-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-scale-vert-decr-incr",
+      "group": "mouth",
+      "target": "mouth-scale-vert",
+      "negative": "mouth/mouth-scale-vert-decr",
+      "positive": "mouth/mouth-scale-vert-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-scale-depth-decr-incr",
+      "group": "mouth",
+      "target": "mouth-scale-depth",
+      "negative": "mouth/mouth-scale-depth-decr",
+      "positive": "mouth/mouth-scale-depth-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-trans-in-out",
+      "group": "mouth",
+      "target": "mouth-trans",
+      "negative": "mouth/mouth-trans-in",
+      "positive": "mouth/mouth-trans-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-trans-down-up",
+      "group": "mouth",
+      "target": "mouth-trans",
+      "negative": "mouth/mouth-trans-down",
+      "positive": "mouth/mouth-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-trans-backward-forward",
+      "group": "mouth",
+      "target": "mouth-trans",
+      "negative": "mouth/mouth-trans-backward",
+      "positive": "mouth/mouth-trans-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-lowerlip-height-decr-incr",
+      "group": "mouth",
+      "target": "mouth-lowerlip-height",
+      "negative": "mouth/mouth-lowerlip-height-decr",
+      "positive": "mouth/mouth-lowerlip-height-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-lowerlip-width-decr-incr",
+      "group": "mouth",
+      "target": "mouth-lowerlip-width",
+      "negative": "mouth/mouth-lowerlip-width-decr",
+      "positive": "mouth/mouth-lowerlip-width-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-upperlip-height-decr-incr",
+      "group": "mouth",
+      "target": "mouth-upperlip-height",
+      "negative": "mouth/mouth-upperlip-height-decr",
+      "positive": "mouth/mouth-upperlip-height-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-upperlip-width-decr-incr",
+      "group": "mouth",
+      "target": "mouth-upperlip-width",
+      "negative": "mouth/mouth-upperlip-width-decr",
+      "positive": "mouth/mouth-upperlip-width-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-cupidsbow-width-decr-incr",
+      "group": "mouth",
+      "target": "mouth-cupidsbow-width",
+      "negative": "mouth/mouth-cupidsbow-width-decr",
+      "positive": "mouth/mouth-cupidsbow-width-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-dimples-in-out",
+      "group": "mouth",
+      "target": "mouth-dimples",
+      "negative": "mouth/mouth-dimples-in",
+      "positive": "mouth/mouth-dimples-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-laugh-lines-in-out",
+      "group": "mouth",
+      "target": "mouth-laugh-lines",
+      "negative": "mouth/mouth-laugh-lines-in",
+      "positive": "mouth/mouth-laugh-lines-out",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-lowerlip-ext-down-up",
+      "group": "mouth",
+      "target": "mouth-lowerlip-ext",
+      "negative": "mouth/mouth-lowerlip-ext-down",
+      "positive": "mouth/mouth-lowerlip-ext-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-angles-down-up",
+      "group": "mouth",
+      "target": "mouth-angles",
+      "negative": "mouth/mouth-angles-down",
+      "positive": "mouth/mouth-angles-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-lowerlip-middle-down-up",
+      "group": "mouth",
+      "target": "mouth-lowerlip-middle",
+      "negative": "mouth/mouth-lowerlip-middle-down",
+      "positive": "mouth/mouth-lowerlip-middle-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-lowerlip-volume-decr-incr",
+      "group": "mouth",
+      "target": "mouth-lowerlip-volume",
+      "negative": "mouth/mouth-lowerlip-volume-decr",
+      "positive": "mouth/mouth-lowerlip-volume-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-philtrum-volume-decr-incr",
+      "group": "mouth",
+      "target": "mouth-philtrum-volume",
+      "negative": "mouth/mouth-philtrum-volume-decr",
+      "positive": "mouth/mouth-philtrum-volume-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-upperlip-volume-decr-incr",
+      "group": "mouth",
+      "target": "mouth-upperlip-volume",
+      "negative": "mouth/mouth-upperlip-volume-decr",
+      "positive": "mouth/mouth-upperlip-volume-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-upperlip-ext-down-up",
+      "group": "mouth",
+      "target": "mouth-upperlip-ext",
+      "negative": "mouth/mouth-upperlip-ext-down",
+      "positive": "mouth/mouth-upperlip-ext-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-upperlip-middle-down-up",
+      "group": "mouth",
+      "target": "mouth-upperlip-middle",
+      "negative": "mouth/mouth-upperlip-middle-down",
+      "positive": "mouth/mouth-upperlip-middle-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "mouth/mouth-cupidsbow-decr-incr",
+      "group": "mouth",
+      "target": "mouth-cupidsbow",
+      "negative": "mouth/mouth-cupidsbow-decr",
+      "positive": "mouth/mouth-cupidsbow-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-trans-backward-forward",
+      "group": "ears",
+      "target": "r-ear-trans",
+      "negative": "ears/r-ear-trans-backward",
+      "positive": "ears/r-ear-trans-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-scale-decr-incr",
+      "group": "ears",
+      "target": "r-ear-scale",
+      "negative": "ears/r-ear-scale-decr",
+      "positive": "ears/r-ear-scale-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-trans-down-up",
+      "group": "ears",
+      "target": "r-ear-trans",
+      "negative": "ears/r-ear-trans-down",
+      "positive": "ears/r-ear-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-scale-vert-decr-incr",
+      "group": "ears",
+      "target": "r-ear-scale-vert",
+      "negative": "ears/r-ear-scale-vert-decr",
+      "positive": "ears/r-ear-scale-vert-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-lobe-decr-incr",
+      "group": "ears",
+      "target": "r-ear-lobe",
+      "negative": "ears/r-ear-lobe-decr",
+      "positive": "ears/r-ear-lobe-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-shape-pointed-triangle",
+      "group": "ears",
+      "target": "r-ear-shape",
+      "negative": "ears/r-ear-shape-pointed",
+      "positive": "ears/r-ear-shape-triangle",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-rot-backward-forward",
+      "group": "ears",
+      "target": "r-ear-rot",
+      "negative": "ears/r-ear-rot-backward",
+      "positive": "ears/r-ear-rot-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-shape-square-round",
+      "group": "ears",
+      "target": "r-ear-shape",
+      "negative": "ears/r-ear-shape-square",
+      "positive": "ears/r-ear-shape-round",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-scale-depth-decr-incr",
+      "group": "ears",
+      "target": "r-ear-scale-depth",
+      "negative": "ears/r-ear-scale-depth-decr",
+      "positive": "ears/r-ear-scale-depth-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-wing-decr-incr",
+      "group": "ears",
+      "target": "r-ear-wing",
+      "negative": "ears/r-ear-wing-decr",
+      "positive": "ears/r-ear-wing-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/r-ear-flap-decr-incr",
+      "group": "ears",
+      "target": "r-ear-flap",
+      "negative": "ears/r-ear-flap-decr",
+      "positive": "ears/r-ear-flap-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-trans-backward-forward",
+      "group": "ears",
+      "target": "l-ear-trans",
+      "negative": "ears/l-ear-trans-backward",
+      "positive": "ears/l-ear-trans-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-scale-decr-incr",
+      "group": "ears",
+      "target": "l-ear-scale",
+      "negative": "ears/l-ear-scale-decr",
+      "positive": "ears/l-ear-scale-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-trans-down-up",
+      "group": "ears",
+      "target": "l-ear-trans",
+      "negative": "ears/l-ear-trans-down",
+      "positive": "ears/l-ear-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-scale-vert-decr-incr",
+      "group": "ears",
+      "target": "l-ear-scale-vert",
+      "negative": "ears/l-ear-scale-vert-decr",
+      "positive": "ears/l-ear-scale-vert-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-lobe-decr-incr",
+      "group": "ears",
+      "target": "l-ear-lobe",
+      "negative": "ears/l-ear-lobe-decr",
+      "positive": "ears/l-ear-lobe-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-shape-pointed-triangle",
+      "group": "ears",
+      "target": "l-ear-shape",
+      "negative": "ears/l-ear-shape-pointed",
+      "positive": "ears/l-ear-shape-triangle",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-rot-backward-forward",
+      "group": "ears",
+      "target": "l-ear-rot",
+      "negative": "ears/l-ear-rot-backward",
+      "positive": "ears/l-ear-rot-forward",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-shape-square-round",
+      "group": "ears",
+      "target": "l-ear-shape",
+      "negative": "ears/l-ear-shape-square",
+      "positive": "ears/l-ear-shape-round",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-scale-depth-decr-incr",
+      "group": "ears",
+      "target": "l-ear-scale-depth",
+      "negative": "ears/l-ear-scale-depth-decr",
+      "positive": "ears/l-ear-scale-depth-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-wing-decr-incr",
+      "group": "ears",
+      "target": "l-ear-wing",
+      "negative": "ears/l-ear-wing-decr",
+      "positive": "ears/l-ear-wing-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "ears/l-ear-flap-decr-incr",
+      "group": "ears",
+      "target": "l-ear-flap",
+      "negative": "ears/l-ear-flap-decr",
+      "positive": "ears/l-ear-flap-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "chin/chin-jaw-drop-decr-incr",
+      "group": "chin",
+      "target": "chin-jaw-drop",
+      "negative": "chin/chin-jaw-drop-decr",
+      "positive": "chin/chin-jaw-drop-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "chin/chin-cleft-decr-incr",
+      "group": "chin",
+      "target": "chin-cleft",
+      "negative": "chin/chin-cleft-decr",
+      "positive": "chin/chin-cleft-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "chin/chin-prominent-decr-incr",
+      "group": "chin",
+      "target": "chin-prominent",
+      "negative": "chin/chin-prominent-decr",
+      "positive": "chin/chin-prominent-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "chin/chin-width-decr-incr",
+      "group": "chin",
+      "target": "chin-width",
+      "negative": "chin/chin-width-decr",
+      "positive": "chin/chin-width-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "chin/chin-height-decr-incr",
+      "group": "chin",
+      "target": "chin-height",
+      "negative": "chin/chin-height-decr",
+      "positive": "chin/chin-height-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "chin/chin-bones-decr-incr",
+      "group": "chin",
+      "target": "chin-bones",
+      "negative": "chin/chin-bones-decr",
+      "positive": "chin/chin-bones-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "chin/chin-prognathism-decr-incr",
+      "group": "chin",
+      "target": "chin-prognathism",
+      "negative": "chin/chin-prognathism-decr",
+      "positive": "chin/chin-prognathism-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "cheek/l-cheek-volume-decr-incr",
+      "group": "cheek",
+      "target": "l-cheek-volume",
+      "negative": "cheek/l-cheek-volume-decr",
+      "positive": "cheek/l-cheek-volume-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "cheek/l-cheek-bones-decr-incr",
+      "group": "cheek",
+      "target": "l-cheek-bones",
+      "negative": "cheek/l-cheek-bones-decr",
+      "positive": "cheek/l-cheek-bones-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "cheek/l-cheek-inner-decr-incr",
+      "group": "cheek",
+      "target": "l-cheek-inner",
+      "negative": "cheek/l-cheek-inner-decr",
+      "positive": "cheek/l-cheek-inner-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "cheek/l-cheek-trans-down-up",
+      "group": "cheek",
+      "target": "l-cheek-trans",
+      "negative": "cheek/l-cheek-trans-down",
+      "positive": "cheek/l-cheek-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "cheek/r-cheek-volume-decr-incr",
+      "group": "cheek",
+      "target": "r-cheek-volume",
+      "negative": "cheek/r-cheek-volume-decr",
+      "positive": "cheek/r-cheek-volume-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "cheek/r-cheek-bones-decr-incr",
+      "group": "cheek",
+      "target": "r-cheek-bones",
+      "negative": "cheek/r-cheek-bones-decr",
+      "positive": "cheek/r-cheek-bones-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "cheek/r-cheek-inner-decr-incr",
+      "group": "cheek",
+      "target": "r-cheek-inner",
+      "negative": "cheek/r-cheek-inner-decr",
+      "positive": "cheek/r-cheek-inner-incr",
+      "nativeMin": -1,
+      "nativeMax": 1
+    },
+    {
+      "id": "cheek/r-cheek-trans-down-up",
+      "group": "cheek",
+      "target": "r-cheek-trans",
+      "negative": "cheek/r-cheek-trans-down",
+      "positive": "cheek/r-cheek-trans-up",
+      "nativeMin": -1,
+      "nativeMax": 1
+    }
+  ],
+  "expressionUnits": [
+    "expression/units/caucasian/eye-left-closure",
+    "expression/units/caucasian/eye-left-opened-up",
+    "expression/units/caucasian/eye-left-slit",
+    "expression/units/caucasian/eye-right-closure",
+    "expression/units/caucasian/eye-right-opened-up",
+    "expression/units/caucasian/eye-right-slit",
+    "expression/units/caucasian/eyebrows-left-down",
+    "expression/units/caucasian/eyebrows-left-extern-up",
+    "expression/units/caucasian/eyebrows-left-inner-up",
+    "expression/units/caucasian/eyebrows-left-up",
+    "expression/units/caucasian/eyebrows-right-down",
+    "expression/units/caucasian/eyebrows-right-extern-up",
+    "expression/units/caucasian/eyebrows-right-inner-up",
+    "expression/units/caucasian/eyebrows-right-up",
+    "expression/units/caucasian/mouth-compression",
+    "expression/units/caucasian/mouth-corner-puller",
+    "expression/units/caucasian/mouth-depression",
+    "expression/units/caucasian/mouth-depression-retraction",
+    "expression/units/caucasian/mouth-elevation",
+    "expression/units/caucasian/mouth-eversion",
+    "expression/units/caucasian/mouth-open",
+    "expression/units/caucasian/mouth-parling",
+    "expression/units/caucasian/mouth-part-later",
+    "expression/units/caucasian/mouth-protusion",
+    "expression/units/caucasian/mouth-pursing",
+    "expression/units/caucasian/mouth-retraction",
+    "expression/units/caucasian/mouth-upward-retraction",
+    "expression/units/caucasian/neck-platysma",
+    "expression/units/caucasian/nose-compression",
+    "expression/units/caucasian/nose-depression",
+    "expression/units/caucasian/nose-left-dilatation",
+    "expression/units/caucasian/nose-left-elevation",
+    "expression/units/caucasian/nose-right-dilatation",
+    "expression/units/caucasian/nose-right-elevation"
+  ],
+  "nativeRangePolicy": "MakeHuman UniversalModifier: signed [-1,1] when min target exists; otherwise [0,1]; stress may extrapolate"
+}

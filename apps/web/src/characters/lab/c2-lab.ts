@@ -16,6 +16,8 @@ import { anatomicalPoseById, resolveAnatomicalPose } from "../geometry/Anatomica
 import { createCharacterLabControls } from "./CharacterLabControls";
 import { BoneInspector } from "./BoneInspector";
 import { frameSelectedAnatomicalBone } from "./LabCameraFocus";
+import {ALL_FACIAL_CONTROLS as FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,loadFacialAtlas,
+  type FacialWeights,type FacialDiagnostics} from "../geometry/MakeHumanFacialTargets";
 
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
 const status=document.querySelector<HTMLElement>("#status");
@@ -37,6 +39,88 @@ let frame=0;
 let surface="template";
 let currentPose="neutral";
 let currentView="front";
+let facialController:MakeHumanFacialController|undefined;
+let facialDiagnostics:FacialDiagnostics|undefined;
+const facialPanel=document.querySelector<HTMLElement>("#c35-facial-controls");
+const facialPreset=document.querySelector<HTMLSelectElement>("#c35-facial-preset");
+const facialStatus=document.querySelector<HTMLElement>("#c35-facial-diagnostics");
+const facialInputs=new Map<string,HTMLInputElement>();
+let facialWeights:Record<string,number>={};
+const facialActive=()=>Object.values(facialWeights).some(v=>v!==0);
+function buildFacialControls():void{
+  if(!facialPanel)return;
+  let group="";
+  for(const control of FACIAL_CONTROLS){
+    if(group!==control.group){
+      group=control.group;
+      const heading=document.createElement("h3");
+      heading.textContent=group;heading.className="facial-group-heading";
+      facialPanel.append(heading);
+    }
+    const label=document.createElement("label");label.className="facial-slider";
+    const title=document.createElement("span");title.textContent=control.label;
+    const readout=document.createElement("output");readout.textContent="0.00";
+    const slider=document.createElement("input");
+    slider.type="range";slider.min=String(control.min);slider.max=String(control.max);
+    slider.step="0.05";slider.value="0";
+    slider.dataset.facialControl=control.id;
+    slider.setAttribute("aria-label",control.label);
+    slider.title=control.description??"Native MakeHuman ranges: [-1,1] or [0,1]; 1.25 is deliberate unsupported extrapolation";
+    slider.addEventListener("input",()=>{
+      const value=Number(slider.value);
+      if(value===0)delete facialWeights[control.id];
+      else facialWeights[control.id]=value;
+      readout.value=value.toFixed(2);
+      if(facialPreset)facialPreset.value="custom";
+      updateFacialPreview();
+    });
+    label.append(title,readout,slider);facialPanel.append(label);
+    facialInputs.set(control.id,slider);
+  }
+}
+function syncFacialInputs():void{
+  for(const control of FACIAL_CONTROLS){
+    const value=facialWeights[control.id]??0;
+    const input=facialInputs.get(control.id);
+    if(!input)continue;
+    input.value=String(value);
+    const output=input.parentElement?.querySelector("output");
+    if(output)output.value=value.toFixed(2);
+  }
+}
+function updateFacialPreview():void{
+  if(!facialController)return;
+  try{
+    facialDiagnostics=facialController.apply(facialWeights);
+    if(facialStatus)facialStatus.textContent=
+      "Source-affected vertices: "+facialDiagnostics.affectedVertices+
+      " · triangles: "+facialDiagnostics.triangleCount+
+      " · inverted: "+facialDiagnostics.invertedTriangles+
+      " · collapsed: "+facialDiagnostics.collapsedTriangles+
+      " · stretched: "+facialDiagnostics.stretchedTriangles+
+      " · UV seam mismatches: "+facialDiagnostics.seamMismatches+
+      " · nonfinite: "+facialDiagnostics.finiteFailures+
+      " · max edge stretch: "+facialDiagnostics.maxEdgeStretch.toFixed(2)+"×"+
+      " · CPU apply: "+facialDiagnostics.elapsedMs.toFixed(1)+"ms";
+    document.documentElement.dataset.c35FacialReady="true";
+    document.documentElement.dataset.c35Inversions=String(facialDiagnostics.invertedTriangles);
+  }catch(e){
+    document.documentElement.dataset.c35FacialReady="false";
+    if(facialStatus)facialStatus.textContent="Facial deformation error: "+String(e);
+  }
+}
+buildFacialControls();
+facialPreset?.addEventListener("change",()=>{
+  const preset=FACIAL_PRESETS[facialPreset.value];
+  if(!preset)return;
+  facialWeights={...preset};syncFacialInputs();updateFacialPreview();
+});
+document.querySelector<HTMLButtonElement>("#c35-reset-facial")?.addEventListener(
+  "click",()=>{
+    facialWeights={};syncFacialInputs();
+    if(facialPreset)facialPreset.value="neutral";
+    updateFacialPreview();
+  });
 const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = {
   neutral:{}, shoulders:{shoulders:1.10}, chest:{chest:1.10},
   waist:{waist:0.90}, hips:{hips:1.10}, arms:{arms:1.06},
@@ -351,6 +435,23 @@ try{
       }
     }
     if(stopping||ticket!==request){preview.dispose();return;}
+    facialController?.dispose();facialController=undefined;
+    facialDiagnostics=undefined;
+    if(name==="template"&&selectedFamily()==="human"){
+      try{
+        const atlas=await loadFacialAtlas();
+        if(stopping||ticket!==request){preview.dispose();return;}
+        // Original source vertex numbers and already-shaped C3.4 neutral rest.
+        facialController=new MakeHumanFacialController(preview as AnatomicalHuman,atlas);
+        facialDiagnostics=facialController.apply(facialWeights);
+        if(facialStatus)facialStatus.textContent="MakeHuman CC0 facial atlas ready";
+      }catch(e){
+        if(facialStatus)facialStatus.textContent="C3.5 facial source unavailable: "+String(e);
+      }
+    }
+    document.documentElement.dataset.c35FacialReady=String(!!facialController);
+    for(const input of facialInputs.values())input.disabled=!facialController;
+    updateFacialPreview();
     overlay?.removeFromParent();overlay?.geometry.dispose();
     if(overlay?.material instanceof THREE.Material)overlay.material.dispose();
     overlay=undefined;
@@ -464,15 +565,18 @@ try{
             match![2]==="left"?.22:-.22,.07,.38));
         }
       }
-      if(selectedView==="head-front"||selectedView==="head-side"){
+      if(selectedView==="head-front"||selectedView==="head-side"||selectedView==="head-three-quarter"){
         const headJoint=active!.spike.graph.joints.find(j=>j.role==="head");
         const head=headJoint?active!.spike.bones.get(headJoint.id):undefined;
         if(head){
           active!.spike.character.root.updateWorldMatrix(true,true);
           target=head.getWorldPosition(new THREE.Vector3());
-          target.y-=.07;
+          // Explicit close-up views frame the eyes, brows, mouth and jaw together.
+           target.y+=.015;
           camera.position.copy(target).add(selectedView==="head-front"?
-            new THREE.Vector3(0,.04,.38):new THREE.Vector3(.38,.04,0));
+            new THREE.Vector3(0,.03,.45):
+             selectedView==="head-three-quarter"?new THREE.Vector3(.32,.03,.32):
+             new THREE.Vector3(.45,.03,0));
         }
       }
       if(selectedView==="thumb-web-left"||selectedView==="thumb-web-right"){
