@@ -126,9 +126,9 @@ export function validateBodyAtlas(atlas:BodyAtlas,sourceCount:number):ReadonlyMa
   }
   return result;
 }
-/** Piecewise macro interpolation with an explicit neutral midpoint.
- * Actual MakeHuman macro modifiers additionally involve dependency recalculation;
- * comparison against the upstream executable is required for parity acceptance. */
+/** MakeHuman's pinned age/sex/ancestry target interpolation. Macro targets
+ * are displacements from base.obj; they must not be post-normalized against
+ * a young-adult target. Full executable dependency parity remains a gate. */
 function axes(value:number,names:readonly string[],anchors:readonly number[]):
   readonly (readonly [string,number])[]{
   if(value<=anchors[0]!)return [[names[0]!,1]];
@@ -181,19 +181,18 @@ export function resolveBodyMacroFactors(weights:BodyWeights):ReadonlyMap<string,
   const add=(id:string,value:number)=>{
     if(value!==0)result.set(id,(result.get(id)??0)+value);
   };
-  const neutral=["sex","age","african","asian","caucasian","muscle","weight","height","proportions","breastSize","breastFirmness"]
-    .every(k=>w(k)===BODY_MACRO_DEFAULTS["macro/"+k]);
-  if(neutral)return result;
+  // Keep the original unmodified C2 base mesh until the user opts into C3
+  // macros. Once active, evaluate the native MakeHuman factors on base.obj.
+  // An explicit 0.5 age value still represents the native young-adult target.
+  if(!Object.keys(weights).some(id=>id.startsWith("macro/")))return result;
   for(const [race,raceW] of ancestryAxis(w("african"),w("asian"),w("caucasian")))
     for(const [sex,sexW] of sexAxis(w("sex")))
       for(const [age,ageW] of ageAxis(w("age"))){
         const factor=raceW*sexW*ageW;
         add("macrodetails/"+race+"-"+sex+"-"+age,factor);
       }
-  // Rest-corrected macro ancestry/age/gender: same shape baseline on first load.
-  for(const [race,raceW] of ancestryAxis(1/3,1/3,1/3))
-    for(const [sex,sexW] of sexAxis(.5))
-      add("macrodetails/"+race+"-"+sex+"-young",-raceW*sexW);
+  // Original source targets are relative to the original base.obj.
+  // Subtracting adult "young" at infant ages distorts small joint surfaces.
   const distributions=(sex:string,age:string,factor:number)=>{
     for(const [muscle,muscleW] of rangeAxis(w("muscle"),"muscle"))
       for(const [weight,weightW] of rangeAxis(w("weight"),"weight")){
@@ -230,13 +229,7 @@ export function resolveBodyMacroFactors(weights:BodyWeights):ReadonlyMap<string,
             }
     }
   }
-  // Subtract canonical macro middle rather than stacking a hidden default shape.
-  const baselines=(sex:string,age:string,factor:number)=>{
-    const m="averagemuscle-averageweight";
-    add("macrodetails/universal-"+sex+"-"+age+"-"+m,-factor);
-
-  };
-  for(const [sex,sexW] of sexAxis(.5))baselines(sex,"young",sexW);
+  // Native universal targets are also additive displacements from base.obj.
   return new Map([...result].filter(([,v])=>Math.abs(v)>1e-12).sort(([a],[b])=>a.localeCompare(b)));
 }
 export type BodyDiagnostics=Readonly<{affectedVertices:number;seamMismatches:number;
