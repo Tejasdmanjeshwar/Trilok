@@ -20,7 +20,7 @@ export function createStudioGeneratorPanel(
   const panel=document.createElement("div");
   panel.id="studio-generator-panel";
   panel.className="studio-generator-panel";
-  panel.hidden=true;
+  panel.hidden=false;
   panel.innerHTML=String.raw`
     <fieldset class="studio-fieldset">
       <legend>Character direction</legend>
