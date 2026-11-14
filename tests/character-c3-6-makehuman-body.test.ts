@@ -1,9 +1,11 @@
 import {describe,expect,it} from "vitest";
+import * as THREE from "three";
 import {readFileSync} from "node:fs";
 import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from "../apps/web/src/characters/geometry/AnatomicalTemplate";
 import {BODY_CONTROLS,BODY_PRESETS,MakeHumanBodyController,resolveBodyMacroFactors,
   validateBodyWeights,validateBodyAtlas,type BodyAtlas} from "../apps/web/src/characters/geometry/MakeHumanBodyTargets";
 import {NATIVE_MAKEHUMAN_BODY_MODIFIERS} from "../apps/web/src/characters/geometry/NativeMakeHumanBodyControls";
+import {getHumanMorphologyAlignment} from "../apps/web/src/characters/geometry/HumanMorphology";
 import type {SourceRig,SourceWeights} from "../apps/web/src/characters/geometry/OfficialHumanRig";
 const asset=(f:string)=>readFileSync("apps/web/public/anatomy/"+f,"utf8");
 const manifest=JSON.parse(readFileSync("assets/makehuman-body-v1.json","utf8"));
@@ -76,6 +78,38 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
       expect(Array.from(geometry.getAttribute("skinWeight").array)).toEqual(originalSkin);
       ctrl.dispose();
       expect(()=>ctrl.apply({})).toThrow(/disposed/);
+    }finally{human.dispose();}
+  },120_000);
+  it("refits C1 rest skeleton, inverse binds and semantic IK from source body displacement",()=>{
+    const atlas=JSON.parse(asset("makehuman-body-v1.json")) as BodyAtlas;
+    const human=makeHuman();
+    try{
+      const root=human.spike.character.root;
+      root.updateMatrixWorld(true);
+      const original=human.spike.skeleton.bones.map(b=>
+        b.getWorldPosition(new THREE.Vector3()));
+      const ctrl=new MakeHumanBodyController(human,atlas);
+      const diagnostic=ctrl.apply({"native/measure/measure-upperarm-length-decr-incr":1});
+      expect(diagnostic.affectedVertices).toBeGreaterThan(0);
+      const alignment=getHumanMorphologyAlignment(human);
+      expect(alignment).toBeDefined();
+      expect(alignment!.chains.get("arm_left")!.upperMeters).toBeGreaterThan(.08);
+      const changed=human.spike.skeleton.bones.some((bone,i)=>
+        bone.getWorldPosition(new THREE.Vector3()).distanceTo(original[i]!)>1e-5);
+      expect(changed).toBe(true);
+      for(let i=0;i<human.spike.skeleton.bones.length;i++){
+        const bone=human.spike.skeleton.bones[i]!;
+        const m=bone.matrixWorld.clone().multiply(human.spike.skeleton.boneInverses[i]!);
+        const e=m.elements;
+        expect(e.every((v,j)=>Math.abs(v-(j%5===0?1:0))<1e-5)).toBe(true);
+      }
+      ctrl.apply({});
+      root.updateMatrixWorld(true);
+      human.spike.skeleton.bones.forEach((bone,i)=>{
+        expect(bone.getWorldPosition(original[i]!.clone()).distanceTo(original[i]!))
+          .toBeLessThan(1e-5);
+      });
+      ctrl.dispose();
     }finally{human.dispose();}
   },120_000);
   it("uses insertion-order-independent macro factors and preserves neutral geometry",()=>{
