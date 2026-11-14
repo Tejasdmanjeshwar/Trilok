@@ -1,3 +1,5 @@
+import {generateStudioCharacter,validateGeneratorOptions,
+  STUDIO_GENERATOR_VERSION,type GeneratorOptions} from "./StudioGenerator";
 import {DEFAULT_STUDIO_APPEARANCE,validateStudioAppearance,withSkinTone,withSkinRoughness,withFinishPreset,type StudioAppearanceV1,type SkinToneId,type FinishPresetId} from "./StudioAppearance";
 import { DEFAULT_HUMAN_HEAD_MORPHOLOGY } from "@trilok/character-core";
 import {
@@ -27,7 +29,8 @@ export type StudioEditCommand =
   | Readonly<{type:"appearance-tone";tone:SkinToneId}>
   | Readonly<{type:"appearance-roughness";roughness:number}>
   | Readonly<{type:"appearance-finish";preset:FinishPresetId}>
-  | Readonly<{type:"reset-appearance"}>;
+  | Readonly<{type:"reset-appearance"}>
+  | Readonly<{type:"generate";options:GeneratorOptions}>;
 
 const exactKeys=(value:unknown,keys:readonly string[]):boolean=>
   !!value&&typeof value==="object"&&!Array.isArray(value)&&
@@ -38,7 +41,7 @@ export function validateStudioRecipe(recipe:StudioRecipeV1):void {
     "generatorVersion","seed","morphology","appearance","selectedPresets"])||
     recipe.schemaVersion!==1||recipe.archetypeId!=="human"||
     recipe.topologyFamilyId!=="humanoid_biped_v1"||
-    recipe.generatorVersion!=="studio-human-v1"||
+    recipe.generatorVersion!==STUDIO_GENERATOR_VERSION||
     !Number.isSafeInteger(recipe.seed)||recipe.seed<1||recipe.seed>0xffffffff||
     !exactKeys(recipe.selectedPresets,["body","face"])||
     !exactKeys(recipe.morphology,["body","face","shape"])||
@@ -68,7 +71,7 @@ function freezeRecipe(recipe:StudioRecipeV1):StudioRecipeV1 {
 export function initialStudioRecipe():StudioRecipeV1 {
   return freezeRecipe({
     schemaVersion:1,archetypeId:"human",topologyFamilyId:"humanoid_biped_v1",
-    generatorVersion:"studio-human-v1",seed:1,
+    generatorVersion:STUDIO_GENERATOR_VERSION,seed:1,
     morphology:defaultStudioMorphState(),
     appearance:DEFAULT_STUDIO_APPEARANCE,
     selectedPresets:{body:"neutral",face:"neutral"},
@@ -79,6 +82,14 @@ export function reduceStudioRecipe(recipe:StudioRecipeV1,
   command:StudioEditCommand):StudioRecipeV1 {
   validateStudioRecipe(recipe);
   if(command.type==="reset-all")return initialStudioRecipe();
+  if(command.type==="generate"){
+    validateGeneratorOptions(command.options);
+    const result=generateStudioCharacter(recipe,command.options);
+    return freezeRecipe({
+      ...recipe,...result,
+      generatorVersion:STUDIO_GENERATOR_VERSION,
+    });
+  }
   if(command.type==="reset-appearance")return freezeRecipe({...recipe,appearance:DEFAULT_STUDIO_APPEARANCE});
   if(command.type==="appearance-tone")return freezeRecipe({...recipe,appearance:withSkinTone(recipe.appearance,command.tone)});
   if(command.type==="appearance-roughness")return freezeRecipe({...recipe,appearance:withSkinRoughness(recipe.appearance,command.roughness)});

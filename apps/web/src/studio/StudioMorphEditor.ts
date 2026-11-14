@@ -4,7 +4,10 @@ import {
   type StudioControl,type StudioSection,
 } from "./StudioMorphCatalog";
 import {StudioHistory,type StudioHistoryStatus} from "./StudioHistory";
-import {type StudioEditCommand,type StudioRecipeV1} from "./StudioRecipe";
+import {compareGeneratedCharacter,type GeneratorOptions,
+  type GeneratorDifference} from "./StudioGenerator";
+import {reduceStudioRecipe,studioRecipeFingerprint,
+  type StudioEditCommand,type StudioRecipeV1} from "./StudioRecipe";
 
 type Preview=(recipe:StudioRecipeV1)=>Promise<boolean>;
 export interface StudioMorphEditor {
@@ -12,6 +15,7 @@ export interface StudioMorphEditor {
   undo():void;
   redo():void;
   resetAll():void;
+  generate(options:GeneratorOptions):Promise<GeneratorDifference|undefined>;
   status():StudioHistoryStatus;
   dispose():void;
 }
@@ -239,6 +243,32 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
     undo(){navigate("undo");},
     redo(){navigate("redo");},
     resetAll(){history.endGesture();dispatch({type:"reset-all"},0);},
+    async generate(options){
+      if(disposed)return undefined;
+      history.endGesture();
+      if(timeout!==undefined){clearTimeout(timeout);timeout=undefined;}
+      const previous=history.current;
+      const command:StudioEditCommand={type:"generate",options};
+      let next:StudioRecipeV1;
+      try{
+        // Compute first: invalid options must not affect history or GPU state.
+        next=reduceStudioRecipe(previous,command);
+        if(!history.apply(command))return {body:0,face:0,appearance:0,examples:[]};
+      }catch{
+        message.textContent="Unable to create that variation. Check your choices.";
+        return undefined;
+      }
+      const difference=compareGeneratedCharacter(previous,next);
+      syncValues();notify();
+      const {recipe,revision}=history.status;
+      message.textContent="Updating character…";
+      await commit(recipe,revision);
+      // A concurrent user edit supersedes the preview and its result.
+      if(disposed||history.status.revision!==revision)return undefined;
+      if(studioRecipeFingerprint(history.current)!==
+        studioRecipeFingerprint(recipe))return undefined;
+      return difference;
+    },
     status:()=>history.status,
     dispose(){
       disposed=true;
