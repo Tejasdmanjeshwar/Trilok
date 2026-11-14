@@ -88,7 +88,8 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
             for(let j=0;j<target.rows.length;j+=4){
               const offset=target.rows[j]!*3;
               for(let axis=0;axis<3;axis++)
-                expected[offset+axis]+=target.rows[j+axis+1]!*scale*weight/6;
+                expected[offset+axis]=(expected[offset+axis]??0)+
+                  target.rows[j+axis+1]!*scale*weight/6;
             }
           }
         // Verify there is no -young source factor at an infant age; the
