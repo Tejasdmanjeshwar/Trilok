@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type {AnatomicalGraphV1} from "@trilok/character-core";
-import type {JointTarget} from "../characters/geometry/AnatomicalFK";
+import type {JointTarget,AnatomicalFK} from "../characters/geometry/AnatomicalFK";
 import type {StudioHumanModel} from "./StudioHumanModel";
 
 export type SwordHand = "none" | "left" | "right";
@@ -40,8 +40,7 @@ export interface GripSpreads {
  * abduction frames rather than assuming mirrored Euler signs. */
 export function calibrateGripSpreads(graph:AnatomicalGraphV1,
   bones:ReadonlyMap<string,THREE.Bone>,
-  frames:ReadonlyMap<string,{readonly freedoms:ReadonlyMap<string,
-    {readonly axis:THREE.Vector3}>}>,hand:"left"|"right"):GripSpreads {
+  frames:AnatomicalFK["frames"],hand:"left"|"right"):GripSpreads {
   const at=(role:string):THREE.Bone=>{
     const joint=graph.joints.find(j=>j.role===role&&
       j.id.includes("arm["+hand+",0]"));
