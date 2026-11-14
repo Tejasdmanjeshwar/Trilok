@@ -101,13 +101,15 @@ while(cursor<allTargets.length){
     if(group.length&&size+estimated>12*1024*1024)break;
     group.push(target);size+=estimated;cursor++;
   }
-  let compressed=gzipSync(Buffer.from(JSON.stringify({targets:group})),{level:6});
+  const raw=Buffer.from(JSON.stringify({targets:group}));
+  let compressed=gzipSync(raw,{level:6});
   if(compressed.length>MAX_COMPRESSED_BYTES)
     throw new Error("Original CC0 body source chunk exceeds deployable limit");
   const name="makehuman-body-v1-"+String(chunks.length).padStart(3,"0")+".json.gz";
   await mkdir(publicDir,{recursive:true});
   await writeFile(resolve(publicDir,name),compressed);
-  chunks.push({name,targetCount:group.length,sha256:sha(compressed),compressedBytes:compressed.length});
+  chunks.push({name,targetCount:group.length,sha256:sha(compressed),
+    compressedBytes:compressed.length,jsonSha256:sha(raw),jsonBytes:raw.length});
 }
 const index={schemaVersion:1,revision,license:"CC0-1.0",
   sourceManifestHash:fingerprint,targetCount:manifest.targets.length,chunks};
