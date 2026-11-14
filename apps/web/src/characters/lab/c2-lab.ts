@@ -19,6 +19,9 @@ import { frameSelectedAnatomicalBone } from "./LabCameraFocus";
 import {ALL_FACIAL_CONTROLS as FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,loadFacialAtlas,
   type FacialWeights,type FacialDiagnostics} from "../geometry/MakeHumanFacialTargets";
 
+import {BODY_CONTROLS,BODY_PRESETS,MakeHumanBodyController,loadBodyAtlas,
+  type BodyWeights,type BodyDiagnostics} from "../geometry/MakeHumanBodyTargets";
+
 const viewport=document.querySelector<HTMLDivElement>("#viewport");
 const status=document.querySelector<HTMLElement>("#status");
 const error=document.querySelector<HTMLElement>("#error");
@@ -120,6 +123,80 @@ document.querySelector<HTMLButtonElement>("#c35-reset-facial")?.addEventListener
     facialWeights={};syncFacialInputs();
     if(facialPreset)facialPreset.value="neutral";
     updateFacialPreview();
+  });
+let bodyDiagnostics:BodyDiagnostics|undefined;
+const bodyPanel=document.querySelector<HTMLElement>("#c36-body-controls");
+const bodyPreset=document.querySelector<HTMLSelectElement>("#c36-body-preset");
+const bodyStatus=document.querySelector<HTMLElement>("#c36-body-diagnostics");
+const bodyInputs=new Map<string,HTMLInputElement>();
+let bodyWeights:Record<string,number>={};
+function buildBodyControls():void{
+  if(!bodyPanel)return;
+  const groups=new Map<string,HTMLElement>();
+  for(const c of BODY_CONTROLS){
+    let group=groups.get(c.group);
+    if(!group){
+      const details=document.createElement("details");
+      details.className="body-controls-group";
+      const heading=document.createElement("summary");
+      heading.textContent=c.group;
+      details.append(heading);
+      bodyPanel.append(details);
+      groups.set(c.group,details);
+      group=details;
+    }
+    const label=document.createElement("label");
+    label.className="facial-slider";
+    const title=document.createElement("span");
+    title.textContent=c.label;
+    const output=document.createElement("output");
+    output.textContent=String(c.id in bodyWeights?bodyWeights[c.id]:c.id==="stress/gain"?1: c.id.startsWith("macro/")?.5:0);
+    const slider=document.createElement("input");
+    slider.type="range";slider.min=String(c.min);slider.max=String(c.max);
+    slider.step="0.05";
+    slider.dataset.bodyControl=c.id;
+    slider.value=String(c.id==="stress/gain"?1:c.id.startsWith("macro/")?
+      (c.id==="macro/african"||c.id==="macro/asian"?0:.5):0);
+    slider.setAttribute("aria-label",c.label);
+    slider.title=c.id.startsWith("native/")?
+      "Original MakeHuman native range "+c.nativeMin+".."+c.nativeMax+
+      ". Values beyond ±1 are unsupported stress extrapolation.":
+      "Source-indexed MakeHuman macro dependency preview";
+    slider.addEventListener("input",()=>{
+      output.value=Number(slider.value).toFixed(2);
+    });
+    slider.addEventListener("change",()=>{
+      const value=Number(slider.value);
+      bodyWeights[c.id]=value;
+      if(bodyPreset)bodyPreset.value="custom";
+      void switchSurface("template",true);
+    });
+    label.append(title,output,slider);group.append(label);
+    bodyInputs.set(c.id,slider);
+  }
+}
+function syncBodyInputs():void{
+  for(const c of BODY_CONTROLS){
+    const slider=bodyInputs.get(c.id);
+    if(!slider)continue;
+    const def=c.id==="stress/gain"?1:c.id.startsWith("macro/")?
+      (c.id==="macro/african"||c.id==="macro/asian"?0:.5):0;
+    const value=bodyWeights[c.id]??def;
+    slider.value=String(value);
+    const output=slider.parentElement?.querySelector("output");
+    if(output)output.value=value.toFixed(2);
+  }
+}
+buildBodyControls();
+bodyPreset?.addEventListener("change",()=>{
+  bodyWeights={...(BODY_PRESETS[bodyPreset.value]??{})};
+  syncBodyInputs();void switchSurface("template",true);
+});
+document.querySelector<HTMLButtonElement>("#c36-reset-body")?.addEventListener(
+  "click",()=>{
+    bodyWeights={};syncBodyInputs();
+    if(bodyPreset)bodyPreset.value="neutral";
+    void switchSurface("template",true);
   });
 const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = {
   neutral:{}, shoulders:{shoulders:1.10}, chest:{chest:1.10},
@@ -437,6 +514,32 @@ try{
     if(stopping||ticket!==request){preview.dispose();return;}
     facialController?.dispose();facialController=undefined;
     facialDiagnostics=undefined;
+    bodyDiagnostics=undefined;
+    if(name==="template"&&selectedFamily()==="human"){
+      try{
+        const atlas=await loadBodyAtlas();
+        if(stopping||ticket!==request){preview.dispose();return;}
+        const controller=new MakeHumanBodyController(preview as AnatomicalHuman,atlas);
+        bodyDiagnostics=controller.apply(bodyWeights);
+        controller.dispose();
+        if(bodyStatus)bodyStatus.textContent=
+          "Source-affected vertices: "+bodyDiagnostics.affectedVertices+
+          " · active targets: "+bodyDiagnostics.activeTargets+
+          " · triangles: "+bodyDiagnostics.triangleCount+
+          " · inverted: "+bodyDiagnostics.invertedTriangles+
+          " · collapsed: "+bodyDiagnostics.collapsedTriangles+
+          " · stretched: "+bodyDiagnostics.stretchedTriangles+
+          " · seams: "+bodyDiagnostics.seamMismatches+
+          " · max edge stretch: "+bodyDiagnostics.maxEdgeStretch.toFixed(2)+"×"+
+          (bodyDiagnostics.unsupportedExtrapolation?" · unsupported stress":" · native-range preview");
+        document.documentElement.dataset.c36BodyReady="true";
+      }catch(e){
+        if(bodyStatus)bodyStatus.textContent="C3.6 body source unavailable: "+String(e);
+        document.documentElement.dataset.c36BodyReady="false";
+      }
+    }else document.documentElement.dataset.c36BodyReady="false";
+    for(const slider of bodyInputs.values())slider.disabled=
+      !(name==="template"&&selectedFamily()==="human");
     if(name==="template"&&selectedFamily()==="human"){
       try{
         const atlas=await loadFacialAtlas();
