@@ -197,7 +197,7 @@ document.querySelector<HTMLButtonElement>("#c36-reset-body")?.addEventListener(
   "click",()=>{
     bodyWeights={};syncBodyInputs();
     if(bodyPreset)bodyPreset.value="neutral";
-    void switchSurface("template",true);
+    requestBodyRebuild();
   });
 const morphPresets: Readonly<Record<string, Partial<HumanLocalMorphologyV1>>> = {
   neutral:{}, shoulders:{shoulders:1.10}, chest:{chest:1.10},
