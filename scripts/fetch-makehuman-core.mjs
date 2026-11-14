@@ -73,3 +73,4 @@ for(const data of [
 
 // Fetch and compile original CC0 facial targets from the same pinned revision.
 await import("./fetch-makehuman-facial.mjs");
+await import("./fetch-makehuman-body.mjs");
