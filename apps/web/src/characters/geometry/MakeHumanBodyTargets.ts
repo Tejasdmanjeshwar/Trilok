@@ -405,11 +405,57 @@ export class MakeHumanBodyController {
   dispose():void{this.disposed=true;}
 }
 let request:Promise<BodyAtlas>|undefined;
+type BodyChunkIndex=Readonly<{schemaVersion:1;revision:string;license:"CC0-1.0";
+  sourceManifestHash:string;targetCount:number;
+  chunks:readonly Readonly<{name:string;targetCount:number;sha256:string;
+    compressedBytes:number}>[]}>;
+async function checkedBodyChunk(chunk:BodyChunkIndex["chunks"][number],
+  signal?:AbortSignal):Promise<readonly BodyTarget[]>{
+  if(!/^makehuman-body-v1-[0-9]{3}\\.json\\.gz$/.test(chunk.name)||
+     chunk.compressedBytes<=0||chunk.compressedBytes>12*1024*1024||
+     !/^[a-f0-9]{64}$/.test(chunk.sha256))
+    throw new Error("Malformed C3.6 source chunk index");
+  const response=await fetch("/anatomy/"+chunk.name,{signal});
+  if(!response.ok)throw new Error("Missing pinned C3.6 chunk "+chunk.name);
+  const bytes=await response.arrayBuffer();
+  if(bytes.byteLength!==chunk.compressedBytes)
+    throw new Error("C3.6 body chunk byte count mismatch "+chunk.name);
+  const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
+    .map(v=>v.toString(16).padStart(2,"0")).join("");
+  if(hash!==chunk.sha256)throw new Error("C3.6 body chunk SHA256 mismatch "+chunk.name);
+  if(typeof DecompressionStream!=="function")
+    throw new Error("Browser does not support streaming gzip source decompression");
+  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const payload=await new Response(stream).json() as {targets:BodyTarget[]};
+  if(!Array.isArray(payload.targets)||payload.targets.length!==chunk.targetCount)
+    throw new Error("C3.6 source chunk target count mismatch "+chunk.name);
+  return payload.targets;
+}
 export async function loadBodyAtlas(signal?:AbortSignal):Promise<BodyAtlas>{
-  if(!request)request=fetch("/anatomy/makehuman-body-v1.json",{signal})
-    .then(async r=>{
-      if(!r.ok)throw new Error("Pinned body atlas unavailable HTTP "+r.status);
-      return await r.json() as BodyAtlas;
-    }).catch(e=>{request=undefined;throw e;});
+  if(!request)request=(async()=>{
+    const response=await fetch("/anatomy/makehuman-body-v1-index.json",{signal});
+    if(!response.ok)throw new Error("Pinned MakeHuman C3.6 body index unavailable");
+    const index=await response.json() as BodyChunkIndex;
+    if(index.schemaVersion!==1||index.revision!==PINNED_BODY_REVISION||
+       index.license!=="CC0-1.0"||index.targetCount!==846||
+       !/^[a-f0-9]{64}$/.test(index.sourceManifestHash)||
+       !Array.isArray(index.chunks)||index.chunks.length<2||index.chunks.length>100)
+      throw new Error("Invalid source-indexed MakeHuman body manifest");
+    const parts:BodyTarget[][]=[];
+    // Controlled concurrency bounds browser bandwidth and decompression peaks.
+    let cursor=0;
+    await Promise.all(Array.from({length:Math.min(4,index.chunks.length)},async()=>{
+      while(cursor<index.chunks.length){
+        const id=cursor++;
+        parts[id]=[...await checkedBodyChunk(index.chunks[id]!,signal)];
+      }
+    }));
+    const targets=parts.flat();
+    if(targets.length!==846||new Set(targets.map(t=>t.id)).size!==846)
+      throw new Error("Incomplete C3.6 original MakeHuman source body atlas");
+    return {payload:{schemaVersion:1,revision:index.revision,license:"CC0-1.0",
+      units:"MakeHuman source coordinates",sourceManifestHash:index.sourceManifestHash,
+      targets},contentDigest:index.sourceManifestHash} as BodyAtlas;
+  })().catch(e=>{request=undefined;throw e;});
   return request;
 }
