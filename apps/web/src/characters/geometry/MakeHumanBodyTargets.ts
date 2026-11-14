@@ -249,13 +249,15 @@ export class MakeHumanBodyController {
   private readonly atlas:ReadonlyMap<string,BodyTarget>;
   private readonly human:AnatomicalHuman;
   private readonly originalJoints:readonly THREE.Vector3[];
-  private readonly originalJawTip?:THREE.Vector3;
+  /** Jaw landmark stored in root-local rest coordinates, not stale world space. */
+  private readonly originalJawTipRoot?:THREE.Vector3;
   private readonly originalSockets:ReturnType<typeof captureHumanRestSockets>;
   /** Original skin-influence-weighted surface samples, selected once per bone. */
   private readonly boneSamples:readonly (readonly (readonly [number,number])[])[];
   private disposed=false;
   constructor(human:AnatomicalHuman,atlas:BodyAtlas){
     this.human=human;
+    this.assertNeutralRest();
     this.atlas=validateBodyAtlas(atlas,human.template.sourceVertexCount);
     this.position=human.mesh.geometry.getAttribute("position");
     if(!this.position||this.position.itemSize!==3||
@@ -273,7 +275,7 @@ export class MakeHumanBodyController {
     const inverseRoot=spike.character.root.matrixWorld.clone().invert();
     this.originalJoints=spike.skeleton.bones.map(bone=>
       bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(inverseRoot));
-    this.originalJawTip=human.jawTipWorldRest?.clone();
+    this.originalJawTipRoot=human.jawTipWorldRest?.clone().applyMatrix4(inverseRoot);
     this.originalSockets=captureHumanRestSockets(human);
     const skinIndex=human.mesh.geometry.getAttribute("skinIndex");
     const skinWeight=human.mesh.geometry.getAttribute("skinWeight");
@@ -301,9 +303,25 @@ export class MakeHumanBodyController {
       return picked.map(item=>[item.id,item.weight/summed] as const);
     });
   }
+  /** Rebinding a posed skeleton would silently bake FK motion into its rest bind.
+   * In attached binding mode the mesh bind inverse cancels any whole-character
+   * translation or rotation, so legitimate root motion is still allowed. */
+  private assertNeutralRest():void{
+    const {spike}=this.human;
+    spike.character.root.updateMatrixWorld(true);
+    const inverseMesh=spike.mesh.bindMatrixInverse;
+    for(let i=0;i<spike.skeleton.bones.length;i++){
+      const skin=new THREE.Matrix4().multiplyMatrices(
+        inverseMesh,spike.skeleton.bones[i]!.matrixWorld)
+        .multiply(spike.skeleton.boneInverses[i]!);
+      if(skin.elements.some((v,j)=>Math.abs(v-(j%5===0?1:0))>1e-5))
+        throw new Error("C3.6 body morphology requires a neutral-pose rest skeleton");
+    }
+  }
   apply(weights:BodyWeights):BodyDiagnostics{
     if(this.disposed)throw new Error("C3.6 body controller disposed");
     validateBodyWeights(weights);
+    this.assertNeutralRest();
     const start=performance.now();
     const gain=weights["stress/gain"]??1;
     const scale=this.human.template.conversionMetersPerSourceUnit*gain;
@@ -409,11 +427,11 @@ export class MakeHumanBodyController {
     }
     root.updateMatrixWorld(true);
     spike.skeleton.calculateInverses();
-    if(this.human.jawTipWorldRest&&this.originalJawTip){
+    if(this.human.jawTipWorldRest&&this.originalJawTipRoot){
       const jaw=spike.graph.joints.findIndex(j=>j.role==="jaw");
-      this.human.jawTipWorldRest.copy(this.originalJawTip);
-      if(jaw>=0)this.human.jawTipWorldRest.add(shifted[jaw]!.clone()
-        .sub(this.originalJoints[jaw]!));
+      const local=this.originalJawTipRoot.clone();
+      if(jaw>=0)local.add(shifted[jaw]!.clone().sub(this.originalJoints[jaw]!));
+      this.human.jawTipWorldRest.copy(local.applyMatrix4(rootWorld));
     }
     const mapJoint=(point:THREE.Vector3,index:number):THREE.Vector3=>
       index>=0&&index<shifted.length?
