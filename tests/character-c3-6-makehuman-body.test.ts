@@ -181,6 +181,36 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
       aCtrl.dispose();bCtrl.dispose();
     }finally{a.dispose();b.dispose();}
   },120_000);
+  it("keeps baby/child age morphology and C1 rig aligned below age 0.06",()=>{
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
+    const human=makeHuman();
+    try{
+      const ctrl=new MakeHumanBodyController(human,atlas);
+      const mesh=human.mesh;
+      const baseline=Array.from(mesh.geometry.getAttribute("position").array);
+      const heights:number[]=[];
+      for(const age of [0.06,0.05,0.03,0.0,0.1875,0.5]){
+        const diagnostics=ctrl.apply({"macro/age":age});
+        expect(diagnostics.finiteFailures).toBe(0);
+        expect(diagnostics.seamMismatches).toBe(0);
+        mesh.geometry.computeBoundingBox();
+        const box=mesh.geometry.boundingBox!;
+        const height=box.max.y-box.min.y;
+        heights.push(height);
+        const chain=getHumanMorphologyAlignment(human)!.chains;
+        const lengths=Object.fromEntries([...chain].map(([id,c])=>[id,[c.upperMeters,c.lowerMeters]]));
+        console.log("C3.7 age/rig correlation",JSON.stringify({age,height,lengths}));
+        for(const c of chain.values()){
+          expect(c.upperMeters).toBeGreaterThan(0);
+          expect(c.lowerMeters).toBeGreaterThan(0);
+        }
+      }
+      expect(heights[1]).toBeLessThan(heights[5]!*.95);
+      ctrl.apply({});
+      expect(Array.from(mesh.geometry.getAttribute("position").array)).toEqual(baseline);
+      ctrl.dispose();
+    }finally{human.dispose();}
+  },120_000);
   it("uses insertion-order-independent macro factors and preserves neutral geometry",()=>{
     const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
     const human=makeHuman();
