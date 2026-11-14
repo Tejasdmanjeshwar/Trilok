@@ -55,7 +55,9 @@ describe("C3.5 pinned MakeHuman facial data contract",()=>{
     expect(manifest.revision).toBe("a8bc2d54ff0ac92e78ff71431b1023eda42bf482");
     expect(manifest.targets.length).toBe(376);
     expect(new Set(manifest.targets.map((t:{id:string})=>t.id)).size).toBe(376);
-    expect(FACIAL_CONTROLS.length).toBeGreaterThanOrEqual(45);\n    expect(manifest.nativeModifiers.length).toBe(138);\n    expect(ALL_FACIAL_CONTROLS.length).toBeGreaterThan(200);
+    expect(FACIAL_CONTROLS.length).toBeGreaterThanOrEqual(45);
+    expect(manifest.nativeModifiers.length).toBe(138);
+    expect(ALL_FACIAL_CONTROLS.length).toBeGreaterThan(200);
     const ids=new Set(manifest.targets.map((t:{id:string})=>t.id));
     for(const c of ALL_FACIAL_CONTROLS){
       expect(ids.has(c.positive),c.id).toBe(true);
@@ -66,7 +68,8 @@ describe("C3.5 pinned MakeHuman facial data contract",()=>{
     expect(()=>validateFacialWeights({leftLid:Infinity})).toThrow();
     expect(()=>validateFacialWeights({unknown:1})).toThrow();
     expect(()=>validateFacialWeights({leftLid:-0.1})).toThrow();
-    expect(()=>validateFacialWeights({leftLid:1.25})).not.toThrow();\n    expect(()=>validateFacialWeights({"native/mouth/mouth-upperlip-volume-decr-incr":-1})).not.toThrow();
+    expect(()=>validateFacialWeights({leftLid:1.25})).not.toThrow();
+    expect(()=>validateFacialWeights({"native/mouth/mouth-upperlip-volume-decr-incr":-1})).not.toThrow();
     expect(()=>validateFacialAtlas(sourceAtlas,20000)).not.toThrow();
     const invalid:FacialAtlas={...sourceAtlas,payload:{...sourceAtlas.payload,
       targets:sourceAtlas.payload.targets.map((t,i)=>i===0?
