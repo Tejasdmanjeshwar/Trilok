@@ -12,6 +12,15 @@ Candidate starts from `main` `a47f97cc30a8322049793ac2e5601f5794baa2f3` on 2026-
 
 **Important:** Until an exact-SHA CI run passes, these changes are candidate fixes rather than validated acceptance. No broad dead-code deletion is justified without dependency evidence; previously rejected Vanara prototype branches must not be revived.
 
+## First full C3 Phase Acceptance — failure triage (2026-11-14)
+
+- [Run #43580127292](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43580127292) executed against `main` `1ea73b172942734450a1b3c392c354867ea69067`: TypeScript, unit/replay suite, production build, build identity, and Chromium installation passed.
+- **44/46 desktop/touch Chromium tests passed; 2 failed.** Both failures were the same `e2e/c2-lab.spec.ts` pose-picker test with a Playwright strict-mode locator ambiguity: `getByRole("button", {name:"Reset"})` now matches the pose, body, head, and facial reset buttons.
+- The focused correction selects the existing `#reset-pose` control, which is the precise feature under test. No browser behavior, MakeHuman controls, stress limits, geometry, or acceptance thresholds are changed.
+- Screenshot artifact `phase-C3-screenshots` was uploaded with the failed run. Passing automated captures do **not** substitute for an independent visual review.
+- **Retest requirement:** run the entire manually dispatched C3 Phase Acceptance matrix against the new *merged* `main` commit. A green run on an earlier SHA does not qualify; make no phase signoff from this failed run.
+- C3 source-derived control coverage and deterministic replay tests passed. Exhaustive native MakeHuman executable-oracle macro parity, complex self-contact, full coupled jaw/pose visual review, resource lifecycle/performance limits and independently checked live Cloudflare `build-info.json` are still open acceptance evidence.
+
 ## Phase acceptance checklist (all mandatory)
 
 | Gate | Required evidence | Status at PR creation |
