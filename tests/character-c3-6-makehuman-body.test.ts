@@ -133,6 +133,49 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
       ctrl.dispose();
     }finally{human.dispose();}
   },120_000);
+  it("rejects a posed C1 skeleton before any geometry or inverse bind changes",()=>{
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
+    const human=makeHuman();
+    try{
+      const ctrl=new MakeHumanBodyController(human,atlas);
+      const geometry=human.mesh.geometry;
+      const positions=Array.from(geometry.getAttribute("position").array);
+      const inverse=human.spike.skeleton.boneInverses.map(m=>m.clone());
+      const bone=human.spike.skeleton.bones.find(b=>b.name.includes("shoulder")) ??
+        human.spike.skeleton.bones[5]!;
+      bone.rotation.x+=.3;
+      human.spike.character.root.updateMatrixWorld(true);
+      expect(()=>ctrl.apply({"native/neck/neck-scale-horiz-decr-incr":.6}))
+        .toThrow(/neutral-pose rest skeleton/);
+      expect(Array.from(geometry.getAttribute("position").array)).toEqual(positions);
+      human.spike.skeleton.boneInverses.forEach((m,i)=>
+        expect(m.elements).toEqual(inverse[i]!.elements));
+      bone.rotation.x-=.3;
+      human.spike.character.root.updateMatrixWorld(true);
+      expect(ctrl.apply({}).finiteFailures).toBe(0);
+      ctrl.dispose();
+    }finally{human.dispose();}
+  },120_000);
+  it("keeps jaw-tip displacement in root-local coordinates after root rotation",()=>{
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
+    const a=makeHuman(),b=makeHuman();
+    try{
+      const aRoot=a.spike.character.root,bRoot=b.spike.character.root;
+      bRoot.position.set(1.2,.4,-.8);
+      bRoot.rotation.y=.72;
+      bRoot.updateMatrixWorld(true);
+      const aCtrl=new MakeHumanBodyController(a,atlas);
+      const bCtrl=new MakeHumanBodyController(b,atlas);
+      const recipe={"native/neck/neck-scale-horiz-decr-incr":.8};
+      aCtrl.apply(recipe);
+      bCtrl.apply(recipe);
+      expect(a.jawTipWorldRest).toBeDefined();
+      expect(b.jawTipWorldRest).toBeDefined();
+      const expected=a.jawTipWorldRest!.clone().applyMatrix4(bRoot.matrixWorld);
+      expect(b.jawTipWorldRest!.distanceTo(expected)).toBeLessThan(1e-5);
+      aCtrl.dispose();bCtrl.dispose();
+    }finally{a.dispose();b.dispose();}
+  },120_000);
   it("uses insertion-order-independent macro factors and preserves neutral geometry",()=>{
     const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
     const human=makeHuman();
