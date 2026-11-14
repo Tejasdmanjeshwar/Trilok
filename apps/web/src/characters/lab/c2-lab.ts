@@ -130,6 +130,7 @@ const bodyPreset=document.querySelector<HTMLSelectElement>("#c36-body-preset");
 const bodyStatus=document.querySelector<HTMLElement>("#c36-body-diagnostics");
 const bodyInputs=new Map<string,HTMLInputElement>();
 let bodyWeights:Record<string,number>={};
+let requestBodyRebuild:()=>void=()=>{};
 function buildBodyControls():void{
   if(!bodyPanel)return;
   const groups=new Map<string,HTMLElement>();
@@ -150,7 +151,7 @@ function buildBodyControls():void{
     const title=document.createElement("span");
     title.textContent=c.label;
     const output=document.createElement("output");
-    output.textContent=String(c.id in bodyWeights?bodyWeights[c.id]:c.id==="stress/gain"?1: c.id.startsWith("macro/")?.5:0);
+    output.textContent="0.00";
     const slider=document.createElement("input");
     slider.type="range";slider.min=String(c.min);slider.max=String(c.max);
     slider.step="0.05";
@@ -169,7 +170,7 @@ function buildBodyControls():void{
       const value=Number(slider.value);
       bodyWeights[c.id]=value;
       if(bodyPreset)bodyPreset.value="custom";
-      void switchSurface("template",true);
+      requestBodyRebuild();
     });
     label.append(title,output,slider);group.append(label);
     bodyInputs.set(c.id,slider);
@@ -453,6 +454,7 @@ try{
     refreshOverlay();
   };
   let request=0;
+  requestBodyRebuild=()=>{void switchSurface("template",true);};
   // Morphology rebuilds change only the owned anatomical surface. Preserve
   // manually orbited/panned/zoomed camera and OrbitControls target; only a
   // user-selected camera view or an explicit source switch may reframe.
@@ -515,7 +517,8 @@ try{
     facialController?.dispose();facialController=undefined;
     facialDiagnostics=undefined;
     bodyDiagnostics=undefined;
-    if(name==="template"&&selectedFamily()==="human"){
+    if(name==="template"&&selectedFamily()==="human"&&
+       Object.keys(bodyWeights).length>0){
       try{
         const atlas=await loadBodyAtlas();
         if(stopping||ticket!==request){preview.dispose();return;}
@@ -537,7 +540,10 @@ try{
         if(bodyStatus)bodyStatus.textContent="C3.6 body source unavailable: "+String(e);
         document.documentElement.dataset.c36BodyReady="false";
       }
-    }else document.documentElement.dataset.c36BodyReady="false";
+    }else{
+      document.documentElement.dataset.c36BodyReady="true";
+      if(bodyStatus)bodyStatus.textContent="Neutral original source body · select a preset or adjust an anatomical control";
+    }
     for(const slider of bodyInputs.values())slider.disabled=
       !(name==="template"&&selectedFamily()==="human");
     if(name==="template"&&selectedFamily()==="human"){
