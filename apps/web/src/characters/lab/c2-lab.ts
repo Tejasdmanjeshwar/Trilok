@@ -415,6 +415,12 @@ try{
     const coordinated=facialController
       ? coordinateFacialJawPose(targets,jawId,facialController.sourceJawOpeningRadians)
       : targets;
+    // Read-only browser evidence for the composed jaw opening. Does not
+    // affect native source vertices or the C1 semantic pose definition.
+    const effectiveJaw=coordinated.find(t=>t.jointId===jawId&&t.motion==="flexion");
+    document.documentElement.dataset.c37JawEffectiveRadians=String(effectiveJaw?.radians??0);
+    document.documentElement.dataset.c37JawSourceRadians=
+      String(facialController?.sourceJawOpeningRadians??0);
     const poseStart=performance.now();
     fk.apply(coordinated);
     correctives?.apply(coordinated);
