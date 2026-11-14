@@ -9,12 +9,18 @@ export const STUDIO_FOCUS = {
   torso:{label:"Torso",role:"chest",distance:1.25},
   "left-shoulder":{label:"Left shoulder",role:"shoulder_left",distance:.68},
   "right-shoulder":{label:"Right shoulder",role:"shoulder_right",distance:.68},
+  "left-elbow":{label:"Left elbow",role:"elbow_left",distance:.58},
+  "right-elbow":{label:"Right elbow",role:"elbow_right",distance:.58},
   "left-hand":{label:"Left hand",role:"wrist_left",distance:.40},
   "right-hand":{label:"Right hand",role:"wrist_right",distance:.40},
   hips:{label:"Hips",role:"pelvis",distance:1.1},
+  "left-thigh":{label:"Left thigh",role:"hip_left",distance:.85},
+  "right-thigh":{label:"Right thigh",role:"hip_right",distance:.85},
   "left-knee":{label:"Left knee",role:"knee_left",distance:.63},
   "right-knee":{label:"Right knee",role:"knee_right",distance:.63},
   feet:{label:"Feet",role:"ankle_left",distance:.85},
+  "left-foot":{label:"Left foot",role:"ankle_left",distance:.58},
+  "right-foot":{label:"Right foot",role:"ankle_right",distance:.58},
 } as const;
 export type StudioFocus = keyof typeof STUDIO_FOCUS;
 
