@@ -21,6 +21,16 @@ Candidate starts from `main` `a47f97cc30a8322049793ac2e5601f5794baa2f3` on 2026-
 - **Retest requirement:** run the entire manually dispatched C3 Phase Acceptance matrix against the new *merged* `main` commit. A green run on an earlier SHA does not qualify; make no phase signoff from this failed run.
 - C3 source-derived control coverage and deterministic replay tests passed. Exhaustive native MakeHuman executable-oracle macro parity, complex self-contact, full coupled jaw/pose visual review, resource lifecycle/performance limits and independently checked live Cloudflare `build-info.json` are still open acceptance evidence.
 
+## C3.7 infant morphology and MakeHuman joint-refit defect (2026-11-14)
+
+**Owner report:** `macro/age` at or below ~0.05 could leave an adult-sized visible body surrounding a much smaller skeleton. Upstream MakeHuman has a continuous 0..0.1875 baby→child target blend with no special threshold at 0.05. Its skeleton obtains rest joint centers by averaging explicit rig joint helper vertices from the morphed body source positions.
+
+**Root cause:** Trilok's C3.6 rest-joint approximation used nearby skin-weighted vertices instead of original MakeHuman reference vertices, and `HumanMorphologyAlignment` rejected two-link IK segments shorter than 8 cm irrespective of character age. The controller updated skeletal transforms before it completed IK validation and only then published the morphed mesh. When IK validation threw, the already-shrunk skeleton remained beside the unchanged adult mesh. The browser caught the error and displayed a diagnostic, rather than restoring the rig.
+
+**Correction:** The original pinned CC0 `SourceRig` joint vertex mapping is retained on the character. For mapped C1 bones, the C3.6 controller now averages the same original source delta at the joint reference vertices that MakeHuman uses; skin-weighted approximation is limited to presentation-only/helper joints that have no original counterpart. The jaw tip uses its original source tail landmark. IK validation checks for nonfinite or numerically collapsed chains rather than a fixed adult-scale size. Any exception in rest-joint/IK/mesh recalibration rolls back previous joint positions, inverse binds, jaw landmark, geometry, normals and bounds before propagating the failure. Registered socket/IK alignment only changes after successful surface commit. No global scaling, age clamping, new geometry, or changes to original native target blending/stress ranges.
+
+**Regression requirements:** Unit tests sample ages 0, 0.01, 0.03, 0.05, 0.055, 0.06, 0.10 and 0.1875, comparing source-joint motion to exact original CC0 target displacements, reporting finite body geometry and valid chain lengths, then confirming neutral reset. An injected invalid chain mapping verifies that a failed refit leaves geometry, binds and joint transforms unchanged and a subsequent valid refit succeeds. Chromium desktop/touch samples 0, 0.03, 0.05, 0.06 and 0.1875 and captures infant-boundary screenshots. Verify exact PR-head CI before merging and full manual C3 Phase Acceptance and screenshot inspection on merged `main` afterward. An earlier green C3 run does **not** certify the new edge case.
+
 ## Phase acceptance checklist (all mandatory)
 
 | Gate | Required evidence | Status at PR creation |
