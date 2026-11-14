@@ -24,3 +24,7 @@ Visual reviewer: visit the branch-specific Cloudflare preview `/c2-lab.html` onl
 2. Complete coupled C1 rest-joint, bind inverse, socket and IK validation for the full macro envelope, including wrists, knees, ankles and neck; the initial refit is not full anatomical certification.
 3. Inspect Chromium screenshots for original head + body combinations and resolve reproducible native-range clipping, inversions, seams and self-intersections.
 4. Confirm a working Cloudflare preview and report exact candidate SHA. Owner visual approval is mandatory.
+
+## C3.6 engineering closure log (2026-11-14)
+
+Owner explicitly inspected every body control and judged the visible deformation satisfactory. This **satisfies the owner visual approval gate** for draft PR #56; it does not certify every compound macro/pose input. GitHub's first executing compressed-asset Chromium run failed on `C3.6 body chunk byte count mismatch`, caused by transparent gzip responses. The checked-in browser loader now hashes and accepts either the original gzip archive or the equivalent automatically decoded JSON; a dedicated Chromium asset-serving preflight checks all generated files. Later GitHub Verify and Visual runs failed before any runner steps executed (job steps empty), suggesting an Actions infrastructure/account limitation rather than a reproducible compiler/test failure. A green current-head CI run remains mandatory before merge, and Cloudflare build identity must be checked separately.
