@@ -24,7 +24,7 @@ export const DEFAULT_HUMAN_HEAD_MORPHOLOGY: Readonly<HumanHeadMorphologyV1> =
     skullWidth: 1, skullHeight: 1, forehead: 1, brow: 1,
     cheeks: 1, jawWidth: 1, chin: 1, faceDepth: 1, eyeSpacing: 1,
   });
-const bounds = Object.freeze({
+export const HUMAN_HEAD_LIMITS = Object.freeze({
   skullWidth: [0.90, 1.10],
   skullHeight: [0.93, 1.07],
   forehead: [0.93, 1.07],
@@ -35,8 +35,8 @@ const bounds = Object.freeze({
   faceDepth: [0.94, 1.06],
   eyeSpacing: [0.95, 1.05],
 } as const);
-type HeadKey = keyof typeof bounds;
-const keys = Object.keys(bounds) as HeadKey[];
+type HeadKey = keyof typeof HUMAN_HEAD_LIMITS;
+const keys = Object.keys(HUMAN_HEAD_LIMITS) as HeadKey[];
 const bodyKeys = [
   "stature", "breadth", "shoulders", "chest",
   "waist", "hips", "arms", "legs",
@@ -50,7 +50,7 @@ export function validateHumanHeadMorphology(shape: HumanHeadMorphologyV1): void 
   validateHumanLocalMorphology(shape);
   for (const key of keys) {
     const value = shape?.[key];
-    const [min, max] = bounds[key];
+    const [min, max] = HUMAN_HEAD_LIMITS[key];
     if (!Number.isFinite(value) || value < min || value > max)
       throw new HumanMorphologyError("HEAD_RANGE",
         key + " must be finite and between " + min + " and " + max);
