@@ -219,6 +219,7 @@ export class MakeHumanBodyController {
   private readonly human:AnatomicalHuman;
   private readonly originalJoints:readonly THREE.Vector3[];
   private readonly originalJawTip?:THREE.Vector3;
+  private readonly originalSockets:ReturnType<typeof captureHumanRestSockets>;
   /** Original skin-influence-weighted surface samples, selected once per bone. */
   private readonly boneSamples:readonly (readonly (readonly [number,number])[])[];
   private disposed=false;
@@ -242,6 +243,7 @@ export class MakeHumanBodyController {
     this.originalJoints=spike.skeleton.bones.map(bone=>
       bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(inverseRoot));
     this.originalJawTip=human.jawTipWorldRest?.clone();
+    this.originalSockets=captureHumanRestSockets(human);
     const skinIndex=human.mesh.geometry.getAttribute("skinIndex");
     const skinWeight=human.mesh.geometry.getAttribute("skinWeight");
     if(!skinIndex||!skinWeight)throw new Error("C3.6 requires original source skin ownership");
@@ -362,7 +364,7 @@ export class MakeHumanBodyController {
     });
     if(shifted.some(p=>!p.toArray().every(Number.isFinite)))
       throw new Error("Nonfinite MakeHuman source-derived C1 joint alignment");
-    const sockets=captureHumanRestSockets(this.human);
+    const sockets=this.originalSockets;
     const root=spike.character.root;
     root.updateMatrixWorld(true);
     const rootWorld=root.matrixWorld.clone();
