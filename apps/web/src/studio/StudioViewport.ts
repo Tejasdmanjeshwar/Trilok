@@ -48,9 +48,9 @@ export function createStudioViewport(
   const resetView=()=>setView("three-quarter");
   function setView(view:StudioView):void {
     const selected=STUDIO_VIEWS[view];
-    camera.position.set(...selected.position);
-    controls?.target.set(...selected.target);
-    camera.lookAt(new THREE.Vector3(...selected.target));
+    camera.position.set(selected.position[0],selected.position[1],selected.position[2]);
+    controls?.target.set(selected.target[0],selected.target[1],selected.target[2]);
+    camera.lookAt(selected.target[0],selected.target[1],selected.target[2]);
     controls?.update();
   }
   function setLight(mode:StudioLight):void {
