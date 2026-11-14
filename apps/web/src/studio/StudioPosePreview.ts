@@ -3,6 +3,7 @@ import {anatomicalPoseById,resolveAnatomicalPose} from "../characters/geometry/A
 import {HumanPoseCorrectives} from "../characters/geometry/HumanPoseCorrectives";
 import {coordinateFacialJawPose} from "../characters/geometry/MakeHumanFacialTargets";
 import type {StudioHumanModel} from "./StudioHumanModel";
+import {swordGripTargets,type SwordHand} from "./StudioWeaponGrip";
 import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
 
 /** One FK evaluator per owned human. Same calibrated rig and target matrix as Lab.
@@ -11,6 +12,8 @@ export class StudioPosePreview {
   private readonly fk:AnatomicalFK;
   private correctives?:HumanPoseCorrectives;
   private current:StudioPose="neutral";
+  private grip:SwordHand="none";
+  setGrip(hand:SwordHand):void{this.grip=hand;this.refresh();}
   constructor(private readonly model:StudioHumanModel){
     const h=model.human;
     this.fk=new AnatomicalFK(h.spike.graph,h.spike.bones,{
@@ -24,8 +27,11 @@ export class StudioPosePreview {
     const human=this.model.human;
     const commands=resolveAnatomicalPose(anatomicalPoseById(id),
       human.spike.graph,this.fk);
+    const grip=this.grip==="none"?[]:swordGripTargets(human.spike.graph,this.grip);
+    const covered=new Set(grip.map(c=>c.jointId+"/"+c.motion));
+    const composed=[...commands.filter(c=>!covered.has(c.jointId+"/"+c.motion)),...grip];
     const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")?.id;
-    const effective=coordinateFacialJawPose(commands,jaw,this.model.sourceJawOpeningRadians);
+    const effective=coordinateFacialJawPose(composed,jaw,this.model.sourceJawOpeningRadians);
     if(id!=="neutral"&&!this.correctives &&
       commands.some(c=>human.spike.graph.joints.some(j=>j.id===c.jointId&&
         /^(shoulder|hip)_/.test(j.role)))){
