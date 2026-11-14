@@ -17,7 +17,7 @@ if(manifest.schemaVersion!==1||manifest.revision!==revision||
   throw new Error("Unpinned or incomplete MakeHuman body target manifest");
 let cached;
 try{cached=JSON.parse(await readFile(output,"utf8"));}catch{}
-if(cached?.contentDigest===digest(cached.payload)&&
+if(cached?.payload&&cached.contentDigest===digest(cached.payload)&&
    cached.payload?.sourceManifestHash===fingerprint&&
    cached.payload?.targets?.length===manifest.targets.length){
   console.log("MakeHuman CC0 native body atlas verified (cached):",manifest.targets.length);
