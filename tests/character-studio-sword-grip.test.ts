@@ -78,7 +78,8 @@ describe("single-hand sword contracts",()=>{
         forearmSkinBones:rig.forearmSkinBones,
         shoulderSkinBones:rig.shoulderSkinBones,
       });
-      fk.apply(swordGripTargets(rig.graph,hand));
+      fk.apply(swordGripTargets(rig.graph,hand,
+        calibrateGripSpreads(rig.graph,rig.bones,fk.frames,hand)));
       const sword=new StudioSwordPreview(model,hand);
       try{
         rig.character.root.updateWorldMatrix(true,true);
