@@ -439,7 +439,7 @@ let request:Promise<BodyAtlas>|undefined;
 type BodyChunkIndex=Readonly<{schemaVersion:1;revision:string;license:"CC0-1.0";
   sourceManifestHash:string;targetCount:number;
   chunks:readonly Readonly<{name:string;targetCount:number;sha256:string;
-    compressedBytes:number}>[]}>;
+    compressedBytes:number;jsonSha256:string;jsonBytes:number}>[]}>;
 async function checkedBodyChunk(chunk:BodyChunkIndex["chunks"][number],
   signal?:AbortSignal):Promise<readonly BodyTarget[]>{
   if(!/^makehuman-body-v1-[0-9]{3}\.json\.gz$/.test(chunk.name)||
@@ -449,15 +449,35 @@ async function checkedBodyChunk(chunk:BodyChunkIndex["chunks"][number],
   const response=await fetch("/anatomy/"+chunk.name,{signal});
   if(!response.ok)throw new Error("Missing pinned C3.6 chunk "+chunk.name);
   const bytes=await response.arrayBuffer();
-  if(bytes.byteLength!==chunk.compressedBytes)
-    throw new Error("C3.6 body chunk byte count mismatch "+chunk.name);
-  const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
-    .map(v=>v.toString(16).padStart(2,"0")).join("");
-  if(hash!==chunk.sha256)throw new Error("C3.6 body chunk SHA256 mismatch "+chunk.name);
-  if(typeof DecompressionStream!=="function")
-    throw new Error("Browser does not support streaming gzip source decompression");
-  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-  const payload=await new Response(stream).json() as {targets:BodyTarget[]};
+  const digest=async(buffer:ArrayBuffer):Promise<string>=>
+    Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",buffer)))
+      .map(v=>v.toString(16).padStart(2,"0")).join("");
+  if(!/^[a-f0-9]{64}$/.test(chunk.jsonSha256)||
+     chunk.jsonBytes<=0||chunk.jsonBytes>16*1024*1024)
+    throw new Error("Malformed original MakeHuman decompressed source chunk");
+  let payload:{targets:BodyTarget[]};
+  const data=new Uint8Array(bytes);
+  if(data[0]===0x1f&&data[1]===0x8b){
+    // Browser received the actual gzip archive.
+    if(bytes.byteLength!==chunk.compressedBytes||
+       await digest(bytes)!==chunk.sha256)
+      throw new Error("C3.6 original compressed body checksum mismatch "+chunk.name);
+    if(typeof DecompressionStream!=="function")
+      throw new Error("Browser lacks original target gzip decompression");
+    const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    const raw=await new Response(stream).arrayBuffer();
+    if(raw.byteLength!==chunk.jsonBytes||
+       await digest(raw)!==chunk.jsonSha256)
+      throw new Error("C3.6 original decompressed body checksum mismatch "+chunk.name);
+    payload=JSON.parse(new TextDecoder().decode(raw)) as {targets:BodyTarget[]};
+  }else{
+    // A CDN/server may perform transparent Content-Encoding gzip decoding.
+    // Validate identical uncompressed bytes instead of decoding a second time.
+    if(bytes.byteLength!==chunk.jsonBytes||
+       await digest(bytes)!==chunk.jsonSha256)
+      throw new Error("C3.6 original decoded body checksum mismatch "+chunk.name);
+    payload=JSON.parse(new TextDecoder().decode(bytes)) as {targets:BodyTarget[]};
+  }
   if(!Array.isArray(payload.targets)||payload.targets.length!==chunk.targetCount)
     throw new Error("C3.6 source chunk target count mismatch "+chunk.name);
   return payload.targets;
