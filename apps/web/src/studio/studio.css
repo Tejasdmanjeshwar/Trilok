@@ -257,6 +257,7 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
   margin-top:12px;font-size:13px;color:#e6e9e4;cursor:pointer}
 .studio-switch input{accent-color:#e1bf81;width:19px;height:19px;flex:none}
 .studio-action-pair{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.studio-weapon-focus{grid-template-columns:minmax(0,1fr)}
 .studio-action-pair button{min-height:44px;border:1px solid #6f7f85;
   border-radius:9px;background:#293843;color:#f3e5ce;font-weight:700}
 .studio-action-pair button:disabled{opacity:.45;cursor:default}
