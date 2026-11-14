@@ -74,10 +74,17 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
 }
 @media(max-width:800px){
   .studio-header{height:66px;padding:10px 16px}
-  .studio-workspace{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(42dvh,1fr) auto;gap:9px;padding:9px}
-  .studio-nav{padding:0;flex-direction:row;align-items:center}
+  /* Stack the stage and inspector in normal flow. The old three-row grid
+     could let the tall stage overlay buttons after the navigation gained tabs. */
+  .studio-workspace{display:flex;flex-direction:column;gap:9px;padding:9px;min-height:0}
+  .studio-nav{padding:0;flex:0 0 auto;flex-direction:row;align-items:center;
+    width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;
+    overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin}
   .nav-title{display:none}
-  .studio-nav button{flex-direction:row;padding:9px 14px;min-height:44px;font-size:12px;gap:7px}
+  .studio-nav button{flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;
+    flex-direction:row;padding:9px 14px;min-height:44px;font-size:12px;gap:7px}
+  .studio-stage{flex:0 0 auto}
+  .studio-inspector{flex:0 0 auto}
   .studio-nav button span{font-size:17px;width:auto}
   .studio-stage{min-height:42dvh;height:min(56dvh,610px);border-radius:14px}
   .studio-inspector{border-radius:14px;padding:20px}
@@ -108,9 +115,9 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
   .studio-light-grid button{font-size:10px;white-space:nowrap}
 }
 @media(max-height:520px) and (orientation:landscape){
-  .studio-workspace{grid-template-columns:68px minmax(0,1fr) 250px;grid-template-rows:minmax(0,1fr)}
-  .studio-nav{flex-direction:column}
-  .studio-nav button{flex-direction:column}
+  .studio-workspace{display:grid;grid-template-columns:68px minmax(0,1fr) 250px;grid-template-rows:minmax(0,1fr)}
+  .studio-nav{flex-direction:column;overflow-x:visible;overflow-y:visible}
+  .studio-nav button{flex-direction:column;white-space:normal}
   .studio-stage{height:calc(100dvh - 94px);min-height:245px}
   .studio-inspector{max-height:calc(100dvh - 94px);overflow-y:auto}
 }
