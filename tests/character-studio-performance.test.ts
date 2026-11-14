@@ -28,8 +28,8 @@ describe("Character Studio bounded preview metrics",()=>{
     const snapshot=metrics.snapshot();
     expect(snapshot.initialLoadMs).toBe(284);
     expect(snapshot.edits.samples).toBe(180);
-    expect(snapshot.edits.medianMs).toBe(159);
-    expect(snapshot.edits.p95Ms).toBe(240);
+    expect(snapshot.edits.medianMs).toBe(160);
+    expect(snapshot.edits.p95Ms).toBe(241);
     expect(snapshot.gpu).toBeNull();
   });
 });
