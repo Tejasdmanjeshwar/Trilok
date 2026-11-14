@@ -411,7 +411,7 @@ type BodyChunkIndex=Readonly<{schemaVersion:1;revision:string;license:"CC0-1.0";
     compressedBytes:number}>[]}>;
 async function checkedBodyChunk(chunk:BodyChunkIndex["chunks"][number],
   signal?:AbortSignal):Promise<readonly BodyTarget[]>{
-  if(!/^makehuman-body-v1-[0-9]{3}\\.json\\.gz$/.test(chunk.name)||
+  if(!/^makehuman-body-v1-[0-9]{3}\.json\.gz$/.test(chunk.name)||
      chunk.compressedBytes<=0||chunk.compressedBytes>12*1024*1024||
      !/^[a-f0-9]{64}$/.test(chunk.sha256))
     throw new Error("Malformed C3.6 source chunk index");
