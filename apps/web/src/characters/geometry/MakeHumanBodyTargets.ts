@@ -40,6 +40,8 @@ export const BODY_CONTROLS:readonly BodyControl[]=[
     ["muscle","Muscularity (min to max)",.5],
     ["height","Stature (min to max)",.5],
     ["proportions","Body proportions (uncommon to ideal)",.5],
+    ["breastSize","Breast cup size",.5],
+    ["breastFirmness","Breast firmness",.5],
   ].map(([id,label,initial])=>({
     id:"macro/"+id,label:String(label)+" · neutral "+initial,
     group:"Macro anatomy",min:0,max:1,nativeMin:0,nativeMax:1,
@@ -50,7 +52,8 @@ export const BODY_CONTROLS:readonly BodyControl[]=[
 export const BODY_MACRO_DEFAULTS:Readonly<BodyWeights>=Object.freeze({
   "macro/sex":.5,"macro/age":.5,"macro/african":0,"macro/asian":0,
   "macro/weight":.5,"macro/muscle":.5,"macro/height":.5,
-  "macro/proportions":.5,"stress/gain":1,
+  "macro/proportions":.5,"macro/breastSize":.5,
+  "macro/breastFirmness":.5,"stress/gain":1,
 });
 export const BODY_PRESETS:Readonly<Record<string,BodyWeights>>={
   neutral:{},
@@ -142,7 +145,7 @@ export function resolveBodyMacroFactors(weights:BodyWeights):ReadonlyMap<string,
   const add=(id:string,value:number)=>{
     if(value!==0)result.set(id,(result.get(id)??0)+value);
   };
-  const neutral=["sex","age","african","asian","muscle","weight","height","proportions"]
+  const neutral=["sex","age","african","asian","muscle","weight","height","proportions","breastSize","breastFirmness"]
     .every(k=>w(k)===BODY_MACRO_DEFAULTS["macro/"+k]);
   if(neutral)return result;
   for(const [race,raceW] of ancestryAxis(w("african"),w("asian")))
@@ -171,6 +174,25 @@ export function resolveBodyMacroFactors(weights:BodyWeights):ReadonlyMap<string,
   for(const [sex,sexW] of sexAxis(w("sex")))
     for(const [age,ageW] of ageAxis(w("age")))
       distributions(sex,age,sexW*ageW);
+  // Native MakeHuman breast macro targets omit the neutral average/average
+  // cell; the remaining eight corners are CC0 targets conditioned on female,
+  // age, muscle, weight, cup size and firmness.
+  if(w("breastSize")!==.5||w("breastFirmness")!==.5||
+     w("sex")!==.5||w("age")!==.5||w("muscle")!==.5||w("weight")!==.5){
+    for(const [age,ageW] of ageAxis(w("age"))){
+      if(age==="baby")continue; // upstream corpus has only child/young/old
+      for(const [muscle,muscleW] of rangeAxis(w("muscle"),"muscle"))
+        for(const [weight,weightW] of rangeAxis(w("weight"),"weight"))
+          for(const [cup,cupW] of axes(w("breastSize"),
+            ["mincup","averagecup","maxcup"],[0,.5,1]))
+            for(const [firm,firmW] of axes(w("breastFirmness"),
+              ["minfirmness","averagefirmness","maxfirmness"],[0,.5,1])){
+              if(cup==="averagecup"&&firm==="averagefirmness")continue;
+              add("breast/female-"+age+"-"+muscle+"-"+weight+"-"+cup+"-"+firm,
+                (1-w("sex"))*ageW*muscleW*weightW*cupW*firmW);
+            }
+    }
+  }
   // Subtract canonical macro middle rather than stacking a hidden default shape.
   const baselines=(sex:string,age:string,factor:number)=>{
     const m="averagemuscle-averageweight";
