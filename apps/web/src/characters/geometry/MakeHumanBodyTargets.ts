@@ -309,10 +309,10 @@ export class MakeHumanBodyController {
   private assertNeutralRest():void{
     const {spike}=this.human;
     spike.character.root.updateMatrixWorld(true);
-    const inverseMesh=spike.mesh.bindMatrixInverse;
+    const inverseRoot=spike.character.root.matrixWorld.clone().invert();
     for(let i=0;i<spike.skeleton.bones.length;i++){
       const skin=new THREE.Matrix4().multiplyMatrices(
-        inverseMesh,spike.skeleton.bones[i]!.matrixWorld)
+        inverseRoot,spike.skeleton.bones[i]!.matrixWorld)
         .multiply(spike.skeleton.boneInverses[i]!);
       if(skin.elements.some((v,j)=>Math.abs(v-(j%5===0?1:0))>1e-5))
         throw new Error("C3.6 body morphology requires a neutral-pose rest skeleton");
