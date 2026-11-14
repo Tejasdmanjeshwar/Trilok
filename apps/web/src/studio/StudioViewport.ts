@@ -1,10 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { loadAnatomicalHuman, type AnatomicalHuman } from "../characters/geometry/AnatomicalTemplate";
+import {buildStudioHuman,type StudioHumanModel} from "./StudioHumanModel";
+import {defaultStudioMorphState,type StudioMorphState} from "./StudioMorphCatalog";
 import { STUDIO_LIGHTS, STUDIO_VIEWS, type StudioLight, type StudioView } from "./StudioPresentation";
 
 export interface StudioViewport {
   load():Promise<void>;
+  applyMorphology(state:StudioMorphState):Promise<boolean>;
   setView(view:StudioView):void;
   setLight(light:StudioLight):void;
   resetView():void;
@@ -15,13 +17,15 @@ export interface StudioViewport {
  * View state is presentation-only, separate from future character recipes. */
 export function createStudioViewport(
   element:HTMLElement,onReady:()=>void,onFailure:(message:string)=>void,
+  onEditError:(message:string)=>void,
 ):StudioViewport {
   const scene=new THREE.Scene();
   const camera=new THREE.PerspectiveCamera(40,1,.05,90);
   const isReduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
   let renderer:THREE.WebGLRenderer|undefined;
   let controls:OrbitControls|undefined;
-  let active:AnatomicalHuman|undefined;
+  let active:StudioHumanModel|undefined;
+  let currentMorphology=defaultStudioMorphState();
   let disposed=false;
   let loading=false;
   let ticket=0;
@@ -121,29 +125,56 @@ export function createStudioViewport(
     measure();
     draw();
   }
+  // Only a facial change can reuse the same neutral-rest mesh without
+  // recalibrating joints. Body and head edits rebuild a complete owned model;
+  // the previous good character remains visible until the candidate succeeds.
+  async function applyMorphology(state:StudioMorphState):Promise<boolean> {
+    if(disposed)return false;
+    const current=++ticket;
+    const faceOnly=!!active &&
+      JSON.stringify(state.body)===JSON.stringify(currentMorphology.body) &&
+      JSON.stringify(state.shape)===JSON.stringify(currentMorphology.shape);
+    if(faceOnly){
+      try{
+        await active!.setFace(state.face);
+        if(disposed||current!==ticket)return false;
+        currentMorphology=state;
+        onEditError("");
+        return true;
+      }catch(_error){
+        if(current===ticket)onEditError("This facial adjustment could not be applied. Your previous character remains available.");
+        return false;
+      }
+    }
+    let incoming:StudioHumanModel|undefined;
+    try{
+      initialize();
+      incoming=await buildStudioHuman(state);
+      if(disposed||current!==ticket){incoming.dispose();return false;}
+      const previous=active;
+      scene.add(incoming.human.spike.character.root);
+      const material=incoming.human.mesh.material;
+      if(material instanceof THREE.MeshStandardMaterial)material.color.set(0xc7a38b);
+      active=incoming;
+      currentMorphology=state;
+      previous?.dispose();
+      onReady();
+      onEditError("");
+      return true;
+    }catch(_error){
+      incoming?.dispose();
+      if(!disposed&&current===ticket){
+        if(active)onEditError("This change could not be applied. The previous character has been preserved.");
+        else onFailure("The character could not be opened. Check your connection and try again.");
+      }
+      return false;
+    }
+  }
   async function load():Promise<void> {
     if(disposed||loading)return;
     loading=true;
-    const current=++ticket;
-    let incoming:AnatomicalHuman|undefined;
-    try {
-      initialize();
-      incoming=await loadAnatomicalHuman();
-      if(disposed||current!==ticket){incoming.dispose();return;}
-      // Preserve camera and view settings when retrying a failed load.
-      const previous=active;
-      previous?.spike.character.root.removeFromParent();
-      scene.add(incoming.spike.character.root);
-      incoming.mesh.material instanceof THREE.MeshStandardMaterial &&
-        incoming.mesh.material.color.set(0xc7a38b);
-      active=incoming;
-      previous?.dispose();
-      onReady();
-    }catch(_error) {
-      incoming?.dispose();
-      if(!disposed&&current===ticket)
-        onFailure("The character could not be opened. Check your connection and try again.");
-    }finally{loading=false;}
+    try{await applyMorphology(currentMorphology);}
+    finally{loading=false;}
   }
   function dispose():void {
     if(disposed)return;
@@ -163,5 +194,5 @@ export function createStudioViewport(
       renderer.domElement.remove();
     }
   }
-  return {load,setView,setLight,resetView,dispose};
+  return {load,applyMorphology,setView,setLight,resetView,dispose};
 }

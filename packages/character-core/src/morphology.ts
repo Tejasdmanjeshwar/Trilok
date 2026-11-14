@@ -10,7 +10,7 @@ export interface HumanMorphologyV1 {
   /** Symmetric lateral/depth change, not an Object3D or root scale. */
   readonly breadth: number;
 }
-const limits = {
+export const HUMAN_MORPHOLOGY_LIMITS = {
   stature: [0.92, 1.08],
   breadth: [0.90, 1.10],
 } as const;
@@ -24,7 +24,7 @@ export class HumanMorphologyError extends Error {
 export function validateHumanMorphology(value: HumanMorphologyV1): void {
   for (const key of ["stature", "breadth"] as const) {
     const n = value?.[key];
-    const [low, high] = limits[key];
+    const [low, high] = HUMAN_MORPHOLOGY_LIMITS[key];
     if (!Number.isFinite(n) || n < low || n > high)
       throw new HumanMorphologyError("RANGE", key + " must be between " + low + " and " + high);
   }

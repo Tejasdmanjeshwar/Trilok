@@ -19,7 +19,7 @@ export const DEFAULT_HUMAN_LOCAL_MORPHOLOGY: Readonly<HumanLocalMorphologyV1> =
     waist: 1, hips: 1, arms: 1, legs: 1,
   });
 
-const localLimits = {
+export const HUMAN_LOCAL_LIMITS = {
   shoulders: [0.90, 1.10],
   chest: [0.90, 1.10],
   waist: [0.90, 1.10],
@@ -36,9 +36,9 @@ export function validateHumanLocalMorphology(
   value: HumanLocalMorphologyV1,
 ): void {
   validateHumanMorphology(value);
-  for (const key of Object.keys(localLimits) as (keyof typeof localLimits)[]) {
+  for (const key of Object.keys(HUMAN_LOCAL_LIMITS) as (keyof typeof HUMAN_LOCAL_LIMITS)[]) {
     const n = value?.[key];
-    const [min, max] = localLimits[key];
+    const [min, max] = HUMAN_LOCAL_LIMITS[key];
     if (!Number.isFinite(n) || n < min || n > max)
       throw new HumanMorphologyError("LOCAL_RANGE",
         key + " must be finite and between " + min + " and " + max);
