@@ -32,8 +32,43 @@ export function validateWeaponGrip(grip:WeaponGripV1,graph:AnatomicalGraphV1):vo
   }
 }
 /** Immutable command overlay on the existing source-calibrated FK; no combat state. */
-export function swordGripTargets(graph:AnatomicalGraphV1,hand:Exclude<SwordHand,"none">):
-  readonly JointTarget[]{
+export interface GripSpreads {
+  readonly index:number;
+  readonly little:number;
+}
+/** Determine inward splay from source rest anatomy and actual calibrated
+ * abduction frames rather than assuming mirrored Euler signs. */
+export function calibrateGripSpreads(graph:AnatomicalGraphV1,
+  bones:ReadonlyMap<string,THREE.Bone>,
+  frames:ReadonlyMap<string,{readonly freedoms:ReadonlyMap<string,
+    {readonly axis:THREE.Vector3}>}>,hand:"left"|"right"):GripSpreads {
+  const at=(role:string):THREE.Bone=>{
+    const joint=graph.joints.find(j=>j.role===role&&
+      j.id.includes("arm["+hand+",0]"));
+    const bone=joint&&bones.get(joint.id);
+    if(!bone)throw new Error("Missing finger spread landmark: "+role);
+    return bone;
+  };
+  const middle=at("finger_middle_1").getWorldPosition(new THREE.Vector3());
+  const spread=(digit:"index"|"little")=>{
+    const a=at("finger_"+digit+"_0");
+    const b=at("finger_"+digit+"_1");
+    const p=a.getWorldPosition(new THREE.Vector3());
+    const tip=b.getWorldPosition(new THREE.Vector3());
+    const frame=frames.get(graph.joints.find(j=>j.role==="finger_"+digit+"_0"&&
+      j.id.includes("arm["+hand+",0]"))!.id);
+    const freedom=frame?.freedoms.get("abduction");
+    if(!freedom)throw new Error("Missing source finger abduction");
+    const axis=freedom.axis.clone().applyQuaternion(
+      a.getWorldQuaternion(new THREE.Quaternion()));
+    const toward=middle.clone().sub(tip);
+    const response=axis.cross(tip.clone().sub(p));
+    return response.dot(toward)>=0?.20:-.20;
+  };
+  return {index:spread("index"),little:spread("little")};
+}
+export function swordGripTargets(graph:AnatomicalGraphV1,hand:Exclude<SwordHand,"none">,
+  spreads?:GripSpreads):readonly JointTarget[]{
   const rows:readonly [string,number,number,number][]=[
     ["index",1.06,1.32,.65],["middle",1.13,1.36,.72],
     ["ring",1.12,1.32,.70],["little",1.03,1.23,.65],
@@ -48,6 +83,14 @@ export function swordGripTargets(graph:AnatomicalGraphV1,hand:Exclude<SwordHand,
   for(const [digit,a,b,c] of rows){
     add(digit,0,"flexion",a);add(digit,1,"flexion",b);
     add(digit,2,"flexion",c);
+  }
+  if(spreads){
+    for(const digit of ["index","little"] as const){
+      const angle=spreads[digit];
+      if(!Number.isFinite(angle)||Math.abs(angle)>.22)
+        throw new Error("Unsupported source grip splay");
+      add(digit,0,"abduction",angle);
+    }
   }
   add("thumb",0,"opposition",.75);
   add("thumb",0,"flexion",.48);
