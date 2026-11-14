@@ -175,6 +175,7 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
   const appearancePanel=createStudioAppearancePanel(root,
     (command,delay=0)=>dispatch(command,delay),
     key=>history.beginGesture(key),()=>history.endGesture());
+  root.append(message);
   function refreshSection():void {
     history.endGesture();
     preset.replaceChildren(new Option("Custom",""));
