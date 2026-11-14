@@ -23,7 +23,6 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
   let advanced=false,search="",group="all";
   let timeout:ReturnType<typeof setTimeout>|undefined;
   let disposed=false;
-  let pending=false;
   const container=document.createElement("div");
   container.className="studio-morph-editor";
   container.innerHTML=String.raw`
@@ -80,7 +79,6 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
     try{success=await apply(recipe);}
     catch{success=false;}
     if(disposed||!history.resolve(revision,success))return;
-    pending=false;
     if(!success){
       syncValues();
       message.textContent="That edit could not be completed. Your last valid character has been restored.";
@@ -90,7 +88,6 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
   function queue(delay:number):void {
     if(timeout!==undefined)clearTimeout(timeout);
     const {recipe,revision}=history.status;
-    pending=true;
     message.textContent="Updating character…";
     timeout=setTimeout(()=>{
       timeout=undefined;
