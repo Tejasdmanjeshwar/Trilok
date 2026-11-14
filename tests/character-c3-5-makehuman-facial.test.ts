@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from "../apps/web/src/characters/geometry/AnatomicalTemplate";
 import {applyHumanMorphology} from "../apps/web/src/characters/geometry/HumanMorphology";
 import {createHumanHeadRecipe,DEFAULT_HUMAN_HEAD_MORPHOLOGY} from "../packages/character-core/src/index";
-import {FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,
+import {ALL_FACIAL_CONTROLS,FACIAL_CONTROLS,FACIAL_PRESETS,MakeHumanFacialController,
   validateFacialAtlas,validateFacialWeights,type FacialAtlas} from
   "../apps/web/src/characters/geometry/MakeHumanFacialTargets";
 import type {SourceRig,SourceWeights} from "../apps/web/src/characters/geometry/OfficialHumanRig";
@@ -53,11 +53,11 @@ describe("C3.5 pinned MakeHuman facial data contract",()=>{
   },120_000);
   it("pins original upstream CC0 assets with complete control mapping",()=>{
     expect(manifest.revision).toBe("a8bc2d54ff0ac92e78ff71431b1023eda42bf482");
-    expect(manifest.targets.length).toBe(80);
-    expect(new Set(manifest.targets.map((t:{id:string})=>t.id)).size).toBe(80);
-    expect(FACIAL_CONTROLS.length).toBeGreaterThanOrEqual(45);
+    expect(manifest.targets.length).toBe(376);
+    expect(new Set(manifest.targets.map((t:{id:string})=>t.id)).size).toBe(376);
+    expect(FACIAL_CONTROLS.length).toBeGreaterThanOrEqual(45);\n    expect(manifest.nativeModifiers.length).toBe(138);\n    expect(ALL_FACIAL_CONTROLS.length).toBeGreaterThan(200);
     const ids=new Set(manifest.targets.map((t:{id:string})=>t.id));
-    for(const c of FACIAL_CONTROLS){
+    for(const c of ALL_FACIAL_CONTROLS){
       expect(ids.has(c.positive),c.id).toBe(true);
       if(c.negative)expect(ids.has(c.negative),c.id).toBe(true);
     }
@@ -66,7 +66,7 @@ describe("C3.5 pinned MakeHuman facial data contract",()=>{
     expect(()=>validateFacialWeights({leftLid:Infinity})).toThrow();
     expect(()=>validateFacialWeights({unknown:1})).toThrow();
     expect(()=>validateFacialWeights({leftLid:-0.1})).toThrow();
-    expect(()=>validateFacialWeights({leftLid:1.25})).not.toThrow();
+    expect(()=>validateFacialWeights({leftLid:1.25})).not.toThrow();\n    expect(()=>validateFacialWeights({"native/mouth/mouth-upperlip-volume-decr-incr":-1})).not.toThrow();
     expect(()=>validateFacialAtlas(sourceAtlas,20000)).not.toThrow();
     const invalid:FacialAtlas={...sourceAtlas,payload:{...sourceAtlas.payload,
       targets:sourceAtlas.payload.targets.map((t,i)=>i===0?
