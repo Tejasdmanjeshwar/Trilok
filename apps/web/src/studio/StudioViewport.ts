@@ -10,6 +10,7 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   type StudioFocus,type StudioExpression,type StudioPose,type StudioInspectionOptions}
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
+import {StudioSwordPreview,type SwordHand} from "./StudioWeaponGrip";
 import {StudioPerformance} from "./StudioPerformance";
 import {isShortTap,isDoubleTap,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
@@ -24,6 +25,7 @@ export interface StudioViewport {
   focus(area:StudioFocus):boolean;
   returnFromFocus():void;
   setPose(pose:StudioPose):void;
+  setEquipment(hand:SwordHand):void;
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
@@ -87,6 +89,27 @@ export function createStudioViewport(
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
+  let equipment:SwordHand="none";
+  let sword:StudioSwordPreview|undefined;
+  function clearSword():void{sword?.dispose();sword=undefined;}
+  function refreshSword():void{
+    clearSword();
+    if(!active||equipment==="none")return;
+    try{
+      const next=new StudioSwordPreview(active,equipment);
+      scene.add(next.object);sword=next;
+      onEditError("");
+    }catch{
+      onEditError("This character cannot hold the reference sword in the selected hand.");
+    }
+  }
+  function setEquipment(hand:SwordHand):void{
+    if(!["none","left","right"].includes(hand))throw new Error("Unknown equipment choice");
+    equipment=hand;
+    posePreview?.setGrip(hand);
+    refreshSword();
+    updateMarkers();
+  }
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
   let skeleton:THREE.SkeletonHelper|undefined;
   let markers:THREE.Group|undefined;
@@ -222,6 +245,7 @@ export function createStudioViewport(
   function setPose(next:StudioPose):void {
     pose=next;
     posePreview?.setPose(next);
+    sword?.update();
     // The existing overlays follow posed bones without reallocating GPU buffers.
     updateMarkers();
   }
@@ -476,15 +500,17 @@ export function createStudioViewport(
         if(!ok||!valid()){incoming.dispose();return false;}
       }
       const preview=new StudioPosePreview(incoming);
-      try{preview.setPose(pose);}
+      try{preview.setGrip(equipment);preview.setPose(pose);}
       catch(error){preview.dispose();throw error;}
       if(!valid()){preview.dispose();incoming.dispose();return false;}
       const previous=active;
       const previousPose=posePreview;
       disposeInspection();
+      clearSword();
       scene.add(incoming.human.spike.character.root);
       active=incoming;
       posePreview=preview;
+      refreshSword();
       currentMorphology=state;
       currentAppearance=appearance;
       previousPose?.dispose();
@@ -518,6 +544,7 @@ export function createStudioViewport(
   function dispose():void {
     if(disposed)return;
     disposed=true;ticket++;
+    clearSword();
     requestAbort?.abort();
     requestAbort=undefined;
     cancelAnimationFrame(raf);
@@ -545,5 +572,5 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,setEquipment,setExpression,setInspection,resetView,dispose};
 }
