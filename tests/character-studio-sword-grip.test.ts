@@ -1,11 +1,27 @@
 import {describe,expect,it} from "vitest";
+import {readFileSync} from "node:fs";
 import * as THREE from "three";
 import {createSkinningSpike} from "../apps/web/src/characters/geometry/SkinningSpike";
 import {AnatomicalFK} from "../apps/web/src/characters/geometry/AnatomicalFK";
+import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from
+  "../apps/web/src/characters/geometry/AnatomicalTemplate";
+import type {SourceRig,SourceWeights} from
+  "../apps/web/src/characters/geometry/OfficialHumanRig";
 import {StudioSwordPreview,swordGripTargets,validateWeaponGrip} from
   "../apps/web/src/studio/StudioWeaponGrip";
 import type {StudioHumanModel} from "../apps/web/src/studio/StudioHumanModel";
 
+const asset=(file:string)=>readFileSync(
+  new URL("../apps/web/public/anatomy/"+file,import.meta.url),"utf8");
+function realHand(){
+  const template=parseAnatomicalOBJ(asset("makehuman-base.obj"),
+    {includeGroups:["body"]});
+  const sourceRig=JSON.parse(asset("makehuman-default.mhskel")) as SourceRig;
+  const weights=JSON.parse(asset("makehuman-default_weights.mhw")) as SourceWeights;
+  const human=bindTemplateToSemanticRig(template,{rig:sourceRig,weights});
+  const rig=human.spike;
+  return {human,rig,model:{human} as StudioHumanModel};
+}
 describe("single-hand sword contracts",()=>{
   it.each(["left","right"] as const)("resolves %s hand source-calibrated finger joints",hand=>{
     const rig=createSkinningSpike();
@@ -24,11 +40,14 @@ describe("single-hand sword contracts",()=>{
     rig.dispose();
   });
   it.each(["left","right"] as const)("keeps %s sword on live semantic socket during FK and root movement",hand=>{
-    const rig=createSkinningSpike();
-    const fk=new AnatomicalFK(rig.graph,rig.bones);
+    const {human,rig,model}=realHand();
+    const fk=new AnatomicalFK(rig.graph,rig.bones,{
+      jawTipWorldRest:human.jawTipWorldRest,
+      forearmSkinBones:rig.forearmSkinBones,
+      shoulderSkinBones:rig.shoulderSkinBones,
+    });
     fk.apply(swordGripTargets(rig.graph,hand));
-    const mock={human:{spike:rig}} as unknown as StudioHumanModel;
-    const weapon=new StudioSwordPreview(mock,hand);
+    const weapon=new StudioSwordPreview(model,hand);
     validateWeaponGrip(weapon.descriptor,rig.graph);
     expect(weapon.object.children.length).toBeGreaterThan(6);
     const initial=weapon.object.matrix.clone();
@@ -47,7 +66,7 @@ describe("single-hand sword contracts",()=>{
     expect(weapon.object.matrix.elements.every(Number.isFinite)).toBe(true);
     weapon.dispose();
     expect(weapon.object.parent).toBeNull();
-    rig.dispose();
+    human.dispose();
   });
   it("rejects invalid socket ownership and unsafe handle dimensions",()=>{
     const rig=createSkinningSpike();
