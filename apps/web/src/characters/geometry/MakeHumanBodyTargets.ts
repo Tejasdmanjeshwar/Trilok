@@ -458,39 +458,72 @@ export class MakeHumanBodyController {
     });
     if(shifted.some(p=>!p.toArray().every(Number.isFinite)))
       throw new Error("Nonfinite MakeHuman source-derived C1 joint alignment");
+    // The atlas is applied transactionally. Do not leave a child-sized
+    // skeleton underneath the previous adult surface if downstream IK,
+    // geometry or socket validation rejects the candidate.
     const sockets=this.originalSockets;
     const root=spike.character.root;
     root.updateMatrixWorld(true);
     const rootWorld=root.matrixWorld.clone();
-    for(let i=0;i<spike.skeleton.bones.length;i++){
-      const bone=spike.skeleton.bones[i]!;
-      if(!bone.parent)throw new Error("C3.6 skeleton parent missing");
-      bone.parent.updateWorldMatrix(true,false);
-      bone.position.copy(bone.parent.worldToLocal(
-        shifted[i]!.clone().applyMatrix4(rootWorld)));
-      bone.updateMatrixWorld(true);
+    const oldPositions=spike.skeleton.bones.map(bone=>bone.position.clone());
+    const oldInverses=spike.skeleton.boneInverses.map(m=>m.clone());
+    const oldJaw=this.human.jawTipWorldRest?.clone();
+    const oldSurface=Float32Array.from(this.position.array as ArrayLike<number>);
+    const geometry=this.human.mesh.geometry;
+    const originalNormals=geometry.getAttribute("normal");
+    const oldNormals=originalNormals?Float32Array.from(originalNormals.array as ArrayLike<number>):undefined;
+    const oldBox=geometry.boundingBox?.clone(),oldSphere=geometry.boundingSphere?.clone();
+    try {
+      for(let i=0;i<spike.skeleton.bones.length;i++){
+        const bone=spike.skeleton.bones[i]!;
+        if(!bone.parent)throw new Error("C3.6 skeleton parent missing");
+        bone.parent.updateWorldMatrix(true,false);
+        bone.position.copy(bone.parent.worldToLocal(
+          shifted[i]!.clone().applyMatrix4(rootWorld)));
+        bone.updateMatrixWorld(true);
+      }
+      root.updateMatrixWorld(true);
+      spike.skeleton.calculateInverses();
+      if(this.human.jawTipWorldRest&&this.originalJawTipRoot){
+        const jaw=spike.graph.joints.findIndex(j=>j.role==="jaw");
+        const local=this.originalJawTipRoot.clone();
+        if(this.sourceJawTipIds?.length)local.add(shiftAt(this.sourceJawTipIds));
+        else if(jaw>=0)local.add(shifted[jaw]!.clone().sub(this.originalJoints[jaw]!));
+        this.human.jawTipWorldRest.copy(local.applyMatrix4(rootWorld));
+      }
+      const mapJoint=(point:THREE.Vector3,index:number):THREE.Vector3=>
+        index>=0&&index<shifted.length?
+          point.add(shifted[index]!.clone().sub(this.originalJoints[index]!)):point;
+      // Calibrate before committing geometry and publish alignment only after
+      // all operations succeed, so failed IK never becomes visible.
+      const alignment=calibrateHumanMorphologyAlignment(this.human,sockets,mapJoint);
+      for(let i=0;i<this.position.count;i++)
+        this.position.setXYZ(i,staged[i*3]!,staged[i*3+1]!,staged[i*3+2]!);
+      this.position.needsUpdate=true;
+      recomputeSourceNormals(this.human);
+      geometry.computeBoundingSphere();
+      geometry.computeBoundingBox();
+      this.expectedLocalPositions=spike.skeleton.bones.map(bone=>bone.position.clone());
+      registerHumanSourceBodyAlignment(this.human,alignment);
+    } catch(error) {
+      for(let i=0;i<spike.skeleton.bones.length;i++)
+        spike.skeleton.bones[i]!.position.copy(oldPositions[i]!);
+      root.updateMatrixWorld(true);
+      for(let i=0;i<oldInverses.length;i++)
+        spike.skeleton.boneInverses[i]!.copy(oldInverses[i]!);
+      if(oldJaw&&this.human.jawTipWorldRest)this.human.jawTipWorldRest.copy(oldJaw);
+      for(let i=0;i<this.position.count;i++)
+        this.position.setXYZ(i,oldSurface[3*i]!,oldSurface[3*i+1]!,oldSurface[3*i+2]!);
+      this.position.needsUpdate=true;
+      if(originalNormals&&oldNormals){
+        for(let i=0;i<originalNormals.count;i++)
+          originalNormals.setXYZ(i,oldNormals[i*3]!,oldNormals[i*3+1]!,oldNormals[i*3+2]!);
+        originalNormals.needsUpdate=true;
+      }
+      geometry.boundingBox=oldBox??null;
+      geometry.boundingSphere=oldSphere??null;
+      throw error;
     }
-    root.updateMatrixWorld(true);
-    spike.skeleton.calculateInverses();
-    if(this.human.jawTipWorldRest&&this.originalJawTipRoot){
-      const jaw=spike.graph.joints.findIndex(j=>j.role==="jaw");
-      const local=this.originalJawTipRoot.clone();
-      if(this.sourceJawTipIds?.length)local.add(shiftAt(this.sourceJawTipIds));
-      else if(jaw>=0)local.add(shifted[jaw]!.clone().sub(this.originalJoints[jaw]!));
-      this.human.jawTipWorldRest.copy(local.applyMatrix4(rootWorld));
-    }
-    const mapJoint=(point:THREE.Vector3,index:number):THREE.Vector3=>
-      index>=0&&index<shifted.length?
-        point.add(shifted[index]!.clone().sub(this.originalJoints[index]!)):point;
-    registerHumanSourceBodyAlignment(this.human,
-      calibrateHumanMorphologyAlignment(this.human,sockets,mapJoint));
-    this.expectedLocalPositions=spike.skeleton.bones.map(bone=>bone.position.clone());
-    for(let i=0;i<this.position.count;i++)
-      this.position.setXYZ(i,staged[i*3]!,staged[i*3+1]!,staged[i*3+2]!);
-    this.position.needsUpdate=true;
-    recomputeSourceNormals(this.human);
-    this.human.mesh.geometry.computeBoundingSphere();
-    this.human.mesh.geometry.computeBoundingBox();
     const unsupportedExtrapolation=gain>1||BODY_CONTROLS.some(c=>
       c.positive&&Math.abs(weights[c.id]??0)>1);
     return {affectedVertices,finiteFailures,seamMismatches,collapsedTriangles,
