@@ -39,6 +39,7 @@ let renderer:THREE.WebGLRenderer|undefined;
 let frame=0;
 let surface="template";
 let currentPose="neutral";
+let refreshCurrentPose:()=>void=()=>{};
 let currentView="front";
 let facialController:MakeHumanFacialController|undefined;
 let facialDiagnostics:FacialDiagnostics|undefined;
@@ -74,7 +75,7 @@ function buildFacialControls():void{
       readout.value=value.toFixed(2);
       if(facialPreset)facialPreset.value="custom";
       updateFacialPreview();
-      if(active&&fk)applyPose(currentPose);
+      refreshCurrentPose();
     });
     label.append(title,readout,slider);facialPanel.append(label);
     facialInputs.set(control.id,slider);
@@ -116,14 +117,14 @@ facialPreset?.addEventListener("change",()=>{
   const preset=FACIAL_PRESETS[facialPreset.value];
   if(!preset)return;
   facialWeights={...preset};syncFacialInputs();updateFacialPreview();
-  if(active&&fk)applyPose(currentPose);
+  refreshCurrentPose();
 });
 document.querySelector<HTMLButtonElement>("#c35-reset-facial")?.addEventListener(
   "click",()=>{
     facialWeights={};syncFacialInputs();
     if(facialPreset)facialPreset.value="neutral";
     updateFacialPreview();
-    if(active&&fk)applyPose(currentPose);
+    refreshCurrentPose();
   });
 let bodyDiagnostics:BodyDiagnostics|undefined;
 const bodyPanel=document.querySelector<HTMLElement>("#c36-body-controls");
@@ -437,6 +438,7 @@ try{
     inspector?.update();
     details();
   }
+  refreshCurrentPose=()=>{if(active&&fk)applyPose(currentPose);};
   const applyDebug=()=>{
     if(!active)return;
     const material=active.mesh.material as THREE.MeshStandardMaterial;
