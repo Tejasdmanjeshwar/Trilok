@@ -104,7 +104,7 @@ export function validateBodyAtlas(atlas:BodyAtlas,sourceCount:number):ReadonlyMa
     for(let i=0;i<t.rows.length;i+=4){
       const id=t.rows[i]!;
       if(!Number.isSafeInteger(id)||id<0||id>=sourceCount||seen.has(id)||
-         t.rows.slice(i+1,i+4).some(x=>!Number.isFinite(x)||Math.abs(x)>10))
+         t.rows.slice(i+1,i+4).some((x:number)=>!Number.isFinite(x)||Math.abs(x)>10))
         throw new Error("Invalid source body vertex "+t.id);
       seen.add(id);
     }
@@ -276,7 +276,7 @@ export class MakeHumanBodyController {
       if(old>1e-12&&now>1e-12&&before.reduce((sum,n,k)=>sum+n*after[k]!,0)<0)
         invertedTriangles++;
       if(old>1e-12&&now/old>4)stretchedTriangles++;
-      for(const [u,v] of [[a,b],[b,c],[c,a]]){
+      for(const [u,v] of [[a,b],[b,c],[c,a]] as const){
         const length=(values:Float32Array)=>
           Math.hypot(values[u]!-values[v]!,values[u+1]!-values[v+1]!,
             values[u+2]!-values[v+2]!);
