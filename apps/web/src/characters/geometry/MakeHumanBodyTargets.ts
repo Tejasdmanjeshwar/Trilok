@@ -4,6 +4,7 @@ import {recomputeSourceNormals} from "./HumanLocalDeformation";
 import {captureHumanRestSockets,calibrateHumanMorphologyAlignment} from "./HumanMorphologyAlignment";
 import {registerHumanSourceBodyAlignment} from "./HumanMorphology";
 import {NATIVE_MAKEHUMAN_BODY_MODIFIERS} from "./NativeMakeHumanBodyControls";
+import {sourceBoneForRole} from "./OfficialHumanRig";
 
 /** C3.6: source-indexed, topology-preserving original MakeHuman CC0 body targets.
  * Supports native direct modifier endpoint behavior and explicit macro interpolation.
@@ -257,6 +258,9 @@ export class MakeHumanBodyController {
   private readonly originalSockets:ReturnType<typeof captureHumanRestSockets>;
   /** Original skin-influence-weighted surface samples, selected once per bone. */
   private readonly boneSamples:readonly (readonly (readonly [number,number])[])[];
+  /** Original MakeHuman head joint helper indices for each mapped C1 joint. */
+  private readonly sourceJointIds:readonly (readonly number[] | undefined)[];
+  private readonly sourceJawTipIds?:readonly number[];
   private disposed=false;
   constructor(human:AnatomicalHuman,atlas:BodyAtlas){
     this.human=human;
@@ -283,6 +287,15 @@ export class MakeHumanBodyController {
     this.restLocalScales=spike.skeleton.bones.map(bone=>bone.scale.clone());
     this.originalJawTipRoot=human.jawTipWorldRest?.clone().applyMatrix4(inverseRoot);
     this.originalSockets=captureHumanRestSockets(human);
+    const rig=human.sourceRig;
+    this.sourceJointIds=spike.skeleton.bones.map((bone,index)=>{
+      const joint=spike.graph.joints[index];
+      const name=joint?sourceBoneForRole(joint.role,joint.id):undefined;
+      const boneDef=name?rig?.bones[name]:undefined;
+      return boneDef?rig?.joints[boneDef.head]:undefined;
+    });
+    const jawTail=rig?.bones.jaw?.tail;
+    this.sourceJawTipIds=jawTail?rig?.joints[jawTail]:undefined;
     const skinIndex=human.mesh.geometry.getAttribute("skinIndex");
     const skinWeight=human.mesh.geometry.getAttribute("skinWeight");
     if(!skinIndex||!skinWeight)throw new Error("C3.6 requires original source skin ownership");
@@ -415,11 +428,26 @@ export class MakeHumanBodyController {
     // binds and semantic joint positions from the same original CC0 source
     // deltas; no root scaling or extra topology is introduced.
     const {spike}=this.human;
+    const shiftAt=(ids:readonly number[]):THREE.Vector3=>{
+      const displacement=new THREE.Vector3();
+      for(const id of ids){
+        if(!Number.isSafeInteger(id)||id<0||id>=this.human.template.sourceVertexCount)
+          throw new Error("Invalid MakeHuman joint reference vertex "+id);
+        const offset=id*3;
+        displacement.x+=delta[offset]!;
+        displacement.y+=delta[offset+1]!;
+        displacement.z+=delta[offset+2]!;
+      }
+      return displacement.multiplyScalar(1/ids.length);
+    };
     const shifted=this.originalJoints.map((original,i)=>{
       const position=original.clone();
-      const samples=this.boneSamples[i]!;
-      if(samples.length){
-        for(const [source,weight] of samples){
+      const references=this.sourceJointIds[i];
+      if(references?.length)position.add(shiftAt(references));
+      else {
+        // C1-only helpers without an upstream joint keep the bounded,
+        // source-weighted approximation; native mapped bones use exact joints.
+        for(const [source,weight] of this.boneSamples[i]!){
           const offset=source*3;
           position.x+=delta[offset]!*weight;
           position.y+=delta[offset+1]!*weight;
@@ -447,7 +475,8 @@ export class MakeHumanBodyController {
     if(this.human.jawTipWorldRest&&this.originalJawTipRoot){
       const jaw=spike.graph.joints.findIndex(j=>j.role==="jaw");
       const local=this.originalJawTipRoot.clone();
-      if(jaw>=0)local.add(shifted[jaw]!.clone().sub(this.originalJoints[jaw]!));
+      if(this.sourceJawTipIds?.length)local.add(shiftAt(this.sourceJawTipIds));
+      else if(jaw>=0)local.add(shifted[jaw]!.clone().sub(this.originalJoints[jaw]!));
       this.human.jawTipWorldRest.copy(local.applyMatrix4(rootWorld));
     }
     const mapJoint=(point:THREE.Vector3,index:number):THREE.Vector3=>
