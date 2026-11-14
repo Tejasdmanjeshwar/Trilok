@@ -290,7 +290,7 @@ const sections={
   pose:{context:"STRIKE A POSE",title:"See your character in motion",
     description:"Explore natural movements and expressions. Your character design remains unchanged."},
   generate:{context:"MAKE IT YOUR OWN",title:"Create a new character",
-    description:"Explore meaningful human variations, keep the features you love, and refine your design."},
+    description:"One click creates a completely new human with randomly different features, build and appearance."},
   inspection:{context:"A CLOSER LOOK",title:"Inspect the anatomy",
     description:"Reveal the skeleton, joint locations, and underlying surface only when you need them."},
   view:{context:"THE VIEW",title:"Find your angle",
