@@ -21,6 +21,11 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
   onHistory:(status:StudioHistoryStatus)=>void):StudioMorphEditor {
   const history=new StudioHistory();
   let section:StudioSection="body";
+  type FilterState={advanced:boolean;search:string;group:string};
+  const savedFilters:Record<StudioSection,FilterState>={
+    body:{advanced:false,search:"",group:"Foundation"},
+    face:{advanced:false,search:"",group:"Eyes"},
+  };
   let advanced=false,search="",group="all";
   let timeout:ReturnType<typeof setTimeout>|undefined;
   let disposed=false;
@@ -42,7 +47,7 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
         Extended ranges are intended for experimentation. Extreme combinations can distort the character.
       </p>
     </div>
-    <div class="studio-control-summary" id="studio-control-count"></div>
+    <p class="studio-control-summary" id="studio-control-count" aria-live="polite" aria-atomic="true"></p>
     <div class="studio-control-list" id="studio-control-list"></div>
     <p id="studio-editor-message" class="studio-editor-message" role="status" aria-live="polite"></p>
   `;
@@ -65,9 +70,9 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
     const recipe=history.current;
     appearancePanel.sync(recipe);
     preset.value=recipe.selectedPresets[section]==="custom"?"":recipe.selectedPresets[section];
-    for(const c of STUDIO_CONTROLS){
-      const row=list.querySelector<HTMLElement>('[data-control-id="'+CSS.escape(c.id)+'"]');
-      if(!row)continue;
+    for(const row of list.querySelectorAll<HTMLElement>("[data-control-id]")){
+      const c=STUDIO_CONTROLS.find(item=>item.id===row.dataset.controlId);
+      if(!c)continue;
       const value=controlValue(recipe.morphology,c);
       const slider=row.querySelector<HTMLInputElement>('input[type="range"]');
       const numeric=row.querySelector<HTMLInputElement>('input[type="number"]');
@@ -135,6 +140,7 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
       const fields=document.createElement("div");fields.className="studio-control-fields";
       const slider=document.createElement("input");
       slider.type="range";slider.id=rangeId;slider.min=String(c.min);
+
       slider.max=String(c.max);slider.step=String(c.step);
       const number=document.createElement("input");
       number.type="number";number.min=slider.min;number.max=slider.max;
@@ -183,10 +189,12 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
     groupSelect.replaceChildren(new Option("All areas","all"));
     for(const name of new Set(STUDIO_CONTROLS.filter(c=>c.category===section)
       .map(c=>c.group)))groupSelect.add(new Option(name,name));
-    group=section==="body"?"Foundation":"Eyes";
+    const filters=savedFilters[section];
+    group=filters.group;
+    if(![...groupSelect.options].some(option=>option.value===group))group="all";
     groupSelect.value=group;
-    search="";searchInput.value="";
-    advanced=false;advancedInput.checked=false;note.hidden=true;
+    search=filters.search;searchInput.value=search;
+    advanced=filters.advanced;advancedInput.checked=advanced;note.hidden=!advanced;
     renderControls();
   }
   preset.addEventListener("change",()=>{
@@ -199,13 +207,19 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
   searchInput.addEventListener("input",()=>{
     search=searchInput.value;
     if(search.trim())group="all";
-    groupSelect.value=group;renderControls();
+    groupSelect.value=group;
+    savedFilters[section]={advanced,search,group};
+    renderControls();
   });
   groupSelect.addEventListener("change",()=>{
-    group=groupSelect.value;renderControls();
+    group=groupSelect.value;
+    savedFilters[section]={advanced,search,group};
+    renderControls();
   });
   advancedInput.addEventListener("change",()=>{
-    advanced=advancedInput.checked;note.hidden=!advanced;renderControls();
+    advanced=advancedInput.checked;note.hidden=!advanced;
+    savedFilters[section]={advanced,search,group};
+    renderControls();
   });
   refreshSection();
   notify();
@@ -217,7 +231,10 @@ export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
       container.hidden=showingAppearance;
       appearancePanel.element.hidden=!showingAppearance;
       if(showingAppearance)appearancePanel.sync(history.current);
-      else {section=next;refreshSection();}
+      else {
+        if(section!==next){section=next;refreshSection();}
+        else syncValues();
+      }
     },
     undo(){navigate("undo");},
     redo(){navigate("redo");},
