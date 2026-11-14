@@ -131,6 +131,15 @@ const bodyStatus=document.querySelector<HTMLElement>("#c36-body-diagnostics");
 const bodyInputs=new Map<string,HTMLInputElement>();
 let bodyWeights:Record<string,number>={};
 let requestBodyRebuild:()=>void=()=>{};
+let bodyInputDelay:ReturnType<typeof setTimeout>|undefined;
+const applyBodyInput=(id:string,value:number,immediate=false):void=>{
+  bodyWeights[id]=value;
+  if(bodyPreset)bodyPreset.value="custom";
+  if(bodyInputDelay!==undefined)clearTimeout(bodyInputDelay);
+  bodyInputDelay=undefined;
+  if(immediate)requestBodyRebuild();
+  else bodyInputDelay=setTimeout(()=>{bodyInputDelay=undefined;requestBodyRebuild();},160);
+};
 function buildBodyControls():void{
   if(!bodyPanel)return;
   const groups=new Map<string,HTMLElement>();
@@ -165,12 +174,10 @@ function buildBodyControls():void{
       "Source-indexed MakeHuman macro dependency preview";
     slider.addEventListener("input",()=>{
       output.value=Number(slider.value).toFixed(2);
+      applyBodyInput(c.id,Number(slider.value));
     });
     slider.addEventListener("change",()=>{
-      const value=Number(slider.value);
-      bodyWeights[c.id]=value;
-      if(bodyPreset)bodyPreset.value="custom";
-      requestBodyRebuild();
+      applyBodyInput(c.id,Number(slider.value),true);
     });
     label.append(title,output,slider);group.append(label);
     bodyInputs.set(c.id,slider);
@@ -190,11 +197,15 @@ function syncBodyInputs():void{
 }
 buildBodyControls();
 bodyPreset?.addEventListener("change",()=>{
+  if(bodyInputDelay!==undefined)clearTimeout(bodyInputDelay);
+  bodyInputDelay=undefined;
   bodyWeights={...(BODY_PRESETS[bodyPreset.value]??{})};
   syncBodyInputs();requestBodyRebuild();
 });
 document.querySelector<HTMLButtonElement>("#c36-reset-body")?.addEventListener(
   "click",()=>{
+    if(bodyInputDelay!==undefined)clearTimeout(bodyInputDelay);
+    bodyInputDelay=undefined;
     bodyWeights={};syncBodyInputs();
     if(bodyPreset)bodyPreset.value="neutral";
     requestBodyRebuild();
