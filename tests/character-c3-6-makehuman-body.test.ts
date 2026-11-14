@@ -40,7 +40,7 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
     expect(()=>validateBodyWeights({unexpected:1})).toThrow();
   });
   it("maps source endpoints exactly, with identical deltas on original UV duplicates",()=>{
-    const atlas=JSON.parse(asset("makehuman-body-v1.json")) as BodyAtlas;
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
     const human=makeHuman();
     try{
       const ctrl=new MakeHumanBodyController(human,atlas);
@@ -81,7 +81,7 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
     }finally{human.dispose();}
   },120_000);
   it("refits C1 rest skeleton, inverse binds and semantic IK from source body displacement",()=>{
-    const atlas=JSON.parse(asset("makehuman-body-v1.json")) as BodyAtlas;
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
     const human=makeHuman();
     try{
       const root=human.spike.character.root;
@@ -113,7 +113,7 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
     }finally{human.dispose();}
   },120_000);
   it("uses insertion-order-independent macro factors and preserves neutral geometry",()=>{
-    const atlas=JSON.parse(asset("makehuman-body-v1.json")) as BodyAtlas;
+    const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
     const human=makeHuman();
     try{
       const ctrl=new MakeHumanBodyController(human,atlas);
