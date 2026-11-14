@@ -1,0 +1,32 @@
+name: Studio Sword Visual Check
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/studio/**"
+      - "e2e/studio-sword-grip.spec.ts"
+      - ".github/workflows/studio-sword-preview.yml"
+permissions:
+  contents: read
+jobs:
+  sword-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Render sword grips in desktop and touch Chromium
+        run: pnpm exec playwright test e2e/studio-sword-grip.spec.ts
+      - name: Upload grip close-ups for visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sword-grip-desktop-touch-${{ github.sha }}
+          path: test-results/studio/*sword*png
+          if-no-files-found: warn
+          retention-days: 14
