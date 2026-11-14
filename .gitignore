@@ -20,3 +20,22 @@ apps/web/public/anatomy/makehuman-default_weights.mhw
 assets/cache/
 apps/web/public/anatomy/makehuman-body-v1-*.json.gz
 apps/web/public/anatomy/makehuman-body-v1-index.json
+
+# Local credentials, secrets, and cloud deployment environment
+.env
+.env.*
+!.env.example
+!.env.sample
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+*.pem
+*.p12
+*.pfx
+*.key
+*.keystore
+*.jks
+credentials.json
+service-account*.json
+**/.secrets/
+**/secrets.local.*

@@ -1,0 +1,41 @@
+name: Retire Verified Old Branches
+
+# Explicitly manual so branch pruning never consumes a runner on each PR.
+# Once cleanup is complete, enable GitHub Settings -> General ->
+# Automatically delete head branches for subsequent merged PRs.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Preview candidates or permanently delete verified refs"
+        type: choice
+        required: true
+        default: dry-run
+        options: [dry-run, apply]
+      retire_rejected:
+        description: "Also retire the five explicitly allowlisted rejected C3.5 refs"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  prune:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect and optionally delete only verified old refs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRILOK_BRANCH_CLEANUP_MODE: ${{ inputs.mode }}
+          TRILOK_RETIRE_REJECTED: ${{ inputs.retire_rejected }}
+          TRILOK_BRANCH_CLEANUP_CONFIRM: ${{ inputs.mode == 'apply' && 'DELETE_VERIFIED_BRANCHES' || '' }}
+        run: node scripts/cleanup-merged-branches.mjs

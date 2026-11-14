@@ -1,0 +1,35 @@
+Trilok — Proprietary Rights Notice
+Copyright (c) 2026 the respective copyright owners of original Trilok work.
+All rights reserved.
+
+THIS IS A RESERVATION OF RIGHTS, NOT AN OPEN-SOURCE LICENSE.
+
+Except where the relevant rights holder gives express written permission, no
+general license is granted to use, copy, adapt, modify, distribute, sublicense,
+sell, deploy, or commercially exploit copyrightable Trilok-original source
+code, documentation, graphical assets, or other creative content.
+
+Publishing source files in a publicly accessible repository, if the repository
+is made public, does not by itself grant a license for independent reuse or
+redistribution. Any rights granted by the hosting platform's applicable Terms
+of Service (including repository viewing and forking), mandatory law, or
+applicable copyright exceptions are unaffected by this notice.
+
+THIRD-PARTY MATERIALS ARE EXCLUDED FROM THIS RESERVATION OF RIGHTS.
+MakeHuman graphical assets identified as Creative Commons CC0 1.0,
+third-party libraries, and other separately licensed components retain their
+own original licenses and permissions. This notice must not be interpreted as
+claiming proprietary rights over materials that the Trilok project does not
+own. See THIRD_PARTY_NOTICES.md and the pinned provenance manifests in assets/.
+
+The "Trilok" name and any associated project branding are not licensed for
+independent use by this notice; this is not an assertion of registered
+trademark status.
+
+To obtain commercial or other permissions for Trilok-original material,
+a separate authorization from its actual copyright owner(s) is required.
+
+NOTICE FOR RELEASE OWNERS: Verify the legal copyright holder/ownership chain,
+contributor permissions, and separate third-party licenses before publishing
+or commercially distributing a release. This notice is not a substitute for
+a signed ownership agreement, a dependency audit, or legal advice.
