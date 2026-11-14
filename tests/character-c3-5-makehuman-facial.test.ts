@@ -64,6 +64,37 @@ describe("C3.5 pinned MakeHuman facial data contract",()=>{
       if(c.negative)expect(ids.has(c.negative),c.id).toBe(true);
     }
   });
+  it("matches sparse MakeHuman native modifier vertices at each supported signed endpoint",()=>{
+    const atlas=JSON.parse(asset("makehuman-facial-v1.json")) as FacialAtlas;
+    const instance=human();
+    try{
+      const ctrl=new MakeHumanFacialController(instance,atlas);
+      const sourceIds=instance.template.sourceVertexIds;
+      const geometry=instance.mesh.geometry;
+      const before=Float32Array.from(geometry.getAttribute("position").array as ArrayLike<number>);
+      const targetById=new Map(atlas.payload.targets.map(t=>[t.id,t]));
+      for(const [controlId,targetId,value] of [
+        ["native/nose/nose-flaring-decr-incr","nose/nose-flaring-incr",1],
+        ["native/nose/nose-flaring-decr-incr","nose/nose-flaring-decr",-1],
+        ["native/mouth/mouth-upperlip-volume-decr-incr","mouth/mouth-upperlip-volume-incr",1],
+      ] as const){
+        const entry=targetById.get(targetId)!;
+        expect(entry).toBeDefined();
+        const sourceVertex=entry.rows[0]!;
+        const renderVertex=sourceIds.indexOf(sourceVertex);
+        expect(renderVertex).toBeGreaterThanOrEqual(0);
+        ctrl.apply({[controlId]:value});
+        const position=geometry.getAttribute("position");
+        const sourceScale=instance.template.conversionMetersPerSourceUnit;
+        for(let axis=0;axis<3;axis++){
+          const actual=position.getComponent(renderVertex,axis);
+          const expected=before[3*renderVertex+axis]!+entry.rows[1+axis]!*sourceScale;
+          expect(Math.abs(actual-expected),targetId+" axis "+axis).toBeLessThan(2e-6);
+        }
+      }
+      ctrl.dispose();
+    }finally{instance.dispose();}
+  },120_000);
   it("rejects nonfinite, out-of-range, unexpected and invalid source targets",()=>{
     expect(()=>validateFacialWeights({leftLid:Infinity})).toThrow();
     expect(()=>validateFacialWeights({unknown:1})).toThrow();
