@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const version = JSON.parse(readFileSync(new URL("./build-version.json", import.meta.url), "utf8"));
+const thirdPartyNotices = readFileSync(new URL("../../THIRD_PARTY_NOTICES.md", import.meta.url), "utf8");
 
 function gitRevision() {
   try {
@@ -56,6 +57,13 @@ export default defineConfig({
         type: "asset",
         fileName: "build-info.json",
         source: JSON.stringify(build, null, 2) + "\n",
+      });
+      // Attribution accompanies the exact compiled browser output even when
+      // public landing documentation is deliberately minimal.
+      this.emitFile({
+        type: "asset",
+        fileName: "THIRD_PARTY_NOTICES.txt",
+        source: thirdPartyNotices,
       });
     },
   }],
