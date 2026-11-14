@@ -2,11 +2,15 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {buildStudioHuman,type StudioHumanModel} from "./StudioHumanModel";
 import {defaultStudioMorphState,type StudioMorphState} from "./StudioMorphCatalog";
+import {DEFAULT_STUDIO_APPEARANCE,validateStudioAppearance,type StudioAppearanceV1} from "./StudioAppearance";
+import {applyStudioSkinMaterial} from "./StudioSkinMaterial";
+import type {StudioRecipeV1} from "./StudioRecipe";
 import { STUDIO_LIGHTS, STUDIO_VIEWS, type StudioLight, type StudioView } from "./StudioPresentation";
 
 export interface StudioViewport {
   load():Promise<void>;
   applyMorphology(state:StudioMorphState):Promise<boolean>;
+  applyRecipe(recipe:StudioRecipeV1):Promise<boolean>;
   setView(view:StudioView):void;
   setLight(light:StudioLight):void;
   resetView():void;
@@ -26,6 +30,7 @@ export function createStudioViewport(
   let controls:OrbitControls|undefined;
   let active:StudioHumanModel|undefined;
   let currentMorphology=defaultStudioMorphState();
+  let currentAppearance:StudioAppearanceV1=DEFAULT_STUDIO_APPEARANCE;
   let disposed=false;
   let loading=false;
   let ticket=0;
@@ -131,6 +136,13 @@ export function createStudioViewport(
   // recalibrating joints. Body and head edits rebuild a complete owned model;
   // the previous good character remains visible until the candidate succeeds.
   async function applyMorphology(state:StudioMorphState):Promise<boolean> {
+    return applyState(state,currentAppearance);
+  }
+  async function applyRecipe(recipe:StudioRecipeV1):Promise<boolean>{
+    return applyState(recipe.morphology,recipe.appearance);
+  }
+  async function applyState(state:StudioMorphState,appearance:StudioAppearanceV1):Promise<boolean>{
+    validateStudioAppearance(appearance);
     if(disposed)return false;
     const current=++ticket;
     requestAbort?.abort();
@@ -144,6 +156,8 @@ export function createStudioViewport(
       try{
         const changed=await active!.setFace(state.face,valid);
         if(!changed||!valid())return false;
+        applyStudioSkinMaterial(active!.human.mesh,appearance);
+        currentAppearance=appearance;
         currentMorphology=state;
         onEditError("");
         return true;
@@ -158,12 +172,12 @@ export function createStudioViewport(
       initialize();
       incoming=await buildStudioHuman(state,abort.signal);
       if(!valid()){incoming.dispose();return false;}
+      applyStudioSkinMaterial(incoming.human.mesh,appearance);
       const previous=active;
       scene.add(incoming.human.spike.character.root);
-      const material=incoming.human.mesh.material;
-      if(material instanceof THREE.MeshStandardMaterial)material.color.set(0xc7a38b);
       active=incoming;
       currentMorphology=state;
+      currentAppearance=appearance;
       previous?.dispose();
       onReady();
       onEditError("");
@@ -206,5 +220,5 @@ export function createStudioViewport(
       renderer.domElement.remove();
     }
   }
-  return {load,applyMorphology,setView,setLight,resetView,dispose};
+  return {load,applyMorphology,applyRecipe,setView,setLight,resetView,dispose};
 }
