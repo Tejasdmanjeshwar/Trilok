@@ -162,7 +162,7 @@ export function resolveBodyMacroFactors(weights:BodyWeights):ReadonlyMap<string,
         for(const [height,heightW] of axes(w("height"),["minheight","maxheight"],[0,1]))
           add("macrodetails/height/"+sex+"-"+age+"-"+muscle+"-"+weight+"-"+height,
             f*heightW);
-        for(const [p,pW] of axes(w("proportions"),
+        if(age!=="baby")for(const [p,pW] of axes(w("proportions"),
           ["uncommonproportions","idealproportions"],[0,1]))
           add("macrodetails/proportions/"+sex+"-"+age+"-"+muscle+"-"+weight+"-"+p,
             f*pW);
@@ -234,9 +234,9 @@ export class MakeHumanBodyController {
       activeTargets++;
       for(let i=0;i<target.rows.length;i+=4){
         const index=target.rows[i]!*3;
-        delta[index]+=target.rows[i+1]!*factor*scale;
-        delta[index+1]+=target.rows[i+2]!*factor*scale;
-        delta[index+2]+=target.rows[i+3]!*factor*scale;
+        delta[index]=(delta[index]??0)+target.rows[i+1]!*factor*scale;
+        delta[index+1]=(delta[index+1]??0)+target.rows[i+2]!*factor*scale;
+        delta[index+2]=(delta[index+2]??0)+target.rows[i+3]!*factor*scale;
       }
     }
     const staged=Float32Array.from(this.baseline);
