@@ -231,7 +231,7 @@ export function generateStudioCharacter(
   let appearance:StudioAppearanceV1=previous.appearance;
   if(!options.locks.appearance){
     const colors=Object.keys(HUMAN_SKIN_TONES) as SkinToneId[];
-    const currentIndex=colors.indexOf(previous.appearance.tone);
+    const currentIndex=colors.indexOf(DEFAULT_STUDIO_APPEARANCE.tone);
     const offset=Math.round(deviate(appearanceRandom)*Math.ceil(v*4));
     const tone=colors[clamp(currentIndex+offset,0,colors.length-1)]!;
     const roughness=round(clamp(DEFAULT_STUDIO_APPEARANCE.roughness+
