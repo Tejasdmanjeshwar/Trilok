@@ -68,6 +68,57 @@ describe("single-hand sword contracts",()=>{
     expect(weapon.object.parent).toBeNull();
     human.dispose();
   });
+  it.each(["left","right"] as const)("measures %s source-skinned finger contact against the actual handle",hand=>{
+    const {human,rig,model}=realHand();
+    try{
+      const fk=new AnatomicalFK(rig.graph,rig.bones,{
+        jawTipWorldRest:human.jawTipWorldRest,
+        forearmSkinBones:rig.forearmSkinBones,
+        shoulderSkinBones:rig.shoulderSkinBones,
+      });
+      fk.apply(swordGripTargets(rig.graph,hand));
+      const sword=new StudioSwordPreview(model,hand);
+      try{
+        rig.character.root.updateWorldMatrix(true,true);
+        const center=new THREE.Vector3(),rotation=new THREE.Quaternion(),
+          localScale=new THREE.Vector3();
+        sword.object.matrix.decompose(center,rotation,localScale);
+        const axis=new THREE.Vector3(0,1,0).applyQuaternion(rotation).normalize();
+        const skinIds=human.mesh.geometry.getAttribute("skinIndex");
+        const skinWeights=human.mesh.geometry.getAttribute("skinWeight");
+        const vertex=new THREE.Vector3();
+        for(const digit of ["thumb","index","middle","ring","little"]){
+          const fingerBones=new Set(rig.graph.joints.filter(j=>
+            j.role.startsWith("finger_"+digit+"_")&&
+            j.id.includes("arm["+hand+",0]")).map(j=>
+            rig.skeleton.bones.indexOf(rig.bones.get(j.id)!)));
+          let count=0,near=0,closest=Infinity,deepest=0;
+          for(let i=0;i<skinIds.count;i++){
+            const influence=[0,1,2,3].reduce((sum,k)=>
+              sum+(fingerBones.has(skinIds.getComponent(i,k))?
+                skinWeights.getComponent(i,k):0),0);
+            if(influence<.6)continue;
+            count++;
+            const world=human.mesh.getVertexPosition(i,vertex).applyMatrix4(
+              human.mesh.matrixWorld);
+            const delta=world.clone().sub(center);
+            const axial=delta.dot(axis);
+            if(Math.abs(axial)>sword.descriptor.handleLengthMeters*.5+.014)continue;
+            near++;
+            const radial=delta.addScaledVector(axis,-axial).length();
+            closest=Math.min(closest,Math.abs(radial-sword.descriptor.handleRadiusMeters));
+            deepest=Math.max(deepest,sword.descriptor.handleRadiusMeters-radial);
+          }
+          console.log("C5-SKIN-HANDLE",hand,digit,
+            "vertices",count,"axial-near",near,
+            "nearest-residual-m",Number.isFinite(closest)?closest.toFixed(5):"none",
+            "deepest-penetration-m",deepest.toFixed(5));
+          expect(count).toBeGreaterThan(40);
+          expect(Number.isFinite(closest)).toBe(true);
+        }
+      }finally{sword.dispose();}
+    }finally{human.dispose();}
+  },60_000);
   it("rejects invalid socket ownership and unsafe handle dimensions",()=>{
     const rig=createSkinningSpike();
     const hand="right" as const;
