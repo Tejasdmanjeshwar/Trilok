@@ -1,3 +1,4 @@
+import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
@@ -26,8 +27,6 @@ host.innerHTML=String.raw`
     <nav class="studio-nav" aria-label="Character sections">
       <span class="nav-title">EXPLORE</span>
       <button type="button" data-section="character" aria-current="page"><span aria-hidden="true">◈</span> Character</button>
-      <button type="button" data-section="body"><span aria-hidden="true">♧</span> Body</button>
-      <button type="button" data-section="face"><span aria-hidden="true">◉</span> Face</button>
       <button type="button" data-section="view"><span aria-hidden="true">◎</span> View</button>
     </nav>
     <section class="studio-stage" aria-label="Character preview">
@@ -83,6 +82,19 @@ host.innerHTML=String.raw`
   </div>
 </main>`;
 
+const nav=host.querySelector<HTMLElement>(".studio-nav")!;
+const viewLink=nav.querySelector<HTMLElement>('[data-section="view"]')!;
+const moduleIcons:Record<string,string>={body:"♧",face:"◉",appearance:"✦"};
+for(const module of availableStudioModules()){
+  const button=document.createElement("button");
+  button.type="button";
+  button.dataset.section=module.id;
+  const icon=document.createElement("span");
+  icon.setAttribute("aria-hidden","true");
+  icon.textContent=moduleIcons[module.id]??"✧";
+  button.append(icon,document.createTextNode(" "+module.label));
+  nav.insertBefore(button,viewLink);
+}
 const element=<T extends HTMLElement>(selector:string):T=>{
   const result=host.querySelector<T>(selector);
   if(!result)throw new Error("A required Studio control was not found");
@@ -105,7 +117,7 @@ const undoButton=element<HTMLButtonElement>("#studio-undo");
 const redoButton=element<HTMLButtonElement>("#studio-redo");
 const startOverButton=element<HTMLButtonElement>("#studio-start-over");
 const morphEditor=createStudioMorphEditor(element("#studio-editor"),
-  recipe=>viewport.applyMorphology(recipe.morphology),status=>{
+  recipe=>viewport.applyRecipe(recipe),status=>{
     undoButton.disabled=!status.canUndo;
     redoButton.disabled=!status.canRedo;
     startOverButton.disabled=!status.changed;
@@ -164,6 +176,8 @@ const sections={
     description:"Explore human proportions, age and build. Choose an area for finer shaping."},
   face:{context:"SCULPT THE FACE",title:"Shape the face",
     description:"Refine facial anatomy and expressions with precise independent controls."},
+  appearance:{context:"PERSONALIZE APPEARANCE",title:"Skin & surface",
+    description:"Choose a tone and finish, and see the change directly on your character."},
   view:{context:"THE VIEW",title:"Find your angle",
     description:"Choose a perspective and light to see every detail. You can freely turn, move, and zoom the character at any time."},
 } as const;
@@ -175,7 +189,7 @@ host.querySelectorAll<HTMLButtonElement>("[data-section]").forEach(button=>
       if(item===button)item.setAttribute("aria-current","page");
       else item.removeAttribute("aria-current");
     }
-    const editing=id==="body"||id==="face";
+    const editing=id==="body"||id==="face"||id==="appearance";
     element("#studio-editor").hidden=!editing;
     element(".studio-settings").hidden=editing;
     if(editing)morphEditor.show(id);
