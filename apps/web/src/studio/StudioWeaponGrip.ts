@@ -62,7 +62,7 @@ function boneFor(model:StudioHumanModel,role:string,hand:"left"|"right"):THREE.B
   if(!bone)throw new Error("Missing calibrated "+role+" joint");
   return bone;
 }
-function swordMesh(scale:number,handleRadius:number,handleLength:number):THREE.Group{
+function swordMesh(handleRadius:number,handleLength:number):THREE.Group{
   const group=new THREE.Group();
   const steel=new THREE.MeshStandardMaterial({color:0xc7d6df,metalness:.86,roughness:.27});
   const edge=new THREE.MeshStandardMaterial({color:0xeaf3f7,metalness:.84,roughness:.22});
@@ -95,7 +95,6 @@ function swordMesh(scale:number,handleRadius:number,handleLength:number):THREE.G
   const tip=make(new THREE.ConeGeometry(.033,.085,4),steel,
     0,bladeBase+bladeLength+.04,0);
   tip.rotation.y=Math.PI/4;
-  group.scale.setScalar(scale);
   return group;
 }
 /** Owns one procedurally generated sword; the calibrated socket frame is the
@@ -130,12 +129,12 @@ export class StudioSwordPreview {
       hand,socketId:socket.id,handleRadiusMeters:radius,handleLengthMeters:length};
     validateWeaponGrip(this.descriptor,human.spike.graph);
     const scale=THREE.MathUtils.clamp(width/.062,.55,1.18);
-    this.object=swordMesh(scale,radius/scale,length/scale);
+    this.object=swordMesh(radius/scale,length/scale);
     const basis=new THREE.Matrix4().makeBasis(lateral,along,normal);
     const rotation=new THREE.Quaternion().setFromRotationMatrix(basis);
     const desired=new THREE.Matrix4().compose(
       palm.clone().addScaledVector(along,.012).addScaledVector(normal,.006),
-      rotation,new THREE.Vector3(1,1,1));
+      rotation,new THREE.Vector3(scale,scale,scale));
     this.socketOffset=human.spike.character.socketWorld(socket.id).invert().multiply(desired);
     this.update();
   }
@@ -148,13 +147,15 @@ export class StudioSwordPreview {
   }
   dispose():void{
     this.object.removeFromParent();
+    const materials=new Set<THREE.Material>();
     this.object.traverse(obj=>{
       if(obj instanceof THREE.Mesh){
         obj.geometry.dispose();
-        const materials=Array.isArray(obj.material)?obj.material:[obj.material];
-        for(const material of materials)material.dispose();
+        const owned=Array.isArray(obj.material)?obj.material:[obj.material];
+        for(const material of owned)materials.add(material);
       }
     });
+    for(const material of materials)material.dispose();
     this.object.clear();
   }
 }
