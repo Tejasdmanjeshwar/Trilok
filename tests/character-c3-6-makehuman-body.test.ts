@@ -2,7 +2,8 @@ import {describe,expect,it} from "vitest";
 import * as THREE from "three";
 import {readFileSync} from "node:fs";
 import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from "../apps/web/src/characters/geometry/AnatomicalTemplate";
-import {BODY_CONTROLS,BODY_PRESETS,MakeHumanBodyController,resolveBodyMacroFactors,
+import {BODY_CONTROLS,BODY_PRESETS,BODY_MACRO_DEFAULTS,setBodyAncestryChannel,
+  MakeHumanBodyController,resolveBodyMacroFactors,
   validateBodyWeights,validateBodyAtlas,type BodyAtlas} from "../apps/web/src/characters/geometry/MakeHumanBodyTargets";
 import {NATIVE_MAKEHUMAN_BODY_MODIFIERS} from "../apps/web/src/characters/geometry/NativeMakeHumanBodyControls";
 import {getHumanMorphologyAlignment} from "../apps/web/src/characters/geometry/HumanMorphology";
@@ -38,6 +39,26 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
     expect(()=>validateBodyWeights({"macro/muscle":NaN})).toThrow();
     expect(()=>validateBodyWeights({"macro/african":.7,"macro/asian":.7})).toThrow();
     expect(()=>validateBodyWeights({unexpected:1})).toThrow();
+  });
+  it("matches pinned MakeHuman native macro factor knots and ethnic coupling",()=>{
+    expect(BODY_MACRO_DEFAULTS["macro/african"]).toBeCloseTo(1/3,12);
+    expect(BODY_MACRO_DEFAULTS["macro/asian"]).toBeCloseTo(1/3,12);
+    expect(BODY_MACRO_DEFAULTS["macro/caucasian"]).toBeCloseTo(1/3,12);
+    const normalized=setBodyAncestryChannel({},"african",.7);
+    expect(normalized["macro/african"]).toBe(.7);
+    expect(normalized["macro/asian"]).toBeCloseTo(.15,12);
+    expect(normalized["macro/caucasian"]).toBeCloseTo(.15,12);
+    expect(()=>validateBodyWeights(normalized)).not.toThrow();
+    expect(resolveBodyMacroFactors({}).size).toBe(0);
+    const weight=resolveBodyMacroFactors({"macro/weight":1});
+    expect([...weight.keys()].some(k=>k.startsWith("macrodetails/height/"))).toBe(false);
+    expect([...weight.keys()].some(k=>k.startsWith("macrodetails/proportions/"))).toBe(false);
+    const age=resolveBodyMacroFactors({"macro/age":.1875});
+    expect(age.get("macrodetails/caucasian-male-child")).toBeCloseTo(1/6,8);
+    expect(age.has("macrodetails/caucasian-male-baby")).toBe(false);
+    expect(resolveBodyMacroFactors({"macro/height":1}).get(
+      "macrodetails/height/male-young-averagemuscle-averageweight-maxheight"))
+      .toBeCloseTo(.5,8);
   });
   it("maps source endpoints exactly, with identical deltas on original UV duplicates",()=>{
     const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
