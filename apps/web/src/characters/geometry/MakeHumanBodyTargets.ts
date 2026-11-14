@@ -249,6 +249,9 @@ export class MakeHumanBodyController {
   private readonly atlas:ReadonlyMap<string,BodyTarget>;
   private readonly human:AnatomicalHuman;
   private readonly originalJoints:readonly THREE.Vector3[];
+  private expectedLocalPositions:THREE.Vector3[]=[];
+  private readonly restLocalRotations:readonly THREE.Quaternion[];
+  private readonly restLocalScales:readonly THREE.Vector3[];
   /** Jaw landmark stored in root-local rest coordinates, not stale world space. */
   private readonly originalJawTipRoot?:THREE.Vector3;
   private readonly originalSockets:ReturnType<typeof captureHumanRestSockets>;
@@ -275,6 +278,9 @@ export class MakeHumanBodyController {
     const inverseRoot=spike.character.root.matrixWorld.clone().invert();
     this.originalJoints=spike.skeleton.bones.map(bone=>
       bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(inverseRoot));
+    this.expectedLocalPositions=spike.skeleton.bones.map(bone=>bone.position.clone());
+    this.restLocalRotations=spike.skeleton.bones.map(bone=>bone.quaternion.clone());
+    this.restLocalScales=spike.skeleton.bones.map(bone=>bone.scale.clone());
     this.originalJawTipRoot=human.jawTipWorldRest?.clone().applyMatrix4(inverseRoot);
     this.originalSockets=captureHumanRestSockets(human);
     const skinIndex=human.mesh.geometry.getAttribute("skinIndex");
@@ -318,10 +324,21 @@ export class MakeHumanBodyController {
         throw new Error("C3.6 body morphology requires a neutral-pose rest skeleton");
     }
   }
+  /** Unlike inverse-bind matrices, these rest-local checks remain valid after
+   * an earlier morphology pass recalculates bind inverses under a moved root. */
+  private assertUnposed():void{
+    for(let i=0;i<this.human.spike.skeleton.bones.length;i++){
+      const bone=this.human.spike.skeleton.bones[i]!;
+      if(bone.position.distanceToSquared(this.expectedLocalPositions[i]!)>1e-10||
+         1-Math.abs(bone.quaternion.dot(this.restLocalRotations[i]!))>1e-8||
+         bone.scale.distanceToSquared(this.restLocalScales[i]!)>1e-10)
+        throw new Error("C3.6 body morphology requires a neutral-pose rest skeleton");
+    }
+  }
   apply(weights:BodyWeights):BodyDiagnostics{
     if(this.disposed)throw new Error("C3.6 body controller disposed");
     validateBodyWeights(weights);
-    this.assertNeutralRest();
+    this.assertUnposed();
     const start=performance.now();
     const gain=weights["stress/gain"]??1;
     const scale=this.human.template.conversionMetersPerSourceUnit*gain;
@@ -438,6 +455,7 @@ export class MakeHumanBodyController {
         point.add(shifted[index]!.clone().sub(this.originalJoints[index]!)):point;
     registerHumanSourceBodyAlignment(this.human,
       calibrateHumanMorphologyAlignment(this.human,sockets,mapJoint));
+    this.expectedLocalPositions=spike.skeleton.bones.map(bone=>bone.position.clone());
     for(let i=0;i<this.position.count;i++)
       this.position.setXYZ(i,staged[i*3]!,staged[i*3+1]!,staged[i*3+2]!);
     this.position.needsUpdate=true;
