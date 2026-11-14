@@ -227,16 +227,24 @@ export class StudioSwordPreview {
     const middle=vec(boneFor(model,"finger_middle_0",hand));
     const index=vec(boneFor(model,"finger_index_0",hand));
     const little=vec(boneFor(model,"finger_little_0",hand));
-    const along=middle.clone().sub(wrist).normalize();
-    const lateral=index.clone().sub(little).addScaledVector(along,
-      -index.clone().sub(little).dot(along)).normalize();
-    const normal=lateral.clone().cross(along).normalize();
+    // The handle crosses the closed fingers from little-finger to index.
+    // The former wrist-to-middle +Y axis made the *blade* continue through
+    // the fingers, so it appeared to grow out of the hand. Calibrate an
+    // orthonormal handle frame from the actual posed source hand instead.
+    const fingerForward=middle.clone().sub(wrist).normalize();
+    const across=index.clone().sub(little).addScaledVector(fingerForward,
+      -index.clone().sub(little).dot(fingerForward)).normalize();
+    const handleX=fingerForward.clone().negate();
+    const handleY=across; // +Y: pommel toward little, blade toward index.
+    const handleZ=handleX.clone().cross(handleY).normalize();
     const width=index.distanceTo(little);
     if(!Number.isFinite(width)||width<.012||width>.20||
-      along.lengthSq()<.9||normal.lengthSq()<.9)
+      fingerForward.lengthSq()<.9||across.lengthSq()<.9||handleZ.lengthSq()<.9)
       throw new Error("Unsupported hand dimensions for sword grip");
     const radius=THREE.MathUtils.clamp(width/4.4,.006,.017);
-    const length=THREE.MathUtils.clamp(middle.distanceTo(wrist)*1.20,.06,.16);
+    // A single-hand hilt spans the knuckles with modest guard/pommel
+    // clearance; it is not as long as the wrist-to-fingertip chain.
+    const length=THREE.MathUtils.clamp(width*1.45,.06,.14);
     const socket=human.spike.graph.sockets.find(s=>s.purpose==="primary_grip"&&
       human.spike.graph.joints.some(j=>j.id===s.parentJointId&&j.role==="palm_"+hand&&
         j.id.includes("arm["+hand+",0]")));
@@ -246,11 +254,11 @@ export class StudioSwordPreview {
     validateWeaponGrip(this.descriptor,human.spike.graph);
     const scale=THREE.MathUtils.clamp(width/.062,.55,1.18);
     this.object=swordMesh(radius/scale,length/scale);
-    const basis=new THREE.Matrix4().makeBasis(lateral,along,normal);
+    const basis=new THREE.Matrix4().makeBasis(handleX,handleY,handleZ);
     const rotation=new THREE.Quaternion().setFromRotationMatrix(basis);
-    const initial=palm.clone().addScaledVector(along,.012)
-      .addScaledVector(normal,.006);
-    const center=fitHandleCenter(model,hand,initial,lateral,along,normal,
+    const initial=palm.clone().addScaledVector(fingerForward,.012)
+      .addScaledVector(handleZ,.006);
+    const center=fitHandleCenter(model,hand,initial,handleX,handleY,handleZ,
       radius,length);
     const desired=new THREE.Matrix4().compose(
       center,rotation,new THREE.Vector3(scale,scale,scale));
