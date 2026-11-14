@@ -1,0 +1,37 @@
+name: C3.6 Native Body Visual
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'assets/makehuman-body-v1.json'
+      - 'scripts/fetch-makehuman-body.mjs'
+      - 'scripts/fetch-makehuman-core.mjs'
+      - 'e2e/c36-makehuman-body.spec.ts'
+      - '.github/workflows/c36-body-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  body-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm build
+      - run: node scripts/verify-build-identity.mjs
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Render C3.6 desktop/touch original MakeHuman body combinations
+        run: pnpm exec playwright test e2e/c36-makehuman-body.spec.ts
+      - name: Capture body inspection screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c36-body-chromium-screenshots
+          path: test-results/c36/**/*.png
+          if-no-files-found: warn
+          retention-days: 14
