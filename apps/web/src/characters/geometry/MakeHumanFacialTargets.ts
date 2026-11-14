@@ -134,6 +134,24 @@ export const ALL_FACIAL_CONTROLS:readonly FacialControl[] = [...FACIAL_CONTROLS,
   {id:"native/race-asian",label:"Asian ancestry weight",group:"Native ancestry blend",positive:"expression/units/asian/mouth-open",min:0,max:1},
 ];
 
+/** Coordinate a source expression that already opens the jaw with a separate
+ * C1 presentation FK command. Keep native morph deltas intact, and remove only
+ * overlapping *additional* sagittal opening. Other poses and independent
+ * articulation remain unchanged. This must never alter gameplay authority.
+ */
+export function coordinateFacialJawPose<T extends {
+  readonly jointId:string; readonly motion:string; readonly radians:number;
+}>(targets:readonly T[],jawId:string|undefined,
+  expressionOpeningRadians:number):readonly T[] {
+  if(!jawId||!Number.isFinite(expressionOpeningRadians)||
+     expressionOpeningRadians<0)
+    throw new Error("Invalid C3.7 jaw expression coordination");
+  if(expressionOpeningRadians===0)return targets;
+  return targets.map(target=>
+    target.jointId===jawId&&target.motion==="flexion"&&target.radians>0
+      ? {...target,radians:Math.max(0,target.radians-expressionOpeningRadians)}
+      : target);
+}
 export type FacialWeights=Readonly<Record<string,number>>;
 export const FACIAL_PRESETS:Readonly<Record<string,FacialWeights>>={
   neutral:{},
