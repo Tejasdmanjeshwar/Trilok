@@ -182,6 +182,7 @@ export class MakeHumanFacialController {
   private readonly indices:THREE.BufferAttribute|undefined;
   private readonly scale:number;
   private readonly human:AnatomicalHuman;
+  private readonly jawOpeningBasis?:Readonly<{rest:THREE.Vector3;axis:THREE.Vector3}>;
   private lastSourceJawOpening=0;
   /** Source-pose overlap only: exact CC0 facial vertices remain untouched. */
   get sourceJawOpeningRadians():number{return this.lastSourceJawOpening;}
@@ -199,6 +200,24 @@ export class MakeHumanFacialController {
       throw new Error("C3.5 requires original MakeHuman source vertex mapping");
     this.indices=human.mesh.geometry.getIndex()??undefined;
     this.neutral=Float32Array.from(this.position.array as ArrayLike<number>);
+    // Capture unposed rest coordinates once: facial previews can be edited while
+    // C1 jaw FK is active, so live jaw transforms are not a valid rest reference.
+    const jaw=human.spike.graph.joints.find(j=>j.role==="jaw");
+    const head=human.spike.graph.joints.find(j=>j.role==="head");
+    const neck=human.spike.graph.joints.find(j=>j.role==="neck");
+    if(jaw&&head&&neck&&human.jawTipWorldRest){
+      human.spike.character.root.updateMatrixWorld(true);
+      const inverseRoot=human.spike.character.root.matrixWorld.clone().invert();
+      const at=(id:string):THREE.Vector3=>
+        human.spike.bones.get(id)!.getWorldPosition(new THREE.Vector3())
+          .applyMatrix4(inverseRoot);
+      const hinge=at(jaw.id);
+      const rest=human.jawTipWorldRest.clone().applyMatrix4(inverseRoot).sub(hinge);
+      const up=at(head.id).sub(at(neck.id)).normalize();
+      const anterior=rest.clone().addScaledVector(up,-rest.dot(up)).normalize();
+      if(rest.lengthSq()>1e-10&&up.lengthSq()>1e-10&&anterior.lengthSq()>1e-10)
+        this.jawOpeningBasis={rest,axis:up.cross(anterior).normalize()};
+    }
     const mapping=new Map<number,number[]>();
     human.template.sourceVertexIds.forEach((sourceId,renderId)=>{
       const list=mapping.get(sourceId)??[];
@@ -215,13 +234,10 @@ export class MakeHumanFacialController {
   private measureSourceJawOpening(weights:FacialWeights):number {
     const value=(weights.mouthOpen??0)+(weights["native/expression/mouth-open"]??0);
     if(value<=0)return 0;
-    const {sourceRig,spike,jawTipWorldRest,template}=this.human;
+    const {sourceRig,template}=this.human;
     const tail=sourceRig?.bones.jaw?.tail;
     const ids=tail?sourceRig?.joints[tail]:undefined;
-    const jaw=spike.graph.joints.find(j=>j.role==="jaw");
-    const head=spike.graph.joints.find(j=>j.role==="head");
-    const neck=spike.graph.joints.find(j=>j.role==="neck");
-    if(!ids?.length||!jaw||!head||!neck||!jawTipWorldRest)return 0;
+    if(!ids?.length||!this.jawOpeningBasis)return 0;
     const displacement=new THREE.Vector3();
     const included=new Set(ids);
     const african=weights["native/race-african"]??0;
@@ -239,18 +255,7 @@ export class MakeHumanFacialController {
       }
     }
     displacement.multiplyScalar(template.conversionMetersPerSourceUnit/ids.length);
-    const root=spike.character.root;
-    root.updateMatrixWorld(true);
-    const inverseRoot=root.matrixWorld.clone().invert();
-    const at=(id:string):THREE.Vector3=>
-      spike.bones.get(id)!.getWorldPosition(new THREE.Vector3())
-        .applyMatrix4(inverseRoot);
-    const hinge=at(jaw.id);
-    const rest=jawTipWorldRest.clone().applyMatrix4(inverseRoot).sub(hinge);
-    const up=at(head.id).sub(at(neck.id)).normalize();
-    const anterior=rest.clone().addScaledVector(up,-rest.dot(up)).normalize();
-    if(up.lengthSq()<1e-10||anterior.lengthSq()<1e-10)return 0;
-    const axis=up.cross(anterior).normalize();
+    const {rest,axis}=this.jawOpeningBasis;
     const projected=(v:THREE.Vector3)=>v.addScaledVector(axis,-v.dot(axis));
     const before=projected(rest.clone());
     const after=projected(rest.add(displacement));
