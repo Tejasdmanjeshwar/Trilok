@@ -72,6 +72,9 @@ test("C3.7 infant ages deform body and skeleton together, including child transi
   const viewport=page.locator("#viewport");
   const platform=test.info().project.name;
   mkdirSync("test-results/c37",{recursive:true});
+  const pose=page.locator("#pose-select");
+  const view=page.locator("#view-select");
+  await view.selectOption("front");
   const originalCamera=await viewport.getAttribute("data-camera-state");
   for(const age of ["0","0.03","0.05","0.06","0.1875"]){
     await slider.evaluate((node,value)=>{
@@ -85,8 +88,24 @@ test("C3.7 infant ages deform body and skeleton together, including child transi
     await expect(diagnostic).toContainText("Source-affected vertices:",{timeout:90_000});
     await expect(diagnostic).not.toContainText("source unavailable");
     expect(await viewport.getAttribute("data-camera-state")).toBe(originalCamera);
-    if(age==="0"||age==="0.05"||age==="0.06"){
-      await viewport.screenshot({path:`test-results/c37/${platform}-age-${age}.png`});
+    if(["0","0.03","0.05","0.06"].includes(age)){
+      // These use actual Chromium-rendered geometry, not a proxy renderer.
+      // Joint-specific views track C1 source-derived shoulder/knee landmarks.
+      for(const framing of ["front","side","shoulder-left","knee-left"]){
+        await view.selectOption(framing);
+        await viewport.screenshot({path:
+          `test-results/c37/${platform}-age-${age}-${framing}-rest.png`});
+      }
+      await pose.selectOption("overhead");
+      await view.selectOption("shoulder-left");
+      await viewport.screenshot({path:
+        `test-results/c37/${platform}-age-${age}-shoulder-overhead.png`});
+      await pose.selectOption("crouch");
+      await view.selectOption("knee-left");
+      await viewport.screenshot({path:
+        `test-results/c37/${platform}-age-${age}-knee-crouch.png`});
+      await pose.selectOption("neutral");
+      await view.selectOption("front");
     }
   }
   expect(errors).toEqual([]);
