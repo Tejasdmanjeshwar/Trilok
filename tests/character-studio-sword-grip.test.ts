@@ -7,7 +7,7 @@ import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from
   "../apps/web/src/characters/geometry/AnatomicalTemplate";
 import type {SourceRig,SourceWeights} from
   "../apps/web/src/characters/geometry/OfficialHumanRig";
-import {StudioSwordPreview,swordGripTargets,validateWeaponGrip} from
+import {StudioSwordPreview,calibrateGripSpreads,swordGripTargets,validateWeaponGrip} from
   "../apps/web/src/studio/StudioWeaponGrip";
 import type {StudioHumanModel} from "../apps/web/src/studio/StudioHumanModel";
 
@@ -46,13 +46,15 @@ describe("single-hand sword contracts",()=>{
       forearmSkinBones:rig.forearmSkinBones,
       shoulderSkinBones:rig.shoulderSkinBones,
     });
-    fk.apply(swordGripTargets(rig.graph,hand));
+    fk.apply(swordGripTargets(rig.graph,hand,
+      calibrateGripSpreads(rig.graph,rig.bones,fk.frames,hand)));
     const weapon=new StudioSwordPreview(model,hand);
     validateWeaponGrip(weapon.descriptor,rig.graph);
     expect(weapon.object.children.length).toBeGreaterThan(6);
     const initial=weapon.object.matrix.clone();
     const wrist=rig.graph.joints.find(j=>j.role==="wrist_"+hand)!;
-    fk.apply([...swordGripTargets(rig.graph,hand),
+    fk.apply([...swordGripTargets(rig.graph,hand,
+      calibrateGripSpreads(rig.graph,rig.bones,fk.frames,hand)),
       {jointId:wrist.id,motion:"flexion",radians:.32}]);
     weapon.update();
     expect(weapon.object.matrix.equals(initial)).toBe(false);
