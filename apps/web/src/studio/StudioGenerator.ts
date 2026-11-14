@@ -1,4 +1,4 @@
-import {DEFAULT_HUMAN_HEAD_MORPHOLOGY,type HumanHeadMorphologyV1}
+import {type HumanHeadMorphologyV1}
   from "@trilok/character-core";
 import {BODY_MACRO_DEFAULTS} from "../characters/geometry/MakeHumanBodyTargets";
 import {
