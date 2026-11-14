@@ -307,7 +307,8 @@ test("Character Lab viewer-first pose picker stays compact, searchable and keybo
   await page.getByRole("button",{name:"Browse poses"}).click();
   await page.keyboard.press("Escape");
   await expect(page.locator("#pose-browser")).toBeHidden();
-  await page.getByRole("button",{name:"Reset"}).click();
+  // Reset only the selected diagnostic pose, not body, face or head morphology.
+  await page.locator("#reset-pose").click();
   await expect(pose).toHaveValue("neutral");
   await page.getByRole("button",{name:"Crouch",exact:true}).click();
   await expect(pose).toHaveValue("crouch");
