@@ -27,10 +27,14 @@ test("Character Studio history undoes and redoes body, face, presets and reset",
   await expect(page.locator("#studio-preset")).toHaveValue("neutral");
   await page.locator("#studio-redo").click();
   await expect(page.locator("#studio-preset")).toHaveValue("smile");
+  page.once("dialog",dialog=>dialog.accept());
   await page.locator("#studio-start-over").click();
-  await page.getByRole("button",{name:"OK"}).isVisible().catch(()=>false);
-  // Native confirm is automatically dismissed by Playwright unless handled.
-  await expect(page.locator("#studio-start-over")).toBeEnabled();
+  await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
+  await expect(page.locator("#studio-start-over")).toBeDisabled();
+  await page.getByRole("button",{name:"Body",exact:true}).click();
+  await expect(age).toHaveValue("0.5");
+  await page.locator("#studio-undo").click();
+  await expect(age).toHaveValue("0.03");
   expect(await page.locator("body").evaluate(el=>el.scrollWidth<=innerWidth+1)).toBe(true);
   mkdirSync("test-results/studio",{recursive:true});
   await page.screenshot({path:"test-results/studio/"+test.info().project.name+"-history.png",fullPage:true});
