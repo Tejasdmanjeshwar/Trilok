@@ -191,7 +191,7 @@ function syncBodyInputs():void{
 buildBodyControls();
 bodyPreset?.addEventListener("change",()=>{
   bodyWeights={...(BODY_PRESETS[bodyPreset.value]??{})};
-  syncBodyInputs();void switchSurface("template",true);
+  syncBodyInputs();requestBodyRebuild();
 });
 document.querySelector<HTMLButtonElement>("#c36-reset-body")?.addEventListener(
   "click",()=>{
