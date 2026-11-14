@@ -1,6 +1,6 @@
 # Trilok Character Studio — Browser-Native Character System Roadmap (C0–C9)
 
-**Status:** C0/C1 contracts and C2 anatomical foundation are accepted; C2 Phase Acceptance #43289499861 passed on SHA 7d2b888afd8ffa3fe26a5fd1b611b55fe9c81ac5 with owner Cloudflare/Character Lab sign-off (Issue #15 closed). C3.1 merged via PR #40; C3.2 localized shaping and opt-in Character Lab preview are merged; C3.3 experimental corrections and socket/IK calibration are in progress. C3 remains unaccepted; C4 and combat migration have not begun.
+**Status (2026-11-14):** C0/C1/C2 foundations accepted; C3 human morphology and integration changes through PR #64 merged. Final exact-`main` C3 Phase Acceptance [#43596286416](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43596286416) passed on `19fbef9ec931c42e7545c30ca9f44ba495bfac67` (307 unit/replay tests, 48 browser tests); owner accepted the infant mesh fix. C3 tracking [Issue #41](https://github.com/Tejasdmanjeshwar/Trilok/issues/41) remains open for its final record/signoff and independently verified deployment identity. C4 is planned, **not implemented**, in the [approved C4 plan](character-studio-c4-plan.md) / [Issue #65](https://github.com/Tejasdmanjeshwar/Trilok/issues/65). C5–C9 and combat migration have not begun.
 **Repository baseline at planning time:** main @ db8348bd296a412262781d20a9f444fea474c692; playable 0.4.0-preview.19; combat 0.4-D14.  
 **Scope:** shared, reusable character technology for Ramayana and subsequent campaigns.  
 **First implementation phase:** C0 architecture audit/specification. Review the [C0 ADR](character-studio-c0-architecture.md) and its verification before starting C1.  
@@ -37,7 +37,7 @@ Favor small packages/interfaces and data-defined archetypes. Names below are pro
 | Rig and sockets | Canonical humanoid roles, additional limb/wing/head chains, bind-pose contracts, validators, grip/socket metadata | packages/character-rig or cohesive character-runtime package |
 | Runtime assembler | Three.js Skeleton/SkinnedMesh/morphs/materials; bone lookup; camera preview; disposal/LOD | apps/web/src/characters/runtime |
 | Animation/IK | Layered pose evaluation, retargeting, constraints and calibrated weapon/foot/hand contacts | dedicated character animation module |
-| Studio | Lazy-loaded /studio route; model preview; editing state, undo/redo, diagnostics, bake tools | apps/web/src/studio |
+| Studio | Lazy-loaded /studio route; player-facing responsive editor, shared human preview, in-memory recipes/history, advanced inspection, seeded character generation (no C9 baking or Save/Load) | apps/web/src/studio |
 | Combat bridge | Adapter maintaining AnimatedWarrior-facing API, anatomical proxy mapping, wound anchors and event integration | apps/web/src/characters/combat |
 | Browser asset baker | Deterministic recipe freeze, geometry/rig validation, optional optimization/LOD, GLB + Trilok metadata export, round trip | apps/web/src/characters/baking |
 
@@ -84,7 +84,7 @@ C1 establishes metadata and validation contracts; C2/C3 must reserve/validate to
 
 ## 5. Browser-native Studio and baking contract
 
-**Studio sections:** archetype selection; body/face morphs; anatomy modules; skin/hair/materials; clothing/armor; rig/IK diagnostics; weapons/grips; deformation and combat pose tests; wounds/dismemberment preview. Save/load and baking are deliberately deferred to C9, after the Studio and related systems are complete. Include orbit and orthographic cameras, lighting presets, visibility controls, keyboard-accessible parameter editing, reduced-motion behavior, undo/redo, deterministic random seed, readable errors and non-destructive reset.
+**Studio sections:** the C4 player-facing UI provides functional human selection/presets, existing body/face morphs, available appearance/material controls, pose/expression previews, camera/lighting tools, optional advanced rig/IK diagnostics, non-destructive editing, undo/redo and meaningful deterministic human generation. Future anatomical modules, fitted clothing/armor/hair, weapons/grips, wounds and dismemberment are exposed **only after their respective C5–C8 functionality exists**, never as fake controls. Save/Load and baking are reserved for C9. Support orbit and orthographic cameras, visibility controls, keyboard-accessible editing, reduced motion, failure recovery and section resets. See the [C4 product/UX plan](character-studio-c4-plan.md).
 
 **Live edit:** mutate immutable recipe state; validate/canonicalize parameters; debounce heavy recomputation; generate in worker where viable; cancel/ignore stale generations; update preview with latest valid version; dispose replaced GPU/CPU resources.
 
@@ -149,7 +149,21 @@ Create bounded body/face parameters, topology families, corrective morphs, bone/
 
 ### C4 — Standalone Character Studio
 
-Deliver lazy-loaded **/studio** interface in existing web application with the *same* runtime character builder, archetypes/presets, orbit + orthographic views, editable controls, undo/redo, internal versioned in-memory recipe state, accessibility, debugging overlays, pose previews and regeneration cancellation. UI does not duplicate mesh logic. **Do not implement user-facing persistent Save/Load, recipe-file import/export, or baking in C4**; these become C9 deliverables after the Lab and Studio capabilities are stable.
+**Approved detailed implementation specification:** [C4 Product, UX and Implementation Plan](character-studio-c4-plan.md); **tracking:** [Issue #65](https://github.com/Tejasdmanjeshwar/Trilok/issues/65). Build one incremental, reviewable slice at a time:
+
+1. **C4.1 — Studio Foundation & Design System:** lazy-loaded /studio (deep link, desktop/touch), premium minimal responsive layout and accessible design tokens, centered 3D human viewport, orbit/view/lighting and proper loading/error/retry; existing shared runtime only.
+2. **C4.2 — Character Customization:** complete original human MakeHuman body and facial controls, source fidelity, search, progressive basic/advanced groups, numeric precision, presets and resets, no forced camera focus.
+3. **C4.3 — Editing Workflow:** immutable versioned **in-memory** recipe, undo/redo, grouping, selective reset, safe cancellation, staged validated regeneration and rollback.
+4. **C4.4 — Functional Appearance & Extensibility:** actual available material/skin appearance controls, modular authoring capability contracts; defer unsupported hair, armor, equipment or anatomy without fake buttons.
+5. **C4.5 — Preview & Inspection:** explicit cameras/orthographic views, pose/expression previews, optional advanced wireframe, skeleton and rig diagnostics, camera stability and responsive viewport.
+6. **C4.6 — UX/Accessibility/Performance:** designer task testing, desktop/touch/keyboard/reduced-motion behavior, visual consistency, lifecycle and error recovery, device-measured performance.
+7. **C4.7 — Final Meaningful Seeded Human Generator:** correlated profile-driven variations, deterministic/versioned seed, subtle-to-distinctive control, feature and section locks, regenerate unlocked groups, preserve validation, full editable output and history; new archetypes are C7.
+
+**Player-facing hard requirement:** Studio UI and accessibility text must contain **no C0/C1/C2/C3/C4 (or later) phase labels, issue/PR numbers, source asset identifiers, engineering diagnostics or Git build details**. The only permitted technical metadata in the product interface is an unobtrusive **public app version** (About). Internal docs, issue tracking and test selectors may use phase codes. The UI must be an uncluttered, polished, mobile-responsive RPG character creator, not a replication of Character Lab.
+
+C4 uses the same runtime character builder as Lab and game; it must not duplicate mesh logic or alter gameplay authority. The final exact-`main` C4 Phase Acceptance requires desktop/touch Chromium, rendered screenshot inspection, performance and owner signoff, independent Cloudflare build identity and full source/determinism tests.
+
+**Do not implement user-facing persistent Save/Load, recipe-file import/export, or baking in C4**; C9 owns these after C5–C8. C5–C8 own real weapon handling, animation, additional archetypes and injury integration.
 
 ### C5 — Weapon handling and IK
 
