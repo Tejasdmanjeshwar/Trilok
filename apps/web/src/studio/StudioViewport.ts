@@ -6,6 +6,10 @@ import {DEFAULT_STUDIO_APPEARANCE,validateStudioAppearance,type StudioAppearance
 import {applyStudioSkinMaterial} from "./StudioSkinMaterial";
 import type {StudioRecipeV1} from "./StudioRecipe";
 import { STUDIO_LIGHTS, STUDIO_VIEWS, type StudioLight, type StudioView } from "./StudioPresentation";
+import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
+  type StudioFocus,type StudioExpression,type StudioPose,type StudioInspectionOptions}
+  from "./StudioInspection";
+import {StudioPosePreview} from "./StudioPosePreview";
 
 export interface StudioViewport {
   load():Promise<void>;
@@ -13,6 +17,12 @@ export interface StudioViewport {
   applyRecipe(recipe:StudioRecipeV1):Promise<boolean>;
   setView(view:StudioView):void;
   setLight(light:StudioLight):void;
+  setOrthographic(enabled:boolean):void;
+  focus(area:StudioFocus):boolean;
+  returnFromFocus():void;
+  setPose(pose:StudioPose):void;
+  setExpression(expression:StudioExpression):Promise<boolean>;
+  setInspection(options:StudioInspectionOptions):void;
   resetView():void;
   dispose():void;
 }
@@ -24,7 +34,19 @@ export function createStudioViewport(
   onEditError:(message:string)=>void,
 ):StudioViewport {
   const scene=new THREE.Scene();
-  const camera=new THREE.PerspectiveCamera(40,1,.05,90);
+  const perspective=new THREE.PerspectiveCamera(40,1,.05,90);
+  const orthographic=new THREE.OrthographicCamera(-1,1,1,-1,.05,90);
+  let camera:THREE.PerspectiveCamera|THREE.OrthographicCamera=perspective;
+  let orthographicMode=false;
+  let transition:{from:THREE.Vector3;to:THREE.Vector3;
+    fromTarget:THREE.Vector3;toTarget:THREE.Vector3;start:number}|undefined;
+  let priorFocus:{position:THREE.Vector3;target:THREE.Vector3}|undefined;
+  let pose:StudioPose="neutral";
+  let expression:StudioExpression="neutral";
+  let posePreview:StudioPosePreview|undefined;
+  let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
+  let skeleton:THREE.SkeletonHelper|undefined;
+  let markers:THREE.Group|undefined;
   const isReduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
   let renderer:THREE.WebGLRenderer|undefined;
   let controls:OrbitControls|undefined;
@@ -56,13 +78,159 @@ export function createStudioViewport(
   (orientation.material as THREE.Material).transparent=true;
   (orientation.material as THREE.Material).opacity=.16;
   scene.add(orientation);
-  const resetView=()=>setView("three-quarter");
+  const target=()=>controls?.target.clone()??new THREE.Vector3(0,.95,0);
+  const endMotion=()=>{transition=undefined;};
+  function moveTo(position:THREE.Vector3,look:THREE.Vector3):void {
+    endMotion();
+    if(!controls){camera.position.copy(position);camera.lookAt(look);return;}
+    if(isReduced){
+      camera.position.copy(position);controls.target.copy(look);controls.update();
+    }else{
+      transition={from:camera.position.clone(),to:position,
+        fromTarget:target(),toTarget:look,start:performance.now()};
+    }
+  }
   function setView(view:StudioView):void {
+    priorFocus=undefined;
     const selected=STUDIO_VIEWS[view];
-    camera.position.set(selected.position[0],selected.position[1],selected.position[2]);
-    controls?.target.set(selected.target[0],selected.target[1],selected.target[2]);
-    camera.lookAt(selected.target[0],selected.target[1],selected.target[2]);
-    controls?.update();
+    moveTo(new THREE.Vector3(...selected.position),new THREE.Vector3(...selected.target));
+  }
+  const resetView=()=>setView("three-quarter");
+  function setOrthographic(enabled:boolean):void {
+    if(orthographicMode===enabled)return;
+    endMotion();
+    const from=camera;
+    const oldTarget=target();
+    // Both cameras use the same world framing at the current distance.
+    const distance=Math.max(.05,from.position.distanceTo(oldTarget));
+    orthographicMode=enabled;
+    camera=enabled?orthographic:perspective;
+    camera.position.copy(from.position);camera.quaternion.copy(from.quaternion);
+    if(enabled) {
+      const half=distance*Math.tan(THREE.MathUtils.degToRad(perspective.fov)/2);
+      orthographic.top=half;orthographic.bottom=-half;
+      orthographic.left=-half*perspective.aspect;orthographic.right=half*perspective.aspect;
+      orthographic.zoom=1;orthographic.updateProjectionMatrix();
+    }
+    // OrbitControls binds its camera at construction. Rebind without touching the scene.
+    controls?.dispose();
+    if(renderer) {
+      controls=new OrbitControls(camera,renderer.domElement);
+      configureControls(controls);
+      controls.target.copy(oldTarget);controls.update();
+    }
+    measure();
+  }
+  function focus(area:StudioFocus):boolean {
+    if(!active||!Object.hasOwn(STUDIO_FOCUS,area))return false;
+    const point=focusPosition(active.human,area);
+    if(!point)return false;
+    if(!priorFocus)priorFocus={position:camera.position.clone(),target:target()};
+    const direction=camera.position.clone().sub(target()).normalize();
+    if(direction.lengthSq()<1e-8)direction.set(0,.08,1).normalize();
+    moveTo(point.target.clone().addScaledVector(direction,point.distance),point.target);
+    return true;
+  }
+  function returnFromFocus():void {
+    if(!priorFocus)return;
+    const previous=priorFocus;priorFocus=undefined;
+    moveTo(previous.position,previous.target);
+  }
+  function setPose(next:StudioPose):void {
+    pose=next;
+    posePreview?.setPose(next);
+    refreshInspection();
+  }
+  async function setExpression(next:StudioExpression):Promise<boolean> {
+    if(!active)return false;
+    const current=++ticket;
+    requestAbort?.abort();
+    const abort=new AbortController();requestAbort=abort;
+    const previous=expression;
+    try{
+      const ok=await active.setFace(previewExpression(currentMorphology.face,next),
+        ()=>!disposed&&!abort.signal.aborted&&current===ticket);
+      if(!ok)return false;
+      expression=next;
+      posePreview?.refresh();
+      return true;
+    }catch{
+      if(current===ticket){expression=previous;
+        onEditError("The expression could not be previewed.");}
+      return false;
+    }finally{if(requestAbort===abort)requestAbort=undefined;}
+  }
+  function disposeInspection():void {
+    if(skeleton){
+      skeleton.removeFromParent();skeleton.geometry.dispose();
+      if(skeleton.material instanceof THREE.Material)skeleton.material.dispose();
+      skeleton=undefined;
+    }
+    if(markers){
+      markers.removeFromParent();
+      markers.traverse(object=>{
+        if(object instanceof THREE.Mesh){
+          object.geometry.dispose();
+          if(object.material instanceof THREE.Material)object.material.dispose();
+        }
+      });
+      markers=undefined;
+    }
+    if(active){
+      const material=active.human.mesh.material;
+      if(material instanceof THREE.MeshStandardMaterial)material.wireframe=false;
+    }
+  }
+  function refreshInspection():void {
+    disposeInspection();
+    if(!active)return;
+    const human=active.human;
+    const material=human.mesh.material;
+    if(material instanceof THREE.MeshStandardMaterial)material.wireframe=inspection.wireframe;
+    if(inspection.skeleton){
+      skeleton=new THREE.SkeletonHelper(human.spike.character.root);
+      const lines=skeleton.material;
+      if(lines instanceof THREE.LineBasicMaterial){
+        lines.depthTest=false;lines.transparent=true;lines.opacity=.8;
+      }
+      scene.add(skeleton);
+    }
+    if(inspection.joints){
+      markers=new THREE.Group();
+      const geometry=new THREE.SphereGeometry(.009,8,6);
+      const material=new THREE.MeshBasicMaterial({color:0xffd58f,depthTest:false});
+      for(const joint of human.spike.graph.joints){
+        if(joint.role.startsWith("finger_")&&!joint.role.endsWith("_0"))continue;
+        const bone=human.spike.bones.get(joint.id);
+        if(!bone)continue;
+        // One marker geometry/material per joint simplifies unconditional ownership.
+        const marker=new THREE.Mesh(geometry.clone(),material.clone());
+        marker.userData.jointId=joint.id;
+        markers.add(marker);
+      }
+      geometry.dispose();material.dispose();
+      scene.add(markers);
+    }
+  }
+  function setInspection(next:StudioInspectionOptions):void {
+    inspection={...next};refreshInspection();
+  }
+  function updateMarkers():void{
+    if(!markers||!active)return;
+    active.human.spike.character.root.updateWorldMatrix(true,true);
+    for(const marker of markers.children){
+      const bone=active.human.spike.bones.get(marker.userData.jointId as string);
+      if(bone)marker.position.copy(bone.getWorldPosition(new THREE.Vector3()));
+    }
+  }
+  function configureControls(instance:OrbitControls):void {
+    instance.enableDamping=!isReduced;
+    instance.enablePan=true;instance.enableZoom=true;
+    instance.minDistance=.25;instance.maxDistance=9;
+    instance.minZoom=.25;instance.maxZoom=8;
+    instance.minPolarAngle=.08;instance.maxPolarAngle=Math.PI-.08;
+    instance.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
+    instance.addEventListener("start",endMotion);
   }
   function setLight(mode:StudioLight):void {
     light=mode;
@@ -77,7 +245,15 @@ export function createStudioViewport(
   function draw():void {
     if(disposed||contextLost||!renderer||!controls)return;
     raf=requestAnimationFrame(draw);
+    if(transition&&controls) {
+      const t=Math.min(1,(performance.now()-transition.start)/430);
+      const ease=t*t*(3-2*t);
+      camera.position.lerpVectors(transition.from,transition.to,ease);
+      controls.target.lerpVectors(transition.fromTarget,transition.toTarget,ease);
+      if(t>=1)transition=undefined;
+    }
     controls.update();
+    updateMarkers();
     if(!document.hidden && element.clientWidth>0 && element.clientHeight>0) {
       renderer.render(scene,camera);
     }
@@ -87,8 +263,14 @@ export function createStudioViewport(
     const width=Math.max(1,element.clientWidth),height=Math.max(1,element.clientHeight);
     renderer.setSize(width,height,false);
     // Leave room for the viewport help bar on short touch displays.
-    camera.fov=height<500?50:40;
-    camera.aspect=width/height;camera.updateProjectionMatrix();
+    perspective.fov=height<500?50:40;
+    perspective.aspect=width/height;perspective.updateProjectionMatrix();
+    if(orthographicMode){
+      const half=(orthographic.top-orthographic.bottom)/2;
+      orthographic.left=-half*width/height;
+      orthographic.right=half*width/height;
+      orthographic.updateProjectionMatrix();
+    }
   }
   function onLost(event:Event):void {
     event.preventDefault();
@@ -118,13 +300,8 @@ export function createStudioViewport(
     renderer.domElement.addEventListener("webglcontextrestored",onRestored);
     element.append(renderer.domElement);
     controls=new OrbitControls(camera,renderer.domElement);
-    controls.enableDamping=!isReduced;
-    controls.enablePan=true;
-    controls.enableZoom=true;
-    controls.minDistance=.33;controls.maxDistance=9;
-    controls.minPolarAngle=.08;controls.maxPolarAngle=Math.PI-.08;
+    configureControls(controls);
     controls.target.set(0,.95,0);
-    controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
     resetView();
     setLight(light);
     resize=new ResizeObserver(measure);
@@ -155,11 +332,12 @@ export function createStudioViewport(
     if(faceOnly){
       try{
         const sameFace=JSON.stringify(state.face)===JSON.stringify(currentMorphology.face);
-        const changed=sameFace||await active!.setFace(state.face,valid);
+        const changed=sameFace||await active!.setFace(previewExpression(state.face,expression),valid);
         if(!changed||!valid())return false;
         applyStudioSkinMaterial(active!.human.mesh,appearance);
         currentAppearance=appearance;
         currentMorphology=state;
+        posePreview?.refresh();
         onEditError("");
         return true;
       }catch(_error){
@@ -174,12 +352,25 @@ export function createStudioViewport(
       incoming=await buildStudioHuman(state,abort.signal);
       if(!valid()){incoming.dispose();return false;}
       applyStudioSkinMaterial(incoming.human.mesh,appearance);
+      if(expression!=="neutral") {
+        const ok=await incoming.setFace(previewExpression(state.face,expression),valid);
+        if(!ok||!valid()){incoming.dispose();return false;}
+      }
+      const preview=new StudioPosePreview(incoming);
+      try{preview.setPose(pose);}
+      catch(error){preview.dispose();throw error;}
+      if(!valid()){preview.dispose();incoming.dispose();return false;}
       const previous=active;
+      const previousPose=posePreview;
+      disposeInspection();
       scene.add(incoming.human.spike.character.root);
       active=incoming;
+      posePreview=preview;
       currentMorphology=state;
       currentAppearance=appearance;
+      previousPose?.dispose();
       previous?.dispose();
+      refreshInspection();
       onReady();
       onEditError("");
       return true;
@@ -209,6 +400,8 @@ export function createStudioViewport(
     cancelAnimationFrame(raf);
     resize?.disconnect();
     controls?.dispose();
+    disposeInspection();
+    posePreview?.dispose();
     active?.dispose();
     ground.geometry.dispose();
     (ground.material as THREE.Material).dispose();
@@ -221,5 +414,6 @@ export function createStudioViewport(
       renderer.domElement.remove();
     }
   }
-  return {load,applyMorphology,applyRecipe,setView,setLight,resetView,dispose};
+  return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
+    focus,returnFromFocus,setPose,setExpression,setInspection,resetView,dispose};
 }

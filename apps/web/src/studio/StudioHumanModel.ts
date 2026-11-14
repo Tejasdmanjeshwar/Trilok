@@ -12,6 +12,7 @@ import {validateStudioMorphState,type StudioMorphState} from "./StudioMorphCatal
  * source controllers; never silently approximate native MakeHuman targets. */
 export interface StudioHumanModel {
   readonly human:AnatomicalHuman;
+  readonly sourceJawOpeningRadians:number;
   setFace(face:FacialWeights,accept:()=>boolean):Promise<boolean>;
   dispose():void;
 }
@@ -43,6 +44,7 @@ export async function buildStudioHuman(state:StudioMorphState,
     if(signal?.aborted)throw new Error("Preview superseded");
     return {
       human,
+      get sourceJawOpeningRadians(){return face?.sourceJawOpeningRadians??0;},
       async setFace(weights,accept){
         if(disposed)throw new Error("Character preview has closed");
         // No in-place mutation after an awaited load unless the caller's

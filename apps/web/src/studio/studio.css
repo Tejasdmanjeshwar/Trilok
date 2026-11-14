@@ -236,3 +236,27 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
     outline:2px solid Highlight;
   }
 }
+
+/* Pose, explicit regional framing and optional inspection are presentation-only. */
+.studio-extra-panel{display:grid;gap:19px;padding-top:22px}
+.studio-extra-panel[hidden]{display:none}
+.studio-extra-panel p{font-size:12px;line-height:1.6;color:#bdc7ca;margin:8px 0 16px}
+.studio-extra-panel select,.studio-settings select{
+  width:100%;min-height:44px;padding:9px 12px;margin-top:9px;
+  border:1px solid #667780;border-radius:9px;background:#131e29;color:#f4ece0;
+  font:inherit;font-size:13px
+}
+.studio-switch{display:flex;align-items:center;gap:11px;min-height:45px;
+  margin-top:12px;font-size:13px;color:#e6e9e4;cursor:pointer}
+.studio-switch input{accent-color:#e1bf81;width:19px;height:19px;flex:none}
+.studio-action-pair{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.studio-action-pair button{min-height:44px;border:1px solid #6f7f85;
+  border-radius:9px;background:#293843;color:#f3e5ce;font-weight:700}
+.studio-action-pair button:disabled{opacity:.45;cursor:default}
+.studio-extra-panel .studio-rule{margin:5px 0}
+.studio-inspection-note{border-top:1px solid #ffffff24;padding-top:16px}
+.studio :is(button,select,input):focus-visible{outline:3px solid #f5d69b;outline-offset:3px}
+@media(max-width:800px){
+  .studio-extra-panel{padding-top:15px}
+  .studio-action-pair button{min-height:48px}
+}
