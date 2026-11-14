@@ -163,7 +163,16 @@ export function createStudioMorphEditor(root:HTMLElement,
   function refreshSection():void{
     preset.replaceChildren(new Option("Custom", ""));
     for(const p of STUDIO_PRESETS[section])preset.add(new Option(p.label,p.id));
-    preset.value="neutral";
+    const current=section==="body"?state.body:state.face;
+    const shapeModified=STUDIO_CONTROLS.some(c=>c.category===section&&
+      c.channel==="shape"&&controlValue(state,c)!==c.defaultValue);
+    const matching=shapeModified?undefined:STUDIO_PRESETS[section].find(p=>{
+      const sample=withStudioPreset(defaultStudioMorphState(),section,p.id);
+      const record=section==="body"?sample.body:sample.face;
+      return Object.keys(current).length===Object.keys(record).length &&
+        Object.keys(record).every(key=>current[key]===record[key]);
+    });
+    preset.value=matching?.id??"";
     groupSelect.replaceChildren(new Option("All areas","all"));
     for(const value of groups())groupSelect.add(new Option(value,value));
     group=section==="body"?"Foundation":"Eyes";
