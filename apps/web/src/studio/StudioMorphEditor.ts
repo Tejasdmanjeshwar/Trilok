@@ -1,30 +1,29 @@
 import {
-  STUDIO_CONTROLS,STUDIO_PRESETS,controlValue,defaultStudioMorphState,
-  findStudioControls,resetStudioSection,withStudioControl,withStudioPreset,
-  type StudioControl,type StudioMorphState,type StudioSection,
+  STUDIO_CONTROLS,STUDIO_PRESETS,controlValue,findStudioControls,
+  type StudioControl,type StudioSection,
 } from "./StudioMorphCatalog";
+import {StudioHistory,type StudioHistoryStatus} from "./StudioHistory";
+import {type StudioEditCommand,type StudioRecipeV1} from "./StudioRecipe";
 
-type EditCallback=(value:StudioMorphState)=>Promise<boolean>;
-
+type Preview=(recipe:StudioRecipeV1)=>Promise<boolean>;
 export interface StudioMorphEditor {
   show(section:StudioSection):void;
+  undo():void;
+  redo():void;
+  resetAll():void;
+  status():StudioHistoryStatus;
   dispose():void;
 }
-/** A single contextual control surface. Native control IDs never appear in UI.
- * Every parameter comes from the authoritative MakeHuman registries. */
-export function createStudioMorphEditor(root:HTMLElement,
-  apply:EditCallback):StudioMorphEditor{
-  let state=defaultStudioMorphState();
-  let lastApplied=state;
+/** One in-memory editor/controller shared by all contextual Body/Face panels.
+ * Gesture snapshots live in StudioHistory; viewport state is separate. */
+export function createStudioMorphEditor(root:HTMLElement,apply:Preview,
+  onHistory:(status:StudioHistoryStatus)=>void):StudioMorphEditor {
+  const history=new StudioHistory();
   let section:StudioSection="body";
-  let advanced=false;
-  let search="";
-  let group="all";
-  let revision=0;
+  let advanced=false,search="",group="all";
   let timeout:ReturnType<typeof setTimeout>|undefined;
   let disposed=false;
-  const groups=():string[]=>[...new Set(STUDIO_CONTROLS.filter(c=>c.category===section)
-    .map(c=>c.group))];
+  let pending=false;
   const container=document.createElement("div");
   container.className="studio-morph-editor";
   container.innerHTML=String.raw`
@@ -61,53 +60,60 @@ export function createStudioMorphEditor(root:HTMLElement,
   const count=find<HTMLElement>("#studio-control-count");
   const list=find<HTMLElement>("#studio-control-list");
   const message=find<HTMLElement>("#studio-editor-message");
-  const reset=find<HTMLButtonElement>("#studio-section-reset");
 
   function syncValues():void{
+    const recipe=history.current;
+    preset.value=recipe.selectedPresets[section]==="custom"?"":recipe.selectedPresets[section];
     for(const c of STUDIO_CONTROLS){
       const row=list.querySelector<HTMLElement>('[data-control-id="'+CSS.escape(c.id)+'"]');
       if(!row)continue;
-      const value=controlValue(state,c);
-      const input=row.querySelector<HTMLInputElement>('input[type="range"]');
+      const value=controlValue(recipe.morphology,c);
+      const slider=row.querySelector<HTMLInputElement>('input[type="range"]');
       const numeric=row.querySelector<HTMLInputElement>('input[type="number"]');
-      if(input)input.value=String(value);
+      if(slider)slider.value=String(value);
       if(numeric)numeric.value=String(Number(value.toFixed(6)));
     }
   }
-  async function commit(next:StudioMorphState,serial:number):Promise<void>{
-    const success=await apply(next);
-    if(disposed)return;
-    if(success)lastApplied=next;
-    if(serial!==revision)return;
+  function notify():void{onHistory(history.status);}
+  async function commit(recipe:StudioRecipeV1,revision:number):Promise<void> {
+    let success=false;
+    try{success=await apply(recipe);}
+    catch{success=false;}
+    if(disposed||!history.resolve(revision,success))return;
+    pending=false;
     if(!success){
-      state=lastApplied;
       syncValues();
-      message.textContent="This adjustment could not be applied. The previous shape is unchanged.";
-    }else{
-      message.textContent="";
-    }
+      message.textContent="That edit could not be completed. Your last valid character has been restored.";
+    }else message.textContent="";
+    notify();
   }
-  function schedule(next:StudioMorphState,delay=160):void{
-    state=next;
-    syncValues();
+  function queue(delay:number):void {
     if(timeout!==undefined)clearTimeout(timeout);
-    const serial=++revision;
+    const {recipe,revision}=history.status;
+    pending=true;
     message.textContent="Updating character…";
     timeout=setTimeout(()=>{
       timeout=undefined;
-      void commit(next,serial);
+      void commit(recipe,revision);
     },delay);
   }
-  const update=(c:StudioControl,value:number):void=>{
+  function dispatch(command:StudioEditCommand,delay=150):void {
     try{
-      const next=withStudioControl(state,c.id,value);
-      preset.value="";
-      schedule(next,c.channel==="face"?40:180);
+      if(!history.apply(command))return;
+      syncValues();
+      notify();
+      queue(delay);
     }catch{
-      message.textContent="Please enter a value within the available range.";
+      message.textContent="Please choose a value within the available range.";
+      syncValues();
     }
-  };
-  function renderControls():void{
+  }
+  function navigate(direction:"undo"|"redo"):void{
+    const moved=direction==="undo"?history.undo():history.redo();
+    if(!moved)return;
+    syncValues();notify();queue(0);
+  }
+  function renderControls():void {
     list.replaceChildren();
     const found=findStudioControls(section,search,advanced,group);
     count.textContent=found.length+" "+(found.length===1?"feature":"features");
@@ -117,40 +123,46 @@ export function createStudioMorphEditor(root:HTMLElement,
       list.append(empty);return;
     }
     for(const c of found){
-      const row=document.createElement("div");row.className="studio-control";
-      row.dataset.controlId=c.id;
+      const row=document.createElement("div");
+      row.className="studio-control";row.dataset.controlId=c.id;
+      const heading=document.createElement("div");heading.className="studio-control-heading";
       const label=document.createElement("label");
       const rangeId="morph-"+STUDIO_CONTROLS.indexOf(c);
-      label.htmlFor=rangeId;
-      label.textContent=c.label;
-      const heading=document.createElement("div");heading.className="studio-control-heading";
+      label.htmlFor=rangeId;label.textContent=c.label;
       heading.append(label);
       if(search||group==="all"){
-        const tag=document.createElement("span");tag.textContent=c.group;
-        heading.append(tag);
+        const tag=document.createElement("span");tag.textContent=c.group;heading.append(tag);
       }
       const fields=document.createElement("div");fields.className="studio-control-fields";
       const slider=document.createElement("input");
       slider.type="range";slider.id=rangeId;slider.min=String(c.min);
       slider.max=String(c.max);slider.step=String(c.step);
-      slider.value=String(controlValue(state,c));
       const number=document.createElement("input");
       number.type="number";number.min=slider.min;number.max=slider.max;
       number.step=slider.step;
-      number.value=String(Number(controlValue(state,c).toFixed(6)));
       number.setAttribute("aria-label",c.label+" exact value");
       number.title=c.label+" numeric value";
-      slider.addEventListener("input",()=>update(c,Number(slider.value)));
+      const sliderValue=()=>dispatch({type:"adjust",id:c.id,value:Number(slider.value)},
+        c.channel==="face"?35:160);
+      slider.addEventListener("pointerdown",()=>history.beginGesture(c.id));
+      slider.addEventListener("pointerup",()=>history.endGesture());
+      slider.addEventListener("pointercancel",()=>history.endGesture());
+      slider.addEventListener("keydown",event=>{
+        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Home","End","PageUp","PageDown"]
+          .includes(event.key))history.beginGesture(c.id);
+      });
+      slider.addEventListener("keyup",()=>history.endGesture());
+      slider.addEventListener("blur",()=>history.endGesture());
+      slider.addEventListener("input",sliderValue);
+      slider.addEventListener("change",()=>history.endGesture());
       number.addEventListener("change",()=>{
-        if(number.value.trim()===""){
+        if(!number.value.trim()){syncValues();return;}
+        const value=Number(number.value);
+        if(!Number.isFinite(value)||value<c.min||value>c.max){
+          message.textContent="Please choose a value within the available range.";
           syncValues();return;
         }
-        const val=Number(number.value);
-        if(!Number.isFinite(val)||val<c.min||val>c.max){
-          message.textContent="Please enter a value within the available range.";
-          syncValues();return;
-        }
-        update(c,val);
+        dispatch({type:"adjust",id:c.id,value},c.channel==="face"?35:160);
       });
       fields.append(slider,number);row.append(heading,fields);
       if(advanced&&c.note){
@@ -159,22 +171,15 @@ export function createStudioMorphEditor(root:HTMLElement,
       }
       list.append(row);
     }
+    syncValues();
   }
-  function refreshSection():void{
-    preset.replaceChildren(new Option("Custom", ""));
+  function refreshSection():void {
+    history.endGesture();
+    preset.replaceChildren(new Option("Custom",""));
     for(const p of STUDIO_PRESETS[section])preset.add(new Option(p.label,p.id));
-    const current=section==="body"?state.body:state.face;
-    const shapeModified=STUDIO_CONTROLS.some(c=>c.category===section&&
-      c.channel==="shape"&&controlValue(state,c)!==c.defaultValue);
-    const matching=shapeModified?undefined:STUDIO_PRESETS[section].find(p=>{
-      const sample=withStudioPreset(defaultStudioMorphState(),section,p.id);
-      const record=section==="body"?sample.body:sample.face;
-      return Object.keys(current).length===Object.keys(record).length &&
-        Object.keys(record).every(key=>current[key]===record[key]);
-    });
-    preset.value=matching?.id??"";
     groupSelect.replaceChildren(new Option("All areas","all"));
-    for(const value of groups())groupSelect.add(new Option(value,value));
+    for(const name of new Set(STUDIO_CONTROLS.filter(c=>c.category===section)
+      .map(c=>c.group)))groupSelect.add(new Option(name,name));
     group=section==="body"?"Foundation":"Eyes";
     groupSelect.value=group;
     search="";searchInput.value="";
@@ -182,32 +187,33 @@ export function createStudioMorphEditor(root:HTMLElement,
     renderControls();
   }
   preset.addEventListener("change",()=>{
-    if(!preset.value)return;
-    try{schedule(withStudioPreset(state,section,preset.value),0);}
-    catch{message.textContent="That character style is not available.";}
+    if(preset.value)dispatch({type:"preset",section,preset:preset.value},0);
   });
-  reset.addEventListener("click",()=>{
-    schedule(resetStudioSection(state,section),0);
-    preset.value="neutral";
+  find<HTMLButtonElement>("#studio-section-reset").addEventListener("click",()=>{
+    history.endGesture();
+    dispatch({type:"reset-section",section},0);
   });
   searchInput.addEventListener("input",()=>{
     search=searchInput.value;
     if(search.trim())group="all";
-    groupSelect.value=group;
-    renderControls();
+    groupSelect.value=group;renderControls();
   });
   groupSelect.addEventListener("change",()=>{
     group=groupSelect.value;renderControls();
   });
   advancedInput.addEventListener("change",()=>{
-    advanced=advancedInput.checked;note.hidden=!advanced;
-    renderControls();
+    advanced=advancedInput.checked;note.hidden=!advanced;renderControls();
   });
   refreshSection();
+  notify();
   return {
-    show(next){if(disposed)return;section=next;message.textContent="";refreshSection();},
+    show(next){if(disposed)return;section=next;refreshSection();},
+    undo(){navigate("undo");},
+    redo(){navigate("redo");},
+    resetAll(){history.endGesture();dispatch({type:"reset-all"},0);},
+    status:()=>history.status,
     dispose(){
-      disposed=true;++revision;
+      disposed=true;
       if(timeout!==undefined)clearTimeout(timeout);
       container.remove();
     },
