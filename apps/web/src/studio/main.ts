@@ -306,7 +306,7 @@ host.querySelectorAll<HTMLButtonElement>("[data-section]").forEach(button=>
     }
     const editing=id==="body"||id==="face"||id==="appearance";
     element("#studio-editor").hidden=!editing;
-    element(".studio-settings").hidden=editing||id==="pose"||id==="inspection";
+    element(".studio-settings").hidden=editing||id==="pose"||id==="inspection"||id==="generate";
     element("#studio-pose-panel").hidden=id!=="pose";
     element("#studio-inspection-panel").hidden=id!=="inspection";
     element("#studio-generate-editor").hidden=id!=="generate";
