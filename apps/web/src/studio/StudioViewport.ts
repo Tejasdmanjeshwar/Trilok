@@ -29,6 +29,8 @@ export function createStudioViewport(
   let disposed=false;
   let loading=false;
   let ticket=0;
+  let rebuilding=0;
+  let requestAbort:AbortController|undefined;
   let light:StudioLight="daylight";
   let contextLost=false;
   let raf=0;
@@ -131,26 +133,31 @@ export function createStudioViewport(
   async function applyMorphology(state:StudioMorphState):Promise<boolean> {
     if(disposed)return false;
     const current=++ticket;
-    const faceOnly=!!active &&
+    requestAbort?.abort();
+    const abort=new AbortController();
+    requestAbort=abort;
+    const valid=()=>!disposed&&current===ticket&&!abort.signal.aborted;
+    const faceOnly=!!active && rebuilding===0 &&
       JSON.stringify(state.body)===JSON.stringify(currentMorphology.body) &&
       JSON.stringify(state.shape)===JSON.stringify(currentMorphology.shape);
     if(faceOnly){
       try{
-        await active!.setFace(state.face);
-        if(disposed||current!==ticket)return false;
+        const changed=await active!.setFace(state.face,valid);
+        if(!changed||!valid())return false;
         currentMorphology=state;
         onEditError("");
         return true;
       }catch(_error){
-        if(current===ticket)onEditError("This facial adjustment could not be applied. Your previous character remains available.");
+        if(valid())onEditError("This adjustment could not be applied. Your previous character remains available.");
         return false;
       }
     }
     let incoming:StudioHumanModel|undefined;
+    rebuilding++;
     try{
       initialize();
-      incoming=await buildStudioHuman(state);
-      if(disposed||current!==ticket){incoming.dispose();return false;}
+      incoming=await buildStudioHuman(state,abort.signal);
+      if(!valid()){incoming.dispose();return false;}
       const previous=active;
       scene.add(incoming.human.spike.character.root);
       const material=incoming.human.mesh.material;
@@ -163,11 +170,14 @@ export function createStudioViewport(
       return true;
     }catch(_error){
       incoming?.dispose();
-      if(!disposed&&current===ticket){
+      if(valid()){
         if(active)onEditError("This change could not be applied. The previous character has been preserved.");
         else onFailure("The character could not be opened. Check your connection and try again.");
       }
       return false;
+    }finally{
+      rebuilding--;
+      if(requestAbort===abort)requestAbort=undefined;
     }
   }
   async function load():Promise<void> {
@@ -179,6 +189,8 @@ export function createStudioViewport(
   function dispose():void {
     if(disposed)return;
     disposed=true;ticket++;
+    requestAbort?.abort();
+    requestAbort=undefined;
     cancelAnimationFrame(raf);
     resize?.disconnect();
     controls?.dispose();
