@@ -10,6 +10,7 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   type StudioFocus,type StudioExpression,type StudioPose,type StudioInspectionOptions}
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
+import {StudioPerformance} from "./StudioPerformance";
 import {isShortTap,isDoubleTap,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
 
@@ -89,6 +90,8 @@ export function createStudioViewport(
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
   let skeleton:THREE.SkeletonHelper|undefined;
   let markers:THREE.Group|undefined;
+  let markerGeometry:THREE.SphereGeometry|undefined;
+  let markerMaterial:THREE.MeshBasicMaterial|undefined;
   const isReduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
   let renderer:THREE.WebGLRenderer|undefined;
   let controls:OrbitControls|undefined;
@@ -104,6 +107,22 @@ export function createStudioViewport(
   let contextLost=false;
   let raf=0;
   let resize:ResizeObserver|undefined;
+  const performanceMonitor=new StudioPerformance();
+  const requestMetrics=():void=>{
+    // Respond only to explicit diagnostics requests; no player-facing panel.
+    window.dispatchEvent(new CustomEvent("trilok:studio:metrics",{
+      detail:performanceMonitor.snapshot(renderer?.info.memory),
+    }));
+  };
+  window.addEventListener("trilok:studio:request-metrics",requestMetrics);
+  const visibilityChanged=():void=>{
+    performanceMonitor.setSuspended(document.hidden);
+    if(document.hidden){
+      cancelAnimationFrame(raf);raf=0;
+    }else if(renderer&&!contextLost&&!disposed&&raf===0)draw();
+  };
+  document.addEventListener("visibilitychange",visibilityChanged);
+  performanceMonitor.setSuspended(document.hidden);
   const ambient=new THREE.HemisphereLight();
   const key=new THREE.DirectionalLight();
   const fill=new THREE.DirectionalLight();
@@ -203,7 +222,8 @@ export function createStudioViewport(
   function setPose(next:StudioPose):void {
     pose=next;
     posePreview?.setPose(next);
-    refreshInspection();
+    // The existing overlays follow posed bones without reallocating GPU buffers.
+    updateMarkers();
   }
   async function setExpression(next:StudioExpression):Promise<boolean> {
     if(!active)return false;
@@ -232,12 +252,9 @@ export function createStudioViewport(
     }
     if(markers){
       markers.removeFromParent();
-      markers.traverse(object=>{
-        if(object instanceof THREE.Mesh){
-          object.geometry.dispose();
-          if(object.material instanceof THREE.Material)object.material.dispose();
-        }
-      });
+      markers.clear();
+      markerGeometry?.dispose();markerMaterial?.dispose();
+      markerGeometry=undefined;markerMaterial=undefined;
       markers=undefined;
     }
     if(active){
@@ -261,18 +278,17 @@ export function createStudioViewport(
     }
     if(inspection.joints){
       markers=new THREE.Group();
-      const geometry=new THREE.SphereGeometry(.009,8,6);
-      const material=new THREE.MeshBasicMaterial({color:0xffd58f,depthTest:false});
+      markerGeometry=new THREE.SphereGeometry(.009,8,6);
+      markerMaterial=new THREE.MeshBasicMaterial({color:0xffd58f,depthTest:false});
       for(const joint of human.spike.graph.joints){
         if(joint.role.startsWith("finger_")&&!joint.role.endsWith("_0"))continue;
         const bone=human.spike.bones.get(joint.id);
         if(!bone)continue;
-        // One marker geometry/material per joint simplifies unconditional ownership.
-        const marker=new THREE.Mesh(geometry.clone(),material.clone());
+        // Share GPU resources between joint markers; dispose once on teardown.
+        const marker=new THREE.Mesh(markerGeometry,markerMaterial);
         marker.userData.jointId=joint.id;
         markers.add(marker);
       }
-      geometry.dispose();material.dispose();
       scene.add(markers);
     }
   }
@@ -307,7 +323,9 @@ export function createStudioViewport(
     rim.color.set(preset.rimColor);rim.intensity=preset.rim;
   }
   function draw():void {
-    if(disposed||contextLost||!renderer||!controls)return;
+    if(disposed||contextLost||document.hidden||!renderer||!controls){
+      raf=0;return;
+    }
     raf=requestAnimationFrame(draw);
     if(transition&&controls) {
       const t=Math.min(1,(performance.now()-transition.start)/430);
@@ -318,8 +336,9 @@ export function createStudioViewport(
     }
     controls.update();
     updateMarkers();
-    if(!document.hidden && element.clientWidth>0 && element.clientHeight>0) {
+    if(element.clientWidth>0 && element.clientHeight>0) {
       renderer.render(scene,camera);
+      performanceMonitor.recordFrame(performance.now());
     }
   }
   function measure():void {
@@ -339,16 +358,42 @@ export function createStudioViewport(
   function onLost(event:Event):void {
     event.preventDefault();
     contextLost=true;
-    cancelAnimationFrame(raf);
+    performanceMonitor.setSuspended(true);
+    cancelAnimationFrame(raf);raf=0;
     onFailure("Your graphics session was interrupted. Restore the preview to continue.");
   }
   function onRestored():void {
     contextLost=false;
     if(disposed)return;
     measure();
-    cancelAnimationFrame(raf);
-    draw();
+    cancelAnimationFrame(raf);raf=0;
+    performanceMonitor.setSuspended(document.hidden);
+    if(!document.hidden)draw();
     if(active)onReady();else void load();
+  }
+  function onCanvasKey(event:KeyboardEvent):void {
+    if(disposed||!controls||contextLost)return;
+    const key=event.key;
+    if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","+","=","-","_"].includes(key))return;
+    event.preventDefault();
+    endMotion();
+    const anchor=controls.target;
+    const spherical=new THREE.Spherical().setFromVector3(camera.position.clone().sub(anchor));
+    const angle=THREE.MathUtils.degToRad(12);
+    if(key==="ArrowLeft")spherical.theta-=angle;
+    if(key==="ArrowRight")spherical.theta+=angle;
+    if(key==="ArrowUp")spherical.phi=Math.max(.08,spherical.phi-angle);
+    if(key==="ArrowDown")spherical.phi=Math.min(Math.PI-.08,spherical.phi+angle);
+    if(["+","=","-","_"].includes(key)){
+      const factor=key==="+"||key==="="?1.2:1/1.2;
+      if(camera instanceof THREE.OrthographicCamera){
+        camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,controls.minZoom,controls.maxZoom);
+        camera.updateProjectionMatrix();
+      }else spherical.radius=THREE.MathUtils.clamp(spherical.radius/factor,
+        controls.minDistance,controls.maxDistance);
+    }
+    camera.position.copy(anchor).add(new THREE.Vector3().setFromSpherical(spherical));
+    camera.lookAt(anchor);controls.update();
   }
   function initialize():void {
     if(renderer)return;
@@ -358,7 +403,9 @@ export function createStudioViewport(
     renderer.toneMapping=THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure=1.1;
     renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.75));
-    renderer.domElement.setAttribute("aria-label","Interactive three-dimensional character preview");
+    renderer.domElement.setAttribute("aria-label","Interactive character preview: arrow keys turn, plus and minus zoom; double-tap a body part to focus");
+    renderer.domElement.tabIndex=0;
+    renderer.domElement.addEventListener("keydown",onCanvasKey);
     renderer.domElement.setAttribute("role","img");
     renderer.domElement.addEventListener("webglcontextlost",onLost);
     renderer.domElement.addEventListener("webglcontextrestored",onRestored);
@@ -388,6 +435,8 @@ export function createStudioViewport(
     return applyState(recipe.morphology,recipe.appearance);
   }
   async function applyState(state:StudioMorphState,appearance:StudioAppearanceV1):Promise<boolean>{
+    const started=performance.now();
+    const hadActive=!!active;
     validateStudioAppearance(appearance);
     if(disposed)return false;
     const current=++ticket;
@@ -407,6 +456,7 @@ export function createStudioViewport(
         currentAppearance=appearance;
         currentMorphology=state;
         posePreview?.refresh();
+        if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
         onEditError("");
         return true;
       }catch(_error){
@@ -441,6 +491,7 @@ export function createStudioViewport(
       previous?.dispose();
       refreshInspection();
       onReady();
+      if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
       onEditError("");
       return true;
     }catch(_error){
@@ -458,8 +509,11 @@ export function createStudioViewport(
   async function load():Promise<void> {
     if(disposed||loading)return;
     loading=true;
-    try{await applyMorphology(currentMorphology);}
-    finally{loading=false;}
+    const started=performance.now();
+    try{
+      if(await applyMorphology(currentMorphology))
+        performanceMonitor.recordInitialLoad(performance.now()-started);
+    }finally{loading=false;}
   }
   function dispose():void {
     if(disposed)return;
@@ -468,6 +522,8 @@ export function createStudioViewport(
     requestAbort=undefined;
     cancelAnimationFrame(raf);
     resize?.disconnect();
+    document.removeEventListener("visibilitychange",visibilityChanged);
+    window.removeEventListener("trilok:studio:request-metrics",requestMetrics);
     controls?.dispose();
     clearTap();pointers.clear();
     disposeInspection();
@@ -478,6 +534,7 @@ export function createStudioViewport(
     orientation.geometry.dispose();
     (orientation.material as THREE.Material).dispose();
     if(renderer){
+      renderer.domElement.removeEventListener("keydown",onCanvasKey);
       renderer.domElement.removeEventListener("webglcontextlost",onLost);
       renderer.domElement.removeEventListener("webglcontextrestored",onRestored);
       renderer.domElement.removeEventListener("pointerdown",onPointerDown);
