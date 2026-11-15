@@ -44,7 +44,9 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
       const first=solveTwoHandIK(model,fk,[],primary);
       console.log("C5.2-IK",primary,JSON.stringify({
         reachable:first.reachable,error:first.secondaryErrorMeters,
-        axisAlignment:first.secondaryAxisDot,iterations:first.iterations}));
+        delta1:first.primaryDeltaMeters,delta2:first.secondaryDeltaMeters,
+        axis1:first.primaryAxisDot,axisAlignment:first.secondaryAxisDot,
+        iterations:first.iterations}));
       expect(first.reachable,"both source hands must actually meet on the weapon").toBe(true);
       expect(first.headClearanceMeters).toBeGreaterThan(.19);
       expect(first.elbowMaxHeightMeters).toBeLessThan(first.headHeightMeters-.12);
@@ -198,6 +200,8 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           const result=solveTwoHandIK(model,fk,[],side,kind);
           console.log("C52-NEUTRAL-STANCE",JSON.stringify({kind,side,
             reachable:result.reachable,position:result.secondaryErrorMeters,
+            d1:result.primaryDeltaMeters,d2:result.secondaryDeltaMeters,
+            axis1:result.primaryAxisDot,
             axis:result.secondaryAxisDot,iterations:result.iterations,
             elbowY:result.elbowMaxHeightMeters,headY:result.headHeightMeters,
             maximumPalmY:result.maximumPalmHeightMeters,
