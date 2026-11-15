@@ -308,6 +308,42 @@ function fitSwordGuardCandidate(model:StudioHumanModel,fk:AnatomicalFK,
       if(!improved)break;
     }
   }
+  // Paired moves preserve the mutual contact manifold while translating
+  // both arms to a lower guard; single-joint descent cannot cross this saddle.
+  for(const step of [.28,.14,.07,.035]){
+    for(let sweep=0;sweep<4;sweep++){
+      let improved=false;
+      for(const role of ["clavicle","shoulder","elbow"] as const){
+        for(const motion of ["abduction","flexion","rotation"] as const){
+          const pair=[primary,secondary].map(hand=>{
+            const joint=scopedJoint(graph,role+"_"+hand,hand);
+            const bounds=fk.frames.get(joint.id)?.freedoms.get(motion);
+            return bounds?{jointId:joint.id,bounds,k:key(joint.id,motion)}:undefined;
+          });
+          if(pair.some(x=>!x))continue;
+          const [a,b]=pair as [NonNullable<typeof pair[number]>,NonNullable<typeof pair[number]>];
+          const oldA=state.get(a.k)?.radians??0,oldB=state.get(b.k)?.radians??0;
+          let selected:[number,number]=[oldA,oldB];
+          for(const delta of [-step,step]){
+            for(const sign of [1,-1]){
+              const va=THREE.MathUtils.clamp(oldA+delta,a.bounds.min,a.bounds.max);
+              const vb=THREE.MathUtils.clamp(oldB+delta*sign,b.bounds.min,b.bounds.max);
+              state.set(a.k,{jointId:a.jointId,motion,radians:va});
+              state.set(b.k,{jointId:b.jointId,motion,radians:vb});
+              apply();const next=score();
+              if(next.cost<best.cost-1e-12){
+                best=next;selected=[va,vb];improved=true;
+              }
+            }
+          }
+          state.set(a.k,{jointId:a.jointId,motion,radians:selected[0]});
+          state.set(b.k,{jointId:b.jointId,motion,radians:selected[1]});
+          apply();
+        }
+      }
+      if(!improved)break;
+    }
+  }
   const result=score();
   return {...result,iterations};
 }
