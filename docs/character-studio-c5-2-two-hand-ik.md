@@ -150,3 +150,19 @@ Owner-approved nominal sword and staff stance presets and C5.1 remain unchanged.
 **Rendered evidence:** A focused [desktop + touch browser run #43708515597](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43708515597) completed green at SHA `28518f8dc8dfe966a1b8cf41ac453f2ab3857a69`; 58 source-browser PNG images were captured. The neutral sword and staff close-ups were visually inspected. **The short/tall screenshots in this run inherited a hand-focused camera**, obscuring the character, so they are **not** useful morphology visual acceptance; the test was corrected to call Reset view before full-body morphology screenshots, requiring a new explicitly dispatched C5 Phase Acceptance run for latest-SHA visual review. The dedicated auto-triggered diagnostic browser workflow was removed to restore the repository's manual Chromium policy.
 
 **Do not declare full C5.2 acceptance:** strict per-digit/palm source-skinned clearance, the historic staff penetration diagnostics, representative *random* generator seeds across all pose combinations, visual inspection of properly framed full-body morphology captures and independently verified Cloudflare deployed SHA remain unclosed. The fallback's numerical 23mm contact limit is not a proof of physically touching fingers. PR #84 remains draft/unmerged and C5.3 remains out of scope.
+
+
+## Failure reproduction from a generated character (2026-11-15)
+
+The solver already returned reach and collision diagnostics, but the production Studio previously swallowed them behind a generic unreachable-weapon message. This draft adds **failure-only browser reporting** without changing combat, posing, rig anatomy, or grip acceptance limits.
+
+When a two-handed sword or staff fails to equip in Studio:
+- A console `console.warn` entry begins `[Trilok Studio Grip Failure]`, followed by **one complete JSON string**.
+- A **Copy grip issue details** button appears beneath the Studio preview. Clicking copies the same JSON, requiring no Developer Tools.
+- JSON includes a schema/event identifier, exact bundle commit SHA/build ID, generator version and original numeric seed, full active versioned recipe (including manual edits after generation), selected Studio pose/equipment, solver reason, primary/secondary contact deltas and errors, axis alignment, clearance measurements, weapon dimensions and per-candidate IK diagnostics.
+- Thrown fitting, pose, or rebuild exceptions are included as a name/message rather than disappearing. Successful equip clears the copy button. The last report is held only in this page session; nothing is uploaded, persisted or sent to a server.
+- Generator seed alone cannot reproduce edited characters: retain the full recipe. The `reachDiagnostics[].seed` field is a *solver stance candidate index*, not the generator seed in `recipe.seed`.
+
+**Reproduction workflow:** Open the exact feature build (check `build.commitSha`), generate a character, select the failed equipment/pose, click **Copy grip issue details**, and paste the JSON into the engineering thread. A developer can reconstruct the same deterministic morphology using the recipe and read individual IK candidates from the same report. Console warnings are emitted on failure only, avoiding high-volume logging during successful edits.
+
+**Scope:** Diagnostics only. They do not claim every generated morphology reaches both hands or that source-skinned contact, deformation, or Cloudflare deployment has been visually accepted. PR #84 stays draft until separately approved.
