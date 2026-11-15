@@ -387,12 +387,12 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
       if(knuckles.dot(handSpan)<0)knuckles.negate();
       // Same-direction thumbs require aligned knuckle axes, not opposition.
       // Preserve the inclined staff guard while resolving shared contact.
-      axis=knuckles.multiplyScalar(.24)
-        .addScaledVector(handSpan,.23)
-        .addScaledVector(nominal,.53).normalize();
+      axis=knuckles.multiplyScalar(.12)
+        .addScaledVector(handSpan,.13)
+        .addScaledVector(nominal,.75).normalize();
     }else{
-      axis=handSpan.multiplyScalar(.30)
-        .addScaledVector(nominal,.70).normalize();
+      axis=handSpan.multiplyScalar(.12)
+        .addScaledVector(nominal,.88).normalize();
     }
   }
   if(axis.lengthSq()<.9)throw new Error("Degenerate two-hand shaft axis");
@@ -734,7 +734,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       const span=contactWorld(model,lead,anchors)
         .sub(contactWorld(model,off,anchors));
       const axis=span.lengthSq()>1e-7?span.normalize():referenceAxis.clone();
-      return axis.multiplyScalar(.30).addScaledVector(referenceAxis,.70).normalize();
+      return axis.multiplyScalar(.12).addScaledVector(referenceAxis,.88).normalize();
     };
     const sample=()=>{
       const axis=shaft();
@@ -1060,7 +1060,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   // Only an otherwise rejected morphology or Studio pose enters the
   // relative-hand solver. The approved, successful presentation is immutable.
   if(!chosen?.reachable){
-    for(const seed of kind==="longsword"?[6,2,5,0]:[2,1,0]){
+    for(const seed of kind==="longsword"?[6,2,5,0]:[3,2,1,0]){
       const paired=fitRelativeTwoHandContacts(model,fk,fingerState,
         kind,primary,dimensions,seed,diagnostics);
       if(paired){chosen=paired;break;}
