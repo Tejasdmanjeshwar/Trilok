@@ -228,7 +228,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   ]);
   fk.apply(fingers);
   const bowTarget=chest.clone().addScaledVector(right,(hand==="right"?1:-1)*.12*scale)
-    .addScaledVector(forward,.42*scale).addScaledVector(up,.06*scale);
+    .addScaledVector(forward,.56*scale).addScaledVector(up,.06*scale);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale);
   const staged=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
@@ -243,7 +243,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     handleRadiusMeters:THREE.MathUtils.clamp(width/4.4,.003,.02),
     handleLengthMeters:THREE.MathUtils.clamp(width*1.45,.038,.18),
     arrowLengthMeters:.70*scale,stringRestMeters:.07*scale,
-    maximumDrawMeters:.36*scale,
+    maximumDrawMeters:.28*scale,
   });
   validateBowReference(descriptor,model.human.spike.graph);
   const world=bowFrame(model,hand,descriptor.handleRadiusMeters,
@@ -371,7 +371,7 @@ export class StudioBowPreview {
       arrow.name="NockedArrowShaft";
       this.object.add(arrow);
       const tip=new THREE.Mesh(new THREE.ConeGeometry(.016*factor,.065*factor,6),steel);
-      tip.rotation.x=-Math.PI/2;tip.position.copy(arrowTip).addScaledVector(
+      tip.rotation.x=Math.PI/2;tip.position.copy(arrowTip).addScaledVector(
         new THREE.Vector3(0,0,1),-.0325*factor);
       tip.name="NockedArrowTip";this.object.add(tip);
       const nockCap=new THREE.Mesh(new THREE.SphereGeometry(.008*factor,8,6),gold);
