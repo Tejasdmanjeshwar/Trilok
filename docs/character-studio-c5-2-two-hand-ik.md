@@ -1,6 +1,6 @@
 # Character Studio C5.2 — Weapon-first two-hand reconstruction
 
-**Status: draft PR #84, NOT accepted or merged.** The owner rejected preceding C5.2 renders: the pose looked like independently equipped hands and the sword handle approached blade length. C5.1 remains the accepted merged one-handed sword. No changes to combat authority.
+**Status: C5.2 owner visually accepted on deployed PR #84 preview; merge candidate.** The owner rejected preceding C5.2 renders: the pose looked like independently equipped hands and the sword handle approached blade length. C5.1 remains the accepted merged one-handed sword. No changes to combat authority.
 
 ## Interpretation of the reference
 
@@ -325,3 +325,34 @@ pending until verified runs and exact-SHA deployed screenshots exist.
 
 **Do not merge or mark C5.2 accepted** on the strength of this implementation
 alone. Keep PR #84 draft and C5.3 unstarted.
+
+## C5.2 subphase acceptance and closure handoff (2026-11-15)
+
+The historical failure reports and earlier 'do not merge' notes above describe
+superseded development checkpoints. The current authoritative acceptance
+evidence is:
+
+- Exact PR candidate `08989940ba92ec94acae6b510824fe6fe8eb63dc`:
+  [GitHub Verify #43732671751](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43732671751)
+  passed pnpm TypeScript, test suite, production Vite build and compiled
+  build-identity verification. The full generated recipes for seeds
+  `2694905601`, `498155388`, `802593405` and `1103498626` are
+  retained as positive two-hand reconstruction/equip regression tests.
+- The Cloudflare PR preview bot recorded **build and deployment success**
+  for `0898994` (deployment `bc41981e-8a96-42e9-886e-f8fe307dbcb6`);
+  the owner inspected the current feature preview and explicitly approved
+  sword, staff, and the formerly clipping large-abdomen two-hand sword case
+  `1103498626`. This is owner visual sign-off, not a claim that automation
+  assessed the exact appearance of every possible morphology.
+- C5.1 one-hand sword and combat authority are unchanged.
+- The conservative torso-volume proxy and historical per-finger staff
+  penetration measurements remain documented engineering limitations, not
+  evidence of a production-grade universal surface-contact solver.
+  The existing numerical tests and reported diagnostics remain in force.
+- **Gate semantics:** the manual full desktop/touch **Phase Acceptance**
+  workflow is a C5 *phase-level* closure gate after C5.1–C5.5, **not**
+  a blocker for merging accepted individual C5.x subphase PRs. Do not
+  dispatch Phase Acceptance for C5.2. Subsequent C5.3 work is separate.
+
+This record supersedes older interim RED / draft warnings above for the
+accepted C5.2 scope, without erasing historical failure analysis.
