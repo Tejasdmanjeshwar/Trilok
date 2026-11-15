@@ -107,7 +107,7 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,
     const frame=palmFrame(model,hand);
     const distance=frame.palm.distanceToSquared(goal);
     const dot=THREE.MathUtils.clamp(frame.axis.dot(wantedAxis)*alignSign,-1,1);
-    const axisError=(1-dot)*.038;
+    // An offhand at the right location but with perpendicular knuckles\n    // cannot wrap the same handle. Make orientation a first-class constraint.\n    const axisError=(1-dot)*.115;
     // Soft preference for the unmodified input pose reduces extreme
     // rotations when several joint configurations reach the same point.
     let bias=0;
@@ -125,8 +125,8 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,
   // Bounded deterministic coordinate-descent search (fixed joint order and
   // angular steps). All evaluations go through authoritative anatomical FK,
   // which validates DOFs and updates source skin helper joints.
-  for(const step of [.75,.4,.21,.11,.055,.0275]){
-    for(let sweep=0;sweep<2;sweep++){
+  for(const step of [1.0,.65,.4,.21,.11,.055,.0275]){
+    for(let sweep=0;sweep<3;sweep++){
       iterations++;
       let improved=false;
       for(const d of dofs){
