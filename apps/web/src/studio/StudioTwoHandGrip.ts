@@ -865,14 +865,14 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     // Optimize the legal alignment *margin*, not perfection of both wrists.
     // A near-perfect support-hand axis must not steal degrees of freedom
     // from the lead hand when only the latter violates the grip constraint.
-    const axisMin=kind==="staff"?.88:stage==="polish"?.49:.50;
+    const axisMin=kind==="staff"?.88:stage==="polish"?.47:.50;
     const alignment=stage==="position"?
       [(frameA.axis.x-axis.x)*.008,(frameA.axis.y-axis.y)*.008,
        (frameA.axis.z-axis.z)*.008,
        (frameB.axis.x-axis.x)*.008,(frameB.axis.y-axis.y)*.008,
        (frameB.axis.z-axis.z)*.008]:
-      [Math.max(0,axisMin-frameA.axis.dot(axis))*(stage==="polish"?.68:.40),0,0,
-       Math.max(0,axisMin-frameB.axis.dot(axis))*(stage==="polish"?.68:.40),0,0];
+      [Math.max(0,axisMin-frameA.axis.dot(axis))*(stage==="polish"?.56:.40),0,0,
+       Math.max(0,axisMin-frameB.axis.dot(axis))*(stage==="polish"?.56:.40),0,0];
     const contactWeight=stage==="position"?4:stage==="polish"?12:3.5;
     // Soft safety barriers expose gradients to optimization instead of
     // declaring a near-contact result safe after it has converged.
