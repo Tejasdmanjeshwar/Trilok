@@ -932,13 +932,25 @@ function fitTorsoCenteredSword(model:StudioHumanModel,fk:AnatomicalFK,
       .distanceTo(twoHandGripContactWorld(model,off));
     // These two frames sit in the physical intersection of the source arm
     // reach spheres rather than inheriting the dislocated original hands.
-    for(const [rise,depth] of [[-.18,.30],[-.27,.38]] as const){
+    // Only fallback candidates: adjust a rigid sword's *placement and
+    // orientation*, not its hilt dimensions or the accepted normal guard.
+    // An asymmetric source shoulder may reach an upright/forward grip better
+    // than the same fixed diagonal angle used for an average adult.
+    for(const [rise,depth,tilt,lateral] of [
+      [-.18,.30,0,0],[-.27,.38,0,0],
+      [-.05,.22,-.32,0],[-.18,.22,-.35,0],
+      [-.25,.25,.32,0],[-.30,.13,.18,0],
+      [-.12,.43,-.30,0],[-.15,.30,-.25,.06],
+      [-.23,.25,.25,-.06],
+    ] as const){
       state.clear();
       for(const c of staged)state.set(key(c.jointId,c.motion),c);
       fk.apply(staged);
       const frame=authoredWeaponWorld(model,"longsword",lead,dimensions);
+      if(tilt)frame.multiply(new THREE.Matrix4().makeRotationZ(tilt));
       frame.setPosition(origin.clone().add(new THREE.Vector3(
-        0,rise*dimensions.scale,depth*dimensions.scale).applyQuaternion(facing)));
+        lateral*dimensions.scale,rise*dimensions.scale,
+        depth*dimensions.scale).applyQuaternion(facing)));
       const shaft=weaponAxis(frame);
       const goalA=gripWorld(frame,dimensions.primaryGripY);
       const goalB=gripWorld(frame,dimensions.secondaryGripY);
