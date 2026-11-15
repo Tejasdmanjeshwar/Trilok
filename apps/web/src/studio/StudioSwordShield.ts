@@ -61,7 +61,8 @@ function scopedBone(model:StudioHumanModel,role:string,side:HandSide):THREE.Bone
 }
 function jointId(graph:AnatomicalGraphV1,role:string,side:HandSide):string{
   const matches=graph.joints.filter(j=>j.role===role+"_"+side&&
-    j.id.includes("arm["+side+",0]"));
+    (role==="clavicle"?j.id.includes("clavicle["+side+",0]"):
+      j.id.includes("arm["+side+",0]")));
   if(matches.length!==1)throw new Error("Ambiguous equipped limb "+role+" "+side);
   return matches[0]!.id;
 }
