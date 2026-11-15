@@ -205,6 +205,10 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
   // approved finger curl; only its arm pose seed is different on failure.
   const pose=STANCES[kind==="longsword"&&seed>=REACH_SEEDS.length?"staff":kind];
   const variation=REACH_SEEDS[seed%REACH_SEEDS.length]!;
+  // Rare morphology-only restarts may lift/protract the source clavicle
+  // before solving: its DOFs are source-calibrated and remain FK-bounded.
+  // No such change is applied to the accepted nominal grip or staff.
+  const clavicleRestart=kind==="longsword"&&seed>=REACH_SEEDS.length*2;
 
   const add=(hand:HandSide,role:string,motion:AnatomicalMotion,value:number)=>{
     const joint=scopedJoint(graph,role+"_"+hand,hand);
@@ -217,8 +221,8 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
     const mirror=hand==="right"?1:-1;
     // Deliberately asymmetric, no mirrored overhead X-shaped arms.
     const isLead=hand===primary;
-    add(hand,"clavicle","abduction",0);
-    add(hand,"clavicle","flexion",0);
+    add(hand,"clavicle","abduction",clavicleRestart?.30:0);
+    add(hand,"clavicle","flexion",clavicleRestart?.24:0);
     add(hand,"shoulder","abduction",pose.shoulderAbduction+variation.abduction);
     add(hand,"shoulder","flexion",pose.shoulderFlexion+variation.flexion+
       (kind==="longsword"?(isLead?.20:-.15):0));
@@ -923,7 +927,7 @@ function fitTorsoCenteredSword(model:StudioHumanModel,fk:AnatomicalFK,
   const chest=world(jointBone(model,"chest",lead));
   const origin=chest.lerp(midpoint,.35);
   const graph=model.human.spike.graph;
-  for(const seed of [0,6,7,4,2]){
+  for(const seed of [0,6,7,4,2,16,20]){
     const state=poseMap(fingerState);
     stageReadyPose(graph,fk,state,"longsword",lead,seed);
     const staged=[...state.values()];
@@ -1178,7 +1182,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   // Only an otherwise rejected morphology or Studio pose enters the
   // relative-hand solver. The approved, successful presentation is immutable.
   if(!chosen?.reachable){
-    for(const seed of kind==="longsword"?[6,7,4,5,2,0]:[3,2,1,0]){
+    for(const seed of kind==="longsword"?[6,7,4,5,2,0,16,18,20,22]:[3,2,1,0]){
       const paired=fitRelativeTwoHandContacts(model,fk,fingerState,
         kind,primary,dimensions,seed,diagnostics);
       if(paired){chosen=paired;break;}
