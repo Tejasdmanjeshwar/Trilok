@@ -17,6 +17,8 @@ import {StudioSwordPreview} from "./StudioWeaponGrip";
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
+import {isSwordShieldEquipment,StudioShieldPreview,
+  type ShieldStance} from "./StudioSwordShield";
 import {isShortTap,isDoubleTap,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
 
@@ -31,6 +33,7 @@ export interface StudioViewport {
   returnFromFocus():void;
   setPose(pose:StudioPose):void;
   setEquipment(hand:EquipmentChoice):void;
+  setShieldStance(stance:ShieldStance):void;
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
@@ -96,6 +99,8 @@ export function createStudioViewport(
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
   let equipment:EquipmentChoice="none";
+  let shieldStance:ShieldStance="guard";
+  let shield:StudioShieldPreview|undefined;
   let currentRecipe:StudioRecipeV1=initialStudioRecipe();
   let sword:StudioSwordPreview|StudioTwoHandPreview|undefined;
   const reportGripFailure=(result?:TwoHandIKResult,error?:unknown):void=>{
@@ -104,7 +109,10 @@ export function createStudioViewport(
       getBuildIdentity(),result,error);
     onGripFailure?.(report);
   };
-  function clearSword():void{sword?.dispose();sword=undefined;}
+  function clearSword():void{
+    sword?.dispose();sword=undefined;
+    shield?.dispose();shield=undefined;
+  }
   function refreshSword():void{
     clearSword();
     if(equipment==="none"){
@@ -113,7 +121,20 @@ export function createStudioViewport(
     }
     if(!active)return;
     try{
-      if(isTwoHandEquipment(equipment)){
+      if(isSwordShieldEquipment(equipment)){
+        const solved=posePreview?.independentResult;
+        if(!solved?.reachable){
+          onEditError("The shield and sword cannot be held safely in this position.");
+          return;
+        }
+        const swordHand=primaryHand(equipment)!;
+        const swordPreview=new StudioSwordPreview(active,swordHand);
+        try{
+          const shieldPreview=new StudioShieldPreview(active,solved);
+          scene.add(swordPreview.object);scene.add(shieldPreview.object);
+          sword=swordPreview;shield=shieldPreview;
+        }catch(error){swordPreview.dispose();throw error;}
+      }else if(isTwoHandEquipment(equipment)){
         const solved=posePreview?.twoHandResult;
         if(!solved?.reachable){
           reportGripFailure(solved);
@@ -136,7 +157,7 @@ export function createStudioViewport(
   }
   function setEquipment(hand:EquipmentChoice):void{
     if(!["none","left","right","longsword-left","longsword-right",
-      "staff-left","staff-right"].includes(hand))throw new Error("Unknown equipment choice");
+      "staff-left","staff-right","sword-shield-left","sword-shield-right"].includes(hand))throw new Error("Unknown equipment choice");
     equipment=hand;
     try{
       posePreview?.setGrip(hand);
@@ -146,6 +167,13 @@ export function createStudioViewport(
       reportGripFailure(undefined,error);
       onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
+    updateMarkers();
+  }
+  function setShieldStance(stance:ShieldStance):void{
+    if(!["guard","attack","parry"].includes(stance))throw new Error("Unknown shield stance");
+    shieldStance=stance;
+    posePreview?.setShieldStance(stance);
+    if(isSwordShieldEquipment(equipment))refreshSword();
     updateMarkers();
   }
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
@@ -284,7 +312,7 @@ export function createStudioViewport(
     pose=next;
     try{
       posePreview?.setPose(next);
-      if(isTwoHandEquipment(equipment))refreshSword();
+      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))refreshSword();
       else sword?.update();
     }catch(error){
       clearSword();
@@ -306,7 +334,7 @@ export function createStudioViewport(
       if(!ok)return false;
       expression=next;
       posePreview?.refresh();
-      if(isTwoHandEquipment(equipment))refreshSword();
+      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))refreshSword();
       return true;
     }catch{
       if(current===ticket){expression=previous;
@@ -528,7 +556,7 @@ export function createStudioViewport(
         currentMorphology=state;
         currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
         posePreview?.refresh();
-        if(isTwoHandEquipment(equipment))refreshSword();
+        if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))refreshSword();
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
         if(equipment==="none"||sword)onEditError("");
         return true;
@@ -552,7 +580,7 @@ export function createStudioViewport(
         if(!ok||!valid()){incoming.dispose();return false;}
       }
       const preview=new StudioPosePreview(incoming);
-      try{preview.setGrip(equipment);preview.setPose(pose);}
+      try{preview.setShieldStance(shieldStance);preview.setGrip(equipment);preview.setPose(pose);}
       catch(error){preview.dispose();throw error;}
       if(!valid()){preview.dispose();incoming.dispose();return false;}
       const previous=active;
@@ -630,5 +658,5 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,setEquipment,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setExpression,setInspection,resetView,dispose};
 }
