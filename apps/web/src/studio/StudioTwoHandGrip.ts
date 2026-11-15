@@ -114,6 +114,16 @@ function jointBone(model:StudioHumanModel,role:string,hand:HandSide):THREE.Bone{
   return bone;
 }
 const world=(bone:THREE.Object3D)=>bone.getWorldPosition(new THREE.Vector3());
+/** Contact center is inside the curled finger envelope, not at the
+ * skinning palm joint. Authored independently using the same source-bone
+ * landmarks as Blender, preserving the 6mm grip-contact acceptance bound.
+ * The anatomical palm joint may correctly remain centimetres from the axis. */
+export function twoHandGripContactWorld(model:StudioHumanModel,hand:HandSide):THREE.Vector3{
+  const palm=world(jointBone(model,"palm_"+hand,hand));
+  const index=world(jointBone(model,"finger_index_0",hand));
+  const little=world(jointBone(model,"finger_little_0",hand));
+  return palm.add(index.add(little).multiplyScalar(.5).sub(palm).multiplyScalar(.53));
+}
 function palmFrame(model:StudioHumanModel,hand:HandSide):
   {palm:THREE.Vector3;axis:THREE.Vector3;width:number;forward:THREE.Vector3;
     normal:THREE.Vector3}{
@@ -128,7 +138,7 @@ function palmFrame(model:StudioHumanModel,hand:HandSide):
   if(axis.lengthSq()<1e-9)throw new Error("Degenerate source knuckle axis");
   axis.normalize();
   const normal=forward.clone().negate().cross(axis).normalize();
-  return {palm,axis,width:across.length(),forward,normal};
+  return {palm:twoHandGripContactWorld(model,hand),axis,width:across.length(),forward,normal};
 }
 function poseMap(base:readonly JointTarget[]):Map<string,JointTarget>{
   return new Map(base.map(c=>[key(c.jointId,c.motion),c]));
@@ -331,7 +341,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     return {value:positionError*positionError*180+
       .018*(1-dot)*(1-dot)+
       .006*Math.max(0,forwardOverlap-.36)**2+
-      .00015*travel+.18*elbowPoleError*elbowPoleError+
+      .00015*travel+(kind==="longsword"?.18:0)*elbowPoleError*elbowPoleError+
       35*(headGap*headGap+elbowGap*elbowGap+
         palmGap*palmGap+forearmGap*forearmGap),
       error:positionError,dot};
