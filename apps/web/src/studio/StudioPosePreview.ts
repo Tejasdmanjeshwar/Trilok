@@ -7,6 +7,8 @@ import {calibrateGripSpreads,swordGripTargets,type GripSpreads} from "./StudioWe
 import {isTwoHandEquipment,primaryHand,twoHandKind,solveTwoHandIK,type EquipmentChoice,
   type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
+import {isSwordShieldEquipment,shieldHand,solveShieldPose,type ShieldPoseResult,
+  type ShieldStance} from "./StudioShieldGrip";
 
 /** One FK evaluator per owned human. Same calibrated rig and target matrix as Lab.
  * Nothing is written into morphology recipes, history or combat simulation. */
@@ -17,6 +19,13 @@ export class StudioPosePreview {
   private current:StudioPose="neutral";
   private grip:EquipmentChoice="none";
   private result:TwoHandIKResult|undefined;
+  private shieldResult:ShieldPoseResult|undefined;
+  private shieldStance:ShieldStance="guard";
+  get shieldPoseResult():ShieldPoseResult|undefined{return this.shieldResult;}
+  setShieldStance(stance:ShieldStance):void{
+    if(!["guard","attack-ready","parry"].includes(stance))throw new Error("Unknown shield stance");
+    this.shieldStance=stance;this.refresh();
+  }
   get twoHandResult():TwoHandIKResult|undefined{return this.result;}
   setGrip(hand:EquipmentChoice):void{this.grip=hand;this.refresh();}
   constructor(private readonly model:StudioHumanModel){
@@ -36,8 +45,15 @@ export class StudioPosePreview {
     const human=this.model.human;
     const commands=resolveAnatomicalPose(anatomicalPoseById(id),
       human.spike.graph,this.fk);
+    const dual=isSwordShieldEquipment(this.grip);
     const grip=this.grip==="none"||isTwoHandEquipment(this.grip)?[]:
-      swordGripTargets(human.spike.graph,this.grip,this.spreads[this.grip]);
+      dual?([...swordGripTargets(human.spike.graph,
+        this.grip.endsWith("right")?"right":"left",
+        this.spreads[this.grip.endsWith("right")?"right":"left"]),
+        ...swordGripTargets(human.spike.graph,
+          shieldHand(this.grip.endsWith("right")?"right":"left"),
+          this.spreads[shieldHand(this.grip.endsWith("right")?"right":"left")])]):
+        swordGripTargets(human.spike.graph,this.grip,this.spreads[this.grip]);
     const covered=new Set(grip.map(c=>c.jointId+"/"+c.motion));
     const composed=[...commands.filter(c=>!covered.has(c.jointId+"/"+c.motion)),...grip];
     const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")?.id;
@@ -48,18 +64,25 @@ export class StudioPosePreview {
       this.correctives=new HumanPoseCorrectives(human);
     }
     this.result=undefined;
-    if(isTwoHandEquipment(this.grip)){
+    this.shieldResult=undefined;
+    if(dual){
+      const swordSide=this.grip.endsWith("right")?"right":"left";
+      this.shieldResult=solveShieldPose(this.model,this.fk,effective,
+        shieldHand(swordSide),this.shieldStance);
+    }else if(isTwoHandEquipment(this.grip)){
       this.result=solveTwoHandIK(this.model,this.fk,effective,primaryHand(this.grip)!,twoHandKind(this.grip));
       // No second arm snap on unreachable targets; the solver restores the
       // input pose and returns a descriptive status without changing the root.
     }else this.fk.apply(effective);
-    this.correctives?.apply(this.result?.reachable?this.result.commands:effective);
+    this.correctives?.apply(this.result?.reachable?this.result.commands:
+      this.shieldResult?.commands??effective);
     human.spike.character.root.updateWorldMatrix(true,true);
     this.current=id;
   }
   refresh():void{this.setPose(this.current);}
   dispose():void{
     this.result=undefined;
+    this.shieldResult=undefined;
     this.fk.apply([]);
     this.correctives?.dispose();
   }
