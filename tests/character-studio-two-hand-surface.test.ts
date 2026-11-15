@@ -163,7 +163,7 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
             secondaryAxis:outcome.secondaryAxisDot,
             initialSpan:outcome.initialHandSpanMeters,
             gripSpan:outcome.separationMeters,
-            reason:outcome.reason,
+            reason:outcome.reason,attempts:outcome.reachDiagnostics,
           }));
           expect(Number.isFinite(outcome.primaryErrorMeters)).toBe(true);
         }
