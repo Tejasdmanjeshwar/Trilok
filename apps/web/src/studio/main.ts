@@ -1,6 +1,7 @@
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
+import type {SwordHand} from "./StudioWeaponGrip";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {createStudioGeneratorPanel,type StudioGeneratorPanel} from "./StudioGeneratorPanel";
 import {STUDIO_VIEWS,STUDIO_LIGHTS,type StudioView,type StudioLight} from "./StudioPresentation";
@@ -103,6 +104,20 @@ host.innerHTML=String.raw`
         </fieldset>
         <div class="studio-rule"></div>
         <fieldset class="studio-fieldset">
+          <legend>Equipment</legend>
+          <label class="studio-field-label" for="studio-sword-hand">Sword</label>
+          <select id="studio-sword-hand" aria-label="Reference sword and gripping hand">
+            <option value="none">None</option>
+            <option value="right">Right hand</option>
+            <option value="left">Left hand</option>
+          </select>
+          <p>A reference sword to inspect your character's hand grip.</p>
+          <div class="studio-action-pair studio-weapon-focus">
+            <button id="studio-sword-focus" type="button">Focus on gripping hand</button>
+          </div>
+        </fieldset>
+        <div class="studio-rule"></div>
+        <fieldset class="studio-fieldset">
           <legend>Facial expression</legend>
           <p>Try a temporary expression. Your facial shaping stays intact.</p>
           <label class="studio-field-label" for="studio-expression-select">Expression</label>
@@ -165,6 +180,26 @@ const startOverButton=element<HTMLButtonElement>("#studio-start-over");
 const focusArea=element<HTMLSelectElement>("#studio-focus-area");
 const poseSelect=element<HTMLSelectElement>("#studio-pose-select");
 const expressionSelect=element<HTMLSelectElement>("#studio-expression-select");
+const swordSelect=element<HTMLSelectElement>("#studio-sword-hand");
+const swordFocus=element<HTMLButtonElement>("#studio-sword-focus");
+swordFocus.disabled=true;
+swordSelect.addEventListener("change",()=>{
+  const hand=swordSelect.value as SwordHand;
+  if(hand!=="none"&&hand!=="left"&&hand!=="right")return;
+  viewport.setEquipment(hand);
+  swordFocus.disabled=hand==="none";
+});
+swordFocus.addEventListener("click",()=>{
+  const hand=swordSelect.value;
+  if(hand!=="left"&&hand!=="right")return;
+  const area=(hand+"-hand") as StudioFocus;
+  focusArea.value=area;
+  if(viewport.focus(area)){
+    focused=true;
+    element<HTMLButtonElement>("#studio-return-focus").disabled=false;
+    setPressed("view","");
+  }
+});
 function addOptions(select:HTMLSelectElement,items:Readonly<Record<string,
   {readonly label:string}|string>>):void {
   for(const [id,entry] of Object.entries(items))
