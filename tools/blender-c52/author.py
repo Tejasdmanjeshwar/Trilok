@@ -213,7 +213,8 @@ def solve_pose(kind, lead, center, axis, grips):
         sign=1 if hand=="right" else -1
         # Elbows are explicitly OUTSIDE the silhouette, below shoulders, never
         # in the center of the chest or above the head.
-        lateral=Vector((sign, -.16, -.15))
+        lateral=Vector((sign*.30, -.50, -.65) if kind=="staff" else
+                       (sign, -.16, -.15))
         lateral=(lateral-direction*lateral.dot(direction)).normalized()
         target_elbow=sh+direction*along+lateral*height
         upper_now=posed_pos("elbow_"+hand)-posed_pos("shoulder_"+hand)
