@@ -6,6 +6,9 @@ import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from
 import {MakeHumanBodyController,type BodyAtlas} from
   "../apps/web/src/characters/geometry/MakeHumanBodyTargets";
 import {AnatomicalFK} from "../apps/web/src/characters/geometry/AnatomicalFK";
+import {generateStudioCharacter,STUDIO_GENERATOR_VERSION} from "../apps/web/src/studio/StudioGenerator";
+import {applyHumanMorphology} from "../apps/web/src/characters/geometry/HumanMorphology";
+import {createHumanHeadRecipe} from "@trilok/character-core";
 import {solveTwoHandIK,StudioTwoHandPreview,twoHandSolvedContactWorld,type HandSide} from "../apps/web/src/studio/StudioTwoHandGrip";
 import type {StudioHumanModel} from "../apps/web/src/studio/StudioHumanModel";
 import type {SourceRig,SourceWeights} from
@@ -85,6 +88,52 @@ function measureStaff(model:StudioHumanModel,hand:HandSide,
   return results;
 }
 describe("C5.2 staff source-skinned contact diagnostics",()=>{
+  it("reproduces seed 2694905601 and equips its generated neutral sword",()=>{
+    const generated=generateStudioCharacter(2694905601);
+    expect(STUDIO_GENERATOR_VERSION).toBe("studio-human-v2");
+    const values=generated.morphology.body;
+    for(const [key,value] of Object.entries({
+      "macro/sex":.148029,"macro/age":.889077,
+      "macro/weight":.825167,"macro/muscle":.262577,
+      "macro/height":.259562,"macro/proportions":.529503,
+      "native/armslegs/l-hand-trans-in-out":.984641,
+      "native/armslegs/l-hand-fingers-distance-decr-incr":-.484303,
+      "native/armslegs/r-hand-fingers-diameter-decr-incr":.256999,
+      "native/armslegs/r-lowerarm-scale-depth-decr-incr":.595923,
+      "native/armslegs/l-lowerarm-muscle-decr-incr":.71748,
+      "native/armslegs/l-upperarm-muscle-decr-incr":.590381,
+    }))expect(values[key],key).toBe(value);
+    expect(generated.morphology.shape.stature).toBe(.971921);
+    expect(generated.morphology.shape.breadth).toBe(1.092271);
+    expect(generated.morphology.shape.shoulders).toBe(1.055359);
+    expect(generated.morphology.shape.arms).toBe(.953258);
+    const {human,model,fk}=make(values);
+    try{
+      applyHumanMorphology(human,createHumanHeadRecipe(generated.morphology.shape));
+      // Both leads must work; finite but unreachable diagnostics are not success.
+      for(const lead of ["right","left"] as const){
+        fk.apply([]);
+        const result=solveTwoHandIK(model,fk,[],lead,"longsword");
+        expect(result.reachable,lead+"/"+result.reason+
+          " residual "+result.primaryErrorMeters+"/"+result.secondaryErrorMeters).toBe(true);
+        expect(result.primaryErrorMeters).toBeLessThanOrEqual(.023);
+        expect(result.secondaryErrorMeters).toBeLessThanOrEqual(.023);
+      }
+    }finally{human.dispose();}
+  },120_000);
+  it.each(["right","left"] as const)(
+    "requires a shared same-direction staff knuckle axis (%s)",lead=>{
+      const {human,model,fk}=make();
+      try{
+        const result=solveTwoHandIK(model,fk,[],lead,"staff");
+        expect(result.reachable).toBe(true);
+        expect(result.primaryAxisDot).toBeGreaterThan(.85);
+        expect(result.secondaryAxisDot).toBeGreaterThan(.85);
+        const shaft=new THREE.Vector3(0,1,0).transformDirection(result.weaponWorld);
+        expect(shaft.y).toBeGreaterThan(.35);
+      }finally{human.dispose();}
+    },120_000);
+
   it.each(["right","left"] as const)("measures source skin against one staff (%s)",lead=>{
     const {human,model,fk}=make();
     try{
