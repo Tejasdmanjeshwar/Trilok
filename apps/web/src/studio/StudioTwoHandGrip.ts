@@ -225,10 +225,18 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
 }
 function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
   primary:HandSide):{ok:boolean;headClearance:number;elbowMax:number;
-    headY:number;maximumPalmY:number;forearmClearance:number}{
+    headY:number;maximumPalmY:number;forearmClearance:number;scale:number}{
   const secondary:HandSide=primary==="left"?"right":"left";
   const head=world(jointBone(model,"head",primary));
   const chest=world(jointBone(model,"chest",primary));
+  // Collision distances track the source's physical stature. The old
+  // adult-only 19cm head and 4.5cm forearm clearance falsely rejected
+  // infant rigs although the same proportions are valid at smaller scale.
+  const root=model.human.spike.character.root;
+  const ankle=world(jointBone(model,"ankle_left","left"));
+  const headLocal=root.worldToLocal(head.clone());
+  const ankleLocal=root.worldToLocal(ankle.clone());
+  const scale=THREE.MathUtils.clamp((headLocal.y-ankleLocal.y+.13)/1.75,.4,1.2);
   let elbowMax=-Infinity,headClearance=Infinity;
   const forearms:THREE.Line3[]=[];
   const scratch=new THREE.Vector3();
@@ -265,9 +273,11 @@ function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
     world(jointBone(model,"palm_"+secondary,secondary))];
   const maxRise=Math.max(...palms.map(p=>p.y));
   const minForward=Math.min(...palms.map(p=>p.z-chest.z));
-  return {ok:headClearance>.19&&forearmClearance>.045&&
-    elbowMax<head.y-.12&&maxRise<head.y-.18&&minForward>-.06,
-    headClearance,elbowMax,headY:head.y,maximumPalmY:maxRise,forearmClearance};
+  return {ok:headClearance>.19*scale&&forearmClearance>.045*scale&&
+    elbowMax<head.y-.12*scale&&maxRise<head.y-.18*scale&&
+    minForward>-.06*scale,
+    headClearance,elbowMax,headY:head.y,maximumPalmY:maxRise,
+    forearmClearance,scale};
 }
 /** Weapon authority: one rigid frame and two grip transforms, defined before
  * any arm optimization. The source chest determines placement, root orientation
@@ -278,6 +288,14 @@ function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
   root.updateWorldMatrix(true,true);
   const facing=root.getWorldQuaternion(new THREE.Quaternion());
   const chest=world(jointBone(model,"chest",primary));
+  // Collision distances track the source's physical stature. The old
+  // adult-only 19cm head and 4.5cm forearm clearance falsely rejected
+  // infant rigs although the same proportions are valid at smaller scale.
+  const root=model.human.spike.character.root;
+  const ankle=world(jointBone(model,"ankle_left","left"));
+  const headLocal=root.worldToLocal(head.clone());
+  const ankleLocal=root.worldToLocal(ankle.clone());
+  const scale=THREE.MathUtils.clamp((headLocal.y-ankleLocal.y+.13)/1.75,.4,1.2);
   const scale=dim.scale;
   const offset=kind==="longsword"?
     new THREE.Vector3(0,-.18*scale,.28*scale):
@@ -500,10 +518,10 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
       const delta=(state.get(d.key)?.radians??0)-starting.get(d.key)!;
       travel+=delta*delta;
     }
-    const headGap=Math.max(0,.195-guard.headClearance);
-    const elbowGap=Math.max(0,guard.elbowMax-guard.headY+.135);
-    const palmGap=Math.max(0,guard.maximumPalmY-guard.headY+.20);
-    const forearmGap=Math.max(0,.05-guard.forearmClearance);
+    const headGap=Math.max(0,.195*guard.scale-guard.headClearance);
+    const elbowGap=Math.max(0,guard.elbowMax-guard.headY+.135*guard.scale);
+    const palmGap=Math.max(0,guard.maximumPalmY-guard.headY+.20*guard.scale);
+    const forearmGap=Math.max(0,.05*guard.scale-guard.forearmClearance);
     return {value:positionError*positionError*(kind==="staff"?180:95)+
       (kind==="staff"?1.2:.20)*(1-dot)*(1-dot)+
       .006*Math.max(0,forwardOverlap-.36)**2+
@@ -595,10 +613,10 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
     }
     const safety=anatomicalGuard(model,kind,lead);
     if(!safety.ok){
-      const head=Math.max(0,.195-safety.headClearance);
-      const arm=Math.max(0,safety.elbowMax-safety.headY+.135);
-      const palm=Math.max(0,safety.maximumPalmY-safety.headY+.20);
-      const forearm=Math.max(0,.05-safety.forearmClearance);
+      const head=Math.max(0,.195*safety.scale-safety.headClearance);
+      const arm=Math.max(0,safety.elbowMax-safety.headY+.135*safety.scale);
+      const palm=Math.max(0,safety.maximumPalmY-safety.headY+.20*safety.scale);
+      const forearm=Math.max(0,.05*safety.scale-safety.forearmClearance);
       sum+=20*(head*head+arm*arm+palm*palm+forearm*forearm);
     }
     return sum;
@@ -741,10 +759,10 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
         (supportAxis.x-axis.x)*.025,
         (supportAxis.y-axis.y)*.025,
         (supportAxis.z-axis.z)*.025,
-        Math.max(0,.195-guard.headClearance)*4,
-        Math.max(0,guard.elbowMax-guard.headY+.135)*4,
-        Math.max(0,guard.maximumPalmY-guard.headY+.20)*4,
-        Math.max(0,.05-guard.forearmClearance)*4];
+        Math.max(0,.195*guard.scale-guard.headClearance)*4,
+        Math.max(0,guard.elbowMax-guard.headY+.135*guard.scale)*4,
+        Math.max(0,guard.maximumPalmY-guard.headY+.20*guard.scale)*4,
+        Math.max(0,.05*guard.scale-guard.forearmClearance)*4];
     };
     const cost=(values:readonly number[])=>{
       let sum=values.reduce((s,v)=>s+v*v,0);
