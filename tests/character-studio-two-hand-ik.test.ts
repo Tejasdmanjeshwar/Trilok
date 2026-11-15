@@ -65,7 +65,7 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
     }finally{human.dispose();}
   },120_000);
   it("adapts socket spacing to native hand proportions",()=>{
-    const samples=[{},{"macro/height":0},{"macro/height":1},
+    const samples:Readonly<Record<string,number>>[]=[{},{"macro/height":0},{"macro/height":1},
       {"native/armslegs/l-hand-scale-decr-incr":1},
       {"native/armslegs/r-hand-scale-decr-incr":-1}];
     for(const weights of samples){
