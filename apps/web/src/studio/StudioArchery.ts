@@ -291,7 +291,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       drawError>=.085*scale?"draw-unreachable":
       unsafe?"body-intersection":"ok",
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
-    iterations:held.iterations+drawIterations,solverAttempts:held.attempts+\n      (state==="rest"?0:4),
+    iterations:held.iterations+drawIterations,solverAttempts:held.attempts+drawAttempts,
     bowHandErrorMeters:bowError,drawHandErrorMeters:drawError,
     bodyClearanceMeters:Math.min(held.clearance,drawClearance,
       collisions.clearance(nock)),drawMeters:Math.max(0,
