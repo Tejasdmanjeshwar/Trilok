@@ -177,9 +177,21 @@ const STANCES:Readonly<Record<TwoHandWeapon,{
   staff:{shoulderAbduction:.16,shoulderFlexion:.34,
     shoulderRoll:1.07,elbowFlexion:.98,forearmRoll:0,wristFlexion:0},
 });
+/** Alternative initial anatomical stances are evaluated ONLY if the approved
+ * nominal sword/staff guard is unreachable on the current morphology.
+ * These are bounded source-FK seed differences, not visual root scaling. */
+const REACH_SEEDS=Object.freeze([
+  {abduction:0,flexion:0,rotation:0,elbow:0},
+  {abduction:-.45,flexion:.20,rotation:-.25,elbow:.40},
+  {abduction:-.65,flexion:.12,rotation:.30,elbow:.45},
+  {abduction:-.30,flexion:-.20,rotation:-.45,elbow:.12},
+] as const);
 function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
-  state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide):void{
+  state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide,
+  seed=0):void{
   const pose=STANCES[kind];
+  const variation=REACH_SEEDS[seed]!;
+
   const add=(hand:HandSide,role:string,motion:AnatomicalMotion,value:number)=>{
     const joint=scopedJoint(graph,role+"_"+hand,hand);
     const freedom=fk.frames.get(joint.id)?.freedoms.get(motion);
@@ -193,11 +205,11 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
     const isLead=hand===primary;
     add(hand,"clavicle","abduction",0);
     add(hand,"clavicle","flexion",0);
-    add(hand,"shoulder","abduction",pose.shoulderAbduction);
-    add(hand,"shoulder","flexion",pose.shoulderFlexion+
+    add(hand,"shoulder","abduction",pose.shoulderAbduction+variation.abduction);
+    add(hand,"shoulder","flexion",pose.shoulderFlexion+variation.flexion+
       (kind==="longsword"?(isLead?.20:-.15):0));
-    add(hand,"shoulder","rotation",mirror*pose.shoulderRoll);
-    add(hand,"elbow","flexion",pose.elbowFlexion+
+    add(hand,"shoulder","rotation",mirror*(pose.shoulderRoll+variation.rotation));
+    add(hand,"elbow","flexion",pose.elbowFlexion+variation.elbow+
       (kind==="longsword"?(isLead?.05:.15):0));
     add(hand,"elbow","rotation",mirror*pose.forearmRoll);
     add(hand,"wrist","flexion",pose.wristFlexion);
@@ -416,7 +428,8 @@ function referenceElbow(model:StudioHumanModel,kind:TwoHandWeapon,
  * Arm and wrist joints are optimized, not the weapon, pelvis or root. */
 function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,lead:HandSide,
-  hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3,anchors?:GripAnchors):
+  hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3,anchors?:GripAnchors,
+  maxTravelRadians=1.10):
   {error:number;dot:number;iterations:number}{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
   const starting=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
@@ -461,7 +474,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
         for(const sign of [-1,1]){
           const candidate=THREE.MathUtils.clamp(current+step*sign,dof.min,dof.max);
           // No single axis may jump wildly away from its initial weapon stance.
-          if(Math.abs(candidate-starting.get(dof.key)!)>1.10)continue;
+          if(Math.abs(candidate-starting.get(dof.key)!)>maxTravelRadians)continue;
           state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:candidate});
           apply();
           const next=cost();
@@ -491,32 +504,38 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     for(const c of swordGripTargets(graph,hand,spread))
       state.set(key(c.jointId,c.motion),c);
   }
-  stageReadyPose(graph,fk,state,kind,primary);
-  const staged=Object.freeze([...state.values()]);
-  fk.apply(staged);
-  // The calibrated staff channel is a true source-skin contact point,
-  // whereas the accepted sword pose retains its existing grip semantics.
-  const anchors=kind==="staff"?calibrateStaffAnchors(model,dimensions):undefined;
-  const initialHandSpanMeters=contactWorld(model,primary,anchors).distanceTo(
-    contactWorld(model,secondary,anchors));
-  const authored=authoredWeaponWorld(model,kind,primary,dimensions);
-  const adaptive=adaptiveTwoHandWeaponWorld(model,kind,primary,dimensions,authored,anchors);
-  const aligned=kind==="staff"?adaptiveTwoHandWeaponWorld(
-    model,kind,primary,dimensions,authored,anchors,"knuckle"):undefined;
-  // Sword: preserve the owner-approved default pose if it is already valid.
-  // Staff: try the line through both posed hands first. On a morphology
-  // boundary, a rigid chest reference is a deterministic backup candidate.
-  const candidates=kind==="longsword"?[authored,adaptive]:[aligned!,adaptive,authored];
+  // Default seed first: the owner's accepted normal sword grip must remain
+  // untouched whenever already reachable. Morphology fallbacks only run when
+  // this pose cannot satisfy the SAME unchanged anatomical acceptance gates.
+  const fingerState=Object.freeze([...state.values()]);
   let chosen:TwoHandIKResult|undefined;
   let lowest=Infinity;
-  for(const weaponWorld of candidates){
+  candidateSeeds:for(let seed=0;seed<REACH_SEEDS.length;seed++){
+    state=poseMap(fingerState);
+    stageReadyPose(graph,fk,state,kind,primary,seed);
+    const staged=Object.freeze([...state.values()]);
+    fk.apply(staged);
+    const anchors=kind==="staff"?calibrateStaffAnchors(model,dimensions):undefined;
+    const initialHandSpanMeters=contactWorld(model,primary,anchors).distanceTo(
+      contactWorld(model,secondary,anchors));
+    const authored=authoredWeaponWorld(model,kind,primary,dimensions);
+    const adaptive=adaptiveTwoHandWeaponWorld(
+      model,kind,primary,dimensions,authored,anchors);
+    const aligned=kind==="staff"?adaptiveTwoHandWeaponWorld(
+      model,kind,primary,dimensions,authored,anchors,"knuckle"):undefined;
+    const candidates=kind==="longsword"?
+      (seed===0?[authored,adaptive]:[adaptive]):
+      (seed===0?[aligned!,adaptive,authored]:[aligned!,adaptive]);
+    for(const weaponWorld of candidates){
     state=poseMap(staged);
     fk.apply([...state.values()]);
     const shaft=weaponAxis(weaponWorld);
     const firstGoal=gripWorld(weaponWorld,dimensions.primaryGripY);
     const secondGoal=gripWorld(weaponWorld,dimensions.secondaryGripY);
-    const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft,anchors);
-    const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft,anchors);
+    const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft,anchors,
+      seed===0?1.10:1.55);
+    const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft,anchors,
+      seed===0?1.10:1.55);
     fk.apply([...state.values()]);
     const first=palmFrame(model,primary),second=palmFrame(model,secondary);
     const primaryError=contactWorld(model,primary,anchors).distanceTo(firstGoal);
@@ -550,8 +569,10 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const score=primaryError+secondaryError+
       .04*(Math.max(0,.42-primaryDot)+Math.max(0,.42-secondaryDot))+
       (guard.ok?0:.1);
+    if(reached){chosen=result;break candidateSeeds;}
     if(score<lowest){lowest=score;chosen=result;}
-    if(reached)break;
+
+    }
   }
   // Failed candidates are not allowed to persist an invalid skin pose.
   if(!chosen?.reachable)fk.apply(base);
