@@ -669,6 +669,201 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
   apply();
   return iterations;
 }
+
+/** Solve the TWO hands against one movable contact line, never against two
+ * fixed world targets. The shaft is fitted to the posed lead-hand knuckles
+ * (C5.1 convention); its world translation is eliminated analytically by
+ * taking the difference of the two palm-local, source-skinned contacts.
+ *
+ * This is only a fallback. The owner's approved sword/staff candidate is
+ * returned unchanged when it reaches both grips.
+ */
+function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
+  base:readonly JointTarget[],kind:TwoHandWeapon,lead:HandSide,
+  dimensions:TwoHandDimensions,seed:number):
+  TwoHandIKResult|undefined {
+  const off:HandSide=lead==="left"?"right":"left";
+  const graph=model.human.spike.graph;
+  const state=poseMap(base);
+  stageReadyPose(graph,fk,state,kind,lead,seed);
+  fk.apply([...state.values()]);
+  const anchors=calibrateStaffAnchors(model,dimensions);
+  const initialSpan=contactWorld(model,lead,anchors)
+    .distanceTo(contactWorld(model,off,anchors));
+  const authored=authoredWeaponWorld(model,kind,lead,dimensions);
+  const referenceAxis=weaponAxis(authored);
+  const dofs=[...freedomSet(graph,fk,lead),...freedomSet(graph,fk,off)];
+  const start=dofs.map(d=>state.get(d.key)?.radians??0);
+  const apply=()=>fk.apply([...state.values()]);
+  const spacings=kind==="longsword"?
+    [dimensions.primaryGripY-dimensions.secondaryGripY,
+      dimensions.handleLength*.57,dimensions.handleLength*.48,
+      dimensions.handleLength*.72]:
+    [dimensions.primaryGripY-dimensions.secondaryGripY,
+      dimensions.shaftLength*.23,dimensions.shaftLength*.30];
+  const maxSpan=kind==="longsword"?
+    dimensions.handleLength-3.2*dimensions.radius:
+    dimensions.shaftLength*.70;
+  const minSpan=kind==="longsword"?
+    dimensions.handleLength*.42:dimensions.shaftLength*.18;
+  for(const separation of spacings){
+    if(separation>maxSpan||separation<minSpan)continue;
+    for(let i=0;i<dofs.length;i++){
+      const d=dofs[i]!;
+      state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:start[i]!});
+    }
+    apply();
+    const shaft=()=>{
+      const first=palmFrame(model,lead),second=palmFrame(model,off);
+      if(kind==="longsword"){
+        const axis=first.axis.clone().multiplyScalar(.82)
+          .addScaledVector(referenceAxis,.18);
+        return axis.normalize();
+      }
+      const span=contactWorld(model,lead,anchors)
+        .sub(contactWorld(model,off,anchors));
+      const axis=span.lengthSq()>1e-7?span.normalize():referenceAxis.clone();
+      return axis.multiplyScalar(.84).addScaledVector(referenceAxis,.16).normalize();
+    };
+    const sample=()=>{
+      const axis=shaft();
+      const first=contactWorld(model,lead,anchors),second=contactWorld(model,off,anchors);
+      const relative=first.sub(second).addScaledVector(axis,-separation);
+      const supportAxis=palmFrame(model,off).axis
+        .multiplyScalar(kind==="staff"?-1:1);
+      const guard=anatomicalGuard(model,kind,lead);
+      // Derivative-aware soft barriers prevent convergence by twisting the
+      // wrist through the face or crossing the forearm centerlines.
+      return [relative.x,relative.y,relative.z,
+        (supportAxis.x-axis.x)*.045,
+        (supportAxis.y-axis.y)*.045,
+        (supportAxis.z-axis.z)*.045,
+        Math.max(0,.195-guard.headClearance)*4,
+        Math.max(0,guard.elbowMax-guard.headY+.135)*4,
+        Math.max(0,guard.maximumPalmY-guard.headY+.20)*4,
+        Math.max(0,.05-guard.forearmClearance)*4];
+    };
+    const cost=(values:readonly number[])=>{
+      let sum=values.reduce((s,v)=>s+v*v,0);
+      for(let i=0;i<dofs.length;i++){
+        const delta=(state.get(dofs[i]!.key)?.radians??0)-start[i]!;
+        sum+=.000008*delta*delta;
+      }
+      return sum;
+    };
+    let best=sample(),bestCost=cost(best);
+    for(let iteration=0;iteration<34;iteration++){
+      const axis=shaft();
+      const first=contactWorld(model,lead,anchors);
+      const second=contactWorld(model,off,anchors);
+      const difference=first.sub(second).addScaledVector(axis,-separation);
+      const guard=anatomicalGuard(model,kind,lead);
+      if(difference.length()<.008&&guard.ok)break;
+      const baseValues=dofs.map(d=>state.get(d.key)?.radians??0);
+      const jacobian:number[][]=Array.from({length:best.length},()=>[]);
+      for(let j=0;j<dofs.length;j++){
+        const d=dofs[j]!;
+        const adjusted=THREE.MathUtils.clamp(baseValues[j]!+.006,d.min,d.max);
+        const h=adjusted-baseValues[j]!;
+        if(h<1e-8){
+          for(const row of jacobian)row.push(0);
+          continue;
+        }
+        state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:adjusted});
+        apply();
+        const next=sample();
+        for(let k=0;k<best.length;k++)
+          jacobian[k]!.push((next[k]!-best[k]!)/h);
+        state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:baseValues[j]!});
+      }
+      apply();
+      const n=dofs.length;
+      const matrix=Array.from({length:n},()=>Array<number>(n).fill(0));
+      const rhs=Array<number>(n).fill(0);
+      for(let j=0;j<n;j++){
+        for(let k=0;k<n;k++){
+          let value=0;
+          for(let row=0;row<best.length;row++)
+            value+=jacobian[row]![j]!*jacobian[row]![k]!;
+          matrix[j]![k]=value+(j===k?.0018:0);
+        }
+        for(let row=0;row<best.length;row++)
+          rhs[j]!-=jacobian[row]![j]!*best[row]!;
+      }
+      const changes=solveDampedNormal(matrix,rhs);
+      if(!changes)break;
+      let improved=false;
+      for(const gain of [1,.5,.25,.125]){
+        for(let j=0;j<n;j++){
+          const d=dofs[j]!;
+          const value=THREE.MathUtils.clamp(baseValues[j]!+
+            THREE.MathUtils.clamp(changes[j]!*gain,-.28,.28),d.min,d.max);
+          state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:value});
+        }
+        apply();
+        const next=sample(),nextCost=cost(next);
+        if(nextCost<bestCost-1e-11){
+          best=next;bestCost=nextCost;improved=true;break;
+        }
+      }
+      if(!improved){
+        for(let j=0;j<n;j++){
+          const d=dofs[j]!;
+          state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:baseValues[j]!});
+        }
+        apply();
+        break;
+      }
+    }
+    apply();
+    const axis=shaft();
+    const leadContact=contactWorld(model,lead,anchors);
+    const offContact=contactWorld(model,off,anchors);
+    const relative=leadContact.clone().sub(offContact).addScaledVector(axis,-separation);
+    const center=leadContact.clone().add(offContact).multiplyScalar(.5);
+    let x=new THREE.Vector3(1,0,0).transformDirection(authored);
+    x.addScaledVector(axis,-x.dot(axis));
+    if(x.lengthSq()<1e-8)
+      x=new THREE.Vector3(0,0,1).transformDirection(authored)
+        .addScaledVector(axis,-new THREE.Vector3(0,0,1).transformDirection(authored).dot(axis));
+    x.normalize();
+    const z=x.clone().cross(axis).normalize();
+    x.crossVectors(axis,z).normalize();
+    const matrix=new THREE.Matrix4().compose(
+      center,new THREE.Quaternion().setFromRotationMatrix(
+        new THREE.Matrix4().makeBasis(x,axis,z)),new THREE.Vector3(1,1,1));
+    const dim:TwoHandDimensions=Object.freeze({...dimensions,
+      primaryGripY:separation*.5,secondaryGripY:-separation*.5});
+    const firstGoal=gripWorld(matrix,dim.primaryGripY);
+    const secondGoal=gripWorld(matrix,dim.secondaryGripY);
+    const errorA=leadContact.distanceTo(firstGoal);
+    const errorB=offContact.distanceTo(secondGoal);
+    const dotA=palmFrame(model,lead).axis.dot(axis);
+    const dotB=palmFrame(model,off).axis.dot(axis)*(kind==="staff"?-1:1);
+    const guard=anatomicalGuard(model,kind,lead);
+    const minimum=kind==="staff"?.85:.42;
+    if(guard.ok&&errorA<=.023&&errorB<=.023&&dotA>minimum&&dotB>minimum){
+      return Object.freeze({
+        reachable:true,commands:Object.freeze([...state.values()]),
+        primaryErrorMeters:errorA,secondaryErrorMeters:errorB,
+        primaryDeltaMeters:Object.freeze(leadContact.sub(firstGoal).toArray()),
+        secondaryDeltaMeters:Object.freeze(offContact.sub(secondGoal).toArray()),
+        primaryAxisDot:dotA,secondaryAxisDot:dotB,
+        iterations:0,refinementIterations:34,reason:"ok" as const,
+        headClearanceMeters:guard.headClearance,elbowMaxHeightMeters:guard.elbowMax,
+        headHeightMeters:guard.headY,maximumPalmHeightMeters:guard.maximumPalmY,
+        separationMeters:separation,initialHandSpanMeters:initialSpan,
+        dimensions:dim,weaponWorld:matrix,
+        gripAnchors:Object.freeze({
+          left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
+          right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
+        }),
+      });
+    }
+  }
+  return undefined;
+}
+
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult {
@@ -771,14 +966,23 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
 
     }
   }
-  // Failed candidates are not allowed to persist an invalid skin pose.
-  if(!chosen?.reachable)fk.apply(base);
+  // Only an otherwise rejected morphology or Studio pose enters the
+  // relative-hand solver. The approved, successful presentation is immutable.
+  if(!chosen?.reachable){
+    for(const seed of kind==="longsword"?[6,2,5,0]:[2,1,0]){
+      const paired=fitRelativeTwoHandContacts(model,fk,fingerState,
+        kind,primary,dimensions,seed);
+      if(paired){chosen=paired;break;}
+    }
+    if(!chosen?.reachable)fk.apply(base);
+  }
   return Object.freeze({...chosen!,
     reachDiagnostics:Object.freeze(diagnostics.map(x=>Object.freeze(x)))});
 }
 
 export function createTwoHandDescriptor(model:StudioHumanModel,
-  kind:TwoHandWeapon,primary:HandSide):TwoHandGripV1 {
+  kind:TwoHandWeapon,primary:HandSide,
+  dimensions=twoHandDimensions(model,kind)):TwoHandGripV1 {
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
   const socket=(hand:HandSide,purpose:"primary_grip"|"secondary_grip")=>{
@@ -788,7 +992,6 @@ export function createTwoHandDescriptor(model:StudioHumanModel,
     if(hits.length!==1)throw new Error("Missing/ambiguous "+purpose+" socket "+hand);
     return hits[0]!.id;
   };
-  const dimensions=twoHandDimensions(model,kind);
   return Object.freeze({schemaVersion:1,kind,primary,secondary,
     primarySocket:socket(primary,"primary_grip"),
     secondarySocket:socket(secondary,"secondary_grip"),
@@ -850,7 +1053,7 @@ export class StudioTwoHandPreview {
     primary:HandSide,solved:TwoHandIKResult){
     if(!solved.reachable)throw new Error("Unable to reach both weapon grips");
     model.human.spike.character.root.updateWorldMatrix(true,true);
-    this.descriptor=createTwoHandDescriptor(model,kind,primary);
+    this.descriptor=createTwoHandDescriptor(model,kind,primary,solved.dimensions);
     this.object=referenceWeapon(kind,this.descriptor.dimensions);
     this.offset=model.human.spike.character
       .socketWorld(this.descriptor.primarySocket).invert().multiply(solved.weaponWorld);
