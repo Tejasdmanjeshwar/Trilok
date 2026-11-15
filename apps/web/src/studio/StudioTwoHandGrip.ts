@@ -730,8 +730,13 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
     const shaft=()=>{
       const first=palmFrame(model,lead),second=palmFrame(model,off);
       if(kind==="longsword"){
-        const axis=first.axis.clone().multiplyScalar(.82)
-          .addScaledVector(referenceAxis,.18);
+        // Failure-only coupled fit: do not lock the shaft to the lead
+        // wrist. Both legal hand frames share responsibility for one sword.
+        // The previous lead-dominated axis stranded unusually shaped
+        // supporting arms despite nearly perfect individual axis dots.
+        const axis=first.axis.clone().multiplyScalar(.34)
+          .addScaledVector(second.axis,.34)
+          .addScaledVector(referenceAxis,.32);
         return axis.normalize();
       }
       const span=contactWorld(model,lead,anchors)
