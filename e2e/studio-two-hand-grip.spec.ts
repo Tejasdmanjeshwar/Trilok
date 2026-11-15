@@ -42,6 +42,10 @@ test("two-hand sword and staff remain attached across hands, poses and source mo
     await page.locator("#studio-preset").selectOption(preset);
     await expect(page.locator("#studio-edit-status")).toBeEmpty({timeout:90_000});
     await page.getByRole("button",{name:"Pose",exact:true}).click();
+    // A prior close-up remains focused across regeneration. Reset the view
+    // before recording full-body morphology evidence or images look empty.
+    await page.locator("#studio-reset").click();
+    await page.waitForTimeout(750);
     for(const choice of ["longsword-right","longsword-left",
       "staff-right","staff-left"] as const){
       await equipment.selectOption(choice);
