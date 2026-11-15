@@ -28,6 +28,7 @@ export interface TwoHandGripV1 {
   readonly secondarySocket:string;
   readonly separationMeters:number;
   readonly radiusMeters:number;
+  readonly dimensions:TwoHandDimensions;
 }
 export interface TwoHandIKResult {
   readonly reachable:boolean;
@@ -43,6 +44,47 @@ export interface TwoHandIKResult {
   readonly headHeightMeters:number;
   readonly maximumPalmHeightMeters:number;
   readonly separationMeters:number;
+  readonly weaponWorld:THREE.Matrix4;
+  readonly dimensions:TwoHandDimensions;
+}
+
+/** Independently specified dimensions in meters for a reference adult.
+ * The fixed, same-shaft grip landmarks are NOT inferred from the hands.
+ * A body-stature scale is permitted; an IK reach error is not. */
+export interface TwoHandDimensions {
+  readonly handleLength:number;
+  readonly bladeLength:number;
+  readonly shaftLength:number;
+  readonly guardWidth:number;
+  readonly radius:number;
+  readonly primaryGripY:number;
+  readonly secondaryGripY:number;
+  readonly scale:number;
+}
+export const TWO_HAND_REFERENCE:Readonly<Record<TwoHandWeapon,Omit<TwoHandDimensions,"scale">>>=
+  Object.freeze({
+    longsword:Object.freeze({handleLength:.28,bladeLength:.86,shaftLength:0,
+      guardWidth:.22,radius:.0135,primaryGripY:.075,secondaryGripY:-.075}),
+    staff:Object.freeze({handleLength:0,bladeLength:0,shaftLength:1.72,
+      guardWidth:0,radius:.015,primaryGripY:.245,secondaryGripY:-.245}),
+  });
+/** Source-height scaling is independent of finger or palm separation.
+ * Unsupported young/small bodies can fail reach without stretching the weapon. */
+export function twoHandDimensions(model:StudioHumanModel,kind:TwoHandWeapon):
+  TwoHandDimensions {
+  const root=model.human.spike.character.root;
+  root.updateWorldMatrix(true,true);
+  const head=root.worldToLocal(world(jointBone(model,"head","right")));
+  const ankle=root.worldToLocal(world(jointBone(model,"ankle_left","left")));
+  const stature=head.y-ankle.y+.13;
+  if(!Number.isFinite(stature)||stature<=0)throw new Error("Invalid source stature");
+  const scale=THREE.MathUtils.clamp(stature/1.75,.4,1.2);
+  const spec=TWO_HAND_REFERENCE[kind];
+  return Object.freeze({scale,handleLength:spec.handleLength*scale,
+    bladeLength:spec.bladeLength*scale,shaftLength:spec.shaftLength*scale,
+    guardWidth:spec.guardWidth*scale,radius:spec.radius*scale,
+    primaryGripY:spec.primaryGripY*scale,
+    secondaryGripY:spec.secondaryGripY*scale});
 }
 
 /** The same calibrated anatomical rig supplies every joint and motion range.
@@ -146,9 +188,6 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
     add(hand,"wrist","abduction",0);
   }
 }
-function axisDirection(a:THREE.Vector3,b:THREE.Vector3):THREE.Vector3{
-  return b.clone().sub(a).normalize();
-}
 function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
   primary:HandSide):{ok:boolean;headClearance:number;elbowMax:number;
     headY:number;maximumPalmY:number}{
@@ -193,50 +232,93 @@ function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
   const minForward=Math.min(...palms.map(p=>p.z-chest.z));
   return {ok:headClearance>.19&&forearmClearance>.045&&
     elbowMax<head.y-.12&&maxRise<head.y-.18&&minForward>-.06,
-    headClearance,elbowMax,headY:head.y,maximumPalmY:maxRise};
+    headClearance,elbowMax,headY:head.y,maximumPalmY:maxRise,forearmClearance};
 }
-/** A tiny secondary-arm correction around an already usable authored pose.
- * Fails safely instead of inventing a high crossed-arm configuration. */
-function refineOffhand(model:StudioHumanModel,fk:AnatomicalFK,
-  state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide,
-  goal:THREE.Vector3,wantedAxis:THREE.Vector3):
+/** Weapon authority: one rigid frame and two grip transforms, defined before
+ * any arm optimization. The source chest determines placement, root orientation
+ * determines the facing, never the already posed palm-to-palm vector. */
+function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
+  primary:HandSide,dim:TwoHandDimensions):THREE.Matrix4 {
+  const root=model.human.spike.character.root;
+  root.updateWorldMatrix(true,true);
+  const facing=root.getWorldQuaternion(new THREE.Quaternion());
+  const chest=world(jointBone(model,"chest",primary));
+  const scale=dim.scale;
+  const offset=kind==="longsword"?
+    new THREE.Vector3(0,-.10*scale,.28*scale):
+    new THREE.Vector3(0,-.17*scale,.31*scale);
+  const y=(kind==="longsword"?
+    new THREE.Vector3(primary==="right"?.20:-.20,.64,.74):
+    new THREE.Vector3(primary==="right"?.94:-.94,.16,.30))
+    .normalize().applyQuaternion(facing);
+  const referenceX=(kind==="longsword"?
+    new THREE.Vector3(1,0,0):new THREE.Vector3(0,0,1))
+    .applyQuaternion(facing);
+  const x=referenceX.addScaledVector(y,-referenceX.dot(y)).normalize();
+  const z=x.clone().cross(y).normalize();
+  x.crossVectors(y,z).normalize();
+  const rotation=new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(x,y,z));
+  return new THREE.Matrix4().compose(
+    chest.add(offset.applyQuaternion(facing)),rotation,new THREE.Vector3(1,1,1));
+}
+function gripWorld(weapon:THREE.Matrix4,y:number):THREE.Vector3 {
+  return new THREE.Vector3(0,y,0).applyMatrix4(weapon);
+}
+function weaponAxis(weapon:THREE.Matrix4):THREE.Vector3 {
+  return new THREE.Vector3(0,1,0).transformDirection(weapon);
+}
+/** Bounded FK coordinate-descent in source-calibrated anatomical channels.
+ * Neither hand determines the other hand's objective: both target two
+ * independent immutable landmarks on one predetermined weapon frame.
+ * Arm and wrist joints are optimized, not the weapon, pelvis or root. */
+function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
+  state:Map<string,JointTarget>,kind:TwoHandWeapon,lead:HandSide,
+  hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3):
   {error:number;dot:number;iterations:number}{
-  const secondary:HandSide=primary==="left"?"right":"left";
-  const dofs=freedomSet(model.human.spike.graph,fk,secondary)
-    .filter(d=>d.motion!=="rotation"||!d.jointId.includes("clavicle"));
-  const start=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
+  const dofs=freedomSet(model.human.spike.graph,fk,hand);
+  const starting=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
+  const desiredAxis=shaft.clone().multiplyScalar(hand===lead?1:-1);
   const apply=()=>fk.apply([...state.values()]);
-  const measure=()=>{
-    const frame=palmFrame(model,secondary);
-    const error=frame.palm.distanceTo(goal);
-    const dot=THREE.MathUtils.clamp(-frame.axis.dot(wantedAxis),-1,1);
-    const safety=anatomicalGuard(model,kind,primary);
+  const cost=()=>{
+    const frame=palmFrame(model,hand);
+    const positionError=frame.palm.distanceTo(target);
+    const dot=THREE.MathUtils.clamp(frame.axis.dot(desiredAxis),-1,1);
+    const forwardOverlap=Math.abs(frame.forward.dot(shaft));
+    const guard=anatomicalGuard(model,kind,lead);
     let travel=0;
     for(const d of dofs){
-      const delta=(state.get(d.key)?.radians??0)-start.get(d.key)!;
+      const delta=(state.get(d.key)?.radians??0)-starting.get(d.key)!;
       travel+=delta*delta;
     }
-    const overshoot=Math.max(0,safety.elbowMax-
-      world(jointBone(model,"head",primary)).y+.13);
-    const cost=error*error+.00018*(1-dot)*(1-dot)+
-      .00010*travel+overshoot*overshoot*40+
-      (safety.headClearance<.19?(.19-safety.headClearance)**2*50:0);
-    return {cost,error,dot};
+    const headGap=Math.max(0,.195-guard.headClearance);
+    const elbowGap=Math.max(0,guard.elbowMax-guard.headY+.135);
+    const palmGap=Math.max(0,guard.maximumPalmY-guard.headY+.20);
+    const forearmGap=Math.max(0,.05-guard.forearmClearance);
+    return {value:positionError*positionError*34+
+      .012*(1-dot)*(1-dot)+
+      .006*Math.max(0,forwardOverlap-.36)**2+
+      .00015*travel+35*(headGap*headGap+elbowGap*elbowGap+
+        palmGap*palmGap+forearmGap*forearmGap),
+      error:positionError,dot};
   };
-  apply();let best=measure(),iterations=0;
-  for(const step of [.25,.12,.06,.03]){
+  apply();let best=cost(),iterations=0;
+  for(const step of [.50,.26,.13,.065,.032,.016]){
     for(let sweep=0;sweep<2;sweep++){
       iterations++;let improved=false;
       for(const dof of dofs){
         const current=state.get(dof.key)?.radians??0;
         let selected=current;
-        for(const d of [-step,step]){
-          const candidate=THREE.MathUtils.clamp(current+d,dof.min,dof.max);
-          if(Math.abs(candidate-start.get(dof.key)!)>.45)continue;
+        for(const sign of [-1,1]){
+          const candidate=THREE.MathUtils.clamp(current+step*sign,dof.min,dof.max);
+          // No single axis may jump wildly away from its initial weapon stance.
+          if(Math.abs(candidate-starting.get(dof.key)!)>1.10)continue;
           state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:candidate});
           apply();
-          const next=measure();
-          if(next.cost<best.cost-1e-12){best=next;selected=candidate;improved=true;}
+          const next=cost();
+          if(next.value<best.value-1e-12){
+            best=next;selected=candidate;improved=true;
+          }
         }
         state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:selected});
         apply();
@@ -244,98 +326,16 @@ function refineOffhand(model:StudioHumanModel,fk:AnatomicalFK,
       if(!improved)break;
     }
   }
-  return {...measure(),iterations};
-}
-/** Rotate the forearms around their anatomical long axes to let the
- * knuckle lines follow the shaft, without changing the actual low elbow
- * positions. This is the missing physical constraint in a staff grasp. */
-function calibrateStaffForearms(model:StudioHumanModel,fk:AnatomicalFK,
-  state:Map<string,JointTarget>,primary:HandSide):void{
-  const secondary:HandSide=primary==="left"?"right":"left";
-  const graph=model.human.spike.graph;
-  const apply=()=>fk.apply([...state.values()]);
-  apply();
-  const initial=palmFrame(model,primary).palm;
-  const opposite=palmFrame(model,secondary).palm;
-  const shaft=initial.sub(opposite).normalize();
-  for(const hand of [primary,secondary]){
-    const joint=scopedJoint(graph,"elbow_"+hand,hand);
-    const freedom=fk.frames.get(joint.id)!.freedoms.get("rotation")!;
-    const desired=hand===primary?1:-1;
-    let best=-Infinity,bestAngle=0;
-    for(let i=-12;i<=12;i++){
-      const angle=THREE.MathUtils.clamp(i*.11,freedom.min,freedom.max);
-      state.set(key(joint.id,"rotation"),{
-        jointId:joint.id,motion:"rotation",radians:angle});
-      apply();
-      const alignment=palmFrame(model,hand).axis.dot(shaft)*desired;
-      const score=alignment-.025*Math.abs(angle);
-      if(score>best){best=score;bestAngle=angle;}
-    }
-    state.set(key(joint.id,"rotation"),{
-      jointId:joint.id,motion:"rotation",radians:bestAngle});
-    apply();
-  }
-}
-/** Small wrist-level corrections align both opposing knuckle lines with
- * the same handle, without moving the shoulders or inventing a new pose. */
-function refineGripWristAxes(model:StudioHumanModel,fk:AnatomicalFK,
-  state:Map<string,JointTarget>,primary:HandSide,gap:number):void{
-  const secondary:HandSide=primary==="left"?"right":"left";
-  const graph=model.human.spike.graph;
-  const candidates=[primary,secondary].flatMap(hand=>{
-    const wrist=scopedJoint(graph,"wrist_"+hand,hand);
-    const elbow=scopedJoint(graph,"elbow_"+hand,hand);
-    return [
-      {jointId:wrist.id,motion:"flexion" as const},
-      {jointId:wrist.id,motion:"abduction" as const},
-      {jointId:elbow.id,motion:"rotation" as const},
-    ].map(c=>({...c,k:key(c.jointId,c.motion),
-      frame:fk.frames.get(c.jointId)!.freedoms.get(c.motion)!}));
-  });
-  const center=new Map(candidates.map(d=>[d.k,state.get(d.k)?.radians??0]));
-  const apply=()=>fk.apply([...state.values()]);
-  const metric=()=>{
-    const p=palmFrame(model,primary),s=palmFrame(model,secondary);
-    const shaft=p.palm.clone().sub(s.palm).normalize();
-    const pointError=s.palm.distanceTo(p.palm.clone().addScaledVector(shaft,-gap));
-    const alignment=-p.axis.dot(s.axis);
-    const lead=p.axis.dot(shaft),off=-s.axis.dot(shaft);
-    let travel=0;
-    for(const d of candidates){
-      const delta=(state.get(d.k)?.radians??0)-center.get(d.k)!;
-      travel+=delta*delta;
-    }
-    return pointError*pointError*8+.002*(1-alignment)**2+
-      .001*(1-lead)**2+.001*(1-off)**2+.00005*travel;
-  };
-  apply();let best=metric();
-  for(const step of [.16,.08,.04,.02]){
-    for(let round=0;round<2;round++){
-      let improved=false;
-      for(const d of candidates){
-        const old=state.get(d.k)?.radians??0;
-        let chosen=old;
-        for(const sign of [-1,1]){
-          const next=THREE.MathUtils.clamp(old+step*sign,d.frame.min,d.frame.max);
-          if(Math.abs(next-center.get(d.k)!)>.32)continue;
-          state.set(d.k,{jointId:d.jointId,motion:d.motion,radians:next});
-          apply();const score=metric();
-          if(score<best-1e-12){best=score;chosen=next;improved=true;}
-        }
-        state.set(d.k,{jointId:d.jointId,motion:d.motion,radians:chosen});
-        apply();
-      }
-      if(!improved)break;
-    }
-  }
+  return {...cost(),iterations};
 }
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide,
-  kind:TwoHandWeapon="longsword"):TwoHandIKResult{
+  kind:TwoHandWeapon="longsword"):TwoHandIKResult {
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
   const state=poseMap(base);
+  // Build independently dimensioned reference weapon and stance first.
+  const dimensions=twoHandDimensions(model,kind);
   for(const hand of [primary,secondary]){
     const spread=calibrateGripSpreads(graph,model.human.spike.bones,fk.frames,hand);
     for(const c of swordGripTargets(graph,hand,spread))
@@ -343,42 +343,39 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   }
   stageReadyPose(graph,fk,state,kind,primary);
   fk.apply([...state.values()]);
-  // A long-handled, two-hand reference greatsword is deliberately used
-  // instead of a short one-hand hilt. The pinned source FK cannot move both
-  // wrists onto a compact 11 cm hilt without raising crossed elbows to the
-  // face; a measured extended hilt is the anatomically safer choice.
-  calibrateStaffForearms(model,fk,state,primary);
-  const lead=palmFrame(model,primary),follower=palmFrame(model,secondary);
-  const gap=THREE.MathUtils.clamp(
-    lead.palm.distanceTo(follower.palm),kind==="staff"?.30:.25,
-    kind==="staff"?.85:.75);
-  const axis=axisDirection(follower.palm,lead.palm);
-  const target=lead.palm.clone().addScaledVector(axis,-gap);
-  const secondaryResult=refineOffhand(model,fk,state,kind,primary,target,axis);
-  refineGripWristAxes(model,fk,state,primary,gap);
-  const actualLead=palmFrame(model,primary),actualOff=palmFrame(model,secondary);
-  const actualAxis=axisDirection(actualOff.palm,actualLead.palm);
-  const secondaryError=actualOff.palm.distanceTo(
-    actualLead.palm.clone().addScaledVector(actualAxis,-gap));
-  const dot=THREE.MathUtils.clamp(-actualOff.axis.dot(actualAxis),-1,1);
+  const weaponWorld=authoredWeaponWorld(model,kind,primary,dimensions);
+  const shaft=weaponAxis(weaponWorld);
+  const firstGoal=gripWorld(weaponWorld,dimensions.primaryGripY);
+  const secondGoal=gripWorld(weaponWorld,dimensions.secondaryGripY);
+  const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft);
+  const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft);
+  fk.apply([...state.values()]);
+  const first=palmFrame(model,primary),second=palmFrame(model,secondary);
+  const primaryError=first.palm.distanceTo(firstGoal);
+  const secondaryError=second.palm.distanceTo(secondGoal);
+  const primaryDot=first.axis.dot(shaft);
+  const secondaryDot=-second.axis.dot(shaft);
   const guard=anatomicalGuard(model,kind,primary);
-  const reached=guard.ok&&secondaryError<=.035&&dot>.35;
+  const reached=guard.ok&&primaryError<=.023&&secondaryError<=.023&&
+    primaryDot>.42&&secondaryDot>.42;
   if(!reached)fk.apply(base);
   const commands=reached?[...state.values()]:[...base];
   return Object.freeze({reachable:reached,commands:Object.freeze(commands),
-    primaryErrorMeters:0,secondaryErrorMeters:secondaryError,
-    primaryAxisDot:1,secondaryAxisDot:dot,
-    iterations:secondaryResult.iterations,
-    reason:reached?"ok":!guard.ok?"unsafe-stance":"secondary-unreachable",
+    primaryErrorMeters:primaryError,secondaryErrorMeters:secondaryError,
+    primaryAxisDot:primaryDot,secondaryAxisDot:secondaryDot,
+    iterations:a.iterations+b.iterations,
+    reason:reached?"ok":!guard.ok?"unsafe-stance":
+      primaryError>.023||primaryDot<=.42?"primary-unreachable":"secondary-unreachable",
     headClearanceMeters:guard.headClearance,
     elbowMaxHeightMeters:guard.elbowMax,
     headHeightMeters:guard.headY,
     maximumPalmHeightMeters:guard.maximumPalmY,
-    separationMeters:gap});
+    separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
+    dimensions,weaponWorld:weaponWorld.clone()});
 }
 
 export function createTwoHandDescriptor(model:StudioHumanModel,
-  kind:TwoHandWeapon,primary:HandSide,separation:number):TwoHandGripV1{
+  kind:TwoHandWeapon,primary:HandSide):TwoHandGripV1 {
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
   const socket=(hand:HandSide,purpose:"primary_grip"|"secondary_grip")=>{
@@ -388,21 +385,17 @@ export function createTwoHandDescriptor(model:StudioHumanModel,
     if(hits.length!==1)throw new Error("Missing/ambiguous "+purpose+" socket "+hand);
     return hits[0]!.id;
   };
-  const width=palmFrame(model,primary).width;
-  const radius=THREE.MathUtils.clamp(width/5.2,.005,.018);
-  const minGap=kind==="staff"?.25:.20;
-  const maxGap=kind==="staff"?.90:.80;
-  if(!Number.isFinite(separation)||separation<minGap||separation>maxGap)
-    throw new Error("Invalid "+kind+" separation");
+  const dimensions=twoHandDimensions(model,kind);
   return Object.freeze({schemaVersion:1,kind,primary,secondary,
     primarySocket:socket(primary,"primary_grip"),
     secondarySocket:socket(secondary,"secondary_grip"),
-    separationMeters:separation,radiusMeters:radius});
+    separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
+    radiusMeters:dimensions.radius,dimensions});
 }
-function referenceWeapon(kind:TwoHandWeapon,radius:number,spacing:number,
-  width:number):THREE.Group {
+function referenceWeapon(kind:TwoHandWeapon,dim:TwoHandDimensions):THREE.Group {
   const group=new THREE.Group();
   const steel=new THREE.MeshStandardMaterial({color:0xc5d2df,metalness:.83,roughness:.29});
+  const edge=new THREE.MeshStandardMaterial({color:0xe5edf1,metalness:.84,roughness:.24});
   const dark=new THREE.MeshStandardMaterial({color:0x292329,metalness:.18,roughness:.72});
   const brass=new THREE.MeshStandardMaterial({color:0xbc9755,metalness:.63,roughness:.32});
   const wood=new THREE.MeshStandardMaterial({color:0x6e492d,metalness:0,roughness:.81});
@@ -410,37 +403,42 @@ function referenceWeapon(kind:TwoHandWeapon,radius:number,spacing:number,
     const mesh=new THREE.Mesh(geo,material);
     mesh.position.set(x,y,z);mesh.castShadow=true;group.add(mesh);return mesh;
   };
-  const gripHalf=spacing*.5+Math.max(width*.55,.03);
-  const handle=gripHalf*2;
   if(kind==="longsword"){
-    add(new THREE.CylinderGeometry(radius,radius,handle,12),dark,0);
-    for(let y=-gripHalf+.02;y<gripHalf-.01;y+=radius*2.6)
-      add(new THREE.TorusGeometry(radius*1.02,.002,5,14),brass,y);
-    add(new THREE.SphereGeometry(radius*1.8,12,8),brass,-gripHalf-.014);
-    add(new THREE.BoxGeometry(.16,.018,.026),brass,gripHalf+.016);
-    for(const x of [-.083,.083])
-      add(new THREE.SphereGeometry(.013,8,8),brass,gripHalf+.016,x);
-    const bladeLength=THREE.MathUtils.clamp(width*9,.42,.88);
-    add(new THREE.BoxGeometry(.052,bladeLength,.010),steel,
-      gripHalf+.039+bladeLength*.5);
-    const tip=add(new THREE.ConeGeometry(.031,.075,4),steel,
-      gripHalf+.04+bladeLength+.035);
+    const half=dim.handleLength/2;
+    const r=dim.radius;
+    add(new THREE.CylinderGeometry(r,r,dim.handleLength,12),dark,0);
+    for(let y=-half+r*1.4;y<half-r*1.4;y+=r*2.5)
+      add(new THREE.TorusGeometry(r*1.02,r*.13,5,14),brass,y);
+    add(new THREE.SphereGeometry(r*1.75,12,8),brass,-half-r*.8);
+    const guardY=half+r*.55;
+    add(new THREE.BoxGeometry(dim.guardWidth,r*1.25,r*2),brass,guardY);
+    for(const x of [-dim.guardWidth/2,dim.guardWidth/2])
+      add(new THREE.SphereGeometry(r*.95,8,8),brass,guardY,x);
+    const bladeBase=guardY+r*1.1;
+    add(new THREE.BoxGeometry(r*3.4,dim.bladeLength,r*.75),steel,
+      bladeBase+dim.bladeLength*.5);
+    add(new THREE.BoxGeometry(r*.38,dim.bladeLength*.83,r*.92),edge,
+      bladeBase+dim.bladeLength*.45,0,r*.42);
+    const tip=add(new THREE.ConeGeometry(r*2.05,r*5.2,4),steel,
+      bladeBase+dim.bladeLength+r*2.4);
     tip.rotation.y=Math.PI/4;
   }else{
-    const length=THREE.MathUtils.clamp(width*17,.7,1.45);
-    add(new THREE.CylinderGeometry(radius*1.15,radius*1.15,length,12),
-      wood,(length/2-gripHalf)*.15);
-    for(const y of [-gripHalf,gripHalf]){
-      add(new THREE.CylinderGeometry(radius*1.3,radius*1.3,.02,12),brass,y);
+    // One continuous shaft: grip bands are labels on the SAME shaft.
+    add(new THREE.CylinderGeometry(dim.radius,dim.radius,dim.shaftLength,12),
+      wood,0);
+    for(const y of [dim.primaryGripY,dim.secondaryGripY]){
+      add(new THREE.CylinderGeometry(dim.radius*1.12,dim.radius*1.12,
+        dim.radius*.6,12),brass,y);
     }
-    for(const y of [-length*.44,length*.48])
-      add(new THREE.CylinderGeometry(radius*1.23,radius*1.23,.03,12),brass,y);
+    for(const y of [-dim.shaftLength*.485,dim.shaftLength*.485])
+      add(new THREE.CylinderGeometry(dim.radius*1.2,dim.radius*1.2,
+        dim.radius*1.7,12),brass,y);
   }
   return group;
 }
-/** Owns presentation geometry only. A calibrated primary semantic socket
- * provides the attachment authority, while offhand FK reaches its contact
- * point. The staff/sword do not emit combat or animation events. */
+/** The same rigid authored weapon transform supplies BOTH hand targets.
+ * Attachment is owned by the primary source socket, never secondary palm
+ * placement or an artificially stretched handle. */
 export class StudioTwoHandPreview {
   readonly descriptor:TwoHandGripV1;
   readonly object:THREE.Group;
@@ -449,27 +447,10 @@ export class StudioTwoHandPreview {
     primary:HandSide,solved:TwoHandIKResult){
     if(!solved.reachable)throw new Error("Unable to reach both weapon grips");
     model.human.spike.character.root.updateWorldMatrix(true,true);
-    this.descriptor=createTwoHandDescriptor(model,kind,primary,solved.separationMeters);
-    const frame=palmFrame(model,primary);
-    this.object=referenceWeapon(kind,this.descriptor.radiusMeters,
-      this.descriptor.separationMeters,frame.width);
-    // Longsword/staff local +Y follows calibrated primary knuckle axis.
-    // Primary and offhand contact locations are +gap/2 and -gap/2.
-    const offhand=palmFrame(model,this.descriptor.secondary);
-    const y=frame.palm.clone().sub(offhand.palm).normalize();
-    // Primary-to-secondary grip points are separated in the REAL handle
-    // direction. The sword preserves C5.1's orthogonal hilt orientation.
-    const x=frame.forward.clone().negate()
-      .addScaledVector(y,frame.forward.dot(y)).normalize();
-    const z=x.clone().cross(y).normalize();
-    x.crossVectors(y,z).normalize();
-    const rotation=new THREE.Quaternion().setFromRotationMatrix(
-      new THREE.Matrix4().makeBasis(x,y,z));
-    const origin=frame.palm.clone().addScaledVector(y,-solved.separationMeters/2)
-      .addScaledVector(frame.normal,.003);
-    const desired=new THREE.Matrix4().compose(origin,rotation,new THREE.Vector3(1,1,1));
+    this.descriptor=createTwoHandDescriptor(model,kind,primary);
+    this.object=referenceWeapon(kind,this.descriptor.dimensions);
     this.offset=model.human.spike.character
-      .socketWorld(this.descriptor.primarySocket).invert().multiply(desired);
+      .socketWorld(this.descriptor.primarySocket).invert().multiply(solved.weaponWorld);
     this.update();
   }
   update():void {
