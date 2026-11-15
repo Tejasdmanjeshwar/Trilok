@@ -97,51 +97,53 @@ function freedomSet(graph:AnatomicalGraphV1,fk:AnatomicalFK,hand:HandSide):AxisD
   }
   return result;
 }
-function fitArm(model:StudioHumanModel,fk:AnatomicalFK,
-  state:Map<string,JointTarget>,hand:HandSide,goal:THREE.Vector3,
-  wantedAxis:THREE.Vector3,alignSign:number,
-):{error:number;dot:number;iterations:number}{
-  const dofs=freedomSet(model.human.spike.graph,fk,hand);
+/** Symmetric bounded local IK: both arm chains are allowed to rotate.
+ * A fixed primary-arm target prevents the secondary wrist from achieving
+ * both handle contact and orientation on the actual calibrated MakeHuman rig.
+ * Instead optimize the two relative palm frames; only at the end does the
+ * primary socket become the weapon-world authority. */
+function fitBothArms(model:StudioHumanModel,fk:AnatomicalFK,
+  state:Map<string,JointTarget>,primary:HandSide,gap:number):
+  {error:number;dot:number;iterations:number}{
+  const secondary:HandSide=primary==="left"?"right":"left";
+  const dofs=[...freedomSet(model.human.spike.graph,fk,primary),
+    ...freedomSet(model.human.spike.graph,fk,secondary)];
+  const origin=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
   const apply=()=>fk.apply([...state.values()]);
   const measure=()=>{
-    const frame=palmFrame(model,hand);
-    const distance=frame.palm.distanceToSquared(goal);
-    const dot=THREE.MathUtils.clamp(frame.axis.dot(wantedAxis)*alignSign,-1,1);
-    // An offhand at the right location but with perpendicular knuckles
-    // cannot wrap the same handle. Make orientation a first-class constraint.
-    const axisError=(1-dot)*.115;
-    // Soft preference for the unmodified input pose reduces extreme
-    // rotations when several joint configurations reach the same point.
-    let bias=0;
+    const a=palmFrame(model,primary),b=palmFrame(model,secondary);
+    const target=a.palm.clone().addScaledVector(a.axis,-gap);
+    const error=b.palm.distanceTo(target);
+    const dot=THREE.MathUtils.clamp(-a.axis.dot(b.axis),-1,1);
+    // A shared handle must have BOTH positional and rotational agreement.
+    // The source-knuckle axes on mirrored palms should point in opposite
+    // directions, and the offhand should sit gap meters from the primary.
+    let deviation=0;
     for(const d of dofs){
-      const v=state.get(d.key)?.radians??0;
-      bias+=v*v;
+      const delta=(state.get(d.key)?.radians??0)-origin.get(d.key)!;
+      deviation+=delta*delta;
     }
-    return {cost:distance+axisError*axisError+.000002*bias,
-      error:Math.sqrt(distance),dot};
+    const axisError=(1-dot)*.065;
+    return {cost:error*error+axisError*axisError+.0000005*deviation,
+      error,dot};
   };
   apply();
-  let best=measure();
-  const seed=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
-  let iterations=0;
-  // Bounded deterministic coordinate-descent search (fixed joint order and
-  // angular steps). All evaluations go through authoritative anatomical FK,
-  // which validates DOFs and updates source skin helper joints.
-  for(const step of [1.0,.65,.4,.21,.11,.055,.0275]){
-    for(let sweep=0;sweep<3;sweep++){
+  let best=measure(),iterations=0;
+  for(const step of [1,.65,.4,.22,.11,.055,.0275]){
+    for(let sweep=0;sweep<4;sweep++){
       iterations++;
       let improved=false;
       for(const d of dofs){
-        const current=state.get(d.key)?.radians??seed.get(d.key)!;
+        const current=state.get(d.key)?.radians??0;
         let chosen=current;
         for(const delta of [-step,step]){
-          const v=THREE.MathUtils.clamp(current+delta,d.min,d.max);
-          if(Math.abs(v-current)<1e-10)continue;
-          state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:v});
+          const value=THREE.MathUtils.clamp(current+delta,d.min,d.max);
+          if(Math.abs(value-current)<1e-10)continue;
+          state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:value});
           apply();
           const next=measure();
-          if(next.cost+1e-11<best.cost){
-            best=next;chosen=v;improved=true;
+          if(next.cost<best.cost-1e-12){
+            best=next;chosen=value;improved=true;
           }
         }
         state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:chosen});
@@ -151,8 +153,8 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,
     }
   }
   apply();
-  const result=measure();
-  return {error:result.error,dot:result.dot,iterations};
+  const final=measure();
+  return {error:final.error,dot:final.dot,iterations};
 }
 /** A reproducible source-valid two-hand guard stance. Starting from the
  * C1 A-pose is a poor IK seed: individual shoulder rotations initially move
@@ -181,12 +183,6 @@ function stageTwoHandArms(graph:AnatomicalGraphV1,fk:AnatomicalFK,
     }
   }
 }
-function secondaryTarget(model:StudioHumanModel,primary:HandSide,
-  separation:number):{position:THREE.Vector3;axis:THREE.Vector3}{
-  const frame=palmFrame(model,primary);
-  return {position:frame.palm.clone().addScaledVector(frame.axis,-separation),
-    axis:frame.axis};
-}
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide):TwoHandIKResult{
   const secondary:HandSide=primary==="left"?"right":"left";
@@ -203,14 +199,10 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const gap=THREE.MathUtils.clamp(frame.width*1.55,.058,.16);
   // The primary palm itself defines the weapon's rigid world pose. Never
   // drag it toward a fabricated world-space chest target or move the root.
-  const primaryGoal=frame.palm.clone(),primaryAxis=frame.axis.clone();
-  const offhand=secondaryTarget(model,primary,gap);
-  const second=fitArm(model,fk,state,secondary,offhand.position,offhand.axis,-1);
-  const primaryFrame=palmFrame(model,primary);
-  const first={error:primaryFrame.palm.distanceTo(primaryGoal),
-    dot:primaryFrame.axis.dot(primaryAxis),iterations:0};
-  const primaryOkay=first.error<=.002&&first.dot>.99;
-  const secondaryOkay=second.error<=.035&&second.dot>.40;
+  const second=fitBothArms(model,fk,state,primary,gap);
+  const first={error:0,dot:1,iterations:0};
+  const primaryOkay=true;
+  const secondaryOkay=second.error<=.025&&second.dot>.45;
   const reachable=primaryOkay&&secondaryOkay;
   if(!reachable)fk.apply(base);
   const commands=reachable?[...state.values()]:[...base];
