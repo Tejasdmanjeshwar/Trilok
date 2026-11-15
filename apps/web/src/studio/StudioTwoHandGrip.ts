@@ -193,8 +193,11 @@ const REACH_SEEDS=Object.freeze([
 function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide,
   seed=0):void{
-  const pose=STANCES[kind];
-  const variation=REACH_SEEDS[seed]!;
+  // Morphology-only close-grip fallback borrows the already source-validated
+  // low staff upper-arm start. Sword remains one diagonal sword with the
+  // approved finger curl; only its arm pose seed is different on failure.
+  const pose=STANCES[kind==="longsword"&&seed>=REACH_SEEDS.length?"staff":kind];
+  const variation=REACH_SEEDS[seed%REACH_SEEDS.length]!;
 
   const add=(hand:HandSide,role:string,motion:AnatomicalMotion,value:number)=>{
     const joint=scopedJoint(graph,role+"_"+hand,hand);
@@ -688,7 +691,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   let lowest=Infinity;
   const diagnostics:{seed:number;initialSpan:number;primaryError:number;
     secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]=[];
-  candidateSeeds:for(let seed=0;seed<REACH_SEEDS.length;seed++){
+  candidateSeeds:for(let seed=0;seed<REACH_SEEDS.length*(kind==="longsword"?2:1);seed++){
     state=poseMap(fingerState);
     stageReadyPose(graph,fk,state,kind,primary,seed);
     const staged=Object.freeze([...state.values()]);
@@ -704,7 +707,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const projected=kind==="longsword"?projectWeaponIntoArmReach(
       model,primary,dimensions,adaptive):undefined;
     const candidates=kind==="longsword"?
-      (seed===0?[authored,adaptive,projected!]:[projected!,adaptive]):
+      (seed===0?[authored,adaptive,projected!]:[adaptive,projected!]):
       (seed===0?[aligned!,adaptive,authored]:[aligned!,adaptive]);
     for(const weaponWorld of candidates){
     state=poseMap(staged);
