@@ -90,6 +90,48 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
     try{
       const result=solveTwoHandIK(model,fk,[],lead,"staff");
       expect(result.reachable).toBe(true);
+      if(lead==="right"){
+        // Diagnose the two independent surface-contact channels without
+        // changing FK or weapon geometry. This finds why a shaft centered on
+        // a palm-bone proxy visually cuts through the source skin.
+        for(const hand of ["right","left"] as const){
+          const get=(role:string)=>{
+            const j=human.spike.graph.joints.find(j=>j.role===role &&
+              (role.startsWith("finger_")?j.id.includes("arm["+hand+",0]"):true))!;
+            return human.spike.bones.get(j.id)!.getWorldPosition(new THREE.Vector3());
+          };
+          const forward=get("finger_middle_0").sub(get("wrist_"+hand)).normalize();
+          const across=get("finger_index_0").sub(get("finger_little_0"));
+          const knuckle=across.clone().addScaledVector(forward,-across.dot(forward)).normalize();
+          const normal=forward.clone().negate().cross(knuckle).normalize();
+          const offsetY=hand===lead?result.dimensions.primaryGripY:result.dimensions.secondaryGripY;
+          const ranked:{forward:number;normal:number;score:number;report:ReturnType<typeof measureStaff>}[]=[];
+          for(const x of [-.030,-.015,0,.015,.030])
+            for(const z of [-.030,-.015,0,.015,.030]){
+              const shifted=result.weaponWorld.clone();
+              shifted.setPosition(new THREE.Vector3().setFromMatrixPosition(shifted)
+                .addScaledVector(forward,x).addScaledVector(normal,z));
+              const report=measureStaff(model,hand,shifted,result.dimensions.radius,offsetY);
+              const palm=report.find(d=>d.digit==="palm")!;
+              const fingers=report.filter(d=>d.digit!=="palm");
+              const score=palm.deepestPenetration*9+
+                fingers.reduce((sum,d)=>sum+d.deepestPenetration*4+
+                  (Number.isFinite(d.closestGap)?d.closestGap:0)*.25,0)+
+                (Math.abs(x)+Math.abs(z))*.08;
+              ranked.push({forward:x,normal:z,score,report});
+            }
+          ranked.sort((a,b)=>a.score-b.score);
+          console.log("C52-STAFF-SURFACE-SEARCH",JSON.stringify({
+            hand,forward:forward.toArray(),normal:normal.toArray(),
+            best:ranked.slice(0,4).map(r=>({
+              forward:r.forward,normal:r.normal,score:r.score,
+              palm:r.report.find(d=>d.digit==="palm")?.deepestPenetration,
+              gaps:r.report.filter(d=>d.digit!=="palm").map(d=>d.closestGap),
+              clip:r.report.filter(d=>d.digit!=="palm").map(d=>d.deepestPenetration),
+            })),
+          }));
+        }
+      }
       const contacts=[lead,lead==="right"?"left":"right"] as const;
       for(let i=0;i<contacts.length;i++){
         const hand=contacts[i]!;
