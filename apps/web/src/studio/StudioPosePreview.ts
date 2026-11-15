@@ -72,7 +72,11 @@ export class StudioPosePreview {
     }
     this.result=undefined;
     this.shieldResult=undefined;
-    if(dual){
+    this.archeryResult=undefined;
+    if(isBowEquipment(this.grip)){
+      this.archeryResult=solveArcheryPose(this.model,this.fk,effective,
+        this.grip.endsWith("right")?"right":"left",this.archeryState,this.archeryDraw);
+    }else if(dual){
       const swordSide=this.grip.endsWith("right")?"right":"left";
       this.shieldResult=solveShieldPose(this.model,this.fk,effective,
         shieldHand(swordSide),this.shieldStance);
@@ -90,6 +94,7 @@ export class StudioPosePreview {
   dispose():void{
     this.result=undefined;
     this.shieldResult=undefined;
+    this.archeryResult=undefined;
     this.fk.apply([]);
     this.correctives?.dispose();
   }
