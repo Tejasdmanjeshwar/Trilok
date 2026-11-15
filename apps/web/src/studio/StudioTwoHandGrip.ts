@@ -219,6 +219,62 @@ function refineOffhand(model:StudioHumanModel,fk:AnatomicalFK,
   }
   return {...measure(),iterations};
 }
+/** Authoring-time constrained search for a lower, joint-valid sword
+ * stance. A candidate is never shown if head/elbow safety fails. */
+function fitSwordGuardCandidate(model:StudioHumanModel,fk:AnatomicalFK,
+  state:Map<string,JointTarget>,primary:HandSide,gap:number):
+  {error:number;dot:number;iterations:number}{
+  const secondary:HandSide=primary==="left"?"right":"left";
+  const graph=model.human.spike.graph;
+  const dofs=[...freedomSet(graph,fk,primary),...freedomSet(graph,fk,secondary)];
+  const apply=()=>fk.apply([...state.values()]);
+  const score=()=>{
+    const lead=palmFrame(model,primary),off=palmFrame(model,secondary);
+    const target=lead.palm.clone().addScaledVector(lead.axis,-gap);
+    const error=target.distanceTo(off.palm);
+    const dot=THREE.MathUtils.clamp(-lead.axis.dot(off.axis),-1,1);
+    const head=world(jointBone(model,"head",primary));
+    const chest=world(jointBone(model,"chest",primary));
+    let penalty=0;
+    for(const hand of [primary,secondary]){
+      const elbow=world(jointBone(model,"elbow_"+hand,hand));
+      const wrist=world(jointBone(model,"wrist_"+hand,hand));
+      const palm=world(jointBone(model,"palm_"+hand,hand));
+      const shoulder=world(jointBone(model,"shoulder_"+hand,hand));
+      penalty+=Math.max(0,elbow.y-shoulder.y+.035)**2*2;
+      penalty+=Math.max(0,palm.y-chest.y-.13)**2*2;
+      for(const p of [elbow,wrist,palm])
+        penalty+=Math.max(0,.20-p.distanceTo(head))**2*7;
+    }
+    return {error,dot,cost:error*error+
+      .0015*(1-dot)**2+penalty};
+  };
+  apply();let best=score(),iterations=0;
+  for(const step of [.7,.4,.22,.12,.065]){
+    for(let sweep=0;sweep<3;sweep++){
+      iterations++;let improved=false;
+      for(const dof of dofs){
+        const old=state.get(dof.key)?.radians??0;
+        let chosen=old;
+        for(const delta of [-step,step]){
+          const val=THREE.MathUtils.clamp(old+delta,dof.min,dof.max);
+          if(val===old)continue;
+          state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:val});
+          apply();
+          const next=score();
+          if(next.cost<best.cost-1e-11){
+            best=next;chosen=val;improved=true;
+          }
+        }
+        state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:chosen});
+        apply();
+      }
+      if(!improved)break;
+    }
+  }
+  const result=score();
+  return {...result,iterations};
+}
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult{
@@ -231,6 +287,21 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       state.set(key(c.jointId,c.motion),c);
   }
   stageReadyPose(graph,fk,state,kind,primary);
+  if(kind==="longsword"){
+    for(const hand of [primary,secondary]){
+      const assign=(role:string,motion:AnatomicalMotion,value:number)=>{
+        const joint=scopedJoint(graph,role+"_"+hand,hand);
+        const bounds=fk.frames.get(joint.id)!.freedoms.get(motion)!;
+        state.set(key(joint.id,motion),{jointId:joint.id,motion,
+          radians:THREE.MathUtils.clamp(value,bounds.min,bounds.max)});
+      };
+      assign("shoulder","abduction",2.2);
+      assign("shoulder","flexion",-.5);
+      assign("shoulder","rotation",0);
+      assign("elbow","flexion",1.5);
+      assign("elbow","rotation",0);
+    }
+  }
   fk.apply([...state.values()]);
   const lead=palmFrame(model,primary),follower=palmFrame(model,secondary);
   // Staff: a wide shaft passes between palms, measured from their actual
@@ -241,7 +312,9 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const axis=kind==="staff"?
     axisDirection(follower.palm,lead.palm):lead.axis.clone();
   const target=lead.palm.clone().addScaledVector(axis,-gap);
-  const secondaryResult=refineOffhand(model,fk,state,kind,primary,target,axis);
+  const secondaryResult=kind==="longsword"?
+    fitSwordGuardCandidate(model,fk,state,primary,gap):
+    refineOffhand(model,fk,state,kind,primary,target,axis);
   const actualLead=palmFrame(model,primary),actualOff=palmFrame(model,secondary);
   const actualAxis=kind==="staff"?
     axisDirection(actualOff.palm,actualLead.palm):actualLead.axis;
