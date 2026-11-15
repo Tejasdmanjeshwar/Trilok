@@ -842,7 +842,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   };
   const gripY=(values:readonly number[],hand:HandSide)=>
     (hand===lead?.5:-.5)*values[jointCount+5]!;
-  const sample=(values:readonly number[],stage:"position"|"aligned")=>{
+  const sample=(values:readonly number[],stage:"position"|"aligned"|"polish")=>{
     for(let i=0;i<jointCount;i++){
       const d=dofs[i]!;
       state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:values[i]!});
@@ -860,7 +860,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     // Optimize the legal alignment *margin*, not perfection of both wrists.
     // A near-perfect support-hand axis must not steal degrees of freedom
     // from the lead hand when only the latter violates the grip constraint.
-    const axisMin=kind==="staff"?.88:.50;
+    const axisMin=kind==="staff"?.88:stage==="polish"?.46:.50;
     const alignment=stage==="position"?
       [(frameA.axis.x-axis.x)*.008,(frameA.axis.y-axis.y)*.008,
        (frameA.axis.z-axis.z)*.008,
@@ -868,7 +868,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
        (frameB.axis.z-axis.z)*.008]:
       [Math.max(0,axisMin-frameA.axis.dot(axis))*.40,0,0,
        Math.max(0,axisMin-frameB.axis.dot(axis))*.40,0,0];
-    const contactWeight=stage==="position"?4:3.5;
+    const contactWeight=stage==="position"?4:stage==="polish"?7:3.5;
     // Soft safety barriers expose gradients to optimization instead of
     // declaring a near-contact result safe after it has converged.
     const head=Math.max(0,.195*guard.scale-guard.headClearance);
@@ -892,11 +892,15 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     values=>sample(values,"position"),64);
   const refined=fitConstrainedIK(contactFit.values,limits,
     values=>sample(values,"aligned"),64);
+  // Constraint polishing minimizes both socket residuals while retaining a
+  // safety margin above the source-calibrated knuckle-axis acceptance gate.
+  const finalFit=fitConstrainedIK(refined.values,limits,
+    values=>sample(values,"polish"),40);
   const commands=[...state.values()];
-  const weapon=worldFrame(refined.values);
+  const weapon=worldFrame(finalFit.values);
   const axis=weaponAxis(weapon);
-  const targetA=gripWorld(weapon,gripY(refined.values,lead));
-  const targetB=gripWorld(weapon,gripY(refined.values,off));
+  const targetA=gripWorld(weapon,gripY(finalFit.values,lead));
+  const targetB=gripWorld(weapon,gripY(finalFit.values,off));
   const actualA=contactWorld(model,lead,anchors);
   const actualB=contactWorld(model,off,anchors);
   const errA=actualA.distanceTo(targetA),errB=actualB.distanceTo(targetB);
@@ -908,7 +912,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     dotA>minimum&&dotB>minimum;
   diagnostics.push({seed:300,initialSpan,primaryError:errA,secondaryError:errB,
     primaryAxis:dotA,secondaryAxis:dotB,
-    reason:reachable?"coupled-ok":!guard.ok?"coupled-unsafe":`coupled-contact(front=${guard.forwardClearance.toFixed(3)},head=${guard.headClearance.toFixed(3)},elbow=${guard.elbowMax.toFixed(3)},palm=${guard.maximumPalmY.toFixed(3)},limit=${dofs.filter((d,i)=>Math.min(refined.values[i]!-d.min,d.max-refined.values[i]!)<.012).map(d=>d.key).join(",")})`});
+    reason:reachable?"coupled-ok":!guard.ok?"coupled-unsafe":`coupled-contact(front=${guard.forwardClearance.toFixed(3)},head=${guard.headClearance.toFixed(3)},elbow=${guard.elbowMax.toFixed(3)},palm=${guard.maximumPalmY.toFixed(3)},limit=${dofs.filter((d,i)=>Math.min(finalFit.values[i]!-d.min,d.max-finalFit.values[i]!)<.012).map(d=>d.key).join(",")})`});
   if(!reachable)return undefined;
   return Object.freeze({
     reachable:true,commands:Object.freeze(commands),
@@ -916,15 +920,15 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     primaryDeltaMeters:Object.freeze(actualA.sub(targetA).toArray()),
     secondaryDeltaMeters:Object.freeze(actualB.sub(targetB).toArray()),
     primaryAxisDot:dotA,secondaryAxisDot:dotB,
-    iterations:0,refinementIterations:contactFit.iterations+refined.iterations,
+    iterations:0,refinementIterations:contactFit.iterations+refined.iterations+finalFit.iterations,
     reason:"ok" as const,headClearanceMeters:guard.headClearance,
     elbowMaxHeightMeters:guard.elbowMax,headHeightMeters:guard.headY,
     maximumPalmHeightMeters:guard.maximumPalmY,
-    separationMeters:refined.values[jointCount+5]!,
+    separationMeters:finalFit.values[jointCount+5]!,
     initialHandSpanMeters:initialSpan,
     dimensions:Object.freeze({...dimensions,
-      primaryGripY:gripY(refined.values,lead),
-      secondaryGripY:gripY(refined.values,off)}),weaponWorld:weapon,
+      primaryGripY:gripY(finalFit.values,lead),
+      secondaryGripY:gripY(finalFit.values,off)}),weaponWorld:weapon,
     gripAnchors:Object.freeze({
       left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
       right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
