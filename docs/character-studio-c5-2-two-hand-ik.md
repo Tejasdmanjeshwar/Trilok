@@ -288,3 +288,40 @@ A new `ConstrainedIK.ts` module implements deterministic bounded damped least sq
 The nominal accepted sword/staff grip candidate still returns before this adapter, and C5.1 is unchanged. If the coupled optimizer does not satisfy the *existing* numerical and safety gate, the previous fallback paths remain in place; failed candidate parameters must not equip a weapon. No weapon root scaling, hilt extension, gameplay authority change or joint-limit exemption was introduced.
 
 **Important validation limitations:** This newly committed implementation is not a verified resolution until its current-head CI passes, all three complete recipes and both hands are confirmed, and exact-head Chromium screenshots are reviewed. The code currently retains previously implemented fallback searches rather than replacing the entire historical solver; surface fitting in a numerical contact proxy cannot certify rendered per-finger contact. A further cleanup must be justified by measured regression success, not performed speculatively. The existing source-skin staff diagnostic records penetration as high as approximately 13 mm, so visual staff acceptance and precise finger clearance must remain distinct engineering gates. Do not merge this draft or mark C5.2 accepted without owner review.
+
+## 2026-11-15 C5.2 body-volume corrective implementation — verification pending
+
+**Reproduction:** generated seed `1103498626`, neutral Studio pose, two-hand longsword.
+The old `anatomicalGuard()` checked head position, line-segment forearms,
+elbow rise and palms relative to the *chest joint*; no volumetric contact
+check existed for a displaced abdomen. A correct palm-to-grip contact thus
+could still push the sword hilt or hand through a morphed belly.
+
+The draft `StudioBodyCollision.ts` builds conservative elliptical torso
+cross sections directly from source-index deduplicated, morphologically
+deformed, CPU-skinned MakeHuman torso vertices. Torso-source skin weights
+select the anatomical surface. Slices follow chest/spine source bones during
+legal articulated changes; sampling is paid once per rebuild/solve, while
+bounded probe evaluations avoid repeated whole-mesh searches. Each weapon
+is represented by its own fixed dimensions (hilt, pommel, crossguard, nearby
+blade, or full staff), combined with both palm/knuckle and forearm probes.
+Signed geometric clearance adds fixed-count residuals to the existing
+coupled solver and penalties to its nominal recovery variants. Final nominal
+and coupled acceptance reject occupied-volume penetration. The weapon root
+and blade/hilt proportions remain unchanged. No new dependency or seed
+specific stance is introduced.
+
+This proxy is deliberately **conservative**, not yet a claim of exact
+source-skin triangle collision clearance: it can exclude free concavities
+and has bounded approximation error where skin blends between spine bones.
+Independent source-skinned triangle/surface verification and screenshots
+must follow; in particular, visible hand-to-weapon contact and smooth
+C5.1-preserving stance changes are not certified by ellipsoid rejection.
+The added seed test pins the complete `studio-human-v2` generation result,
+both hands and weapon categories, deterministic replay and signed
+occupied-volume acceptance. The previous regression suite remains mandatory.
+Other owner-requested pose/extreme/body and mobile browser evidence remains
+pending until verified runs and exact-SHA deployed screenshots exist.
+
+**Do not merge or mark C5.2 accepted** on the strength of this implementation
+alone. Keep PR #84 draft and C5.3 unstarted.
