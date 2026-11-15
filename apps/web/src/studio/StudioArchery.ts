@@ -1,0 +1,385 @@
+import * as THREE from "three";
+import type {AnatomicalGraphV1} from "@trilok/character-core";
+import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
+  from "../characters/geometry/AnatomicalFK";
+import type {StudioHumanModel} from "./StudioHumanModel";
+import {fitConstrainedIK} from "./ConstrainedIK";
+import {StudioBodyCollision} from "./StudioBodyCollision";
+import {calibrateGripSpreads,swordGripTargets,fitHandleCenter}
+  from "./StudioWeaponGrip";
+import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
+
+/** Studio-only visual states. A release preview never dispatches a combat event. */
+export type ArcheryState="rest"|"nock"|"partial"|"aim"|"release";
+export type BowEquipment="bow-left"|"bow-right";
+export const isBowEquipment=(value:string):value is BowEquipment=>
+  value==="bow-left"||value==="bow-right";
+export const oppositeHand=(side:HandSide):HandSide=>side==="left"?"right":"left";
+export const ARCHERY_STATES:Readonly<Record<ArcheryState,string>>=Object.freeze({
+  rest:"Bow held",nock:"Nocking arrow",partial:"Partial draw",
+  aim:"Full draw / aim",release:"Release / follow-through",
+});
+export interface BowReferenceV1 {
+  readonly schemaVersion:1;
+  readonly id:string;
+  readonly kind:"bow";
+  readonly hand:HandSide;
+  readonly socketId:string;
+  readonly limbLengthMeters:number;
+  readonly handleRadiusMeters:number;
+  readonly handleLengthMeters:number;
+  readonly arrowLengthMeters:number;
+  readonly stringRestMeters:number;
+  readonly maximumDrawMeters:number;
+}
+/** Local frame: grip is origin, +Y upper tip, +Z forward (arrow travel);
+ * string anchor points are (0,+/- limbLength,-stringRest);
+ * string center follows local (0,0,-stringRest-drawDistance).
+ * Arrow is +Z from its nock; the model owns no physics or combat clock. */
+export function validateBowReference(d:BowReferenceV1,graph:AnatomicalGraphV1):void{
+  const socket=graph.sockets.find(s=>s.id===d.socketId);
+  const parent=graph.joints.find(j=>j.id===socket?.parentJointId);
+  if(d.schemaVersion!==1||d.kind!=="bow"||!/^bow\/(left|right)$/.test(d.id)||
+    !["left","right"].includes(d.hand)||socket?.purpose!=="primary_grip"||
+    parent?.role!=="palm_"+d.hand||
+    !parent.id.includes("arm["+d.hand+",0]")||
+    ![d.limbLengthMeters,d.handleRadiusMeters,d.handleLengthMeters,
+      d.arrowLengthMeters,d.stringRestMeters,d.maximumDrawMeters]
+      .every(Number.isFinite)||
+    d.limbLengthMeters<.2||d.limbLengthMeters>1.1||
+    d.handleRadiusMeters<.002||d.handleRadiusMeters>.035||
+    d.handleLengthMeters<.03||d.handleLengthMeters>.25||
+    d.arrowLengthMeters<.2||d.arrowLengthMeters>1.5||
+    d.stringRestMeters<.02||d.stringRestMeters>.2||
+    d.maximumDrawMeters<.05||d.maximumDrawMeters>.8)
+    throw new Error("Invalid anatomical bow reference");
+}
+function bone(model:StudioHumanModel,role:string,side:HandSide):THREE.Bone{
+  const j=model.human.spike.graph.joints.find(j=>j.role===role&&
+    (role.startsWith("finger_")?j.id.includes("arm["+side+",0]"):true));
+  const result=j&&model.human.spike.bones.get(j.id);
+  if(!result)throw new Error("Missing source bow joint "+role);
+  return result;
+}
+const at=(item:THREE.Object3D)=>item.getWorldPosition(new THREE.Vector3());
+const scoped=(model:StudioHumanModel,role:string,side:HandSide)=>
+  model.human.spike.graph.joints.find(j=>j.role===role+"_"+side&&
+    j.id.includes("arm["+side+",0]")) ??
+  model.human.spike.graph.joints.find(j=>j.role===role+"_"+side);
+const k=(item:JointTarget)=>item.jointId+"/"+item.motion;
+const merge=(base:readonly JointTarget[],overrides:readonly JointTarget[]):JointTarget[]=>{
+  const state=new Map(base.map(c=>[k(c),c]));
+  for(const command of overrides)state.set(k(command),command);
+  return [...state.values()];
+};
+function digitCommands(model:StudioHumanModel,fk:AnatomicalFK,side:HandSide,
+  drawing:boolean):readonly JointTarget[]{
+  const h=model.human.spike;
+  const spreads=calibrateGripSpreads(h.graph,h.bones,fk.frames,side);
+  const targets=swordGripTargets(h.graph,side,spreads);
+  if(!drawing)return targets;
+  return targets.map(command=>{
+    const joint=h.graph.joints.find(j=>j.id===command.jointId);
+    const digit=joint?.role??"";
+    const factor=digit.startsWith("finger_index_")?.62:
+      digit.startsWith("finger_middle_")?.72:
+      digit.startsWith("finger_ring_")?.55:
+      digit.startsWith("finger_little_")?.43:1;
+    return {...command,radians:command.radians*factor};
+  });
+}
+type Freedom={jointId:string;motion:AnatomicalMotion;min:number;max:number};
+const ARM_CHANNELS:readonly (readonly [string,readonly AnatomicalMotion[]])[]=[
+  ["clavicle",["abduction","flexion"]],
+  ["shoulder",["abduction","flexion","rotation"]],
+  ["elbow",["flexion","rotation"]],
+  ["wrist",["flexion","abduction"]],
+];
+function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget[],
+  side:HandSide,target:THREE.Vector3,drawHand:boolean,scale:number){
+  const axes:Freedom[]=[];
+  for(const [role,motions] of ARM_CHANNELS){
+    const joint=scoped(model,role,side);
+    if(!joint)throw new Error("Missing constrained bow arm role "+role);
+    for(const motion of motions){
+      const f=fk.frames.get(joint.id)?.freedoms.get(motion);
+      if(!f)throw new Error("Uncalibrated bow arm freedom");
+      axes.push({jointId:joint.id,motion,min:f.min,max:f.max});
+    }
+  }
+  const sign=side==="right"?1:-1;
+  const initialAngles=drawHand?
+    [0,0,.48,.29,.86*sign,1.40,0,-.06,0]:
+    [0,0,.55,.40,.85*sign,.65,0,-.08,0];
+  const initial=axes.map((a,i)=>THREE.MathUtils.clamp(
+    initialAngles[i]!,a.min,a.max));
+  const stage=(values:readonly number[])=>merge(base,axes.map((a,i)=>({
+    jointId:a.jointId,motion:a.motion,radians:values[i]!,
+  })));
+  const elbow=bone(model,"elbow_"+side,side);
+  const wrist=bone(model,"wrist_"+side,side);
+  const head=bone(model,"head",side);
+  const collision=new StudioBodyCollision(model);
+  const evaluate=(values:readonly number[])=>{
+    fk.apply(stage(values));
+    const contact=twoHandGripContactWorld(model,side);
+    const elbowWorld=at(elbow),wristWorld=at(wrist),headWorld=at(head);
+    const body=collision.clearance(elbowWorld.clone().lerp(wristWorld,.5));
+    return [
+      (contact.x-target.x),(contact.y-target.y),(contact.z-target.z),
+      Math.max(0,.026*scale-body)*1.2,
+      Math.max(0,.11*scale-contact.distanceTo(headWorld)),
+      ...values.map((angle,i)=>(angle-initial[i]!)*.006),
+    ];
+  };
+  const fit=fitConstrainedIK(initial,axes,evaluate,24);
+  const commands=stage(fit.values);
+  fk.apply(commands);
+  const error=twoHandGripContactWorld(model,side).distanceTo(target);
+  const clearance=collision.clearance(at(elbow).lerp(at(wrist),.5));
+  return {commands,error,clearance,iterations:fit.iterations};
+}
+function bowFrame(model:StudioHumanModel,hand:HandSide):THREE.Matrix4{
+  const wrist=at(bone(model,"wrist_"+hand,hand));
+  const index=at(bone(model,"finger_index_0",hand));
+  const little=at(bone(model,"finger_little_0",hand));
+  const middle=at(bone(model,"finger_middle_0",hand));
+  const forward=middle.sub(wrist).normalize();
+  const knuckles=index.clone().sub(little);
+  const y=knuckles.addScaledVector(forward,-knuckles.dot(forward)).normalize();
+  const facing=new THREE.Vector3(0,0,1).applyQuaternion(
+    model.human.spike.character.root.getWorldQuaternion(new THREE.Quaternion()));
+  const z=facing.addScaledVector(y,-facing.dot(y)).normalize();
+  const x=y.clone().cross(z).normalize();
+  z.crossVectors(x,y).normalize();
+  if(y.lengthSq()<.9||x.lengthSq()<.9||z.lengthSq()<.9)
+    throw new Error("Degenerate calibrated bow-hand frame");
+  // +Y follows the actual source knuckle line, never an invented socket Euler.
+  return new THREE.Matrix4().makeBasis(x,y,z).setPosition(
+    twoHandGripContactWorld(model,hand));
+}
+export interface ArcheryPoseResult {
+  readonly reachable:boolean;
+  readonly reason:"ok"|"bow-unreachable"|"draw-unreachable"|"body-intersection";
+  readonly hand:HandSide;
+  readonly state:ArcheryState;
+  readonly commands:readonly JointTarget[];
+  readonly iterations:number;
+  readonly bowHandErrorMeters:number;
+  readonly drawHandErrorMeters:number;
+  readonly bodyClearanceMeters:number;
+  readonly drawMeters:number;
+  readonly actualDrawFraction:number;
+  readonly bowWorld:THREE.Matrix4;
+  readonly nockWorld:THREE.Vector3;
+  readonly drawContactWorld:THREE.Vector3;
+  readonly arrowDirectionWorld:THREE.Vector3;
+  readonly descriptor:BowReferenceV1;
+}
+export function archeryDrawFraction(state:ArcheryState,value:number):number{
+  if(!Number.isFinite(value)||value<0||value>1)throw new Error("Invalid archery draw");
+  return state==="rest"||state==="release"?0:
+    state==="nock"?.08:state==="partial"?value*.65:value;
+}
+export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
+  base:readonly JointTarget[],hand:HandSide,state:ArcheryState,
+  draw=1):ArcheryPoseResult{
+  if(!Object.hasOwn(ARCHERY_STATES,state)||!["left","right"].includes(hand))
+    throw new Error("Unknown archery pose");
+  const root=model.human.spike.character.root;
+  root.updateWorldMatrix(true,true);
+  const rootMatrix=root.matrixWorld.clone();
+  fk.apply(base);
+  const head=at(bone(model,"head",hand));
+  const ankle=at(bone(model,"ankle_left","left"));
+  const scale=THREE.MathUtils.clamp((head.y-ankle.y+.13)/1.75,.4,1.2);
+  const chest=at(bone(model,"chest",hand));
+  const orientation=root.getWorldQuaternion(new THREE.Quaternion());
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(orientation);
+  const forward=new THREE.Vector3(0,0,1).applyQuaternion(orientation);
+  const up=new THREE.Vector3(0,1,0).applyQuaternion(orientation);
+  const fingers=merge(base,[
+    ...digitCommands(model,fk,hand,false),
+    ...digitCommands(model,fk,oppositeHand(hand),true),
+  ]);
+  fk.apply(fingers);
+  const bowTarget=chest.clone().addScaledVector(right,(hand==="right"?1:-1)*.32*scale)
+    .addScaledVector(forward,.36*scale).addScaledVector(up,.06*scale);
+  const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale);
+  const staged=held.commands;
+  const world=bowFrame(model,hand);
+  const width=at(bone(model,"finger_index_0",hand)).distanceTo(
+    at(bone(model,"finger_little_0",hand)));
+  const palm=at(bone(model,"palm_"+hand,hand));
+  const drawSide=oppositeHand(hand);
+  const socket=model.human.spike.graph.sockets.find(s=>s.purpose==="primary_grip"&&
+    s.parentJointId===scoped(model,"palm",hand)?.id);
+  if(!socket)throw new Error("Missing source bow-hand grip socket");
+  const descriptor:BowReferenceV1=Object.freeze({
+    schemaVersion:1,id:"bow/"+hand,kind:"bow",hand,socketId:socket.id,
+    limbLengthMeters:.64*scale,
+    handleRadiusMeters:THREE.MathUtils.clamp(width/4.4,.003,.02),
+    handleLengthMeters:THREE.MathUtils.clamp(width*1.45,.038,.18),
+    arrowLengthMeters:.70*scale,stringRestMeters:.07*scale,
+    maximumDrawMeters:.40*scale,
+  });
+  validateBowReference(descriptor,model.human.spike.graph);
+  const fraction=archeryDrawFraction(state,draw);
+  // Pull travels along the bow's own forward axis. Bound its world target
+  // by occupied torso space before any arm IK, never by moving the avatar.
+  const collisions=new StudioBodyCollision(model);
+  const localNock=new THREE.Vector3(0,0,-descriptor.stringRestMeters-
+    descriptor.maximumDrawMeters*fraction);
+  let target=localNock.clone().applyMatrix4(world);
+  if(fraction>0){
+    const local=world.clone().invert();
+    for(let i=0;i<10&&collisions.clearance(target)<.025*scale;i++){
+      localNock.z+=.018*scale;
+      target=localNock.clone().applyMatrix4(world);
+    }
+  }
+  let completed=staged;
+  let drawError=0,drawClearance=Infinity,drawIterations=0;
+  let contact=target.clone();
+  if(state!=="rest"){
+    const fit=fitArm(model,fk,staged,drawSide,target,true,scale);
+    completed=fit.commands;
+    drawError=fit.error;drawClearance=fit.clearance;
+    contact=twoHandGripContactWorld(model,drawSide);
+  }
+  const unsafe=collisions.clearance(contact)<-.015*scale;
+  const bowError=held.error;
+  const reachable=bowError<.12*scale&&held.clearance>-.027*scale&&
+    (state==="rest"||drawError<.085*scale&&drawClearance>-.025*scale)&&!unsafe;
+  // Restoring the original source pose on failure avoids broken IK, facial
+  // clipping, and a weapon hovering on a disconnected hand.
+  if(!reachable)fk.apply(base);
+  if(!root.matrixWorld.equals(rootMatrix))
+    throw new Error("Archery IK must not move character root");
+  const nock=(state==="rest"||state==="release"?
+    new THREE.Vector3(0,0,-descriptor.stringRestMeters).applyMatrix4(world):
+    contact.clone());
+  const z=new THREE.Vector3(0,0,1).transformDirection(world);
+  const resolved=world.clone().invert();
+  const contactLocal=contact.clone().applyMatrix4(resolved);
+  return Object.freeze({
+    reachable,reason:bowError>=.12*scale?"bow-unreachable":
+      drawError>=.085*scale?"draw-unreachable":
+      unsafe?"body-intersection":"ok",
+    hand,state,commands:Object.freeze(reachable?completed:base.slice()),
+    iterations:held.iterations+drawIterations+(state==="rest"?0:24),
+    bowHandErrorMeters:bowError,drawHandErrorMeters:drawError,
+    bodyClearanceMeters:Math.min(held.clearance,drawClearance,
+      collisions.clearance(nock)),drawMeters:Math.max(0,
+      -contactLocal.z-descriptor.stringRestMeters),
+    actualDrawFraction:Math.max(0,Math.min(1,
+      (-contactLocal.z-descriptor.stringRestMeters)/descriptor.maximumDrawMeters)),
+    bowWorld:world,nockWorld:nock,drawContactWorld:contact,
+    arrowDirectionWorld:z,descriptor,
+  });
+}
+function segment(a:THREE.Vector3,b:THREE.Vector3,r:number,mat:THREE.Material){
+  const d=b.clone().sub(a);
+  const obj=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),8),mat);
+  obj.position.copy(a).add(b).multiplyScalar(.5);
+  obj.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());
+  obj.castShadow=true;
+  return obj;
+}
+/** One disposable, replaceable reference asset. The entire hierarchy is in
+ * bow local coordinates; neither render nor UI callbacks launch a projectile. */
+export class StudioBowPreview {
+  readonly descriptor:BowReferenceV1;
+  readonly object:THREE.Group=new THREE.Group();
+  readonly nockLocal:THREE.Vector3;
+  readonly tipLocal:THREE.Vector3;
+  private readonly socketOffset:THREE.Matrix4;
+  constructor(private readonly model:StudioHumanModel,readonly result:ArcheryPoseResult){
+    if(!result.reachable)throw new Error("Unreachable source-skinned bow pose");
+    this.descriptor=result.descriptor;
+    const d=result.descriptor;
+    this.object.name="StudioBowPreview";
+    const wood=new THREE.MeshStandardMaterial({color:0x805336,roughness:.67});
+    const grip=new THREE.MeshStandardMaterial({color:0x392820,roughness:.9});
+    const gold=new THREE.MeshStandardMaterial({color:0xc5a46b,metalness:.6,roughness:.36});
+    const string=new THREE.MeshStandardMaterial({color:0xe7d8b0,roughness:.95});
+    const shaft=new THREE.MeshStandardMaterial({color:0xb38b55,roughness:.75});
+    const steel=new THREE.MeshStandardMaterial({color:0xd4dbe0,metalness:.7,roughness:.28});
+    const feather=new THREE.MeshStandardMaterial({color:0xe6e0c7,side:THREE.DoubleSide});
+    const factor=d.limbLengthMeters/.64;
+    const handle=new THREE.Mesh(new THREE.CylinderGeometry(
+      d.handleRadiusMeters,d.handleRadiusMeters,d.handleLengthMeters,12),grip);
+    handle.name="BowHandle";this.object.add(handle);
+    const top=new THREE.Vector3(0,d.limbLengthMeters,-d.stringRestMeters*.9);
+    const bottom=new THREE.Vector3(0,-d.limbLengthMeters,-d.stringRestMeters*.9);
+    for(const sign of [-1,1]){
+      const curve=new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0,sign*d.handleLengthMeters*.45,.012*factor),
+        new THREE.Vector3(-.055*factor,sign*.21*factor,.09*factor),
+        new THREE.Vector3(-.11*factor,sign*.44*factor,.075*factor),
+        new THREE.Vector3(0,sign*d.limbLengthMeters,-d.stringRestMeters*.9),
+      ]);
+      const limb=new THREE.Mesh(new THREE.TubeGeometry(curve,18,
+        .013*factor,8,false),wood);
+      limb.name=sign===1?"UpperBowLimb":"LowerBowLimb";
+      this.object.add(limb);
+      const cap=new THREE.Mesh(new THREE.SphereGeometry(.019*factor,10,8),gold);
+      cap.position.copy(sign===1?top:bottom);
+      this.object.add(cap);
+    }
+    const local=result.nockWorld.clone().applyMatrix4(result.bowWorld.clone().invert());
+    // Clamp the string center to a stable axis at supported contact tolerance;
+    // errors outside this range are handled as unreachable by the IK result.
+    this.nockLocal=local;
+    for(const tip of [top,bottom]){
+      const stringMesh=segment(tip,local,.0018*factor,string);
+      stringMesh.name="BowString";
+      this.object.add(stringMesh);
+    }
+    this.tipLocal=local.clone().add(new THREE.Vector3(0,0,d.arrowLengthMeters));
+    if(result.state!=="rest"&&result.state!=="release"){
+      const nock=local.clone();
+      const arrowTip=this.tipLocal;
+      const arrow=segment(nock.clone().addScaledVector(
+        new THREE.Vector3(0,0,1),.025*factor),
+        arrowTip.clone().addScaledVector(new THREE.Vector3(0,0,1),-.045*factor),
+        .006*factor,shaft);
+      arrow.name="NockedArrowShaft";
+      this.object.add(arrow);
+      const tip=new THREE.Mesh(new THREE.ConeGeometry(.016*factor,.065*factor,6),steel);
+      tip.rotation.x=Math.PI/2;tip.position.copy(arrowTip).addScaledVector(
+        new THREE.Vector3(0,0,1),-.0325*factor);
+      tip.name="NockedArrowTip";this.object.add(tip);
+      const nockCap=new THREE.Mesh(new THREE.SphereGeometry(.008*factor,8,6),gold);
+      nockCap.position.copy(nock);nockCap.name="ArrowNock";this.object.add(nockCap);
+      for(let i=0;i<3;i++){
+        const vane=new THREE.Mesh(new THREE.PlaneGeometry(.037*factor,.1*factor),feather);
+        vane.rotation.set(Math.PI/2,0,i*Math.PI*2/3);
+        vane.position.copy(nock).add(new THREE.Vector3(0,0,.105*factor));
+        vane.name="ArrowFletching"+i;this.object.add(vane);
+      }
+    }
+    this.socketOffset=model.human.spike.character.socketWorld(d.socketId)
+      .invert().multiply(result.bowWorld);
+    this.update();
+  }
+  update():void{
+    this.object.matrixAutoUpdate=false;
+    this.object.matrix.multiplyMatrices(this.model.human.spike.character
+      .socketWorld(this.descriptor.socketId),this.socketOffset);
+    this.object.matrixWorldNeedsUpdate=true;
+  }
+  dispose():void{
+    this.object.removeFromParent();
+    const geometries=new Set<THREE.BufferGeometry>();
+    const materials=new Set<THREE.Material>();
+    this.object.traverse(o=>{
+      if(o instanceof THREE.Mesh){
+        geometries.add(o.geometry);
+        for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);
+      }
+    });
+    geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());
+    this.object.clear();
+  }
+}
