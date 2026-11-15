@@ -1,6 +1,6 @@
 import {describe,expect,it} from "vitest";
 import * as THREE from "three";
-import {make} from "./helpers/studio-two-hand-fixtures";
+import {make,measureStaff} from "./helpers/studio-two-hand-fixtures";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
 import {StudioBowPreview,archeryDrawFraction,validateBowReference,
   type ArcheryState} from "../apps/web/src/studio/StudioArchery";
@@ -17,6 +17,13 @@ describe("Studio bow and visual nock contract",()=>{
       expect(rest).toBeDefined();
       expect(rest.reachable,"source bow-hand must reach reference grip: "+JSON.stringify({error:rest.bowHandErrorMeters,body:rest.bodyClearanceMeters})).toBe(true);
       expect(rest.iterations).toBeLessThanOrEqual(48);
+      const sourceContact=measureStaff(model,hand,rest.bowWorld,
+        rest.descriptor.handleRadiusMeters,0);
+      console.log("C5.4 source bow-hand fit",JSON.stringify({hand,
+        restError:rest.bowHandErrorMeters,
+        contacts:sourceContact.map(x=>({digit:x.digit,gap:x.closestGap,
+          penetration:x.deepestPenetration,near:x.nearContact}))}));
+      expect(sourceContact.every(x=>x.axialNear>0)).toBe(true);
       expect(rest.bowHandErrorMeters).toBeLessThan(.12);
       expect(root.elements).toEqual(human.spike.character.root.matrixWorld.elements);
       if(rest.reachable){
@@ -36,6 +43,11 @@ describe("Studio bow and visual nock contract",()=>{
         pose.setArcheryState(state);
         const report=pose.bowPoseResult!;
         expect(report.iterations).toBeLessThanOrEqual(48);
+        console.log("C5.4 archery reach",JSON.stringify({hand,state,
+          reachable:report.reachable,bowError:report.bowHandErrorMeters,
+          drawError:report.drawHandErrorMeters,drawMeters:report.drawMeters,
+          bodyClearance:report.bodyClearanceMeters,iterations:report.iterations,
+          attempts:report.solverAttempts}));
         if(state==="aim")expect(report.reachable,JSON.stringify({state,hand,error:report.drawHandErrorMeters,body:report.bodyClearanceMeters})).toBe(true);
         expect(report.commands.every(c=>Number.isFinite(c.radians))).toBe(true);
         expect(root.elements).toEqual(human.spike.character.root.matrixWorld.elements);
