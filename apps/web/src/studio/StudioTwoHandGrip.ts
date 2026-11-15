@@ -147,7 +147,7 @@ function axisDirection(a:THREE.Vector3,b:THREE.Vector3):THREE.Vector3{
 }
 function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
   primary:HandSide):{ok:boolean;headClearance:number;elbowMax:number}{
-  const secondary=primary==="left"?"right":"left";
+  const secondary:HandSide=primary==="left"?"right":"left";
   const head=world(jointBone(model,"head",primary));
   const chest=world(jointBone(model,"chest",primary));
   let elbowMax=-Infinity,headClearance=Infinity;
