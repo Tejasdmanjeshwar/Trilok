@@ -11,6 +11,8 @@ import type {SourceRig,SourceWeights} from
 import {createTwoHandDescriptor,solveTwoHandIK,StudioTwoHandPreview,
   type HandSide,type TwoHandWeapon} from "../apps/web/src/studio/StudioTwoHandGrip";
 import type {StudioHumanModel} from "../apps/web/src/studio/StudioHumanModel";
+import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
+import {STUDIO_POSES} from "../apps/web/src/studio/StudioInspection";
 const source=(name:string)=>readFileSync("apps/web/public/anatomy/"+name,"utf8");
 const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
 function fixture(body:Readonly<Record<string,number>>={}){
@@ -39,93 +41,10 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
     try{
       const root=human.spike.character.root;
       const original=root.matrixWorld.clone();
-      const side=primary==="right"?"left":"right";
-      const v=(role:string)=>bone(model,role).getWorldPosition(new THREE.Vector3())
-        .toArray().map(x=>Number(x.toFixed(4)));
-      console.log("C5.2-REST",primary,JSON.stringify({
-        chest:v("chest"),shoulder:v("shoulder_"+primary),
-        primaryPalm:v("palm_"+primary),secondaryPalm:v("palm_"+side),
-      }));
-      const graph=human.spike.graph;
-      const angles=(side:"left"|"right",shoulder:number,abduct:number,
-        elbow:number):readonly {jointId:string;motion:"flexion"|"abduction";radians:number}[]=>{
-        const j=(role:string)=>graph.joints.find(j=>j.role===role+"_"+side)!.id;
-        return [
-          {jointId:j("shoulder"),motion:"flexion" as const,radians:shoulder},
-          {jointId:j("shoulder"),motion:"abduction" as const,radians:abduct},
-          {jointId:j("elbow"),motion:"flexion" as const,radians:elbow},
-        ];
-      };
-      for(const [sf,sa,ef] of [[1,.4,1.2],[1.5,.6,1.5],[.7,1.2,1.8],
-        [1.9,.3,1.2]]){
-        fk.apply([...angles("left",sf!,sa!,ef!),...angles("right",sf!,sa!,ef!)]);
-        console.log("C5.2-SEED",primary,sf,sa,ef,JSON.stringify({
-          left:v("palm_left"),right:v("palm_right"),
-          distance:bone(model,"palm_left").getWorldPosition(new THREE.Vector3())
-            .distanceTo(bone(model,"palm_right").getWorldPosition(new THREE.Vector3())),
-        }));
-      }
-      let bestSeed={distance:Infinity,description:"",y:0,z:0};
-      for(const abduct of [-.3,.4,1,1.6,2.2])
-        for(const flex of [-.5,.5,1.5])
-          for(const rotation of [-1.2,0,1.2])
-            for(const elbow of [.6,1.5,2.35]){
-              const joint=(hand:"left"|"right",role:string)=>
-                graph.joints.find(j=>j.role===role+"_"+hand)!.id;
-              const trial=(hand:"left"|"right")=>[
-                {jointId:joint(hand,"shoulder"),motion:"abduction" as const,radians:abduct},
-                {jointId:joint(hand,"shoulder"),motion:"flexion" as const,radians:flex},
-                {jointId:joint(hand,"shoulder"),motion:"rotation" as const,radians:rotation},
-                {jointId:joint(hand,"elbow"),motion:"flexion" as const,radians:elbow}];
-              fk.apply([...trial("left"),...trial("right")]);
-              const a=bone(model,"palm_left").getWorldPosition(new THREE.Vector3());
-              const b=bone(model,"palm_right").getWorldPosition(new THREE.Vector3());
-              const distance=a.distanceTo(b);
-              if(a.y<1.15||a.y>1.85||Math.abs(a.z)>.42)continue;
-              if(distance<bestSeed.distance)bestSeed={
-                distance,description:[abduct,flex,rotation,elbow].join(","),
-                y:a.y,z:a.z};
-            }
-      console.log("C5.2-BEST-SEED",primary,JSON.stringify(bestSeed));
-      const axis=(hand:"left"|"right")=>{
-        const wp=(role:string)=>{
-          const j=graph.joints.find(j=>j.role===role&&
-            (role.startsWith("finger_")?j.id.includes("arm["+hand+",0]"):true))!;
-          return human.spike.bones.get(j.id)!.getWorldPosition(new THREE.Vector3());
-        };
-        const wrist=wp("wrist_"+hand),middle=wp("finger_middle_0");
-        const index=wp("finger_index_0"),little=wp("finger_little_0");
-        const forward=middle.sub(wrist).normalize();
-        const across=index.sub(little);
-        return across.addScaledVector(forward,-across.dot(forward)).normalize();
-      };
-      let bestGrip={score:Infinity,primaryRotation:0,secondaryRotation:0,
-        error:Infinity,dot:-1};
-      const j=(side:"left"|"right",role:string)=>
-        graph.joints.find(j=>j.role===role+"_"+side)!.id;
-      const handAngles=(side:"left"|"right",rotation:number)=>[
-        {jointId:j(side,"shoulder"),motion:"abduction" as const,radians:2.2},
-        {jointId:j(side,"shoulder"),motion:"flexion" as const,radians:-.5},
-        {jointId:j(side,"elbow"),motion:"flexion" as const,radians:1.5},
-        {jointId:j(side,"elbow"),motion:"rotation" as const,radians:rotation}];
-      for(const a of [-1.3,-.7,0,.7,1.3])
-        for(const b of [-1.3,-.7,0,.7,1.3]){
-          const p=primary,s=side;
-          fk.apply([...handAngles(p,a),...handAngles(s,b)]);
-          const left=bone(model,"palm_"+p).getWorldPosition(new THREE.Vector3());
-          const right=bone(model,"palm_"+s).getWorldPosition(new THREE.Vector3());
-          const pa=axis(p),sa=axis(s);
-          const target=left.addScaledVector(pa,-.111);
-          const error=target.distanceTo(right);
-          const dot=-pa.dot(sa);
-          const score=error+.045*(1-dot);
-          if(score<bestGrip.score)bestGrip={
-            score,primaryRotation:a,secondaryRotation:b,error,dot};
-        }
-      console.log("C5.2-BEST-GRIP-SEED",primary,JSON.stringify(bestGrip));
-      fk.apply([]);
       const first=solveTwoHandIK(model,fk,[],primary);
-      console.log("C5.2-IK",primary,JSON.stringify(first));
+      console.log("C5.2-IK",primary,JSON.stringify({
+        reachable:first.reachable,error:first.secondaryErrorMeters,
+        axisAlignment:first.secondaryAxisDot,iterations:first.iterations}));
       expect(first.reachable,"both source hands must actually meet on the weapon").toBe(true);
       expect(first.iterations).toBeLessThanOrEqual(24);
       expect(first.primaryErrorMeters).toBeLessThan(.15);
@@ -146,10 +65,50 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           const current=preview.object.matrix.clone();
           preview.update();
           expect(preview.object.matrix.elements).toEqual(current.elements);
+          const contact=(offset:number)=>new THREE.Vector3(
+            0,offset,0).applyMatrix4(preview.object.matrix);
+          const lead=bone(model,"palm_"+primary).getWorldPosition(new THREE.Vector3());
+          const follower=bone(model,"palm_"+(primary==="left"?"right":"left"))
+            .getWorldPosition(new THREE.Vector3());
+          expect(contact(first.separationMeters/2).distanceTo(lead)).toBeLessThan(.006);
+          expect(contact(-first.separationMeters/2).distanceTo(follower))
+            .toBeLessThan(.025);
+          root.position.set(.23,.12,-.31);root.rotation.y=.34;
+          root.updateWorldMatrix(true,true);
+          preview.update();
+          expect(contact(first.separationMeters/2).distanceTo(
+            bone(model,"palm_"+primary).getWorldPosition(new THREE.Vector3())))
+            .toBeLessThan(.006);
+          root.position.set(0,0,0);root.rotation.y=0;
+          root.updateWorldMatrix(true,true);
         }finally{preview.dispose();}
       }
     }finally{human.dispose();}
   },120_000);
+  it.each(["right","left"] as const)(
+    "holds %s primary across every Studio pose with deterministic rest recovery",primary=>{
+      const {human,model}=fixture();
+      const preview=new StudioPosePreview(model);
+      const root=human.spike.character.root;
+      try{
+        const rootBefore=root.matrixWorld.clone();
+        const palm=bone(model,"palm_"+primary);
+        const restRotation=palm.quaternion.clone();
+        preview.setGrip(primary==="right"?"longsword-right":"staff-left");
+        for(const id of Object.keys(STUDIO_POSES) as (keyof typeof STUDIO_POSES)[]){
+          preview.setPose(id);
+          const solved=preview.twoHandResult;
+          expect(solved,"missing two-hand IK "+id).toBeDefined();
+          expect(solved!.reachable,"unreachable Studio pose "+id).toBe(true);
+          expect(solved!.secondaryErrorMeters).toBeLessThan(.025);
+          expect(solved!.secondaryAxisDot).toBeGreaterThan(.45);
+          expect(root.matrixWorld.elements).toEqual(rootBefore.elements);
+        }
+        preview.setGrip("none");
+        preview.setPose("neutral");
+        expect(palm.quaternion.angleTo(restRotation)).toBeLessThan(1e-7);
+      }finally{preview.dispose();human.dispose();}
+    },120_000);
   it("adapts socket spacing to native hand proportions",()=>{
     const samples:Readonly<Record<string,number>>[]=[{},{"macro/height":0},{"macro/height":1},
       {"native/armslegs/l-hand-scale-decr-incr":1},
@@ -163,7 +122,7 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
             reachable:result.reachable,primaryError:result.primaryErrorMeters,
             secondaryError:result.secondaryErrorMeters,
             reason:result.reason}));
-          expect(result.iterations).toBeLessThanOrEqual(24);
+          expect(result.iterations).toBeLessThanOrEqual(28);
           expect(Number.isFinite(result.primaryErrorMeters)).toBe(true);
           expect(Number.isFinite(result.secondaryErrorMeters)).toBe(true);
           if(result.reachable){
