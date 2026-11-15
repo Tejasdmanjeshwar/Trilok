@@ -48,6 +48,7 @@ describe("C5.2 reproducible browser failure reports",()=>{
     expect(restored.equipment).toBe("longsword-left");
     expect(restored.failure.type).toBe("unreachable");
     expect(restored.failure.secondaryErrorMeters).toBe(.064);
+    expect(restored.failure.bodyClearanceMeters).toBe(-.011);
     expect(restored.failure.attempts).toEqual(result.reachDiagnostics);
     expect(json).not.toContain("matrixWorld");
     expect(json).not.toContain("userAgent");
