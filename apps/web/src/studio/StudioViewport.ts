@@ -10,7 +10,9 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   type StudioFocus,type StudioExpression,type StudioPose,type StudioInspectionOptions}
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
-import {StudioSwordPreview,type SwordHand} from "./StudioWeaponGrip";
+import {StudioSwordPreview} from "./StudioWeaponGrip";
+import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
+  type EquipmentChoice} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
 import {isShortTap,isDoubleTap,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
@@ -25,7 +27,7 @@ export interface StudioViewport {
   focus(area:StudioFocus):boolean;
   returnFromFocus():void;
   setPose(pose:StudioPose):void;
-  setEquipment(hand:SwordHand):void;
+  setEquipment(hand:EquipmentChoice):void;
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
@@ -89,22 +91,34 @@ export function createStudioViewport(
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
-  let equipment:SwordHand="none";
-  let sword:StudioSwordPreview|undefined;
+  let equipment:EquipmentChoice="none";
+  let sword:StudioSwordPreview|StudioTwoHandPreview|undefined;
   function clearSword():void{sword?.dispose();sword=undefined;}
   function refreshSword():void{
     clearSword();
     if(!active||equipment==="none")return;
     try{
-      const next=new StudioSwordPreview(active,equipment);
-      scene.add(next.object);sword=next;
+      if(isTwoHandEquipment(equipment)){
+        const solved=posePreview?.twoHandResult;
+        if(!solved?.reachable){
+          onEditError("Both hands cannot comfortably reach this weapon in the selected pose.");
+          return;
+        }
+        const next=new StudioTwoHandPreview(active,twoHandKind(equipment),
+          primaryHand(equipment)!,solved);
+        scene.add(next.object);sword=next;
+      }else{
+        const next=new StudioSwordPreview(active,equipment);
+        scene.add(next.object);sword=next;
+      }
       onEditError("");
     }catch{
-      onEditError("This character cannot hold the reference sword in the selected hand.");
+      onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
   }
-  function setEquipment(hand:SwordHand):void{
-    if(!["none","left","right"].includes(hand))throw new Error("Unknown equipment choice");
+  function setEquipment(hand:EquipmentChoice):void{
+    if(!["none","left","right","longsword-left","longsword-right",
+      "staff-left","staff-right"].includes(hand))throw new Error("Unknown equipment choice");
     equipment=hand;
     posePreview?.setGrip(hand);
     refreshSword();
@@ -245,7 +259,8 @@ export function createStudioViewport(
   function setPose(next:StudioPose):void {
     pose=next;
     posePreview?.setPose(next);
-    sword?.update();
+    if(isTwoHandEquipment(equipment))refreshSword();
+    else sword?.update();
     // The existing overlays follow posed bones without reallocating GPU buffers.
     updateMarkers();
   }
@@ -261,6 +276,7 @@ export function createStudioViewport(
       if(!ok)return false;
       expression=next;
       posePreview?.refresh();
+      if(isTwoHandEquipment(equipment))refreshSword();
       return true;
     }catch{
       if(current===ticket){expression=previous;
@@ -480,6 +496,7 @@ export function createStudioViewport(
         currentAppearance=appearance;
         currentMorphology=state;
         posePreview?.refresh();
+        if(isTwoHandEquipment(equipment))refreshSword();
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
         onEditError("");
         return true;
