@@ -35,6 +35,8 @@ export interface TwoHandIKResult {
   readonly commands:readonly JointTarget[];
   readonly primaryErrorMeters:number;
   readonly secondaryErrorMeters:number;
+  readonly primaryDeltaMeters:readonly number[];
+  readonly secondaryDeltaMeters:readonly number[];
   readonly primaryAxisDot:number;
   readonly secondaryAxisDot:number;
   readonly iterations:number;
@@ -365,6 +367,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const commands=reached?[...state.values()]:[...base];
   return Object.freeze({reachable:reached,commands:Object.freeze(commands),
     primaryErrorMeters:primaryError,secondaryErrorMeters:secondaryError,
+    primaryDeltaMeters:Object.freeze(first.palm.clone().sub(firstGoal).toArray()),
+    secondaryDeltaMeters:Object.freeze(second.palm.clone().sub(secondGoal).toArray()),
     primaryAxisDot:primaryDot,secondaryAxisDot:secondaryDot,
     iterations:a.iterations+b.iterations,
     reason:reached?"ok":!guard.ok?"unsafe-stance":
