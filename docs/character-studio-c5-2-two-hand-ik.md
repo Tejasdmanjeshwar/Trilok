@@ -81,3 +81,12 @@ This corrective work was implemented in PR #84, not merged:
 - The Studio `whole-extreme` pose is demonstrably incompatible with the fixed weapon and current arm constraints; the updated negative regression asserts an explicit safe rejection instead of forcing out-of-range arms. All normal supported Studio poses remain positively asserted.
 
 **Current acceptance state:** Blender reference exists and is noticeably improved, but C5.2 Three.js runtime, actual browser evidence, full morphology coverage, green CI, exact Cloudflare SHA and owner approval are still absent. Keep PR #84 draft/unmerged. No C5.2 completion or release claim.
+
+
+### Latest runtime verification: green corrective candidate (2026-11-15)
+
+GitHub Verify [#43693876286](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43693876286) **passed** on C5.2 runtime-and-test commit `8b3074de944e8d1c807e46b0544f9d85cfbbc47a`: TypeScript, 69 test files / 384 tests, deterministic combat replays, production Vite build and compiled build identity all succeeded. This supersedes the earlier failed runs documented above; those historical failures remain useful for the debugging audit.
+
+The accepted candidate **for engineering review, not owner visual signoff** preserves the original 6 mm source finger-envelope grip acceptance and the 24-iteration ceiling. It uses one fixed authoritative sword or staff, and both left/right source-neutral lead configurations pass joint reach, orientation, root invariance, fixed dimensions and deterministic reruns. A `whole-extreme` Studio pose is allowed only if the real source reach solution is safe, or rejected with an explicit unavailable result; both cases are positively verified.
+
+Independent Blender [#43692889963](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43692889963) source-mesh pictures were inspected across front/side/three-quarter/closeup sword/staff and both leads. Their arms/one-shaft presentation improved materially relative to earlier rejected references, but finger penetration, staff elbow visual stiffness and guard clearance are not yet visually certified. The browser/C5.2 **exact feature-preview SHA** has not been independently checked and the desktop/mobile Chromium suite has not been executed on this latest runtime revision. Do not merge draft PR #84 until actual browser screenshots and owner review pass.
