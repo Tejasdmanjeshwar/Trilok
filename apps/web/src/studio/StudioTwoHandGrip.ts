@@ -812,7 +812,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     stageReadyPose(graph,fk,state,kind,primary,seed);
     const staged=Object.freeze([...state.values()]);
     fk.apply(staged);
-    const anchors=calibrateHandAnchors(model,dimensions);
+    const anchors=kind==="staff"?calibrateHandAnchors(model,dimensions):undefined;
     const initialHandSpanMeters=contactWorld(model,primary,anchors).distanceTo(
       contactWorld(model,secondary,anchors));
     sourceSeedSpans.push({seed,span:initialHandSpanMeters});
