@@ -277,10 +277,10 @@ function weaponAxis(weapon:THREE.Matrix4):THREE.Vector3 {
 export const C52_ELBOW_REFERENCE_V1:Readonly<Record<TwoHandWeapon,
   {readonly lead:readonly [number,number,number];
    readonly support:readonly [number,number,number]}>>=Object.freeze({
-  longsword:Object.freeze({lead:[.43409,-.58034,.68904],
-    support:[.51459,-.71707,.47011]}),
-  staff:Object.freeze({lead:[.76386,-.36135,.53474],
-    support:[.82963,-.44332,.33938]}),
+  longsword:Object.freeze({lead:[.43409,-.58034,.68904] as const,
+    support:[.51459,-.71707,.47011] as const}),
+  staff:Object.freeze({lead:[.76386,-.36135,.53474] as const,
+    support:[.82963,-.44332,.33938] as const}),
 });
 function referenceElbow(model:StudioHumanModel,kind:TwoHandWeapon,
   lead:HandSide,hand:HandSide):THREE.Vector3 {
