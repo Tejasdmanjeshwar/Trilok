@@ -270,6 +270,31 @@ function gripWorld(weapon:THREE.Matrix4,y:number):THREE.Vector3 {
 function weaponAxis(weapon:THREE.Matrix4):THREE.Vector3 {
   return new THREE.Vector3(0,1,0).transformDirection(weapon);
 }
+/** Normalized source upper-arm directions measured from independently
+ * skinned Blender 4.5.16 candidate poses. These guide elbow pole placement
+ * without imposing a copied bone rotation or altering arm lengths.
+ * They are reference candidates, NOT visually accepted grip definitions. */
+export const C52_ELBOW_REFERENCE_V1:Readonly<Record<TwoHandWeapon,
+  {readonly lead:readonly [number,number,number];
+   readonly support:readonly [number,number,number]}>>=Object.freeze({
+  longsword:Object.freeze({lead:[.43409,-.58034,.68904],
+    support:[.51459,-.71707,.47011]}),
+  staff:Object.freeze({lead:[.76386,-.36135,.53474],
+    support:[.82963,-.44332,.33938]}),
+});
+function referenceElbow(model:StudioHumanModel,kind:TwoHandWeapon,
+  lead:HandSide,hand:HandSide):THREE.Vector3 {
+  const isLead=hand===lead;
+  const vector=C52_ELBOW_REFERENCE_V1[kind][isLead?"lead":"support"];
+  const shoulder=world(jointBone(model,"shoulder_"+hand,hand));
+  const elbow=world(jointBone(model,"elbow_"+hand,hand));
+  const length=shoulder.distanceTo(elbow);
+  const sourceDirection=new THREE.Vector3(
+    (hand==="right"?1:-1)*vector[0],vector[1],vector[2]).normalize();
+  sourceDirection.applyQuaternion(
+    model.human.spike.character.root.getWorldQuaternion(new THREE.Quaternion()));
+  return shoulder.addScaledVector(sourceDirection,length);
+}
 /** Bounded FK coordinate-descent in source-calibrated anatomical channels.
  * Neither hand determines the other hand's objective: both target two
  * independent immutable landmarks on one predetermined weapon frame.
@@ -288,6 +313,9 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
   const cost=()=>{
     const frame=palmFrame(model,hand);
     const positionError=frame.palm.distanceTo(target);
+    const elbow=world(jointBone(model,"elbow_"+hand,hand));
+    const poleReference=referenceElbow(model,kind,lead,hand);
+    const elbowPoleError=elbow.distanceTo(poleReference);
     const dot=THREE.MathUtils.clamp(frame.axis.dot(desiredAxis),-1,1);
     const forwardOverlap=Math.abs(frame.forward.dot(shaft));
     const guard=anatomicalGuard(model,kind,lead);
@@ -303,12 +331,13 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     return {value:positionError*positionError*34+
       .018*(1-dot)*(1-dot)+
       .006*Math.max(0,forwardOverlap-.36)**2+
-      .00015*travel+35*(headGap*headGap+elbowGap*elbowGap+
+      .00015*travel+.65*elbowPoleError*elbowPoleError+
+      35*(headGap*headGap+elbowGap*elbowGap+
         palmGap*palmGap+forearmGap*forearmGap),
       error:positionError,dot};
   };
   apply();let best=cost(),iterations=0;
-  for(const step of [.50,.26,.13,.065,.032,.016]){
+  for(const step of [.50,.26,.13,.065,.032,.016,.008]){
     for(let sweep=0;sweep<2;sweep++){
       iterations++;let improved=false;
       for(const dof of dofs){
