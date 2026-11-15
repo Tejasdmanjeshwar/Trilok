@@ -291,6 +291,20 @@ export function createStudioViewport(
     const fromTarget=transition?.toTarget.clone()??target();
     const direction=from.sub(fromTarget).normalize();
     if(direction.lengthSq()<1e-8)direction.set(0,.08,1).normalize();
+    if(shield&&isSwordShieldEquipment(equipment)&&
+      area===shieldHand(equipment.endsWith("right")?"right":"left")+"-hand"){
+      // The shield plate occludes a generic wrist close-up. Aim at the
+      // source-fitted rear handle from the wielder's side instead, with
+      // a lateral component so the forearm and both strap contacts stay visible.
+      shield.object.updateWorldMatrix(true,true);
+      const rear=new THREE.Vector3(0,0,-1)
+        .transformDirection(shield.object.matrixWorld);
+      const lateral=new THREE.Vector3(equipment.endsWith("right")?-1:1,.12,0)
+        .applyQuaternion(active!.human.spike.character.root
+          .getWorldQuaternion(new THREE.Quaternion()));
+      direction.copy(rear.multiplyScalar(.78)
+        .add(lateral.multiplyScalar(.56)).normalize());
+    }
     focusedArea=area;
     moveTo(anchor.clone().addScaledVector(direction,point.distance),anchor);
     return true;
