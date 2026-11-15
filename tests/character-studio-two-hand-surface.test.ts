@@ -147,6 +147,14 @@ describe("C5.2 generated skinned-body occupied volume",()=>{
               first.weaponWorld,kind,first.dimensions);
             expect(clearance.maximumPenetrationMeters).toBeLessThanOrEqual(
               .003*first.dimensions.scale+1e-9);
+            const skinned=collision.measureSkinnedSurface(model,
+              first.weaponWorld,kind,first.dimensions);
+            console.log("C52-TRUE-SURFACE",JSON.stringify({
+              seed,kind,lead,proxy:first.bodyClearanceMeters,
+              actual:skinned.minimumMeters,overlap:skinned.maximumPenetrationMeters,
+              triangles:collision.sourceTriangleCount,
+            }));
+            expect(Number.isFinite(skinned.minimumMeters)).toBe(true);
           }
           fk.apply([]);
           const second=solveTwoHandIK(model,fk,[],lead,kind);
