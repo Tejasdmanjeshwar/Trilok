@@ -39,6 +39,33 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
     try{
       const root=human.spike.character.root;
       const original=root.matrixWorld.clone();
+      const side=primary==="right"?"left":"right";
+      const v=(role:string)=>bone(model,role).getWorldPosition(new THREE.Vector3())
+        .toArray().map(x=>Number(x.toFixed(4)));
+      console.log("C5.2-REST",primary,JSON.stringify({
+        chest:v("chest"),shoulder:v("shoulder_"+primary),
+        primaryPalm:v("palm_"+primary),secondaryPalm:v("palm_"+side),
+      }));
+      const graph=human.spike.graph;
+      const angles=(side:"left"|"right",shoulder:number,abduct:number,
+        elbow:number):readonly {jointId:string;motion:"flexion"|"abduction";radians:number}[]=>{
+        const j=(role:string)=>graph.joints.find(j=>j.role===role+"_"+side)!.id;
+        return [
+          {jointId:j("shoulder"),motion:"flexion" as const,radians:shoulder},
+          {jointId:j("shoulder"),motion:"abduction" as const,radians:abduct},
+          {jointId:j("elbow"),motion:"flexion" as const,radians:elbow},
+        ];
+      };
+      for(const [sf,sa,ef] of [[1,.4,1.2],[1.5,.6,1.5],[.7,1.2,1.8],
+        [1.9,.3,1.2]]){
+        fk.apply([...angles("left",sf!,sa!,ef!),...angles("right",sf!,sa!,ef!)]);
+        console.log("C5.2-SEED",primary,sf,sa,ef,JSON.stringify({
+          left:v("palm_left"),right:v("palm_right"),
+          distance:bone(model,"palm_left").getWorldPosition(new THREE.Vector3())
+            .distanceTo(bone(model,"palm_right").getWorldPosition(new THREE.Vector3())),
+        }));
+      }
+      fk.apply([]);
       const first=solveTwoHandIK(model,fk,[],primary);
       console.log("C5.2-IK",primary,JSON.stringify(first));
       expect(first.iterations).toBeLessThanOrEqual(24);
