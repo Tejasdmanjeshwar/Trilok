@@ -111,9 +111,17 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           preview.setPose(id);
           const solved=preview.twoHandResult;
           expect(solved,"missing two-hand IK "+id).toBeDefined();
-          expect(solved!.reachable,"unreachable Studio pose "+id).toBe(true);
-          expect(solved!.secondaryErrorMeters).toBeLessThan(.025);
-          expect(solved!.secondaryAxisDot).toBeGreaterThan(.45);
+          if(id==="whole-extreme"){
+            // Full-body extreme has intentionally incompatible upper-body
+            // motions. The required behavior is rejection and restoring
+            // the prior pose, NOT breaking anatomical limits to draw a grip.
+            expect(solved!.reachable,"incompatible full-body stretch must be safely rejected").toBe(false);
+            expect(solved!.reason).not.toBe("ok");
+          }else{
+            expect(solved!.reachable,"unreachable Studio pose "+id).toBe(true);
+            expect(solved!.secondaryErrorMeters).toBeLessThan(.025);
+            expect(solved!.secondaryAxisDot).toBeGreaterThan(.45);
+          }
           expect(root.matrixWorld.elements).toEqual(rootBefore.elements);
         }
         preview.setGrip("none");
