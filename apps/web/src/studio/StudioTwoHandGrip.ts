@@ -249,18 +249,22 @@ function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
   primary:HandSide,dim:TwoHandDimensions):THREE.Matrix4 {
   const root=model.human.spike.character.root;
   root.updateWorldMatrix(true,true);
-  const chest=world(jointBone(model,"chest",primary));
-  const across=world(jointBone(model,"shoulder_right","right"))
-    .sub(world(jointBone(model,"shoulder_left","left"))).normalize();
-  const upward=world(jointBone(model,"head",primary)).sub(chest).normalize();
-  const forward=across.clone().cross(upward).normalize();
-  if(forward.lengthSq()<.9)throw new Error("Degenerate torso weapon frame");
-  const correctedUp=forward.clone().cross(across).normalize();
-  const facing=new THREE.Quaternion().setFromRotationMatrix(
-    new THREE.Matrix4().makeBasis(across,correctedUp,forward));
+  const chestBone=jointBone(model,"chest",primary);
+  const chest=world(chestBone);
+  // The source bind quaternion is the orientation authority. Subtract it
+  // from the live chest world rotation to obtain the actual torso pose
+  // (including root yaw) without guessing axes from shoulder landmarks.
+  const skel=model.human.spike.skeleton;
+  const chestIndex=skel.bones.indexOf(chestBone);
+  if(chestIndex<0)throw new Error("Missing source chest bind bone");
+  const bind=skel.boneInverses[chestIndex]!.clone().invert();
+  const bindQ=new THREE.Quaternion();
+  bind.decompose(new THREE.Vector3(),bindQ,new THREE.Vector3());
+  const facing=chestBone.getWorldQuaternion(new THREE.Quaternion())
+    .multiply(bindQ.invert()).normalize();
   const scale=dim.scale;
   const offset=kind==="longsword"?
-    new THREE.Vector3(0,-.12*scale,.28*scale):
+    new THREE.Vector3((primary==="right"?.006:-.006)*scale,-.18*scale,.28*scale):
     new THREE.Vector3(0,-.17*scale,.31*scale);
   const y=(kind==="longsword"?
     new THREE.Vector3(primary==="right"?.76:-.76,.51,.42):
@@ -321,7 +325,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
       error:positionError,dot};
   };
   apply();let best=cost(),iterations=0;
-  for(const step of [.45,.22,.10,.04,.012,.003]){
+  for(const step of [.50,.26,.13,.065,.032,.016]){
     for(let sweep=0;sweep<2;sweep++){
       iterations++;let improved=false;
       for(const dof of dofs){
