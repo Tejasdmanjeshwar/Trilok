@@ -332,7 +332,8 @@ export function twoHandSolvedContactWorld(model:StudioHumanModel,
  * The offhand target still comes from ONE shaft, never a second weapon. */
 export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   kind:TwoHandWeapon,primary:HandSide,dim:TwoHandDimensions,
-  reference:THREE.Matrix4,anchors?:GripAnchors):THREE.Matrix4{
+  reference:THREE.Matrix4,anchors?:GripAnchors,
+  staffAxisMode:"span"|"knuckle"="span"):THREE.Matrix4{
   const secondary:HandSide=primary==="right"?"left":"right";
   const lead=palmFrame(model,primary),offhand=palmFrame(model,secondary);
   lead.palm.copy(contactWorld(model,primary,anchors));
@@ -348,8 +349,20 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
     // from the actual knuckle-contact span, not a preselected chest slope.
     const handSpan=lead.palm.clone().sub(offhand.palm);
     if(handSpan.lengthSq()<1e-8)handSpan.copy(nominal);
-    axis=handSpan.normalize().multiplyScalar(.82)
-      .addScaledVector(nominal,.18).normalize();
+    handSpan.normalize();
+    const knuckles=lead.axis.clone().sub(offhand.axis);
+    if(staffAxisMode==="knuckle"&&knuckles.lengthSq()>1e-8){
+      knuckles.normalize();
+      if(knuckles.dot(handSpan)<0)knuckles.negate();
+      // The shaft must be COLLINEAR with the two opposed fist axes,
+      // not merely lie near the two approximate palm-joint landmarks.
+      axis=knuckles.multiplyScalar(.60)
+        .addScaledVector(handSpan,.35)
+        .addScaledVector(nominal,.05).normalize();
+    }else{
+      axis=handSpan.multiplyScalar(.82)
+        .addScaledVector(nominal,.18).normalize();
+    }
   }
   if(axis.lengthSq()<.9)throw new Error("Degenerate two-hand shaft axis");
   const leadCenter=lead.palm.clone().addScaledVector(axis,-dim.primaryGripY);
@@ -429,7 +442,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     const palmGap=Math.max(0,guard.maximumPalmY-guard.headY+.20);
     const forearmGap=Math.max(0,.05-guard.forearmClearance);
     return {value:positionError*positionError*95+
-      .20*(1-dot)*(1-dot)+
+      (kind==="staff"?1.2:.20)*(1-dot)*(1-dot)+
       .006*Math.max(0,forwardOverlap-.36)**2+
       .00015*travel+(kind==="longsword"?.06:0)*elbowPoleError*elbowPoleError+
       35*(headGap*headGap+elbowGap*elbowGap+
@@ -484,10 +497,12 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const anchors=kind==="staff"?calibrateStaffAnchors(model,dimensions):undefined;
   const authored=authoredWeaponWorld(model,kind,primary,dimensions);
   const adaptive=adaptiveTwoHandWeaponWorld(model,kind,primary,dimensions,authored,anchors);
+  const aligned=kind==="staff"?adaptiveTwoHandWeaponWorld(
+    model,kind,primary,dimensions,authored,anchors,"knuckle"):undefined;
   // Sword: preserve the owner-approved default pose if it is already valid.
   // Staff: try the line through both posed hands first. On a morphology
   // boundary, a rigid chest reference is a deterministic backup candidate.
-  const candidates=kind==="longsword"?[authored,adaptive]:[adaptive,authored];
+  const candidates=kind==="longsword"?[authored,adaptive]:[aligned!,adaptive,authored];
   let chosen:TwoHandIKResult|undefined;
   let lowest=Infinity;
   for(const weaponWorld of candidates){
@@ -505,10 +520,11 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const primaryDot=first.axis.dot(shaft);
     const secondaryDot=second.axis.dot(shaft)*(kind==="longsword"?1:-1);
     const guard=anatomicalGuard(model,kind,primary);
+    const orientationMinimum=kind==="staff"?.85:.42;
     const reached=guard.ok&&primaryError<=.023&&secondaryError<=.023&&
-      primaryDot>.42&&secondaryDot>.42;
+      primaryDot>orientationMinimum&&secondaryDot>orientationMinimum;
     const reason=reached?"ok":!guard.ok?"unsafe-stance":
-      primaryError>.023||primaryDot<=.42?"primary-unreachable":"secondary-unreachable";
+      primaryError>.023||primaryDot<=orientationMinimum?"primary-unreachable":"secondary-unreachable";
     const commands=reached?[...state.values()]:[...base];
     const result:TwoHandIKResult=Object.freeze({
       reachable:reached,commands:Object.freeze(commands),
