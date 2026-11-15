@@ -246,25 +246,26 @@ function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
  * any arm optimization. The source chest determines placement, root orientation
  * determines the facing, never the already posed palm-to-palm vector. */
 function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
-  primary:HandSide,dim:TwoHandDimensions):THREE.Matrix4 {
+  primary:HandSide,dim:TwoHandDimensions,
+  commands:ReadonlyMap<string,JointTarget>):THREE.Matrix4 {
   const root=model.human.spike.character.root;
   root.updateWorldMatrix(true,true);
-  const chestBone=jointBone(model,"chest",primary);
-  const chest=world(chestBone);
-  // The source bind quaternion is the orientation authority. Subtract it
-  // from the live chest world rotation to obtain the actual torso pose
-  // (including root yaw) without guessing axes from shoulder landmarks.
-  const skel=model.human.spike.skeleton;
-  const chestIndex=skel.bones.indexOf(chestBone);
-  if(chestIndex<0)throw new Error("Missing source chest bind bone");
-  const bind=skel.boneInverses[chestIndex]!.clone().invert();
-  const bindQ=new THREE.Quaternion();
-  bind.decompose(new THREE.Vector3(),bindQ,new THREE.Vector3());
-  const facing=chestBone.getWorldQuaternion(new THREE.Quaternion())
-    .multiply(bindQ.invert()).normalize();
+  const chest=world(jointBone(model,"chest",primary));
+  // Source FK exposes axial torso motion as rest-relative yaw channels.
+  // Use the root's actual world orientation plus authored source yaw rather
+  // than guessing torso-facing axes from a bind quaternion or loose shoulders.
+  const graph=model.human.spike.graph;
+  const yawOf=(role:string)=>{
+    const id=graph.joints.find(j=>j.role===role)?.id;
+    if(!id)return 0;
+    return commands.get(key(id,"rotation"))?.radians??0;
+  };
+  const facing=root.getWorldQuaternion(new THREE.Quaternion()).multiply(
+    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),
+      yawOf("spine_lower")+yawOf("chest")));
   const scale=dim.scale;
   const offset=kind==="longsword"?
-    new THREE.Vector3((primary==="right"?.006:-.006)*scale,-.18*scale,.28*scale):
+    new THREE.Vector3((primary==="right"?.010:-.010)*scale,-.18*scale,.28*scale):
     new THREE.Vector3(0,-.17*scale,.31*scale);
   const y=(kind==="longsword"?
     new THREE.Vector3(primary==="right"?.76:-.76,.51,.42):
@@ -368,7 +369,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   }
   stageReadyPose(graph,fk,state,kind,primary);
   fk.apply([...state.values()]);
-  const weaponWorld=authoredWeaponWorld(model,kind,primary,dimensions);
+  const weaponWorld=authoredWeaponWorld(model,kind,primary,dimensions,state);
   const shaft=weaponAxis(weaponWorld);
   const firstGoal=gripWorld(weaponWorld,dimensions.primaryGripY);
   const secondGoal=gripWorld(weaponWorld,dimensions.secondaryGripY);
