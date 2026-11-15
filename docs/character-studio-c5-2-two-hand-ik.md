@@ -272,3 +272,19 @@ remaining failure is `802593405` two-hand sword. Latest branch CI,
 compiled build, desktop/mobile Chromium screenshots and exact Cloudflare
 deployment SHA still require independent verification after changes.
 PR #84 remains draft/unmerged; no C5.3.
+
+
+## Weapon-centric constrained fitting experiment — 2026-11-15
+
+The failing captured generator seed `802593405` demonstrates the distinction between geometric arm reach and constrained inverse kinematics. CI run [43718149014](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43718149014) failed that positive regression (405 passing/1 failing). In the right-hand-leading case the measured shoulders-to-target distances were approximately 0.319 m and 0.333 m, while measured shoulder–elbow–wrist–palm chain spans were approximately 0.454 m and 0.468 m. These measurements rule out the simplistic claim that either arm is *nominally too short*; they do **not** prove a collision-free joint-limited full pose exists.
+
+A new `ConstrainedIK.ts` module implements deterministic bounded damped least squares with explicit legal DOFs, finite sampled Jacobians, line-search acceptance and final-pose restoration. The failure-only `fitWeaponCentric` adapter in `StudioTwoHandGrip.ts` jointly fits:
+- all source-calibrated shoulder/clavicle/elbow/wrist degrees of freedom from `AnatomicalFK`;
+- one shared rigid reference-weapon translation and bounded relative orientation;
+- both source-fitted palm-local shaft contact landmarks (C5.1 `fitHandleCenter` reuse);
+- both knuckle axes relative to the same shaft direction;
+- existing safety barriers for head, elbow, forearm and palm clearance, plus an authored-pose deviation penalty.
+
+The nominal accepted sword/staff grip candidate still returns before this adapter, and C5.1 is unchanged. If the coupled optimizer does not satisfy the *existing* numerical and safety gate, the previous fallback paths remain in place; failed candidate parameters must not equip a weapon. No weapon root scaling, hilt extension, gameplay authority change or joint-limit exemption was introduced.
+
+**Important validation limitations:** This newly committed implementation is not a verified resolution until its current-head CI passes, all three complete recipes and both hands are confirmed, and exact-head Chromium screenshots are reviewed. The code currently retains previously implemented fallback searches rather than replacing the entire historical solver; surface fitting in a numerical contact proxy cannot certify rendered per-finger contact. A further cleanup must be justified by measured regression success, not performed speculatively. The existing source-skin staff diagnostic records penetration as high as approximately 13 mm, so visual staff acceptance and precise finger clearance must remain distinct engineering gates. Do not merge this draft or mark C5.2 accepted without owner review.
