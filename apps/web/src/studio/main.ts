@@ -1,7 +1,7 @@
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
-import type {SwordHand} from "./StudioWeaponGrip";
+import {primaryHand,type EquipmentChoice} from "./StudioTwoHandGrip";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {createStudioGeneratorPanel,type StudioGeneratorPanel} from "./StudioGeneratorPanel";
 import {STUDIO_VIEWS,STUDIO_LIGHTS,type StudioView,type StudioLight} from "./StudioPresentation";
@@ -105,13 +105,23 @@ host.innerHTML=String.raw`
         <div class="studio-rule"></div>
         <fieldset class="studio-fieldset">
           <legend>Equipment</legend>
-          <label class="studio-field-label" for="studio-sword-hand">Sword</label>
-          <select id="studio-sword-hand" aria-label="Reference sword and gripping hand">
+          <label class="studio-field-label" for="studio-sword-hand">Weapon and grip</label>
+          <select id="studio-sword-hand" aria-label="Reference weapon and gripping hand">
             <option value="none">None</option>
-            <option value="right">Right hand</option>
-            <option value="left">Left hand</option>
+            <optgroup label="One-handed sword">
+              <option value="right">Right hand</option>
+              <option value="left">Left hand</option>
+            </optgroup>
+            <optgroup label="Two-handed sword">
+              <option value="longsword-right">Right hand leads</option>
+              <option value="longsword-left">Left hand leads</option>
+            </optgroup>
+            <optgroup label="Two-handed staff">
+              <option value="staff-right">Right hand leads</option>
+              <option value="staff-left">Left hand leads</option>
+            </optgroup>
           </select>
-          <p>A reference sword to inspect your character's hand grip.</p>
+          <p>Inspect the character's grip. Both hands follow the same weapon when reachable.</p>
           <div class="studio-action-pair studio-weapon-focus">
             <button id="studio-sword-focus" type="button">Focus on gripping hand</button>
           </div>
@@ -184,14 +194,15 @@ const swordSelect=element<HTMLSelectElement>("#studio-sword-hand");
 const swordFocus=element<HTMLButtonElement>("#studio-sword-focus");
 swordFocus.disabled=true;
 swordSelect.addEventListener("change",()=>{
-  const hand=swordSelect.value as SwordHand;
-  if(hand!=="none"&&hand!=="left"&&hand!=="right")return;
+  const hand=swordSelect.value as EquipmentChoice;
+  if(!["none","left","right","longsword-left","longsword-right",
+    "staff-left","staff-right"].includes(hand))return;
   viewport.setEquipment(hand);
   swordFocus.disabled=hand==="none";
 });
 swordFocus.addEventListener("click",()=>{
-  const hand=swordSelect.value;
-  if(hand!=="left"&&hand!=="right")return;
+  const hand=primaryHand(swordSelect.value as EquipmentChoice);
+  if(!hand)return;
   const area=(hand+"-hand") as StudioFocus;
   focusArea.value=area;
   if(viewport.focus(area)){
