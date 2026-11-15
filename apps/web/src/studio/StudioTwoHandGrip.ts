@@ -388,7 +388,10 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   if(axis.lengthSq()<.9)throw new Error("Degenerate two-hand shaft axis");
   const leadCenter=lead.palm.clone().addScaledVector(axis,-dim.primaryGripY);
   const offhandCenter=offhand.palm.clone().addScaledVector(axis,-dim.secondaryGripY);
-  const leadWeight=kind==="longsword"?1:.5;
+  // The accepted nominal sword candidate is tested first. On anatomy
+  // fallback, the rigid weapon must share contact error between both hands;
+  // anchoring its entire center to the lead made tall/short offhand reach fail.
+  const leadWeight=.5;
   const center=leadCenter.multiplyScalar(leadWeight)
     .addScaledVector(offhandCenter,1-leadWeight);
   let x=new THREE.Vector3(1,0,0).transformDirection(reference);
