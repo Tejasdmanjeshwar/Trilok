@@ -168,75 +168,134 @@ def marker(name, point):
     return empty
 
 def solve_pose(kind, lead, center, axis, grips):
-    positions = {}
-    for hand, grip in [(lead, grips[0]), ("left" if lead=="right" else "right", grips[1])]:
-        shoulder = source_pos("shoulder_"+hand)
-        elbow = source_pos("elbow_"+hand)
-        wrist = source_pos("wrist_"+hand)
-        palm = source_pos("palm_"+hand)
-        # Wrist target is offset from the single shaft's contact center,
-        # NOT an independently equipped object.
-        goal = center + axis*grip
-        goal_wrist = goal - (palm-wrist)
-        sign = -1 if hand=="left" else 1
-        pole = shoulder + cv((sign*.37, -.21, .18))
-        target = marker(hand+" wrist IK target", goal_wrist)
-        pole_target = marker(hand+" elbow pole", pole)
-        # A conventional TWO-BONE chain ends at the forearm's wrist-end.
-        # IK on the WRIST itself (chain_count=3) incorrectly pulls an extra
-        # small wrist link into the arm solve and folds the shoulder overhead.
-        pb = joint("elbow_"+hand)
-        constraint = pb.constraints.new("IK")
-        constraint.name = "Two bone shoulder / elbow reference IK"
-        constraint.target = target
-        constraint.pole_target = pole_target
-        constraint.chain_count = 2
-        constraint.pole_angle = 0.0
-        constraint.use_tail = True
-        positions[hand] = {"grip":tuple(round(v,6) for v in goal),
-                           "pole":tuple(round(v,6) for v in pole)}
-    # Set the actual anatomical knuckle line (little -> index) along the
-    # one common shaft, as in accepted C5.1. Wrist IK head coincidence alone
-    # allows fingers pointing away from the grip.
-    bpy.context.view_layer.update()
-    for hand in ("left","right"):
-        wrist = joint("wrist_"+hand)
-        little = posed_pos("finger_little_0_"+hand)
-        index = posed_pos("finger_index_0_"+hand)
-        across = index-little
-        direction = 1 if kind=="longsword" or hand==lead else -1
-        desired = axis * direction
-        if across.length < .005:
-            raise ValueError("Degenerate source knuckle line")
-        delta = across.normalized().rotation_difference(desired)
-        pivot = posed_pos("wrist_"+hand)
-        rotation = Matrix.Translation(pivot) @ delta.to_matrix().to_4x4() @ Matrix.Translation(-pivot)
-        wrist.matrix = rotation @ wrist.matrix
+    """Author a constrained, outward-elbow two-segment upper-limb reference.
+
+    Never solve wrist and palm with a 3-link generic IK chain. First solve
+    an exact sphere-intersection shoulder/elbow triangle using the actual
+    source bone lengths and a physically specified lateral elbow pole; then
+    orient the hand knuckle axis along the ONE weapon shaft, re-solve the
+    arm from rest against the weighted anatomical palm CONTACT point.
+    """
+    hands=(lead, "left" if lead=="right" else "right")
+    goals={hands[0]: center+axis*grips[0],hands[1]:center+axis*grips[1]}
+    def hand_contact(hand):
+        palm=posed_pos("palm_"+hand)
+        index=posed_pos("finger_index_0_"+hand)
+        little=posed_pos("finger_little_0_"+hand)
+        return palm+((index+little)*.5-palm)*.53
+
+    def reset_bones():
+        for pb in arm.pose.bones:
+            pb.constraints.clear() if False else None  # do not alter animation reference
+            pb.matrix_basis.identity()
         bpy.context.view_layer.update()
 
-    # IK constrains the wrist BONE HEAD, not the palm landmark. Source palm
-    # offset changes when wrist orientation rotates, so iteratively re-target
-    # against the ACTUAL posed palm. A wrist-only solve can miss by >5cm.
-    targets = {o.name.split(" wrist IK target")[0]:o for o in bpy.data.objects
-               if o.type == "EMPTY" and o.name.endswith(" wrist IK target")}
-    for iteration in range(18):
+    def turn(role, change):
+        pb=joint(role)
+        pivot=posed_pos(role)
+        rot=Matrix.Translation(pivot) @ change.to_matrix().to_4x4() @ Matrix.Translation(-pivot)
+        pb.matrix=rot @ pb.matrix
         bpy.context.view_layer.update()
-        residual = 0
-        for hand in ("left", "right"):
-            error = Vector(positions[hand]["grip"]) - posed_pos("palm_"+hand)
-            residual = max(residual, error.length)
-            targets[hand].location += .78 * error
-        if residual < .003:
+
+    def bend_arm(hand, wrist_goal):
+        sh=source_pos("shoulder_"+hand)
+        source_elbow=source_pos("elbow_"+hand)
+        source_wrist=source_pos("wrist_"+hand)
+        upper=(source_elbow-sh).length
+        forearm=(source_wrist-source_elbow).length
+        line=wrist_goal-sh
+        distance=line.length
+        if distance > upper+forearm-.001 or distance < abs(upper-forearm)+.002:
+            raise ValueError("Source two-bone wrist target unreachable without stretching")
+        direction=line.normalized()
+        along=(upper**2-forearm**2+distance**2)/(2*distance)
+        height=math.sqrt(max(0.,upper**2-along**2))
+        sign=1 if hand=="right" else -1
+        # Elbows are explicitly OUTSIDE the silhouette, below shoulders, never
+        # in the center of the chest or above the head.
+        lateral=Vector((sign, -.16, -.15))
+        lateral=(lateral-direction*lateral.dot(direction)).normalized()
+        target_elbow=sh+direction*along+lateral*height
+        upper_now=posed_pos("elbow_"+hand)-posed_pos("shoulder_"+hand)
+        upper_aim=target_elbow-posed_pos("shoulder_"+hand)
+        turn("shoulder_"+hand,upper_now.rotation_difference(upper_aim))
+        current_elbow=posed_pos("elbow_"+hand)
+        lower_now=posed_pos("wrist_"+hand)-current_elbow
+        lower_aim=wrist_goal-current_elbow
+        turn("elbow_"+hand,lower_now.rotation_difference(lower_aim))
+        if (posed_pos("wrist_"+hand)-wrist_goal).length > .004:
+            raise ValueError("Source two-bone arm reconstruction did not converge")
+
+    def orient_fist(hand):
+        little=posed_pos("finger_little_0_"+hand)
+        index=posed_pos("finger_index_0_"+hand)
+        wrist=posed_pos("wrist_"+hand)
+        middle=posed_pos("finger_middle_0_"+hand)
+        knuckle=index-little
+        direction=1 if kind=="longsword" or hand==lead else -1
+        shaft=axis*direction
+        if knuckle.length < .02:
+            raise ValueError("Invalid source knuckle line")
+        q_align=knuckle.normalized().rotation_difference(shaft)
+        # Fingers advance away from the forearm along the weapon's front,
+        # not along the blade axis. This is a full orthonormal hand FRAME
+        # target; aligning just the little->index vector is insufficient.
+        forward=(middle-wrist).normalized()
+        after=q_align @ forward
+        neutral=Vector((0,-.62,-.78))
+        tangent=(neutral-shaft*neutral.dot(shaft)).normalized()
+        projected=(after-shaft*after.dot(shaft)).normalized()
+        signed=math.atan2(shaft.dot(projected.cross(tangent)),projected.dot(tangent))
+        q_roll=Quaternion(shaft,signed)
+        turn("wrist_"+hand,q_roll @ q_align)
+
+    wrist_goals={}
+    for hand in hands:
+        wrist_goals[hand]=goals[hand]-(source_pos("palm_"+hand)-
+            source_pos("wrist_"+hand))-.53*(
+            (source_pos("finger_index_0_"+hand)+
+             source_pos("finger_little_0_"+hand))*.5-source_pos("palm_"+hand))
+    measurements={}
+    for iteration in range(12):
+        reset_bones()
+        for hand in hands:
+            bend_arm(hand,wrist_goals[hand])
+            orient_fist(hand)
+        bpy.context.view_layer.update()
+        errors={hand:goals[hand]-hand_contact(hand) for hand in hands}
+        residual=max(v.length for v in errors.values())
+        if residual < .002:
             break
-    bpy.context.view_layer.update()
-    for hand in ("left","right"):
-        positions[hand]["shoulder"] = tuple(round(v,6) for v in posed_pos("shoulder_"+hand))
-        positions[hand]["elbow"] = tuple(round(v,6) for v in posed_pos("elbow_"+hand))
-        positions[hand]["wrist"] = tuple(round(v,6) for v in posed_pos("wrist_"+hand))
-        positions[hand]["palm"] = tuple(round(v,6) for v in posed_pos("palm_"+hand))
-        positions[hand]["palmErrorMeters"] = round((posed_pos("palm_"+hand) -
-                                                   Vector(positions[hand]["grip"])).length, 6)
-    return positions
+        for hand in hands:
+            wrist_goals[hand] += errors[hand]*.75
+    for hand in hands:
+        sh=posed_pos("shoulder_"+hand)
+        el=posed_pos("elbow_"+hand)
+        wr=posed_pos("wrist_"+hand)
+        knuckle=(posed_pos("finger_index_0_"+hand)-
+                 posed_pos("finger_little_0_"+hand)).normalized()
+        shaft=axis*(1 if kind=="longsword" or hand==lead else -1)
+        elbow_lateral=(el.x-sh.x)*(1 if hand=="right" else -1)
+        measure={
+            "grip":tuple(round(v,6) for v in goals[hand]),
+            "shoulder":tuple(round(v,6) for v in sh),
+            "elbow":tuple(round(v,6) for v in el),
+            "wrist":tuple(round(v,6) for v in wr),
+            "palm":tuple(round(v,6) for v in posed_pos("palm_"+hand)),
+            "contact":tuple(round(v,6) for v in hand_contact(hand)),
+            "contactErrorMeters":round((goals[hand]-hand_contact(hand)).length,6),
+            "shaftKnuckleDot":round(knuckle.dot(shaft),6),
+            "elbowOutwardMeters":round(elbow_lateral,6),
+            "shoulderElbowLength":round((sh-el).length,6),
+            "elbowWristLength":round((el-wr).length,6),
+        }
+        if el.z > sh.z-.07 or elbow_lateral < -.005:
+            raise ValueError("Rejected high/crossed elbow: "+str(measure))
+        measurements[hand]=measure
+    if any(m["contactErrorMeters"]>.012 or m["shaftKnuckleDot"]<.92
+           for m in measurements.values()):
+        raise ValueError("Rejected visual reference before render: "+str(measurements))
+    return measurements
 
 def clear_pose():
     for pose_bone in arm.pose.bones:
