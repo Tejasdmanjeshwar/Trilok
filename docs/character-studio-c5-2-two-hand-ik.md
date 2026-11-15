@@ -229,3 +229,46 @@ The automatic desktop/touch Playwright regression includes the seeded
 character, right-hand sword equip, full-body and hand-focused screenshots,
 invalid-seed rejection and deterministic regeneration. It requires manual
 Phase Acceptance dispatch under the existing workflow policy.
+
+## Owner-discovered generated anatomy regressions (2026-11-15, subsequent C5.2 feedback)
+
+The owner visually accepted the staff's updated same-direction thumb grip in the
+independently observed deployed build `c579999e9137837e7082e1fcd7bf98f2895c4668`
+(build `c579999e-20261115T124112028Z`). Do not casually redesign this
+approved presentation.
+
+Two new deterministic browser-reported right-leading neutral sword failures
+were captured against that build:
+
+- `498155388`: an exceptionally young human (`macro/age=0.05506`,
+  `macro/height=0.082736`) failed during C3 pose corrective initialization
+  with `C3.3 short limb`. Root cause: `HumanPoseCorrectives` rejected valid
+  shoulder/hip chains shorter than a fixed adult-only 0.15 m. Now reject only
+  nonfinite or collapsed chains and scale corrective displacement by source
+  limb length; the complete generated-anatomy regression **passes**.
+- `802593405`: an adult (`macro/age=0.898233`, `macro/height=0.211578`)
+  fails `primary-unreachable` despite anatomically plausible individual
+  upper/lower lengths (~0.23/0.19–0.21 m), an arm-reach budget ~0.45–0.47 m,
+  and grip-target distances ~0.32–0.33 m from the neutral shoulders. The
+  coupled fallback can get both hand shaft axes close to perfect while leaving
+  >50 mm of contact error. This remains an **OPEN release-blocking regression**
+  and is not fixed by the bounded clavicle/tilt trials. The experimental
+  extra-cost trials were removed, preserving legal joint limits, one rigid
+  sword and existing acceptance thresholds.
+
+**Important corrective finding:** Earlier seed `2694905601` testing did
+not apply `shape` before body morphology. Full source-shape application in the
+test exposes the owner's real `primary-unreachable` failure, and additional
+legal inward-shoulder failure-only starts now pass that complete deterministic
+regression. The test must not be weakened or replaced with diagnostic finiteness.
+
+The Generate panel now accepts manually entered decimal uint32 seeds and shows
+the current seed. Tests cover invalid input and exact deterministic recipe
+reproduction; both new failing seeds are retained as positive source-morphology
+fixtures. A passing generic build does not prove new seed regressions pass.
+
+**Verification status:** At the last focused run, 405/406 tests passed; the
+remaining failure is `802593405` two-hand sword. Latest branch CI,
+compiled build, desktop/mobile Chromium screenshots and exact Cloudflare
+deployment SHA still require independent verification after changes.
+PR #84 remains draft/unmerged; no C5.3.
