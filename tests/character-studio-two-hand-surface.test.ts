@@ -135,6 +135,9 @@ describe("C5.2 generated skinned-body occupied volume",()=>{
           const first=solveTwoHandIK(model,fk,[],lead,kind);
           expect(first.weaponWorld.elements.every(Number.isFinite)).toBe(true);
           expect(Number.isFinite(first.bodyClearanceMeters)).toBe(true);
+          expect(first.reachable,
+            "generated seed "+seed+" "+kind+"/"+lead+
+            " cannot lose its two-hand equip to belly collision").toBe(true);
           if(first.reachable){
             expect(first.bodyClearanceMeters,kind+"/"+lead+
               " must not intersect morphed abdomen").toBeGreaterThanOrEqual(0);
