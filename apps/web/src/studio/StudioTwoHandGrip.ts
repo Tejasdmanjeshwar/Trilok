@@ -97,94 +97,131 @@ function freedomSet(graph:AnatomicalGraphV1,fk:AnatomicalFK,hand:HandSide):AxisD
   }
   return result;
 }
-/** Symmetric bounded local IK: both arm chains are allowed to rotate.
- * A fixed primary-arm target prevents the secondary wrist from achieving
- * both handle contact and orientation on the actual calibrated MakeHuman rig.
- * Instead optimize the two relative palm frames; only at the end does the
- * primary socket become the weapon-world authority. */
-function fitBothArms(model:StudioHumanModel,fk:AnatomicalFK,
-  state:Map<string,JointTarget>,primary:HandSide,gap:number):
+/** Explicit, source-calibrated ready stances. These are rotation
+ * channels in the existing MakeHuman rest-relative FK, not an independent rig.
+ * Both elbows remain below shoulder level and the hands in front of the torso.
+ * The sword starts with the lead elbow forward and its supporting arm folded
+ * inward; the staff starts as a wide, lower horizontal guard. */
+const STANCES:Readonly<Record<TwoHandWeapon,{
+  readonly shoulderAbduction:number;
+  readonly shoulderFlexion:number;
+  readonly shoulderRoll:number;
+  readonly elbowFlexion:number;
+  readonly forearmRoll:number;
+  readonly wristFlexion:number;
+}>>=Object.freeze({
+  longsword:{shoulderAbduction:.18,shoulderFlexion:.42,
+    shoulderRoll:1.08,elbowFlexion:1.04,forearmRoll:.12,wristFlexion:-.08},
+  staff:{shoulderAbduction:.16,shoulderFlexion:.34,
+    shoulderRoll:1.07,elbowFlexion:.98,forearmRoll:0,wristFlexion:0},
+});
+function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
+  state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide):void{
+  const pose=STANCES[kind];
+  const add=(hand:HandSide,role:string,motion:AnatomicalMotion,value:number)=>{
+    const joint=scopedJoint(graph,role+"_"+hand,hand);
+    const freedom=fk.frames.get(joint.id)?.freedoms.get(motion);
+    if(!freedom)throw new Error("Missing authored grip freedom");
+    state.set(key(joint.id,motion),{jointId:joint.id,motion,
+      radians:THREE.MathUtils.clamp(value,freedom.min,freedom.max)});
+  };
+  for(const hand of ["left","right"] as const){
+    const mirror=hand==="right"?1:-1;
+    // Deliberately asymmetric, no mirrored overhead X-shaped arms.
+    const isLead=hand===primary;
+    add(hand,"clavicle","abduction",0);
+    add(hand,"clavicle","flexion",0);
+    add(hand,"shoulder","abduction",pose.shoulderAbduction);
+    add(hand,"shoulder","flexion",pose.shoulderFlexion+
+      (kind==="longsword"&&!isLead?-.08:0));
+    add(hand,"shoulder","rotation",mirror*pose.shoulderRoll);
+    add(hand,"elbow","flexion",pose.elbowFlexion+
+      (kind==="longsword"&&!isLead?.3:0));
+    add(hand,"elbow","rotation",mirror*pose.forearmRoll);
+    add(hand,"wrist","flexion",pose.wristFlexion);
+    add(hand,"wrist","abduction",0);
+  }
+}
+function axisDirection(a:THREE.Vector3,b:THREE.Vector3):THREE.Vector3{
+  return b.clone().sub(a).normalize();
+}
+function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
+  primary:HandSide):{ok:boolean;headClearance:number;elbowMax:number}{
+  const secondary=primary==="left"?"right":"left";
+  const head=world(jointBone(model,"head",primary));
+  const chest=world(jointBone(model,"chest",primary));
+  let elbowMax=-Infinity,headClearance=Infinity;
+  for(const hand of [primary,secondary]){
+    const elbow=world(jointBone(model,"elbow_"+hand,hand));
+    const wrist=world(jointBone(model,"wrist_"+hand,hand));
+    const palm=world(jointBone(model,"palm_"+hand,hand));
+    elbowMax=Math.max(elbowMax,elbow.y);
+    for(const p of [elbow,wrist,palm]){
+      headClearance=Math.min(headClearance,p.distanceTo(head));
+    }
+  }
+  const palms=[world(jointBone(model,"palm_"+primary,primary)),
+    world(jointBone(model,"palm_"+secondary,secondary))];
+  const maxRise=Math.max(...palms.map(p=>p.y));
+  const minForward=Math.min(...palms.map(p=>p.z-chest.z));
+  return {ok:headClearance>.19&&elbowMax<head.y-.12&&
+    maxRise<head.y-.18&&minForward>-.06,
+    headClearance,elbowMax};
+}
+/** A tiny secondary-arm correction around an already usable authored pose.
+ * Fails safely instead of inventing a high crossed-arm configuration. */
+function refineOffhand(model:StudioHumanModel,fk:AnatomicalFK,
+  state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide,
+  goal:THREE.Vector3,wantedAxis:THREE.Vector3):
   {error:number;dot:number;iterations:number}{
   const secondary:HandSide=primary==="left"?"right":"left";
-  const dofs=[...freedomSet(model.human.spike.graph,fk,primary),
-    ...freedomSet(model.human.spike.graph,fk,secondary)];
-  const origin=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
+  const dofs=freedomSet(model.human.spike.graph,fk,secondary)
+    .filter(d=>d.motion!=="rotation"||!d.jointId.includes("clavicle"));
+  const start=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
   const apply=()=>fk.apply([...state.values()]);
   const measure=()=>{
-    const a=palmFrame(model,primary),b=palmFrame(model,secondary);
-    const target=a.palm.clone().addScaledVector(a.axis,-gap);
-    const error=b.palm.distanceTo(target);
-    const dot=THREE.MathUtils.clamp(-a.axis.dot(b.axis),-1,1);
-    // A shared handle must have BOTH positional and rotational agreement.
-    // The source-knuckle axes on mirrored palms should point in opposite
-    // directions, and the offhand should sit gap meters from the primary.
-    let deviation=0;
+    const frame=palmFrame(model,secondary);
+    const error=frame.palm.distanceTo(goal);
+    const dot=THREE.MathUtils.clamp(-frame.axis.dot(wantedAxis),-1,1);
+    const safety=anatomicalGuard(model,kind,primary);
+    let travel=0;
     for(const d of dofs){
-      const delta=(state.get(d.key)?.radians??0)-origin.get(d.key)!;
-      deviation+=delta*delta;
+      const delta=(state.get(d.key)?.radians??0)-start.get(d.key)!;
+      travel+=delta*delta;
     }
-    const axisError=(1-dot)*.065;
-    return {cost:error*error+axisError*axisError+.0000005*deviation,
-      error,dot};
+    const overshoot=Math.max(0,safety.elbowMax-
+      world(jointBone(model,"head",primary)).y+.13);
+    const cost=error*error+.00018*(1-dot)*(1-dot)+
+      .00010*travel+overshoot*overshoot*40+
+      (safety.headClearance<.19?(.19-safety.headClearance)**2*50:0);
+    return {cost,error,dot};
   };
-  apply();
-  let best=measure(),iterations=0;
-  for(const step of [1,.65,.4,.22,.11,.055,.0275]){
-    for(let sweep=0;sweep<4;sweep++){
-      iterations++;
-      let improved=false;
-      for(const d of dofs){
-        const current=state.get(d.key)?.radians??0;
-        let chosen=current;
-        for(const delta of [-step,step]){
-          const value=THREE.MathUtils.clamp(current+delta,d.min,d.max);
-          if(Math.abs(value-current)<1e-10)continue;
-          state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:value});
+  apply();let best=measure(),iterations=0;
+  for(const step of [.25,.12,.06,.03]){
+    for(let sweep=0;sweep<2;sweep++){
+      iterations++;let improved=false;
+      for(const dof of dofs){
+        const current=state.get(dof.key)?.radians??0;
+        let selected=current;
+        for(const d of [-step,step]){
+          const candidate=THREE.MathUtils.clamp(current+d,dof.min,dof.max);
+          if(Math.abs(candidate-start.get(dof.key)!)>.45)continue;
+          state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:candidate});
           apply();
           const next=measure();
-          if(next.cost<best.cost-1e-12){
-            best=next;chosen=value;improved=true;
-          }
+          if(next.cost<best.cost-1e-12){best=next;selected=candidate;improved=true;}
         }
-        state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:chosen});
+        state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:selected});
         apply();
       }
       if(!improved)break;
     }
   }
-  apply();
-  const final=measure();
-  return {error:final.error,dot:final.dot,iterations};
-}
-/** A reproducible source-valid two-hand guard stance. Starting from the
- * C1 A-pose is a poor IK seed: individual shoulder rotations initially move
- * the wrists away from the hilt and greedy CCD stalls at a local minimum.
- * These anatomical joint angles were selected by evaluating the pinned
- * MakeHuman arm envelope: mirrored palms can meet near upper chest while
- * staying within ALL native FK joint limits. The grip then drives offhand IK. */
-function stageTwoHandArms(graph:AnatomicalGraphV1,fk:AnatomicalFK,
-  state:Map<string,JointTarget>):void{
-  for(const hand of ["left","right"] as const){
-    for(const [role,motion,value] of [
-      ["shoulder","abduction",2.20],
-      ["shoulder","flexion",-.50],
-      ["shoulder","rotation",0],
-      ["elbow","flexion",1.50],
-      ["elbow","rotation",0],
-      ["wrist","flexion",0],
-      ["wrist","abduction",0],
-    ] as const){
-      const joint=scopedJoint(graph,role+"_"+hand,hand);
-      const frame=fk.frames.get(joint.id)?.freedoms.get(motion);
-      if(!frame)throw new Error("Missing guard stance freedom");
-      state.set(key(joint.id,motion),{
-        jointId:joint.id,motion,
-        radians:THREE.MathUtils.clamp(value,frame.min,frame.max)});
-    }
-  }
+  return {...measure(),iterations};
 }
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
-  base:readonly JointTarget[],primary:HandSide):TwoHandIKResult{
+  base:readonly JointTarget[],primary:HandSide,
+  kind:TwoHandWeapon="longsword"):TwoHandIKResult{
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
   const state=poseMap(base);
@@ -193,25 +230,34 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     for(const c of swordGripTargets(graph,hand,spread))
       state.set(key(c.jointId,c.motion),c);
   }
-  stageTwoHandArms(graph,fk,state);
+  stageReadyPose(graph,fk,state,kind,primary);
   fk.apply([...state.values()]);
-  const frame=palmFrame(model,primary);
-  const gap=THREE.MathUtils.clamp(frame.width*1.55,.058,.16);
-  // The primary palm itself defines the weapon's rigid world pose. Never
-  // drag it toward a fabricated world-space chest target or move the root.
-  const second=fitBothArms(model,fk,state,primary,gap);
-  const first={error:0,dot:1,iterations:0};
-  const primaryOkay=true;
-  const secondaryOkay=second.error<=.025&&second.dot>.45;
-  const reachable=primaryOkay&&secondaryOkay;
-  if(!reachable)fk.apply(base);
-  const commands=reachable?[...state.values()]:[...base];
-  return Object.freeze({reachable,commands:Object.freeze(commands),
-    primaryErrorMeters:first.error,secondaryErrorMeters:second.error,
-    primaryAxisDot:first.dot,secondaryAxisDot:second.dot,
-    iterations:first.iterations+second.iterations,
-    reason:!primaryOkay?"primary-unreachable":!secondaryOkay?
-      "secondary-unreachable":"ok",separationMeters:gap});
+  const lead=palmFrame(model,primary),follower=palmFrame(model,secondary);
+  // Staff: a wide shaft passes between palms, measured from their actual
+  // ready-stance positions. Sword: compact stacked hilt near the lead hand.
+  const gap=kind==="staff"?
+    THREE.MathUtils.clamp(lead.palm.distanceTo(follower.palm),.30,.85):
+    THREE.MathUtils.clamp(lead.width*1.55,.065,.16);
+  const axis=kind==="staff"?
+    axisDirection(follower.palm,lead.palm):lead.axis.clone();
+  const target=lead.palm.clone().addScaledVector(axis,-gap);
+  const secondaryResult=refineOffhand(model,fk,state,kind,primary,target,axis);
+  const actualLead=palmFrame(model,primary),actualOff=palmFrame(model,secondary);
+  const actualAxis=kind==="staff"?
+    axisDirection(actualOff.palm,actualLead.palm):actualLead.axis;
+  const secondaryError=actualOff.palm.distanceTo(
+    actualLead.palm.clone().addScaledVector(actualAxis,-gap));
+  const dot=THREE.MathUtils.clamp(-actualOff.axis.dot(actualAxis),-1,1);
+  const guard=anatomicalGuard(model,kind,primary);
+  const reached=guard.ok&&secondaryError<=(kind==="staff"?.035:.045)&&dot>.15;
+  if(!reached)fk.apply(base);
+  const commands=reached?[...state.values()]:[...base];
+  return Object.freeze({reachable:reached,commands:Object.freeze(commands),
+    primaryErrorMeters:0,secondaryErrorMeters:secondaryError,
+    primaryAxisDot:1,secondaryAxisDot:dot,
+    iterations:secondaryResult.iterations,
+    reason:reached?"ok":"secondary-unreachable",
+    separationMeters:gap});
 }
 
 export function createTwoHandDescriptor(model:StudioHumanModel,
