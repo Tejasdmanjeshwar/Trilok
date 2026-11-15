@@ -37,7 +37,11 @@ export interface TwoHandIKResult {
   readonly primaryAxisDot:number;
   readonly secondaryAxisDot:number;
   readonly iterations:number;
-  readonly reason:"ok"|"primary-unreachable"|"secondary-unreachable";
+  readonly reason:"ok"|"primary-unreachable"|"secondary-unreachable"|"unsafe-stance";
+  readonly headClearanceMeters:number;
+  readonly elbowMaxHeightMeters:number;
+  readonly headHeightMeters:number;
+  readonly maximumPalmHeightMeters:number;
   readonly separationMeters:number;
 }
 
@@ -146,7 +150,8 @@ function axisDirection(a:THREE.Vector3,b:THREE.Vector3):THREE.Vector3{
   return b.clone().sub(a).normalize();
 }
 function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
-  primary:HandSide):{ok:boolean;headClearance:number;elbowMax:number}{
+  primary:HandSide):{ok:boolean;headClearance:number;elbowMax:number;
+    headY:number;maximumPalmY:number}{
   const secondary:HandSide=primary==="left"?"right":"left";
   const head=world(jointBone(model,"head",primary));
   const chest=world(jointBone(model,"chest",primary));
@@ -166,7 +171,7 @@ function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
   const minForward=Math.min(...palms.map(p=>p.z-chest.z));
   return {ok:headClearance>.19&&elbowMax<head.y-.12&&
     maxRise<head.y-.18&&minForward>-.06,
-    headClearance,elbowMax};
+    headClearance,elbowMax,headY:head.y,maximumPalmY:maxRise};
 }
 /** A tiny secondary-arm correction around an already usable authored pose.
  * Fails safely instead of inventing a high crossed-arm configuration. */
@@ -329,7 +334,11 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     primaryErrorMeters:0,secondaryErrorMeters:secondaryError,
     primaryAxisDot:1,secondaryAxisDot:dot,
     iterations:secondaryResult.iterations,
-    reason:reached?"ok":"secondary-unreachable",
+    reason:reached?"ok":!guard.ok?"unsafe-stance":"secondary-unreachable",
+    headClearanceMeters:guard.headClearance,
+    elbowMaxHeightMeters:guard.elbowMax,
+    headHeightMeters:guard.headY,
+    maximumPalmHeightMeters:guard.maximumPalmY,
     separationMeters:gap});
 }
 
