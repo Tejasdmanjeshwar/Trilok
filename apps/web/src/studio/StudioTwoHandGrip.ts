@@ -740,7 +740,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     return new THREE.Matrix4().compose(
       authoredCenter.clone().add(shift),rot,new THREE.Vector3(1,1,1));
   };
-  const sample=(values:readonly number[])=>{
+  const sample=(values:readonly number[],stage:"position"|"aligned")=>{
     for(let i=0;i<jointCount;i++){
       const d=dofs[i]!;
       state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:values[i]!});
@@ -753,14 +753,18 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     const frameA=palmFrame(model,lead);
     const frameB=palmFrame(model,off);
     const guard=anatomicalGuard(model,kind,lead);
-    const axWeight=kind==="staff"?.11:.075;
+    // Continuation: first close BOTH contacts before paying for shaft-axis
+    // alignment, then converge orientation with contact held strongly.
+    const axWeight=stage==="position"?.008:(kind==="staff"?.11:.05);
+    const contactWeight=stage==="position"?4:3;
     // Soft safety barriers expose gradients to optimization instead of
     // declaring a near-contact result safe after it has converged.
     const head=Math.max(0,.195*guard.scale-guard.headClearance);
     const elbow=Math.max(0,guard.elbowMax-guard.headY+.135*guard.scale);
     const palm=Math.max(0,guard.maximumPalmY-guard.headY+.20*guard.scale);
     const forearm=Math.max(0,.05*guard.scale-guard.forearmClearance);
-    const residual=[a.x,a.y,a.z,b.x,b.y,b.z,
+    const residual=[a.x*contactWeight,a.y*contactWeight,a.z*contactWeight,
+      b.x*contactWeight,b.y*contactWeight,b.z*contactWeight,
       (frameA.axis.x-axis.x)*axWeight,(frameA.axis.y-axis.y)*axWeight,
       (frameA.axis.z-axis.z)*axWeight,
       (frameB.axis.x-axis.x)*axWeight,(frameB.axis.y-axis.y)*axWeight,
@@ -773,7 +777,11 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
       residual.push(values[i]!*.008);
     return residual;
   };
-  const refined=fitConstrainedIK(start,limits,sample,72);
+  // A single continuation trajectory, not anatomy-specific stance search.
+  const contactFit=fitConstrainedIK(start,limits,
+    values=>sample(values,"position"),64);
+  const refined=fitConstrainedIK(contactFit.values,limits,
+    values=>sample(values,"aligned"),64);
   const commands=[...state.values()];
   const weapon=worldFrame(refined.values);
   const axis=weaponAxis(weapon);
@@ -798,7 +806,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     primaryDeltaMeters:Object.freeze(actualA.sub(targetA).toArray()),
     secondaryDeltaMeters:Object.freeze(actualB.sub(targetB).toArray()),
     primaryAxisDot:dotA,secondaryAxisDot:dotB,
-    iterations:0,refinementIterations:refined.iterations,
+    iterations:0,refinementIterations:contactFit.iterations+refined.iterations,
     reason:"ok" as const,headClearanceMeters:guard.headClearance,
     elbowMaxHeightMeters:guard.elbowMax,headHeightMeters:guard.headY,
     maximumPalmHeightMeters:guard.maximumPalmY,
