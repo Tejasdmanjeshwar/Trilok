@@ -6,6 +6,7 @@ import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from
 import {MakeHumanBodyController,type BodyAtlas} from
   "../apps/web/src/characters/geometry/MakeHumanBodyTargets";
 import {AnatomicalFK} from "../apps/web/src/characters/geometry/AnatomicalFK";
+import {HumanPoseCorrectives} from "../apps/web/src/characters/geometry/HumanPoseCorrectives";
 import {generateStudioCharacter,STUDIO_GENERATOR_VERSION} from "../apps/web/src/studio/StudioGenerator";
 import {applyHumanMorphology} from "../apps/web/src/characters/geometry/HumanMorphology";
 import {createHumanHeadRecipe} from "../packages/character-core/src/index";
@@ -21,6 +22,7 @@ function make(body:Readonly<Record<string,number>>={},shape?:ReturnType<typeof g
     parseAnatomicalOBJ(load("makehuman-base.obj"),{includeGroups:["body"]}),{
       rig:JSON.parse(load("makehuman-default.mhskel")) as SourceRig,
       weights:JSON.parse(load("makehuman-default_weights.mhw")) as SourceWeights});
+  if(shape)applyHumanMorphology(human,createHumanHeadRecipe(shape));
   if(Object.keys(body).length){
     const morph=new MakeHumanBodyController(human,atlas);
     try{expect(morph.apply(body).finiteFailures).toBe(0);}
@@ -88,6 +90,35 @@ function measureStaff(model:StudioHumanModel,hand:HandSide,
   return results;
 }
 describe("C5.2 staff source-skinned contact diagnostics",()=>{
+  it.each([
+    {seed:498155388,sex:.003517,age:.05506,height:.082736,
+      expected:"infant source-limb corrective calibration"},
+    {seed:802593405,sex:.099852,age:.898233,height:.211578,
+      expected:"bounded two-arm contact convergence"},
+  ])("equips captured random sword failure $seed ($expected)",({seed,sex,age,height})=>{
+    const generated=generateStudioCharacter(seed);
+    expect(generated.morphology.body["macro/sex"]).toBe(sex);
+    expect(generated.morphology.body["macro/age"]).toBe(age);
+    expect(generated.morphology.body["macro/height"]).toBe(height);
+    const {human,model,fk}=make(generated.morphology.body,generated.morphology.shape);
+    try {
+      // This is the exact failure path that used to reject infant-sized arms.
+      const correctives=new HumanPoseCorrectives(human);
+      try{
+        for(const lead of ["right","left"] as const){
+          fk.apply([]);
+          const solved=solveTwoHandIK(model,fk,[],lead,"longsword");
+          expect(solved.reachable,JSON.stringify({seed,lead,reason:solved.reason,
+            first:solved.primaryErrorMeters,second:solved.secondaryErrorMeters,
+            attempts:solved.reachDiagnostics?.slice(-6)})).toBe(true);
+          expect(solved.primaryErrorMeters).toBeLessThanOrEqual(.023);
+          expect(solved.secondaryErrorMeters).toBeLessThanOrEqual(.023);
+          correctives.apply(solved.commands);
+        }
+      }finally{correctives.dispose();}
+    }finally{human.dispose();}
+  },120_000);
+
   it("reproduces seed 2694905601 and equips its generated neutral sword",()=>{
     const generated=generateStudioCharacter(2694905601);
     expect(STUDIO_GENERATOR_VERSION).toBe("studio-human-v2");
