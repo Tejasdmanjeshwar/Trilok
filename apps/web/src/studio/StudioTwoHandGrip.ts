@@ -680,7 +680,9 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
  */
 function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],kind:TwoHandWeapon,lead:HandSide,
-  dimensions:TwoHandDimensions,seed:number):
+  dimensions:TwoHandDimensions,seed:number,
+  diagnostics:{seed:number;initialSpan:number;primaryError:number;
+    secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]):
   TwoHandIKResult|undefined {
   const off:HandSide=lead==="left"?"right":"left";
   const graph=model.human.spike.graph;
@@ -842,6 +844,10 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
     const dotB=palmFrame(model,off).axis.dot(axis)*(kind==="staff"?-1:1);
     const guard=anatomicalGuard(model,kind,lead);
     const minimum=kind==="staff"?.85:.42;
+    diagnostics.push({seed,initialSpan,primaryError:errorA,secondaryError:errorB,
+      primaryAxis:dotA,secondaryAxis:dotB,
+      reason:!guard.ok?"relative-unsafe":
+        dotA<=minimum||dotB<=minimum?"relative-orientation":"relative-span"});
     if(guard.ok&&errorA<=.023&&errorB<=.023&&dotA>minimum&&dotB>minimum){
       return Object.freeze({
         reachable:true,commands:Object.freeze([...state.values()]),
@@ -971,7 +977,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   if(!chosen?.reachable){
     for(const seed of kind==="longsword"?[6,2,5,0]:[2,1,0]){
       const paired=fitRelativeTwoHandContacts(model,fk,fingerState,
-        kind,primary,dimensions,seed);
+        kind,primary,dimensions,seed,diagnostics);
       if(paired){chosen=paired;break;}
     }
     if(!chosen?.reachable)fk.apply(base);
