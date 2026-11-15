@@ -156,21 +156,43 @@ function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
   const head=world(jointBone(model,"head",primary));
   const chest=world(jointBone(model,"chest",primary));
   let elbowMax=-Infinity,headClearance=Infinity;
+  const forearms:THREE.Line3[]=[];
+  const scratch=new THREE.Vector3();
   for(const hand of [primary,secondary]){
+    const shoulder=world(jointBone(model,"shoulder_"+hand,hand));
     const elbow=world(jointBone(model,"elbow_"+hand,hand));
     const wrist=world(jointBone(model,"wrist_"+hand,hand));
     const palm=world(jointBone(model,"palm_"+hand,hand));
     elbowMax=Math.max(elbowMax,elbow.y);
-    for(const p of [elbow,wrist,palm]){
-      headClearance=Math.min(headClearance,p.distanceTo(head));
+    const upper=new THREE.Line3(shoulder,elbow);
+    const lower=new THREE.Line3(elbow,wrist);
+    forearms.push(lower);
+    for(const segment of [upper,lower]){
+      segment.closestPointToPoint(head,true,scratch);
+      headClearance=Math.min(headClearance,scratch.distanceTo(head));
     }
+    headClearance=Math.min(headClearance,palm.distanceTo(head));
+  }
+  // All points along the two forearm centerlines are checked against one
+  // another; this prevents two wrists reaching the handle through each
+  // other's forearm. Sampling is a conservative pose guard, not a mesh-level
+  // skin collision certification.
+  let forearmClearance=Infinity;
+  const alongA=new THREE.Vector3(),alongB=new THREE.Vector3();
+  for(let i=0;i<=16;i++){
+    forearms[0]!.at(i/16,alongA);
+    forearms[1]!.closestPointToPoint(alongA,true,scratch);
+    forearmClearance=Math.min(forearmClearance,alongA.distanceTo(scratch));
+    forearms[1]!.at(i/16,alongB);
+    forearms[0]!.closestPointToPoint(alongB,true,scratch);
+    forearmClearance=Math.min(forearmClearance,alongB.distanceTo(scratch));
   }
   const palms=[world(jointBone(model,"palm_"+primary,primary)),
     world(jointBone(model,"palm_"+secondary,secondary))];
   const maxRise=Math.max(...palms.map(p=>p.y));
   const minForward=Math.min(...palms.map(p=>p.z-chest.z));
-  return {ok:headClearance>.19&&elbowMax<head.y-.12&&
-    maxRise<head.y-.18&&minForward>-.06,
+  return {ok:headClearance>.19&&forearmClearance>.045&&
+    elbowMax<head.y-.12&&maxRise<head.y-.18&&minForward>-.06,
     headClearance,elbowMax,headY:head.y,maximumPalmY:maxRise};
 }
 /** A tiny secondary-arm correction around an already usable authored pose.
