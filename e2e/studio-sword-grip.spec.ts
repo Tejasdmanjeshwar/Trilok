@@ -25,6 +25,16 @@ test("reference sword equips, focuses and survives pose changes",async({page})=>
   await page.waitForTimeout(650);
   await page.screenshot({path:"test-results/studio/"+test.info().project.name+
     "-sword-left-focus.png",fullPage:true});
+  // Exercise the real Studio body regeneration lifecycle while equipped.
+  await page.getByRole("button",{name:"Body",exact:true}).click();
+  await page.locator("#studio-preset").selectOption("largeHands");
+  await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
+  await page.getByRole("button",{name:"Pose",exact:true}).click();
+  await expect(sword).toHaveValue("left");
+  await page.locator("#studio-sword-focus").click();
+  await page.waitForTimeout(650);
+  await page.screenshot({path:"test-results/studio/"+test.info().project.name+
+    "-sword-large-hands-focus.png",fullPage:true});
   await sword.selectOption("none");
   await expect(page.locator("#studio-sword-focus")).toBeDisabled();
   expect(errors).toEqual([]);
