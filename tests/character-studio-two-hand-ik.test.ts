@@ -145,7 +145,10 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           const result=solveTwoHandIK(model,fk,[],side,kind);
           console.log("C52-NEUTRAL-STANCE",JSON.stringify({kind,side,
             reachable:result.reachable,position:result.secondaryErrorMeters,
-            axis:result.secondaryAxisDot,iterations:result.iterations}));
+            axis:result.secondaryAxisDot,iterations:result.iterations,
+            elbowY:result.elbowMaxHeightMeters,headY:result.headHeightMeters,
+            maximumPalmY:result.maximumPalmHeightMeters,
+            headClearance:result.headClearanceMeters,reason:result.reason}));
         }
     }finally{human.dispose();}
   },120_000);
