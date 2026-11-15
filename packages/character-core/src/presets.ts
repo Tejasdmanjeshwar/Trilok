@@ -73,12 +73,12 @@ export function createAnatomyPreset(options:PresetOptionsV1={}): AnatomicalGraph
     const palm=add("arm["+side+",0]/palm","palm_"+side,wrist,[0,-.055,.01],[cap],[]);
     socket(palm,"primary_grip","primary",[0,-.04,.04],[cap]);
     socket(palm,"secondary_grip","secondary",[0,-.04,.04],[cap]);
+    socket(palm,"shield","shield",[0,-.02,.08],[cap]);
     if(side==="left") {
       socket(palm,"bow_nock","bow_nock",[0,-.03,.13],[cap]);
       socket(palm,"projectile_origin","projectile",[0,-.08,.28],[cap]);
     } else {
       socket(palm,"projectile_origin","projectile",[0,-.08,.28],[cap]);
-      socket(palm,"shield","shield",[0,-.02,.08],[cap]);
     }
     for(const digit of ["thumb","index","middle","ring","little"]) {
       let p=palm;
