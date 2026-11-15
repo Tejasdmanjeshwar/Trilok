@@ -515,8 +515,7 @@ function referenceElbow(model:StudioHumanModel,kind:TwoHandWeapon,
 function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,lead:HandSide,
   hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3,anchors?:GripAnchors,
-  maxTravelRadians=1.10,collision?:StudioBodyCollision,
-  weapon?:THREE.Matrix4,dimensions?:TwoHandDimensions):
+  maxTravelRadians=1.10):
   {error:number;dot:number;iterations:number}{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
   const starting=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
@@ -533,8 +532,6 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     const dot=THREE.MathUtils.clamp(frame.axis.dot(desiredAxis),-1,1);
     const forwardOverlap=Math.abs(frame.forward.dot(shaft));
     const guard=anatomicalGuard(model,kind,lead);
-    const body=collision&&weapon&&dimensions?
-      collision.measure(model,weapon,kind,dimensions):undefined;
     let travel=0;
     for(const d of dofs){
       const delta=(state.get(d.key)?.radians??0)-starting.get(d.key)!;
@@ -549,8 +546,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
       .006*Math.max(0,forwardOverlap-.36)**2+
       .00015*travel+(kind==="longsword"?.06:0)*elbowPoleError*elbowPoleError+
       35*(headGap*headGap+elbowGap*elbowGap+
-        palmGap*palmGap+forearmGap*forearmGap)+
-      (body?30*body.penalties.reduce((sum,x)=>sum+x*x,0):0),
+        palmGap*palmGap+forearmGap*forearmGap),
       error:positionError,dot};
   };
   apply();let best=cost(),iterations=0;
@@ -605,8 +601,7 @@ function solveDampedNormal(matrix:number[][],rhs:number[]):number[]|undefined{
 function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,lead:HandSide,
   hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3,
-  anchors?:GripAnchors,collision?:StudioBodyCollision,
-  weapon?:THREE.Matrix4,dimensions?:TwoHandDimensions):number{
+  anchors?:GripAnchors):number{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
   const direction=1;
   const desiredAxis=shaft.clone().multiplyScalar(direction);
@@ -635,10 +630,6 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
       sum+=delta*delta;
     }
     const safety=anatomicalGuard(model,kind,lead);
-    if(collision&&weapon&&dimensions){
-      const body=collision.measure(model,weapon,kind,dimensions);
-      sum+=30*body.penalties.reduce((total,depth)=>total+depth*depth,0);
-    }
     if(!safety.ok){
       const head=Math.max(0,.195*safety.scale-safety.headClearance);
       const arm=Math.max(0,safety.elbowMax-safety.headY+.135*safety.scale);
@@ -970,6 +961,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     for(const c of swordGripTargets(graph,hand,spread))
       state.set(key(c.jointId,c.motion),c);
   }
+  // Preserve fast approved candidate evaluation; if torso occupancy fails,
+  // the shared collision-constrained weapon/arm objective performs recovery.
   // Default seed first: the owner's accepted normal sword grip must remain
   // untouched whenever already reachable. Morphology fallbacks only run when
   // this pose cannot satisfy the SAME unchanged anatomical acceptance gates.
@@ -1003,19 +996,19 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const firstGoal=gripWorld(weaponWorld,dimensions.primaryGripY);
     const secondGoal=gripWorld(weaponWorld,dimensions.secondaryGripY);
     const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft,anchors,
-      seed===0?1.10:1.55,collision,weaponWorld,dimensions);
+      seed===0?1.10:1.55);
     const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft,anchors,
-      seed===0?1.10:1.55,collision,weaponWorld,dimensions);
+      seed===0?1.10:1.55);
     let refinementIterations=0;
     // The original accepted pose uses only the existing coordinate-descent
     // solver. Damped refinement is strictly a failed sword configuration path.
     if(kind==="longsword"&&a.error<.07&&b.error<.40&&
       (a.error>.023||b.error>.023||a.dot<.42||b.dot<.42)){
       refinementIterations+=fitHandDamped(model,fk,state,kind,primary,
-        secondary,secondGoal,shaft,anchors,collision,weaponWorld,dimensions);
+        secondary,secondGoal,shaft,anchors);
       if(contactWorld(model,primary,anchors).distanceTo(firstGoal)>.023)
         refinementIterations+=fitHandDamped(model,fk,state,kind,primary,
-          primary,firstGoal,shaft,anchors,collision,weaponWorld,dimensions);
+          primary,firstGoal,shaft,anchors);
     }
     fk.apply([...state.values()]);
     const first=palmFrame(model,primary),second=palmFrame(model,secondary);
