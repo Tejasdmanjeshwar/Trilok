@@ -904,7 +904,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
 }
 
 export function createTwoHandDescriptor(model:StudioHumanModel,
-  kind:TwoHandWeapon,primary:HandSide):TwoHandGripV1 {
+  kind:TwoHandWeapon,primary:HandSide,
+  dimensions=twoHandDimensions(model,kind)):TwoHandGripV1 {
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
   const socket=(hand:HandSide,purpose:"primary_grip"|"secondary_grip")=>{
@@ -914,7 +915,6 @@ export function createTwoHandDescriptor(model:StudioHumanModel,
     if(hits.length!==1)throw new Error("Missing/ambiguous "+purpose+" socket "+hand);
     return hits[0]!.id;
   };
-  const dimensions=twoHandDimensions(model,kind);
   return Object.freeze({schemaVersion:1,kind,primary,secondary,
     primarySocket:socket(primary,"primary_grip"),
     secondarySocket:socket(secondary,"secondary_grip"),
@@ -976,7 +976,7 @@ export class StudioTwoHandPreview {
     primary:HandSide,solved:TwoHandIKResult){
     if(!solved.reachable)throw new Error("Unable to reach both weapon grips");
     model.human.spike.character.root.updateWorldMatrix(true,true);
-    this.descriptor=createTwoHandDescriptor(model,kind,primary);
+    this.descriptor=createTwoHandDescriptor(model,kind,primary,solved.dimensions);
     this.object=referenceWeapon(kind,this.descriptor.dimensions);
     this.offset=model.human.spike.character
       .socketWorld(this.descriptor.primarySocket).invert().multiply(solved.weaponWorld);
