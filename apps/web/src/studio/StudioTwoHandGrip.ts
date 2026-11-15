@@ -46,6 +46,8 @@ export interface TwoHandIKResult {
   readonly headHeightMeters:number;
   readonly maximumPalmHeightMeters:number;
   readonly separationMeters:number;
+  /** Distance between initially posed native source-hand grip channels. */
+  readonly initialHandSpanMeters:number;
   readonly weaponWorld:THREE.Matrix4;
   readonly dimensions:TwoHandDimensions;
   /** Optional palm-local skin-fitted staff grip landmarks, measured before IK. */
@@ -495,6 +497,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   // The calibrated staff channel is a true source-skin contact point,
   // whereas the accepted sword pose retains its existing grip semantics.
   const anchors=kind==="staff"?calibrateStaffAnchors(model,dimensions):undefined;
+  const initialHandSpanMeters=contactWorld(model,primary,anchors).distanceTo(
+    contactWorld(model,secondary,anchors));
   const authored=authoredWeaponWorld(model,kind,primary,dimensions);
   const adaptive=adaptiveTwoHandWeaponWorld(model,kind,primary,dimensions,authored,anchors);
   const aligned=kind==="staff"?adaptiveTwoHandWeaponWorld(
@@ -536,6 +540,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       headClearanceMeters:guard.headClearance,elbowMaxHeightMeters:guard.elbowMax,
       headHeightMeters:guard.headY,maximumPalmHeightMeters:guard.maximumPalmY,
       separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
+      initialHandSpanMeters,
       dimensions,weaponWorld:weaponWorld.clone(),
       gripAnchors:anchors?Object.freeze({
         left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
