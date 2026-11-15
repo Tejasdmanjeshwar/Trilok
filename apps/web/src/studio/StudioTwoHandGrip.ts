@@ -307,7 +307,7 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   if(axis.lengthSq()<.9)throw new Error("Degenerate two-hand shaft axis");
   const leadCenter=lead.palm.clone().addScaledVector(axis,-dim.primaryGripY);
   const offhandCenter=offhand.palm.clone().addScaledVector(axis,-dim.secondaryGripY);
-  const leadWeight=kind==="longsword"?.85:.5;
+  const leadWeight=kind==="longsword"?1:.5;
   const center=leadCenter.multiplyScalar(leadWeight)
     .addScaledVector(offhandCenter,1-leadWeight);
   let x=new THREE.Vector3(1,0,0).transformDirection(reference);
