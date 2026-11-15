@@ -1,6 +1,7 @@
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
+import {serializeStudioGripFailure,type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import {primaryHand,type EquipmentChoice} from "./StudioTwoHandGrip";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {createStudioGeneratorPanel,type StudioGeneratorPanel} from "./StudioGeneratorPanel";
@@ -172,6 +173,24 @@ const message=element<HTMLElement>("#studio-error-message");
 const editStatus=document.createElement("div");
 editStatus.id="studio-edit-status";editStatus.className="studio-visual-status";
 element("#studio-viewport").after(editStatus);
+let lastGripFailure:StudioGripFailureReport|undefined;
+const copyGripReport=document.createElement("button");
+copyGripReport.id="studio-copy-grip-failure";
+copyGripReport.type="button";
+copyGripReport.textContent="Copy grip issue details";
+copyGripReport.hidden=true;
+copyGripReport.className="studio-copy-grip-failure";
+copyGripReport.setAttribute("aria-label","Copy failed grip diagnostic report");
+editStatus.after(copyGripReport);
+copyGripReport.addEventListener("click",()=>{
+  if(!lastGripFailure)return;
+  const content=serializeStudioGripFailure(lastGripFailure);
+  void navigator.clipboard.writeText(content).then(()=>{
+    copyGripReport.textContent="Grip issue details copied";
+  }).catch(()=>{
+    copyGripReport.textContent="Copy unavailable · see browser console";
+  });
+});
 const viewport=createStudioViewport(element("#studio-viewport"),()=>{
   loading.hidden=true;failure.hidden=true;
   document.documentElement.dataset.studioReady="true";
@@ -183,6 +202,11 @@ const viewport=createStudioViewport(element("#studio-viewport"),()=>{
   focused=true;
   element<HTMLButtonElement>("#studio-return-focus").disabled=false;
   setPressed("view","");
+},report=>{
+  lastGripFailure=report;
+  copyGripReport.hidden=!report;
+  copyGripReport.textContent="Copy grip issue details";
+  if(report)console.warn("[Trilok Studio Grip Failure]",serializeStudioGripFailure(report));
 });
 const undoButton=element<HTMLButtonElement>("#studio-undo");
 const redoButton=element<HTMLButtonElement>("#studio-redo");
