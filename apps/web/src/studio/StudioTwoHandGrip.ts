@@ -249,12 +249,19 @@ function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
   primary:HandSide,dim:TwoHandDimensions):THREE.Matrix4 {
   const root=model.human.spike.character.root;
   root.updateWorldMatrix(true,true);
-  const facing=root.getWorldQuaternion(new THREE.Quaternion());
   const chest=world(jointBone(model,"chest",primary));
+  const across=world(jointBone(model,"shoulder_right","right"))
+    .sub(world(jointBone(model,"shoulder_left","left"))).normalize();
+  const upward=world(jointBone(model,"head",primary)).sub(chest).normalize();
+  const forward=across.clone().cross(upward).normalize();
+  if(forward.lengthSq()<.9)throw new Error("Degenerate torso weapon frame");
+  const correctedUp=forward.clone().cross(across).normalize();
+  const facing=new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(across,correctedUp,forward));
   const scale=dim.scale;
   const offset=kind==="longsword"?
-    new THREE.Vector3(0,-.18*scale,.28*scale):
-    new THREE.Vector3(0,-.25*scale,.31*scale);
+    new THREE.Vector3(0,-.12*scale,.28*scale):
+    new THREE.Vector3(0,-.17*scale,.31*scale);
   const y=(kind==="longsword"?
     new THREE.Vector3(primary==="right"?.76:-.76,.51,.42):
     new THREE.Vector3(primary==="right"?.94:-.94,.16,.30))
@@ -314,7 +321,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
       error:positionError,dot};
   };
   apply();let best=cost(),iterations=0;
-  for(const step of [.50,.26,.13,.065,.032,.016]){
+  for(const step of [.45,.22,.10,.04,.012,.003]){
     for(let sweep=0;sweep<2;sweep++){
       iterations++;let improved=false;
       for(const dof of dofs){
