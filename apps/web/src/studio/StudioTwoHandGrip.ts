@@ -279,8 +279,8 @@ export const C52_ELBOW_REFERENCE_V1:Readonly<Record<TwoHandWeapon,
    readonly support:readonly [number,number,number]}>>=Object.freeze({
   longsword:Object.freeze({lead:[.43409,-.58034,.68904] as const,
     support:[.51459,-.71707,.47011] as const}),
-  staff:Object.freeze({lead:[.76386,-.36135,.53474] as const,
-    support:[.82963,-.44332,.33938] as const}),
+  staff:Object.freeze({lead:[.49152,-.82289,.28508] as const,
+    support:[.80522,-.35852,.47232] as const}),
 });
 function referenceElbow(model:StudioHumanModel,kind:TwoHandWeapon,
   lead:HandSide,hand:HandSide):THREE.Vector3 {
