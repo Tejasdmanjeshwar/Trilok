@@ -15,6 +15,7 @@ function failedResult():TwoHandIKResult{
     primaryErrorMeters:.007,secondaryErrorMeters:.064,
     primaryDeltaMeters:[.002,.003,.004],secondaryDeltaMeters:[.02,.03,.04],
     primaryAxisDot:.95,secondaryAxisDot:.82,iterations:14,
+    bodyClearanceMeters:-.011,
     headClearanceMeters:.20,elbowMaxHeightMeters:1.3,
     headHeightMeters:1.7,maximumPalmHeightMeters:1.4,
     separationMeters:.19,initialHandSpanMeters:.35,
