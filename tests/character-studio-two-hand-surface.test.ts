@@ -149,9 +149,10 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
   it.each([
     {name:"short",morph:{"macro/height":0}},
     {name:"tall",morph:{"macro/height":1}},
-  ])("diagnoses anatomy-aware reach on $name source model",({name,morph})=>{
+  ])("requires anatomy-aware reach on $name source model",({name,morph})=>{
     const {human,model,fk}=make(morph);
     try{
+      const failed:string[]=[];
       for(const kind of ["longsword","staff"] as const)
         for(const lead of ["left","right"] as const){
           const outcome=solveTwoHandIK(model,fk,[],lead,kind);
@@ -166,7 +167,14 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
             reason:outcome.reason,attempts:outcome.reachDiagnostics,
           }));
           expect(Number.isFinite(outcome.primaryErrorMeters)).toBe(true);
+          // Report all failures without hiding unsupported anatomies behind
+          // a green diagnostic-only test. Never weaken the grip thresholds.
+          if(!outcome.reachable)failed.push(
+            kind+"/"+lead+": "+outcome.reason+
+            " ("+Math.round(outcome.primaryErrorMeters*1000)+"mm, "+
+            Math.round(outcome.secondaryErrorMeters*1000)+"mm)");
         }
+      expect(failed,"all source anatomies must equip both grips").toEqual([]);
     }finally{human.dispose();}
   },120_000);
 });
