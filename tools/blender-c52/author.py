@@ -204,7 +204,8 @@ def solve_pose(kind, lead, center, axis, grips):
 
 def clear_pose():
     for pose_bone in arm.pose.bones:
-        pose_bone.constraints.clear()
+        for constraint in list(pose_bone.constraints):
+            pose_bone.constraints.remove(constraint)
         pose_bone.rotation_mode = "QUATERNION"
         pose_bone.rotation_quaternion.identity()
         pose_bone.location = (0,0,0)
