@@ -280,6 +280,49 @@ function gripWorld(weapon:THREE.Matrix4,y:number):THREE.Vector3 {
 function weaponAxis(weapon:THREE.Matrix4):THREE.Vector3 {
   return new THREE.Vector3(0,1,0).transformDirection(weapon);
 }
+/** C5.1-style anatomy calibration for two-hand placement.
+ * Dimensions and the shaft remain rigid. Unlike the fixed chest-offset
+ * reference, placement is obtained from the actual POSED source hands,
+ * making identical stance commands work across regenerated anatomies.
+ * The offhand target still comes from ONE shaft, never a second weapon. */
+export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
+  kind:TwoHandWeapon,primary:HandSide,dim:TwoHandDimensions,
+  reference:THREE.Matrix4):THREE.Matrix4{
+  const secondary:HandSide=primary==="right"?"left":"right";
+  const lead=palmFrame(model,primary),offhand=palmFrame(model,secondary);
+  const nominal=weaponAxis(reference);
+  let axis:THREE.Vector3;
+  if(kind==="longsword"){
+    // Preserve the approved diagonal sword presentation while allowing its
+    // grip direction to follow the lead hand as in C5.1.
+    axis=nominal.multiplyScalar(.38).addScaledVector(lead.axis,.62).normalize();
+  }else{
+    // Both hands MUST lie along one collinear staff. Derive its world axis
+    // from the actual knuckle-contact span, not a preselected chest slope.
+    const handSpan=lead.palm.clone().sub(offhand.palm);
+    if(handSpan.lengthSq()<1e-8)handSpan.copy(nominal);
+    axis=handSpan.normalize().multiplyScalar(.82)
+      .addScaledVector(nominal,.18).normalize();
+  }
+  if(axis.lengthSq()<.9)throw new Error("Degenerate two-hand shaft axis");
+  const leadCenter=lead.palm.clone().addScaledVector(axis,-dim.primaryGripY);
+  const offhandCenter=offhand.palm.clone().addScaledVector(axis,-dim.secondaryGripY);
+  const leadWeight=kind==="longsword"?.85:.5;
+  const center=leadCenter.multiplyScalar(leadWeight)
+    .addScaledVector(offhandCenter,1-leadWeight);
+  let x=new THREE.Vector3(1,0,0).transformDirection(reference);
+  x.addScaledVector(axis,-x.dot(axis));
+  if(x.lengthSq()<1e-6){
+    x=new THREE.Vector3(0,0,1).transformDirection(reference);
+    x.addScaledVector(axis,-x.dot(axis));
+  }
+  x.normalize();
+  const z=x.clone().cross(axis).normalize();
+  x.crossVectors(axis,z).normalize();
+  const rotation=new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(x,axis,z));
+  return new THREE.Matrix4().compose(center,rotation,new THREE.Vector3(1,1,1));
+}
 /** Normalized source upper-arm directions measured from independently
  * skinned Blender 4.5.16 candidate poses. These guide elbow pole placement
  * without imposing a copied bone rotation or altering arm lengths.
@@ -377,11 +420,9 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult {
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
-  // A previous equip/pose must never define this weapon's source calipers or
-  // finger-spread sign. Start calibration from the pinned anatomical rest.
+  // Calibration must never inherit a previous equipped pose.
   fk.apply([]);
-  const state=poseMap(base);
-  // Build independently dimensioned reference weapon and stance first.
+  let state=poseMap(base);
   const dimensions=twoHandDimensions(model,kind);
   for(const hand of [primary,secondary]){
     const spread=calibrateGripSpreads(graph,model.human.spike.bones,fk.frames,hand);
@@ -389,38 +430,56 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       state.set(key(c.jointId,c.motion),c);
   }
   stageReadyPose(graph,fk,state,kind,primary);
-  fk.apply([...state.values()]);
-  const weaponWorld=authoredWeaponWorld(model,kind,primary,dimensions);
-  const shaft=weaponAxis(weaponWorld);
-  const firstGoal=gripWorld(weaponWorld,dimensions.primaryGripY);
-  const secondGoal=gripWorld(weaponWorld,dimensions.secondaryGripY);
-  const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft);
-  const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft);
-  fk.apply([...state.values()]);
-  const first=palmFrame(model,primary),second=palmFrame(model,secondary);
-  const primaryError=first.palm.distanceTo(firstGoal);
-  const secondaryError=second.palm.distanceTo(secondGoal);
-  const primaryDot=first.axis.dot(shaft);
-  const secondaryDot=second.axis.dot(shaft)*(kind==="longsword"?1:-1);
-  const guard=anatomicalGuard(model,kind,primary);
-  const reached=guard.ok&&primaryError<=.023&&secondaryError<=.023&&
-    primaryDot>.42&&secondaryDot>.42;
-  if(!reached)fk.apply(base);
-  const commands=reached?[...state.values()]:[...base];
-  return Object.freeze({reachable:reached,commands:Object.freeze(commands),
-    primaryErrorMeters:primaryError,secondaryErrorMeters:secondaryError,
-    primaryDeltaMeters:Object.freeze(first.palm.clone().sub(firstGoal).toArray()),
-    secondaryDeltaMeters:Object.freeze(second.palm.clone().sub(secondGoal).toArray()),
-    primaryAxisDot:primaryDot,secondaryAxisDot:secondaryDot,
-    iterations:a.iterations+b.iterations,
-    reason:reached?"ok":!guard.ok?"unsafe-stance":
-      primaryError>.023||primaryDot<=.42?"primary-unreachable":"secondary-unreachable",
-    headClearanceMeters:guard.headClearance,
-    elbowMaxHeightMeters:guard.elbowMax,
-    headHeightMeters:guard.headY,
-    maximumPalmHeightMeters:guard.maximumPalmY,
-    separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
-    dimensions,weaponWorld:weaponWorld.clone()});
+  const staged=Object.freeze([...state.values()]);
+  fk.apply(staged);
+  const authored=authoredWeaponWorld(model,kind,primary,dimensions);
+  const adaptive=adaptiveTwoHandWeaponWorld(model,kind,primary,dimensions,authored);
+  // Sword: preserve the owner-approved default pose if it is already valid.
+  // Staff: try the line through both posed hands first. On a morphology
+  // boundary, a rigid chest reference is a deterministic backup candidate.
+  const candidates=kind==="longsword"?[authored,adaptive]:[adaptive,authored];
+  let chosen:TwoHandIKResult|undefined;
+  let lowest=Infinity;
+  for(const weaponWorld of candidates){
+    state=poseMap(staged);
+    fk.apply([...state.values()]);
+    const shaft=weaponAxis(weaponWorld);
+    const firstGoal=gripWorld(weaponWorld,dimensions.primaryGripY);
+    const secondGoal=gripWorld(weaponWorld,dimensions.secondaryGripY);
+    const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft);
+    const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft);
+    fk.apply([...state.values()]);
+    const first=palmFrame(model,primary),second=palmFrame(model,secondary);
+    const primaryError=first.palm.distanceTo(firstGoal);
+    const secondaryError=second.palm.distanceTo(secondGoal);
+    const primaryDot=first.axis.dot(shaft);
+    const secondaryDot=second.axis.dot(shaft)*(kind==="longsword"?1:-1);
+    const guard=anatomicalGuard(model,kind,primary);
+    const reached=guard.ok&&primaryError<=.023&&secondaryError<=.023&&
+      primaryDot>.42&&secondaryDot>.42;
+    const reason=reached?"ok":!guard.ok?"unsafe-stance":
+      primaryError>.023||primaryDot<=.42?"primary-unreachable":"secondary-unreachable";
+    const commands=reached?[...state.values()]:[...base];
+    const result:TwoHandIKResult=Object.freeze({
+      reachable:reached,commands:Object.freeze(commands),
+      primaryErrorMeters:primaryError,secondaryErrorMeters:secondaryError,
+      primaryDeltaMeters:Object.freeze(first.palm.clone().sub(firstGoal).toArray()),
+      secondaryDeltaMeters:Object.freeze(second.palm.clone().sub(secondGoal).toArray()),
+      primaryAxisDot:primaryDot,secondaryAxisDot:secondaryDot,
+      iterations:a.iterations+b.iterations,reason,
+      headClearanceMeters:guard.headClearance,elbowMaxHeightMeters:guard.elbowMax,
+      headHeightMeters:guard.headY,maximumPalmHeightMeters:guard.maximumPalmY,
+      separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
+      dimensions,weaponWorld:weaponWorld.clone()});
+    const score=primaryError+secondaryError+
+      .04*(Math.max(0,.42-primaryDot)+Math.max(0,.42-secondaryDot))+
+      (guard.ok?0:.1);
+    if(score<lowest){lowest=score;chosen=result;}
+    if(reached)break;
+  }
+  // Failed candidates are not allowed to persist an invalid skin pose.
+  if(!chosen?.reachable)fk.apply(base);
+  return chosen!;
 }
 
 export function createTwoHandDescriptor(model:StudioHumanModel,
