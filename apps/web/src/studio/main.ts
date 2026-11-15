@@ -135,7 +135,7 @@ host.innerHTML=String.raw`
               <option value="parry">Parry preview</option>
             </select>
           </div>
-          <p>Inspect the character's grip. Both hands follow the same weapon when reachable.</p>
+          <p>Inspect each weapon's hand contact and fit. Your character design stays unchanged.</p>
           <div class="studio-action-pair studio-weapon-focus">
             <button id="studio-sword-focus" type="button">Focus on gripping hand</button>
             <button id="studio-shield-focus" type="button" hidden>Focus on shield hand</button>
