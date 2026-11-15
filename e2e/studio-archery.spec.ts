@@ -18,7 +18,11 @@ test("mirrored bow nock, partial draw, aim and release remain Studio-only",async
     await expect(page.locator("#studio-archery-pose")).toBeVisible();
     for(const position of ["rest","nock","partial","aim","release"] as const){
       await state.selectOption(position);
-      if(position==="partial")await draw.fill("65");
+      if(position==="partial")await draw.evaluate((element)=>{
+        const slider=element as HTMLInputElement;
+        slider.value="65";
+        slider.dispatchEvent(new Event("input",{bubbles:true}));
+      });
       await page.locator("#studio-reset").click();
       await page.waitForTimeout(650);
       await page.screenshot({path:"test-results/studio/"+test.info().project.name+
