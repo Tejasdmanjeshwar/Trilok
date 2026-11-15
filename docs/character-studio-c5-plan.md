@@ -1,6 +1,6 @@
 # Trilok Character Studio — C5 Weapon Handling, Anatomical Grips & IK Plan
 
-**Status:** approved implementation specification proposed for review; **no C5 implementation is claimed by this document**.  
+**Status (2026-11-15):** approved plan in execution. C5.1 merged with owner visual acceptance via PR #83; C5.2 implemented on review branch PR #84 pending exact-render visual acceptance. C5.3–C5.5 not started.  
 **Tracking:** [C5 Issue #81](https://github.com/Tejasdmanjeshwar/Trilok/issues/81).  
 **Predecessor:** C4 [Issue #65](https://github.com/Tejasdmanjeshwar/Trilok/issues/65) formally closed after exact-`main` [Phase Acceptance run #43630233758](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43630233758), 349 unit/replay tests, 74 desktop/touch Chromium tests, 208 captured screenshots and owner confirmation of matching Cloudflare deployment.  
 **Parent:** [Character Studio C0–C9 roadmap](character-studio-roadmap.md), [C0 architecture](character-studio-c0-architecture.md), [C1 contracts](character-studio-c1-contracts.md) and [C4 plan](character-studio-c4-plan.md).
