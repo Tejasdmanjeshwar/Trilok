@@ -188,6 +188,11 @@ const REACH_SEEDS=Object.freeze([
   {abduction:-.45,flexion:.20,rotation:-.25,elbow:.40},
   {abduction:-.65,flexion:.12,rotation:.30,elbow:.45},
   {abduction:-.30,flexion:-.20,rotation:-.45,elbow:.12},
+  // Longer source arms require a substantially more folded initial guard.
+  // These remain calibrated FK commands; neither root nor weapon stretches.
+  {abduction:-.85,flexion:.26,rotation:.32,elbow:.85},
+  {abduction:-1.0,flexion:.16,rotation:-.22,elbow:1.0},
+  {abduction:-.85,flexion:-.12,rotation:.75,elbow:.65},
 ] as const);
 function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide,
