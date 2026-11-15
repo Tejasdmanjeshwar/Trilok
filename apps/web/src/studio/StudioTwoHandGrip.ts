@@ -700,7 +700,8 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
   const spacings=kind==="longsword"?
     [dimensions.primaryGripY-dimensions.secondaryGripY,
       dimensions.handleLength*.57,dimensions.handleLength*.48,
-      dimensions.handleLength*.72]:
+      dimensions.handleLength*.72,dimensions.handleLength*.80,
+      dimensions.handleLength*.84]:
     [dimensions.primaryGripY-dimensions.secondaryGripY,
       dimensions.shaftLength*.23,dimensions.shaftLength*.30];
   const maxSpan=kind==="longsword"?
