@@ -190,7 +190,7 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
 }
 function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
   primary:HandSide):{ok:boolean;headClearance:number;elbowMax:number;
-    headY:number;maximumPalmY:number}{
+    headY:number;maximumPalmY:number;forearmClearance:number}{
   const secondary:HandSide=primary==="left"?"right":"left";
   const head=world(jointBone(model,"head",primary));
   const chest=world(jointBone(model,"chest",primary));
