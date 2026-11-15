@@ -1,0 +1,55 @@
+name: C5.2 Blender source reference
+on:
+  pull_request:
+    paths:
+      - 'tools/blender-c52/**'
+      - '.github/workflows/c52-blender-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-reference:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - name: Verify pinned MakeHuman source and source rig
+        run: node scripts/fetch-makehuman-core.mjs
+      - name: Export exact source-skinned geometry, bone IDs and weights
+        run: pnpm exec vitest run tools/blender-c52/export-source.test.ts
+      - name: Download and verify pinned Blender 4.5.16 LTS Linux binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://download.blender.org/release/Blender4.5"
+          file="blender-4.5.16-linux-x64.tar.xz"
+          curl --fail --location --retry 3 --output blender.tar.xz "$base/$file"
+          curl --fail --location --retry 3 --output blender.sha256 "$base/blender-4.5.16.sha256"
+          expected="$(awk -v filename="$file" '$2 == filename || $2 == "*"filename {print $1}' blender.sha256)"
+          test -n "$expected"
+          echo "$expected  blender.tar.xz" | sha256sum --check -
+          mkdir -p /tmp/trilok-blender
+          tar -xJf blender.tar.xz -C /tmp/trilok-blender --strip-components=1
+          /tmp/trilok-blender/blender --version
+      - name: Produce unreviewed anatomical source pose candidates and multi-view renders
+        run: |
+          /tmp/trilok-blender/blender -b -noaudio --python-exit-code 1 \
+            --python tools/blender-c52/author.py -- test-results/blender-c52
+      - name: Upload Blender references and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c52-blender-source-reference-${{ github.sha }}
+          path: |
+            test-results/blender-c52/*.png
+            test-results/blender-c52/reference-poses.v1.json
+            test-results/blender-c52/source-rig.v1.json
+          retention-days: 14
+          if-no-files-found: warn
