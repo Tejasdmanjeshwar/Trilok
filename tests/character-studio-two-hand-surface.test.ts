@@ -130,7 +130,7 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
           const solved=solveTwoHandIK(model,fk,[],lead,"longsword");
           expect(solved.reachable,JSON.stringify({seed,lead,arm:diagnoseArmReach(model,solved),reason:solved.reason,
             first:solved.primaryErrorMeters,second:solved.secondaryErrorMeters,
-            coupled:solved.reachDiagnostics?.filter(d=>d.seed===300),best:solved.reachDiagnostics?.toSorted((a,b)=>a.primaryError+a.secondaryError-b.primaryError-b.secondaryError).slice(0,12),attempts:solved.reachDiagnostics?.slice(-6)})).toBe(true);
+            coupled:solved.reachDiagnostics?.filter(d=>d.seed===300),best:solved.reachDiagnostics&&[...solved.reachDiagnostics].sort((a,b)=>a.primaryError+a.secondaryError-b.primaryError-b.secondaryError).slice(0,12),attempts:solved.reachDiagnostics?.slice(-6)})).toBe(true);
           expect(solved.primaryErrorMeters).toBeLessThanOrEqual(.023);
           expect(solved.secondaryErrorMeters).toBeLessThanOrEqual(.023);
           correctives.apply(solved.commands);
