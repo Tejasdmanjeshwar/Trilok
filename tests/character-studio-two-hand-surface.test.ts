@@ -211,7 +211,8 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
       "macro/muscle":1}},
     {name:"tall slender",morph:{"macro/height":1,"macro/weight":0,
       "macro/muscle":0}},
-  ])("equips one dimensionally fixed sword or staff on $name anatomy",({name,morph})=>{
+  ] as readonly {name:string;morph:Readonly<Record<string,number>>}[])
+    ("equips one dimensionally fixed sword or staff on $name anatomy",({name,morph})=>{
     const {human,model,fk}=make(morph);
     try{
       const original=human.spike.character.root.matrixWorld.clone();
