@@ -328,16 +328,16 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     const elbowGap=Math.max(0,guard.elbowMax-guard.headY+.135);
     const palmGap=Math.max(0,guard.maximumPalmY-guard.headY+.20);
     const forearmGap=Math.max(0,.05-guard.forearmClearance);
-    return {value:positionError*positionError*34+
+    return {value:positionError*positionError*180+
       .018*(1-dot)*(1-dot)+
       .006*Math.max(0,forwardOverlap-.36)**2+
-      .00015*travel+.65*elbowPoleError*elbowPoleError+
+      .00015*travel+.18*elbowPoleError*elbowPoleError+
       35*(headGap*headGap+elbowGap*elbowGap+
         palmGap*palmGap+forearmGap*forearmGap),
       error:positionError,dot};
   };
   apply();let best=cost(),iterations=0;
-  for(const step of [.50,.26,.13,.065,.032,.016,.008]){
+  for(const step of [.50,.26,.13,.065,.03,.01]){
     for(let sweep=0;sweep<2;sweep++){
       iterations++;let improved=false;
       for(const dof of dofs){
