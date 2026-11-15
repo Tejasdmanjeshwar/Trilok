@@ -4,6 +4,7 @@ import {AnatomicalFK,type JointTarget,type AnatomicalMotion}
   from "../characters/geometry/AnatomicalFK";
 import type {StudioHumanModel} from "./StudioHumanModel";
 import {calibrateGripSpreads,swordGripTargets,fitHandleCenter} from "./StudioWeaponGrip";
+import {fitConstrainedIK} from "./ConstrainedIK";
 
 export type HandSide="left"|"right";
 export type TwoHandWeapon="longsword"|"staff";
@@ -695,6 +696,121 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
  * This is only a fallback. The owner's approved sword/staff candidate is
  * returned unchanged when it reaches both grips.
  */
+/** Weapon-centric paired IK. One rigid matrix owns both socket goals.
+ * Calibrated source FK handles the actual morphed skeleton, while a shared
+ * bounded least-squares pass moves both arms and the *single* weapon together.
+ * The accepted nominal stance is never touched: this is failure-only.
+ */
+function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
+  base:readonly JointTarget[],kind:TwoHandWeapon,lead:HandSide,
+  dimensions:TwoHandDimensions,
+  diagnostics:{seed:number;initialSpan:number;primaryError:number;
+    secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]
+):TwoHandIKResult|undefined {
+  const off:HandSide=lead==="left"?"right":"left";
+  const graph=model.human.spike.graph;
+  // Neutral rest is the calibration state, never a previous failed solve.
+  const state=poseMap(base);
+  stageReadyPose(graph,fk,state,kind,lead,0);
+  const dofs=[...freedomSet(graph,fk,lead),...freedomSet(graph,fk,off)];
+  const initial=dofs.map(d=>state.get(d.key)?.radians??0);
+  fk.apply([...state.values()]);
+  const anchors=calibrateStaffAnchors(model,dimensions);
+  const initialSpan=contactWorld(model,lead,anchors)
+    .distanceTo(contactWorld(model,off,anchors));
+  const authored=authoredWeaponWorld(model,kind,lead,dimensions);
+  const authoredCenter=new THREE.Vector3().setFromMatrixPosition(authored);
+  const authoredRotation=new THREE.Quaternion().setFromRotationMatrix(authored);
+  const rootRotation=model.human.spike.character.root.getWorldQuaternion(new THREE.Quaternion());
+  const freedom=dofs.map(d=>({min:d.min,max:d.max}));
+  const travel=kind==="staff"?.28:.25;
+  const translationBounds=Array.from({length:3},()=>({
+    min:-travel*dimensions.scale,max:travel*dimensions.scale
+  }));
+  const limits=[...freedom,...translationBounds,
+    {min:-.65,max:.65},{min:-.65,max:.65}];
+  const start=[...initial,0,0,0,0,0];
+  const jointCount=dofs.length;
+  const worldFrame=(values:readonly number[])=>{
+    const shift=new THREE.Vector3(values[jointCount]!,values[jointCount+1]!,
+      values[jointCount+2]!).applyQuaternion(rootRotation);
+    const rot=authoredRotation.clone().multiply(
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        values[jointCount+3]!,values[jointCount+4]!,0,"YXZ")));
+    return new THREE.Matrix4().compose(
+      authoredCenter.clone().add(shift),rot,new THREE.Vector3(1,1,1));
+  };
+  const sample=(values:readonly number[])=>{
+    for(let i=0;i<jointCount;i++){
+      const d=dofs[i]!;
+      state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:values[i]!});
+    }
+    fk.apply([...state.values()]);
+    const weapon=worldFrame(values);
+    const axis=weaponAxis(weapon);
+    const a=contactWorld(model,lead,anchors).sub(gripWorld(weapon,dimensions.primaryGripY));
+    const b=contactWorld(model,off,anchors).sub(gripWorld(weapon,dimensions.secondaryGripY));
+    const frameA=palmFrame(model,lead);
+    const frameB=palmFrame(model,off);
+    const guard=anatomicalGuard(model,kind,lead);
+    const axWeight=kind==="staff"?.11:.075;
+    // Soft safety barriers expose gradients to optimization instead of
+    // declaring a near-contact result safe after it has converged.
+    const head=Math.max(0,.195*guard.scale-guard.headClearance);
+    const elbow=Math.max(0,guard.elbowMax-guard.headY+.135*guard.scale);
+    const palm=Math.max(0,guard.maximumPalmY-guard.headY+.20*guard.scale);
+    const forearm=Math.max(0,.05*guard.scale-guard.forearmClearance);
+    const residual=[a.x,a.y,a.z,b.x,b.y,b.z,
+      (frameA.axis.x-axis.x)*axWeight,(frameA.axis.y-axis.y)*axWeight,
+      (frameA.axis.z-axis.z)*axWeight,
+      (frameB.axis.x-axis.x)*axWeight,(frameB.axis.y-axis.y)*axWeight,
+      (frameB.axis.z-axis.z)*axWeight,
+      head*5,elbow*5,palm*5,forearm*5];
+    // A soft authored-reference prior preserves familiar sword/staff pose.
+    for(let i=0;i<jointCount;i++)
+      residual.push((values[i]!-initial[i]!)*.0015);
+    for(let i=jointCount;i<values.length;i++)
+      residual.push(values[i]!*.008);
+    return residual;
+  };
+  const refined=fitConstrainedIK(start,limits,sample,72);
+  const commands=[...state.values()];
+  const weapon=worldFrame(refined.values);
+  const axis=weaponAxis(weapon);
+  const targetA=gripWorld(weapon,dimensions.primaryGripY);
+  const targetB=gripWorld(weapon,dimensions.secondaryGripY);
+  const actualA=contactWorld(model,lead,anchors);
+  const actualB=contactWorld(model,off,anchors);
+  const errA=actualA.distanceTo(targetA),errB=actualB.distanceTo(targetB);
+  const dotA=palmFrame(model,lead).axis.dot(axis);
+  const dotB=palmFrame(model,off).axis.dot(axis);
+  const guard=anatomicalGuard(model,kind,lead);
+  const minimum=kind==="staff"?.85:.42;
+  const reachable=guard.ok&&errA<=.023&&errB<=.023&&
+    dotA>minimum&&dotB>minimum;
+  diagnostics.push({seed:300,initialSpan,primaryError:errA,secondaryError:errB,
+    primaryAxis:dotA,secondaryAxis:dotB,
+    reason:reachable?"coupled-ok":!guard.ok?"coupled-unsafe":"coupled-contact"});
+  if(!reachable)return undefined;
+  return Object.freeze({
+    reachable:true,commands:Object.freeze(commands),
+    primaryErrorMeters:errA,secondaryErrorMeters:errB,
+    primaryDeltaMeters:Object.freeze(actualA.sub(targetA).toArray()),
+    secondaryDeltaMeters:Object.freeze(actualB.sub(targetB).toArray()),
+    primaryAxisDot:dotA,secondaryAxisDot:dotB,
+    iterations:refined.iterations,refinementIterations:refined.iterations,
+    reason:"ok" as const,headClearanceMeters:guard.headClearance,
+    elbowMaxHeightMeters:guard.elbowMax,headHeightMeters:guard.headY,
+    maximumPalmHeightMeters:guard.maximumPalmY,
+    separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
+    initialHandSpanMeters:initialSpan,
+    dimensions,weaponWorld:weapon,
+    gripAnchors:Object.freeze({
+      left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
+      right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
+    }),
+  });
+}
 function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],kind:TwoHandWeapon,lead:HandSide,
   dimensions:TwoHandDimensions,seed:number,
@@ -1164,6 +1280,10 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   }
   // Only an otherwise rejected morphology or Studio pose enters the
   // relative-hand solver. The approved, successful presentation is immutable.
+  if(!chosen?.reachable){
+    const coupled=fitWeaponCentric(model,fk,fingerState,kind,primary,dimensions,diagnostics);
+    if(coupled)chosen=coupled;
+  }
   if(!chosen?.reachable){
     for(const seed of kind==="longsword"?[6,7,4,5,2,0]:[3,2,1,0]){
       const paired=fitRelativeTwoHandContacts(model,fk,fingerState,
