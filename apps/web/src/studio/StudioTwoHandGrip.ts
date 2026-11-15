@@ -5,6 +5,7 @@ import {AnatomicalFK,type JointTarget,type AnatomicalMotion}
 import type {StudioHumanModel} from "./StudioHumanModel";
 import {calibrateGripSpreads,swordGripTargets,fitHandleCenter} from "./StudioWeaponGrip";
 import {fitConstrainedIK} from "./ConstrainedIK";
+import {StudioBodyCollision} from "./StudioBodyCollision";
 
 export type HandSide="left"|"right";
 export type TwoHandWeapon="longsword"|"staff";
@@ -54,6 +55,8 @@ export interface TwoHandIKResult {
     primaryError:number;secondaryError:number;primaryAxis:number;
     secondaryAxis:number;reason:string}>[];
   readonly weaponWorld:THREE.Matrix4;
+  /** Minimum occupied-body clearance of weapon, palms and forearms. */
+  readonly bodyClearanceMeters:number;
   readonly dimensions:TwoHandDimensions;
   /** Optional palm-local skin-fitted staff grip landmarks, measured before IK. */
   readonly gripAnchors?:Readonly<Record<HandSide,readonly [number,number,number]>>;
@@ -512,7 +515,8 @@ function referenceElbow(model:StudioHumanModel,kind:TwoHandWeapon,
 function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,lead:HandSide,
   hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3,anchors?:GripAnchors,
-  maxTravelRadians=1.10):
+  maxTravelRadians=1.10,collision?:StudioBodyCollision,
+  weapon?:THREE.Matrix4,dimensions?:TwoHandDimensions):
   {error:number;dot:number;iterations:number}{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
   const starting=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
@@ -529,6 +533,8 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     const dot=THREE.MathUtils.clamp(frame.axis.dot(desiredAxis),-1,1);
     const forwardOverlap=Math.abs(frame.forward.dot(shaft));
     const guard=anatomicalGuard(model,kind,lead);
+    const body=collision&&weapon&&dimensions?
+      collision.measure(model,weapon,kind,dimensions):undefined;
     let travel=0;
     for(const d of dofs){
       const delta=(state.get(d.key)?.radians??0)-starting.get(d.key)!;
@@ -543,7 +549,8 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
       .006*Math.max(0,forwardOverlap-.36)**2+
       .00015*travel+(kind==="longsword"?.06:0)*elbowPoleError*elbowPoleError+
       35*(headGap*headGap+elbowGap*elbowGap+
-        palmGap*palmGap+forearmGap*forearmGap),
+        palmGap*palmGap+forearmGap*forearmGap)+
+      (body?30*body.penalties.reduce((sum,x)=>sum+x*x,0):0),
       error:positionError,dot};
   };
   apply();let best=cost(),iterations=0;
@@ -598,7 +605,8 @@ function solveDampedNormal(matrix:number[][],rhs:number[]):number[]|undefined{
 function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,lead:HandSide,
   hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3,
-  anchors?:GripAnchors):number{
+  anchors?:GripAnchors,collision?:StudioBodyCollision,
+  weapon?:THREE.Matrix4,dimensions?:TwoHandDimensions):number{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
   const direction=1;
   const desiredAxis=shaft.clone().multiplyScalar(direction);
@@ -627,6 +635,10 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
       sum+=delta*delta;
     }
     const safety=anatomicalGuard(model,kind,lead);
+    if(collision&&weapon&&dimensions){
+      const body=collision.measure(model,weapon,kind,dimensions);
+      sum+=30*body.penalties.reduce((total,depth)=>total+depth*depth,0);
+    }
     if(!safety.ok){
       const head=Math.max(0,.195*safety.scale-safety.headClearance);
       const arm=Math.max(0,safety.elbowMax-safety.headY+.135*safety.scale);
@@ -795,7 +807,7 @@ function warmStartWeaponArms(model:StudioHumanModel,fk:AnatomicalFK,
  */
 function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],kind:TwoHandWeapon,lead:HandSide,
-  dimensions:TwoHandDimensions,
+  dimensions:TwoHandDimensions,collision:StudioBodyCollision,
   diagnostics:{seed:number;initialSpan:number;primaryError:number;
     secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]
 ):TwoHandIKResult|undefined {
@@ -856,6 +868,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     const frameA=palmFrame(model,lead);
     const frameB=palmFrame(model,off);
     const guard=anatomicalGuard(model,kind,lead);
+    const body=collision.measure(model,weapon,kind,dimensions);
     // Continuation: first close BOTH contacts before paying for shaft-axis
     // alignment, then converge orientation with contact held strongly.
     // Optimize the legal alignment *margin*, not perfection of both wrists.
@@ -880,7 +893,8 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
       b.x*contactWeight,b.y*contactWeight,b.z*contactWeight,
       ...alignment,
       head*5,elbow*5,palm*5,forearm*5,
-      Math.max(0,-.055*guard.scale-guard.forwardClearance)*5];
+      Math.max(0,-.055*guard.scale-guard.forwardClearance)*5,
+      ...body.penalties.map(depth=>depth*5)];
     // A soft authored-reference prior preserves familiar sword/staff pose.
     for(let i=0;i<jointCount;i++)
       residual.push((values[i]!-initial[i]!)*(i<torso.length?.07:.0015));
@@ -908,12 +922,15 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   const dotA=palmFrame(model,lead).axis.dot(axis);
   const dotB=palmFrame(model,off).axis.dot(axis);
   const guard=anatomicalGuard(model,kind,lead);
+  const body=collision.measure(model,weapon,kind,dimensions);
   const minimum=kind==="staff"?.85:.42;
-  const reachable=guard.ok&&errA<=.023&&errB<=.023&&
+  const reachable=guard.ok&&body.maximumPenetrationMeters<=.003*dimensions.scale&&
+    errA<=.023&&errB<=.023&&
     dotA>minimum&&dotB>minimum;
   diagnostics.push({seed:300,initialSpan,primaryError:errA,secondaryError:errB,
     primaryAxis:dotA,secondaryAxis:dotB,
-    reason:reachable?"coupled-ok":!guard.ok?"coupled-unsafe":`coupled-contact(front=${guard.forwardClearance.toFixed(3)},head=${guard.headClearance.toFixed(3)},elbow=${guard.elbowMax.toFixed(3)},palm=${guard.maximumPalmY.toFixed(3)},limit=${dofs.filter((d,i)=>Math.min(finalFit.values[i]!-d.min,d.max-finalFit.values[i]!)<.012).map(d=>d.key).join(",")})`});
+    reason:reachable?"coupled-ok":body.maximumPenetrationMeters>.003*dimensions.scale?
+      "coupled-body-penetration":!guard.ok?"coupled-unsafe":`coupled-contact(front=${guard.forwardClearance.toFixed(3)},head=${guard.headClearance.toFixed(3)},elbow=${guard.elbowMax.toFixed(3)},palm=${guard.maximumPalmY.toFixed(3)},limit=${dofs.filter((d,i)=>Math.min(finalFit.values[i]!-d.min,d.max-finalFit.values[i]!)<.012).map(d=>d.key).join(",")})`});
   if(!reachable)return undefined;
   return Object.freeze({
     reachable:true,commands:Object.freeze(commands),
@@ -927,6 +944,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     maximumPalmHeightMeters:guard.maximumPalmY,
     separationMeters:finalFit.values[jointCount+5]!,
     initialHandSpanMeters:initialSpan,
+    bodyClearanceMeters:body.minimumMeters,
     dimensions:Object.freeze({...dimensions,
       primaryGripY:gripY(finalFit.values,lead),
       secondaryGripY:gripY(finalFit.values,off)}),weaponWorld:weapon,
@@ -945,6 +963,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   fk.apply([]);
   let state=poseMap(base);
   const dimensions=twoHandDimensions(model,kind);
+  // Rebuilt from each owned morphed source mesh, never cached across recipes.
+  const collision=new StudioBodyCollision(model);
   for(const hand of [primary,secondary]){
     const spread=calibrateGripSpreads(graph,model.human.spike.bones,fk.frames,hand);
     for(const c of swordGripTargets(graph,hand,spread))
@@ -983,19 +1003,19 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const firstGoal=gripWorld(weaponWorld,dimensions.primaryGripY);
     const secondGoal=gripWorld(weaponWorld,dimensions.secondaryGripY);
     const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft,anchors,
-      seed===0?1.10:1.55);
+      seed===0?1.10:1.55,collision,weaponWorld,dimensions);
     const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft,anchors,
-      seed===0?1.10:1.55);
+      seed===0?1.10:1.55,collision,weaponWorld,dimensions);
     let refinementIterations=0;
     // The original accepted pose uses only the existing coordinate-descent
     // solver. Damped refinement is strictly a failed sword configuration path.
     if(kind==="longsword"&&a.error<.07&&b.error<.40&&
       (a.error>.023||b.error>.023||a.dot<.42||b.dot<.42)){
       refinementIterations+=fitHandDamped(model,fk,state,kind,primary,
-        secondary,secondGoal,shaft,anchors);
+        secondary,secondGoal,shaft,anchors,collision,weaponWorld,dimensions);
       if(contactWorld(model,primary,anchors).distanceTo(firstGoal)>.023)
         refinementIterations+=fitHandDamped(model,fk,state,kind,primary,
-          primary,firstGoal,shaft,anchors);
+          primary,firstGoal,shaft,anchors,collision,weaponWorld,dimensions);
     }
     fk.apply([...state.values()]);
     const first=palmFrame(model,primary),second=palmFrame(model,secondary);
@@ -1004,10 +1024,13 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const primaryDot=first.axis.dot(shaft);
     const secondaryDot=second.axis.dot(shaft);
     const guard=anatomicalGuard(model,kind,primary);
+    const body=collision.measure(model,weaponWorld,kind,dimensions);
     const orientationMinimum=kind==="staff"?.85:.42;
-    const reached=guard.ok&&primaryError<=.023&&secondaryError<=.023&&
+    const reached=guard.ok&&body.maximumPenetrationMeters<=.003*dimensions.scale&&
+      primaryError<=.023&&secondaryError<=.023&&
       primaryDot>orientationMinimum&&secondaryDot>orientationMinimum;
-    const reason=reached?"ok":!guard.ok?"unsafe-stance":
+    const reason=reached?"ok":body.maximumPenetrationMeters>.003*dimensions.scale?
+      "unsafe-stance":!guard.ok?"unsafe-stance":
       primaryError>.023||primaryDot<=orientationMinimum?"primary-unreachable":"secondary-unreachable";
     const commands=reached?[...state.values()]:[...base];
     const result:TwoHandIKResult=Object.freeze({
@@ -1021,7 +1044,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       headHeightMeters:guard.headY,maximumPalmHeightMeters:guard.maximumPalmY,
       separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
       initialHandSpanMeters,
-      dimensions,weaponWorld:weaponWorld.clone(),
+      dimensions,weaponWorld:weaponWorld.clone(),bodyClearanceMeters:body.minimumMeters,
       gripAnchors:anchors?Object.freeze({
         left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
         right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
@@ -1032,7 +1055,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       secondaryAxis:secondaryDot,reason});
     const score=primaryError+secondaryError+
       .04*(Math.max(0,.42-primaryDot)+Math.max(0,.42-secondaryDot))+
-      (guard.ok?0:.1);
+      (guard.ok?0:.1)+Math.max(0,-body.minimumMeters)*3;
     if(reached){chosen=result;break candidateSeeds;}
     if(score<lowest){lowest=score;chosen=result;}
 
@@ -1041,7 +1064,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   // The calibrated weapon-centric solver is the only recovery path.
   // A failed solve restores the source pose; unsafe poses never equip.
   if(!chosen?.reachable){
-    const coupled=fitWeaponCentric(model,fk,fingerState,kind,primary,dimensions,diagnostics);
+    const coupled=fitWeaponCentric(model,fk,fingerState,kind,primary,dimensions,collision,diagnostics);
     if(coupled)chosen=coupled;
     else fk.apply(base);
   }
