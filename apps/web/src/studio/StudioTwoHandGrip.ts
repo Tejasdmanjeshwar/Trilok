@@ -874,7 +874,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     dotA>minimum&&dotB>minimum;
   diagnostics.push({seed:300,initialSpan,primaryError:errA,secondaryError:errB,
     primaryAxis:dotA,secondaryAxis:dotB,
-    reason:reachable?"coupled-ok":!guard.ok?"coupled-unsafe":"coupled-contact"});
+    reason:reachable?"coupled-ok":!guard.ok?"coupled-unsafe":`coupled-contact(front=${guard.forwardClearance.toFixed(3)},head=${guard.headClearance.toFixed(3)},elbow=${guard.elbowMax.toFixed(3)},palm=${guard.maximumPalmY.toFixed(3)},limit=${dofs.filter((d,i)=>Math.min(refined.values[i]!-d.min,d.max-refined.values[i]!)<.012).map(d=>d.key).join(",")})`});
   if(!reachable)return undefined;
   return Object.freeze({
     reachable:true,commands:Object.freeze(commands),
