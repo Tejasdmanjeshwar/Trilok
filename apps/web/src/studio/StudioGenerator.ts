@@ -25,6 +25,19 @@ export function validateGeneratorSeed(seed:number):void{
     throw new Error("Invalid random character seed");
 }
 
+/** Parse the exact decimal uint32 displayed in Studio diagnostics. Text
+ * validation avoids browser number fields accepting exponent/fraction input
+ * or silently rounding large seeds to a different character. */
+export function parseStudioGeneratorSeed(value:string):number {
+  const text=value.trim();
+  if(!/^[0-9]+$/.test(text))
+    throw new Error("Enter a whole-number seed from 1 to 4294967295.");
+  const seed=Number(text);
+  if(!Number.isSafeInteger(seed)||seed<1||seed>0xffffffff)
+    throw new Error("Enter a whole-number seed from 1 to 4294967295.");
+  return seed;
+}
+
 /** Simple, reproducible random stream. The UI chooses fresh seed entropy;
  * given the same seed, this function must never use global randomness. */
 function randomStream(seed:number):()=>number{

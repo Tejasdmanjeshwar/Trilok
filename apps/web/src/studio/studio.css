@@ -301,3 +301,32 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
 @media(forced-colors:active){
   .studio-generator-panel .studio-generator-primary{border:1px solid CanvasText}
 }
+
+/* Failure-only diagnostic sharing: not part of the permanent Studio tool UI. */
+.studio-copy-grip-failure{align-self:center;max-width:calc(100% - 24px);
+  margin:6px auto 10px;padding:9px 14px;min-height:42px;border-radius:9px;
+  border:1px solid #9d8256;background:#302a24;color:#f5dfb1;
+  font-size:12px;font-weight:700;position:relative;z-index:3}
+.studio-copy-grip-failure:hover{background:#4a3b2c}
+.studio-copy-grip-failure:focus-visible{outline:3px solid #f6d99f;outline-offset:2px}
+
+/* Reproducible character generation shares the existing simple Generate panel. */
+.studio-generator-seed-form{display:grid;gap:10px;min-width:0}
+.studio-generator-seed-help{font-size:12px;line-height:1.5;margin:0;color:#b8c8ce}
+.studio-generator-seed-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}
+.studio-generator-seed-actions input{min-width:0;width:100%;box-sizing:border-box;
+  min-height:46px;padding:10px 12px;border:1px solid #71818a;border-radius:9px;
+  background:#121e2a;color:#f3f0e6;font-size:15px;font-variant-numeric:tabular-nums}
+.studio-generator-seed-actions input[aria-invalid="true"]{border-color:#f0a4a4}
+.studio-generator-seed-actions input:focus-visible,
+.studio-generator-seed-actions button:focus-visible{outline:3px solid #f6d99f;outline-offset:2px}
+.studio-generator-seed-actions button{min-height:46px;border:1px solid #bcaa85;
+  border-radius:9px;padding:9px 13px;background:#35414a;color:#fff0d4;font-weight:700;
+  cursor:pointer}
+.studio-generator-seed-actions button:disabled{opacity:.55;cursor:wait}
+.studio-generator-current-seed{font-size:12px;color:#c3d2d7;line-height:1.5;
+  overflow-wrap:anywhere;margin:0;font-variant-numeric:tabular-nums}
+@media(max-width:360px){.studio-generator-seed-actions{grid-template-columns:minmax(0,1fr)}
+  .studio-generator-seed-actions button{width:100%}}
+@media(forced-colors:active){.studio-generator-seed-actions input,
+  .studio-generator-seed-actions button{border:1px solid CanvasText}}

@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import {getBuildIdentity} from "../build-info";
+import {initialStudioRecipe} from "./StudioRecipe";
+import {createStudioGripFailureReport,type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {buildStudioHuman,type StudioHumanModel} from "./StudioHumanModel";
 import {defaultStudioMorphState,type StudioMorphState} from "./StudioMorphCatalog";
@@ -10,7 +13,9 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   type StudioFocus,type StudioExpression,type StudioPose,type StudioInspectionOptions}
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
-import {StudioSwordPreview,type SwordHand} from "./StudioWeaponGrip";
+import {StudioSwordPreview} from "./StudioWeaponGrip";
+import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
+  type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
 import {isShortTap,isDoubleTap,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
@@ -25,7 +30,7 @@ export interface StudioViewport {
   focus(area:StudioFocus):boolean;
   returnFromFocus():void;
   setPose(pose:StudioPose):void;
-  setEquipment(hand:SwordHand):void;
+  setEquipment(hand:EquipmentChoice):void;
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
@@ -38,6 +43,7 @@ export function createStudioViewport(
   element:HTMLElement,onReady:()=>void,onFailure:(message:string)=>void,
   onEditError:(message:string)=>void,
   onSurfaceFocus?:(area:StudioFocus)=>void,
+  onGripFailure?:(report:StudioGripFailureReport|undefined)=>void,
 ):StudioViewport {
   const scene=new THREE.Scene();
   const perspective=new THREE.PerspectiveCamera(40,1,.05,90);
@@ -89,25 +95,57 @@ export function createStudioViewport(
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
-  let equipment:SwordHand="none";
-  let sword:StudioSwordPreview|undefined;
+  let equipment:EquipmentChoice="none";
+  let currentRecipe:StudioRecipeV1=initialStudioRecipe();
+  let sword:StudioSwordPreview|StudioTwoHandPreview|undefined;
+  const reportGripFailure=(result?:TwoHandIKResult,error?:unknown):void=>{
+    if(!isTwoHandEquipment(equipment))return;
+    const report=createStudioGripFailureReport(currentRecipe,pose,equipment,
+      getBuildIdentity(),result,error);
+    onGripFailure?.(report);
+  };
   function clearSword():void{sword?.dispose();sword=undefined;}
   function refreshSword():void{
     clearSword();
-    if(!active||equipment==="none")return;
+    if(equipment==="none"){
+      onGripFailure?.(undefined);
+      onEditError("");return;
+    }
+    if(!active)return;
     try{
-      const next=new StudioSwordPreview(active,equipment);
-      scene.add(next.object);sword=next;
+      if(isTwoHandEquipment(equipment)){
+        const solved=posePreview?.twoHandResult;
+        if(!solved?.reachable){
+          reportGripFailure(solved);
+          onEditError("Both hands cannot comfortably reach this weapon in the selected pose.");
+          return;
+        }
+        const next=new StudioTwoHandPreview(active,twoHandKind(equipment),
+          primaryHand(equipment)!,solved);
+        scene.add(next.object);sword=next;
+      }else{
+        const next=new StudioSwordPreview(active,equipment);
+        scene.add(next.object);sword=next;
+      }
+      onGripFailure?.(undefined);
       onEditError("");
-    }catch{
-      onEditError("This character cannot hold the reference sword in the selected hand.");
+    }catch(error){
+      reportGripFailure(posePreview?.twoHandResult,error);
+      onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
   }
-  function setEquipment(hand:SwordHand):void{
-    if(!["none","left","right"].includes(hand))throw new Error("Unknown equipment choice");
+  function setEquipment(hand:EquipmentChoice):void{
+    if(!["none","left","right","longsword-left","longsword-right",
+      "staff-left","staff-right"].includes(hand))throw new Error("Unknown equipment choice");
     equipment=hand;
-    posePreview?.setGrip(hand);
-    refreshSword();
+    try{
+      posePreview?.setGrip(hand);
+      refreshSword();
+    }catch(error){
+      clearSword();
+      reportGripFailure(undefined,error);
+      onEditError("The selected weapon cannot be held comfortably in this pose.");
+    }
     updateMarkers();
   }
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
@@ -244,8 +282,15 @@ export function createStudioViewport(
   }
   function setPose(next:StudioPose):void {
     pose=next;
-    posePreview?.setPose(next);
-    sword?.update();
+    try{
+      posePreview?.setPose(next);
+      if(isTwoHandEquipment(equipment))refreshSword();
+      else sword?.update();
+    }catch(error){
+      clearSword();
+      reportGripFailure(undefined,error);
+      onEditError("The selected weapon cannot be held comfortably in this pose.");
+    }
     // The existing overlays follow posed bones without reallocating GPU buffers.
     updateMarkers();
   }
@@ -261,6 +306,7 @@ export function createStudioViewport(
       if(!ok)return false;
       expression=next;
       posePreview?.refresh();
+      if(isTwoHandEquipment(equipment))refreshSword();
       return true;
     }catch{
       if(current===ticket){expression=previous;
@@ -456,9 +502,10 @@ export function createStudioViewport(
     return applyState(state,currentAppearance);
   }
   async function applyRecipe(recipe:StudioRecipeV1):Promise<boolean>{
-    return applyState(recipe.morphology,recipe.appearance);
+    return applyState(recipe.morphology,recipe.appearance,recipe);
   }
-  async function applyState(state:StudioMorphState,appearance:StudioAppearanceV1):Promise<boolean>{
+  async function applyState(state:StudioMorphState,appearance:StudioAppearanceV1,
+    recipe?:StudioRecipeV1):Promise<boolean>{
     const started=performance.now();
     const hadActive=!!active;
     validateStudioAppearance(appearance);
@@ -479,12 +526,17 @@ export function createStudioViewport(
         applyStudioSkinMaterial(active!.human.mesh,appearance);
         currentAppearance=appearance;
         currentMorphology=state;
+        currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
         posePreview?.refresh();
+        if(isTwoHandEquipment(equipment))refreshSword();
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
-        onEditError("");
+        if(equipment==="none"||sword)onEditError("");
         return true;
-      }catch(_error){
-        if(valid())onEditError("This adjustment could not be applied. Your previous character remains available.");
+      }catch(error){
+        if(valid()){
+          reportGripFailure(undefined,error);
+          onEditError("This adjustment could not be applied. Your previous character remains available.");
+        }
         return false;
       }
     }
@@ -510,6 +562,7 @@ export function createStudioViewport(
       scene.add(incoming.human.spike.character.root);
       active=incoming;
       posePreview=preview;
+      currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
       refreshSword();
       currentMorphology=state;
       currentAppearance=appearance;
@@ -518,11 +571,16 @@ export function createStudioViewport(
       refreshInspection();
       onReady();
       if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
-      onEditError("");
+      if(equipment==="none"||sword)onEditError("");
       return true;
-    }catch(_error){
+    }catch(error){
       incoming?.dispose();
       if(valid()){
+        if(isTwoHandEquipment(equipment)){
+          const attempted=recipe??{...currentRecipe,morphology:state,appearance};
+          onGripFailure?.(createStudioGripFailureReport(attempted,pose,equipment,
+            getBuildIdentity(),undefined,error));
+        }
         if(active)onEditError("This change could not be applied. The previous character has been preserved.");
         else onFailure("The character could not be opened. Check your connection and try again.");
       }

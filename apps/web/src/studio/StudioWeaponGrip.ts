@@ -143,7 +143,7 @@ function swordMesh(handleRadius:number,handleLength:number):THREE.Group{
  * The score evaluates all five digits; a bone-angle/fist proxy alone can
  * appear closed while penetrating the reference cylinder. Only runs when
  * selecting/rebuilding the preview, never in render or authoritative combat. */
-function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
+export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
   center:THREE.Vector3,lateral:THREE.Vector3,along:THREE.Vector3,
   normal:THREE.Vector3,radius:number,length:number):THREE.Vector3 {
   const {mesh,spike}=model.human;
