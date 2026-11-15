@@ -223,6 +223,30 @@ describe("C5.1 actual MakeHuman grip geometry",()=>{
         }finally{sword.dispose();}
       }finally{human.dispose();}
     },120_000);
+  it.each(["left","right"] as const)(
+    "retains %s grip under supported Studio pose changes and neutral recovery",hand=>{
+      const {human,model}=create();
+      const preview=new StudioPosePreview(model);
+      try{
+        const wristJoint=human.spike.graph.joints.find(j=>j.role==="wrist_"+hand)!;
+        const original=human.spike.bones.get(wristJoint.id)!.quaternion.clone();
+        preview.setGrip(hand);
+        for(const id of ["neutral","tpose","shoulder","crouch","fist","jaw"] as const){
+          preview.setPose(id);
+          const sword=new StudioSwordPreview(model,hand);
+          try{
+            const before=sword.object.matrix.clone();
+            sword.update();
+            expect(sword.object.matrix.elements).toEqual(before.elements);
+            assertGripRegression(measure(human,sword,hand));
+          }finally{sword.dispose();}
+        }
+        preview.setGrip("none");
+        preview.setPose("neutral");
+        expect(human.spike.bones.get(wristJoint.id)!.quaternion.angleTo(original))
+          .toBeLessThan(1e-7);
+      }finally{preview.dispose();human.dispose();}
+    },120_000);
   it.each(cases)("covers source morphology: $id",({id,weights})=>{
     for(const hand of ["left","right"] as const){
       // Each imported MakeHuman skeleton must be calibrated in neutral rest.
