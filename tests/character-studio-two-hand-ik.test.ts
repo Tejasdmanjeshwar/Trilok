@@ -9,7 +9,7 @@ import {MakeHumanBodyController,type BodyAtlas} from
 import type {SourceRig,SourceWeights} from
   "../apps/web/src/characters/geometry/OfficialHumanRig";
 import {createTwoHandDescriptor,twoHandDimensions,TWO_HAND_REFERENCE,solveTwoHandIK,StudioTwoHandPreview,
-  type HandSide,type TwoHandWeapon,twoHandGripContactWorld} from "../apps/web/src/studio/StudioTwoHandGrip";
+  type HandSide,type TwoHandWeapon,twoHandSolvedContactWorld} from "../apps/web/src/studio/StudioTwoHandGrip";
 import type {StudioHumanModel} from "../apps/web/src/studio/StudioHumanModel";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
 import {STUDIO_POSES} from "../apps/web/src/studio/StudioInspection";
@@ -79,9 +79,9 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           expect(preview.object.matrix.elements).toEqual(current.elements);
           const contact=(offset:number)=>new THREE.Vector3(
             0,offset,0).applyMatrix4(preview.object.matrix);
-          const lead=twoHandGripContactWorld(model,primary);
-          const follower=twoHandGripContactWorld(model,
-            primary==="left"?"right":"left");
+          const lead=twoHandSolvedContactWorld(model,primary,solved);
+          const follower=twoHandSolvedContactWorld(model,
+            primary==="left"?"right":"left",solved);
           expect(contact(solved.dimensions.primaryGripY).distanceTo(lead)).toBeLessThan(.006);
           expect(contact(solved.dimensions.secondaryGripY).distanceTo(follower))
             .toBeLessThan(.025);
@@ -89,7 +89,7 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           root.updateWorldMatrix(true,true);
           preview.update();
           expect(contact(solved.dimensions.primaryGripY).distanceTo(
-            twoHandGripContactWorld(model,primary)))
+            twoHandSolvedContactWorld(model,primary,solved)))
             .toBeLessThan(.006);
           root.position.set(0,0,0);root.rotation.y=0;
           root.updateWorldMatrix(true,true);
