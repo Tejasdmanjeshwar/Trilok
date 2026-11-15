@@ -354,7 +354,7 @@ export function twoHandSolvedContactWorld(model:StudioHumanModel,
 export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   kind:TwoHandWeapon,primary:HandSide,dim:TwoHandDimensions,
   reference:THREE.Matrix4,anchors?:GripAnchors,
-  staffAxisMode:"span"|"knuckle"|"sword-span"="span"):THREE.Matrix4{
+  staffAxisMode:"span"|"knuckle"="span"):THREE.Matrix4{
   const secondary:HandSide=primary==="right"?"left":"right";
   const lead=palmFrame(model,primary),offhand=palmFrame(model,secondary);
   lead.palm.copy(contactWorld(model,primary,anchors));
@@ -362,20 +362,9 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   const nominal=weaponAxis(reference);
   let axis:THREE.Vector3;
   if(kind==="longsword"){
-    if(staffAxisMode==="sword-span"){
-      // Fallback only. A single rigid hilt must serve both real hands:
-      // primary-hand-only alignment can strand the offhand outside its
-      // anatomical reach when shoulder width/arm proportions change.
-      const span=lead.palm.clone().sub(offhand.palm);
-      if(span.lengthSq()<1e-8)span.copy(lead.axis);
-      span.normalize();
-      // Keep the signed pommel-to-guard direction and a diagonal sword,
-      // without stretching the handle or applying any character root scale.
-      axis=span.multiplyScalar(.64).addScaledVector(nominal,.36).normalize();
-    }else{
-      // Preserve the owner-approved neutral sword presentation.
-      axis=nominal.multiplyScalar(.38).addScaledVector(lead.axis,.62).normalize();
-    }
+    // Preserve the approved diagonal sword presentation while allowing its
+    // grip direction to follow the lead hand as in C5.1.
+    axis=nominal.multiplyScalar(.38).addScaledVector(lead.axis,.62).normalize();
   }else{
     // Both hands MUST lie along one collinear staff. Derive its world axis
     // from the actual knuckle-contact span, not a preselected chest slope.
@@ -399,10 +388,7 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   if(axis.lengthSq()<.9)throw new Error("Degenerate two-hand shaft axis");
   const leadCenter=lead.palm.clone().addScaledVector(axis,-dim.primaryGripY);
   const offhandCenter=offhand.palm.clone().addScaledVector(axis,-dim.secondaryGripY);
-  // The accepted nominal sword candidate is tested first. On anatomy
-  // fallback, the rigid weapon must share contact error between both hands;
-  // anchoring its entire center to the lead made tall/short offhand reach fail.
-  const leadWeight=.5;
+  const leadWeight=kind==="longsword"?1:.5;
   const center=leadCenter.multiplyScalar(leadWeight)
     .addScaledVector(offhandCenter,1-leadWeight);
   let x=new THREE.Vector3(1,0,0).transformDirection(reference);
@@ -720,13 +706,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       model,kind,primary,dimensions,authored,anchors,"knuckle"):undefined;
     const projected=kind==="longsword"?projectWeaponIntoArmReach(
       model,primary,dimensions,adaptive):undefined;
-    const shared=kind==="longsword"?adaptiveTwoHandWeaponWorld(
-      model,kind,primary,dimensions,authored,anchors,"sword-span"):undefined;
-    const projectedShared=shared?projectWeaponIntoArmReach(
-      model,primary,dimensions,shared):undefined;
     const candidates=kind==="longsword"?
-      (seed===0?[authored,adaptive,projected!,shared!,projectedShared!]:
-        [adaptive,projected!,shared!,projectedShared!]):
+      (seed===0?[authored,adaptive,projected!]:[adaptive,projected!]):
       (seed===0?[aligned!,adaptive,authored]:[aligned!,adaptive]);
     for(const weaponWorld of candidates){
     state=poseMap(staged);
@@ -741,7 +722,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     let refinementIterations=0;
     // The original accepted pose uses only the existing coordinate-descent
     // solver. Damped refinement is strictly a failed sword configuration path.
-    if(kind==="longsword"&&a.error<.12&&b.error<.14&&
+    if(kind==="longsword"&&a.error<.07&&b.error<.40&&
       (a.error>.023||b.error>.023||a.dot<.42||b.dot<.42)){
       refinementIterations+=fitHandDamped(model,fk,state,kind,primary,
         secondary,secondGoal,shaft,anchors);
