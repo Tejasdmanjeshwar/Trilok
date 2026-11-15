@@ -46,9 +46,14 @@ describe("Studio bow and visual nock contract",()=>{
         console.log("C5.4 archery reach",JSON.stringify({hand,state,
           reachable:report.reachable,bowError:report.bowHandErrorMeters,
           drawError:report.drawHandErrorMeters,drawMeters:report.drawMeters,
+          delta:report.drawContactWorld.clone().sub(report.nockWorld).toArray(),
           bodyClearance:report.bodyClearanceMeters,iterations:report.iterations,
           attempts:report.solverAttempts}));
-        if(state==="aim")expect(report.reachable,JSON.stringify({state,hand,error:report.drawHandErrorMeters,body:report.bodyClearanceMeters})).toBe(true);
+        if(state==="aim"){
+          expect(report.reachable,JSON.stringify({state,hand,error:report.drawHandErrorMeters,body:report.bodyClearanceMeters})).toBe(true);
+          expect(report.drawHandErrorMeters).toBeLessThan(.03);
+          expect(report.drawMeters).toBeGreaterThan(.15);
+        }
         expect(report.commands.every(c=>Number.isFinite(c.radians))).toBe(true);
         expect(root.elements).toEqual(human.spike.character.root.matrixWorld.elements);
         if(report.reachable){
