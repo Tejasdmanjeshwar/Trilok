@@ -821,9 +821,15 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   const translationBounds=Array.from({length:3},()=>({
     min:-travel*dimensions.scale,max:travel*dimensions.scale
   }));
+  const nominalSpan=dimensions.primaryGripY-dimensions.secondaryGripY;
+  const legalMinSpan=kind==="longsword"?dimensions.handleLength*.48:
+    dimensions.shaftLength*.18;
+  const legalMaxSpan=kind==="longsword"?dimensions.handleLength*.84:
+    dimensions.shaftLength*.38;
   const limits=[...freedom,...translationBounds,
-    {min:-.65,max:.65},{min:-.65,max:.65}];
-  const start=[...warm,0,0,0,0,0];
+    {min:-.65,max:.65},{min:-.65,max:.65},
+    {min:legalMinSpan,max:legalMaxSpan}];
+  const start=[...warm,0,0,0,0,0,nominalSpan];
   const jointCount=dofs.length;
   const worldFrame=(values:readonly number[])=>{
     const shift=new THREE.Vector3(values[jointCount]!,values[jointCount+1]!,
@@ -834,6 +840,8 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     return new THREE.Matrix4().compose(
       authoredCenter.clone().add(shift),rot,new THREE.Vector3(1,1,1));
   };
+  const gripY=(values:readonly number[],hand:HandSide)=>
+    (hand===lead?.5:-.5)*values[jointCount+5]!;
   const sample=(values:readonly number[],stage:"position"|"aligned")=>{
     for(let i=0;i<jointCount;i++){
       const d=dofs[i]!;
@@ -842,14 +850,14 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     fk.apply([...state.values()]);
     const weapon=worldFrame(values);
     const axis=weaponAxis(weapon);
-    const a=contactWorld(model,lead,anchors).sub(gripWorld(weapon,dimensions.primaryGripY));
-    const b=contactWorld(model,off,anchors).sub(gripWorld(weapon,dimensions.secondaryGripY));
+    const a=contactWorld(model,lead,anchors).sub(gripWorld(weapon,gripY(values,lead)));
+    const b=contactWorld(model,off,anchors).sub(gripWorld(weapon,gripY(values,off)));
     const frameA=palmFrame(model,lead);
     const frameB=palmFrame(model,off);
     const guard=anatomicalGuard(model,kind,lead);
     // Continuation: first close BOTH contacts before paying for shaft-axis
     // alignment, then converge orientation with contact held strongly.
-    const axWeight=stage==="position"?.008:(kind==="staff"?.11:.05);
+    const axWeight=stage==="position"?.008:(kind==="staff"?.11:.105);
     const contactWeight=stage==="position"?4:3;
     // Soft safety barriers expose gradients to optimization instead of
     // declaring a near-contact result safe after it has converged.
@@ -869,7 +877,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     for(let i=0;i<jointCount;i++)
       residual.push((values[i]!-initial[i]!)*(i<torso.length?.07:.0015));
     for(let i=jointCount;i<values.length;i++)
-      residual.push(values[i]!*.008);
+      residual.push((values[i]!-(i===jointCount+5?nominalSpan:0))*.008);
     return residual;
   };
   // A single continuation trajectory, not anatomy-specific stance search.
@@ -880,8 +888,8 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   const commands=[...state.values()];
   const weapon=worldFrame(refined.values);
   const axis=weaponAxis(weapon);
-  const targetA=gripWorld(weapon,dimensions.primaryGripY);
-  const targetB=gripWorld(weapon,dimensions.secondaryGripY);
+  const targetA=gripWorld(weapon,gripY(refined.values,lead));
+  const targetB=gripWorld(weapon,gripY(refined.values,off));
   const actualA=contactWorld(model,lead,anchors);
   const actualB=contactWorld(model,off,anchors);
   const errA=actualA.distanceTo(targetA),errB=actualB.distanceTo(targetB);
@@ -905,9 +913,11 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     reason:"ok" as const,headClearanceMeters:guard.headClearance,
     elbowMaxHeightMeters:guard.elbowMax,headHeightMeters:guard.headY,
     maximumPalmHeightMeters:guard.maximumPalmY,
-    separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
+    separationMeters:refined.values[jointCount+5]!,
     initialHandSpanMeters:initialSpan,
-    dimensions,weaponWorld:weapon,
+    dimensions:Object.freeze({...dimensions,
+      primaryGripY:gripY(refined.values,lead),
+      secondaryGripY:gripY(refined.values,off)}),weaponWorld:weapon,
     gripAnchors:Object.freeze({
       left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
       right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
