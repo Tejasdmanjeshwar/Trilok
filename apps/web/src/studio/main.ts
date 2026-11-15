@@ -3,6 +3,7 @@ import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
 import {serializeStudioGripFailure,type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import {primaryHand,type EquipmentChoice} from "./StudioTwoHandGrip";
+import {isSwordShieldEquipment,type ShieldStance} from "./StudioSwordShield";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {createStudioGeneratorPanel,type StudioGeneratorPanel} from "./StudioGeneratorPanel";
 import {STUDIO_VIEWS,STUDIO_LIGHTS,type StudioView,type StudioLight} from "./StudioPresentation";
@@ -121,8 +122,18 @@ host.innerHTML=String.raw`
               <option value="staff-right">Right hand leads</option>
               <option value="staff-left">Left hand leads</option>
             </optgroup>
+            <optgroup label="Sword and shield">
+              <option value="sword-shield-right">Sword right · Shield left</option>
+              <option value="sword-shield-left">Sword left · Shield right</option>
+            </optgroup>
           </select>
-          <p>Inspect the character's grip. Both hands follow the same weapon when reachable.</p>
+          <label class="studio-field-label" for="studio-shield-stance" id="studio-shield-stance-label" hidden>Shield position</label>
+          <select id="studio-shield-stance" aria-label="Sword and shield stance" hidden>
+            <option value="guard">Guard</option>
+            <option value="attack">Attack ready</option>
+            <option value="parry">Parry</option>
+          </select>
+          <p>Inspect weapon grips and shield placement from any angle.</p>
           <div class="studio-action-pair studio-weapon-focus">
             <button id="studio-sword-focus" type="button">Focus on gripping hand</button>
           </div>
@@ -216,11 +227,18 @@ const poseSelect=element<HTMLSelectElement>("#studio-pose-select");
 const expressionSelect=element<HTMLSelectElement>("#studio-expression-select");
 const swordSelect=element<HTMLSelectElement>("#studio-sword-hand");
 const swordFocus=element<HTMLButtonElement>("#studio-sword-focus");
+const shieldStanceSelect=element<HTMLSelectElement>("#studio-shield-stance");
+const shieldStanceLabel=element<HTMLElement>("#studio-shield-stance-label");
+shieldStanceSelect.addEventListener("change",()=>{
+  viewport.setShieldStance(shieldStanceSelect.value as ShieldStance);
+});
 swordFocus.disabled=true;
 swordSelect.addEventListener("change",()=>{
   const hand=swordSelect.value as EquipmentChoice;
   if(!["none","left","right","longsword-left","longsword-right",
-    "staff-left","staff-right"].includes(hand))return;
+    "staff-left","staff-right","sword-shield-left","sword-shield-right"].includes(hand))return;
+  shieldStanceSelect.hidden=!isSwordShieldEquipment(hand);
+  shieldStanceLabel.hidden=!isSwordShieldEquipment(hand);
   viewport.setEquipment(hand);
   swordFocus.disabled=hand==="none";
 });
