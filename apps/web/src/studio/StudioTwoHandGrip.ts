@@ -74,11 +74,17 @@ export const TWO_HAND_REFERENCE:Readonly<Record<TwoHandWeapon,Omit<TwoHandDimens
  * Unsupported young/small bodies can fail reach without stretching the weapon. */
 export function twoHandDimensions(model:StudioHumanModel,kind:TwoHandWeapon):
   TwoHandDimensions {
-  const root=model.human.spike.character.root;
-  root.updateWorldMatrix(true,true);
-  const head=root.worldToLocal(world(jointBone(model,"head","right")));
-  const ankle=root.worldToLocal(world(jointBone(model,"ankle_left","left")));
-  const stature=head.y-ankle.y+.13;
+  // Bind-space bones, not the current posed head-to-ankle distance:
+  // bending knees or crouching must NEVER resize a held weapon.
+  const skeleton=model.human.spike.skeleton;
+  const bindPosition=(role:string,hand:HandSide)=>{
+    const index=skeleton.bones.indexOf(jointBone(model,role,hand));
+    if(index<0)throw new Error("Missing source bind bone "+role);
+    return new THREE.Vector3().setFromMatrixPosition(
+      skeleton.boneInverses[index]!.clone().invert());
+  };
+  const stature=bindPosition("head","right").y-
+    bindPosition("ankle_left","left").y+.13;
   if(!Number.isFinite(stature)||stature<=0)throw new Error("Invalid source stature");
   const scale=THREE.MathUtils.clamp(stature/1.75,.4,1.2);
   const spec=TWO_HAND_REFERENCE[kind];
@@ -248,7 +254,7 @@ function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
   const scale=dim.scale;
   const offset=kind==="longsword"?
     new THREE.Vector3(0,-.18*scale,.28*scale):
-    new THREE.Vector3(0,-.17*scale,.31*scale);
+    new THREE.Vector3(0,-.25*scale,.31*scale);
   const y=(kind==="longsword"?
     new THREE.Vector3(primary==="right"?.76:-.76,.51,.42):
     new THREE.Vector3(primary==="right"?.94:-.94,.16,.30))
@@ -300,7 +306,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     const elbowGap=Math.max(0,guard.elbowMax-guard.headY+.135);
     const palmGap=Math.max(0,guard.maximumPalmY-guard.headY+.20);
     const forearmGap=Math.max(0,.05-guard.forearmClearance);
-    return {value:positionError*positionError*34+
+    return {value:positionError*positionError*90+
       .018*(1-dot)*(1-dot)+
       .006*Math.max(0,forwardOverlap-.36)**2+
       .00015*travel+35*(headGap*headGap+elbowGap*elbowGap+
@@ -338,6 +344,9 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult {
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
+  // Always begin from the same source rest frame. Previously applied Studio
+  // poses must not change the grip's reference calipers or splay sign.
+  fk.apply([]);
   const state=poseMap(base);
   // Build independently dimensioned reference weapon and stance first.
   const dimensions=twoHandDimensions(model,kind);
