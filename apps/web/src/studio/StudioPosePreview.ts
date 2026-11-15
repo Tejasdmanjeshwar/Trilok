@@ -4,7 +4,7 @@ import {HumanPoseCorrectives} from "../characters/geometry/HumanPoseCorrectives"
 import {coordinateFacialJawPose} from "../characters/geometry/MakeHumanFacialTargets";
 import type {StudioHumanModel} from "./StudioHumanModel";
 import {calibrateGripSpreads,swordGripTargets,type GripSpreads} from "./StudioWeaponGrip";
-import {isTwoHandEquipment,primaryHand,solveTwoHandIK,type EquipmentChoice,
+import {isTwoHandEquipment,primaryHand,twoHandKind,solveTwoHandIK,type EquipmentChoice,
   type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
 
@@ -49,7 +49,7 @@ export class StudioPosePreview {
     }
     this.result=undefined;
     if(isTwoHandEquipment(this.grip)){
-      this.result=solveTwoHandIK(this.model,this.fk,effective,primaryHand(this.grip)!);
+      this.result=solveTwoHandIK(this.model,this.fk,effective,primaryHand(this.grip)!,twoHandKind(this.grip));
       // No second arm snap on unreachable targets; the solver restores the
       // input pose and returns a descriptive status without changing the root.
     }else this.fk.apply(effective);
