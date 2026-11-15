@@ -15,7 +15,8 @@ describe("C5.3 morphed source skin and shield clearance",()=>{
       "macro/muscle":1}},
     {name:"tall slender",morph:{"macro/height":1,"macro/weight":0,
       "macro/muscle":0}},
-  ])("retargets both independent hands on $name body",({name,morph})=>{
+  ] as readonly {name:string;morph:Readonly<Record<string,number>>}[])
+    ("retargets both independent hands on $name body",({name,morph})=>{
     const {human,model,fk}=make(morph);
     try{
       for(const hand of ["left","right"] as const){
