@@ -875,6 +875,11 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       const axis=span.lengthSq()>1e-7?span.normalize():referenceAxis.clone();
       return axis.multiplyScalar(.12).addScaledVector(referenceAxis,.88).normalize();
     };
+    // Contact and forward-facing safety form a continuation problem: a
+    // directly weighted first iteration favors a safe *separated* pose.
+    // First establish the shared rigid contact, then correct the complete
+    // front-of-torso safety constraint without throwing contact away.
+    let forwardConstraintWeight=0;
     const sample=()=>{
       const axis=shaft();
       const first=contactWorld(model,lead,anchors),second=contactWorld(model,off,anchors);
@@ -897,7 +902,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
         Math.max(0,guard.elbowMax-guard.headY+.135*guard.scale)*4,
         Math.max(0,guard.maximumPalmY-guard.headY+.20*guard.scale)*4,
         Math.max(0,.05*guard.scale-guard.forearmClearance)*4,
-        Math.max(0,-.055*guard.scale-guard.forwardClearance)*4];
+        Math.max(0,-.055*guard.scale-guard.forwardClearance)*forwardConstraintWeight];
     };
     const cost=(values:readonly number[])=>{
       let sum=values.reduce((s,v)=>s+v*v,0);
@@ -908,7 +913,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       return sum;
     };
     let best=sample(),bestCost=cost(best);
-    for(let iteration=0;iteration<65;iteration++){
+    for(let iteration=0;iteration<85;iteration++){
       const axis=shaft();
       const first=contactWorld(model,lead,anchors);
       const second=contactWorld(model,off,anchors);
@@ -917,6 +922,10 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       const leadAlignment=palmFrame(model,lead).axis.dot(axis);
       const supportAlignment=palmFrame(model,off).axis.dot(axis);
       const alignmentMin=kind==="staff"?.85:.42;
+      if(forwardConstraintWeight===0&&(difference.length()<.012||iteration>=45)){
+        forwardConstraintWeight=4;
+        best=sample();bestCost=cost(best);
+      }
       if(difference.length()<.008&&guard.ok&&
         leadAlignment>alignmentMin&&supportAlignment>alignmentMin)break;
       const baseValues=dofs.map(d=>state.get(d.key)?.radians??0);
@@ -1014,7 +1023,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
         primaryDeltaMeters:Object.freeze(leadContact.sub(firstGoal).toArray()),
         secondaryDeltaMeters:Object.freeze(offContact.sub(secondGoal).toArray()),
         primaryAxisDot:dotA,secondaryAxisDot:dotB,
-        iterations:0,refinementIterations:65,reason:"ok" as const,
+        iterations:0,refinementIterations:85,reason:"ok" as const,
         headClearanceMeters:guard.headClearance,elbowMaxHeightMeters:guard.elbowMax,
         headHeightMeters:guard.headY,maximumPalmHeightMeters:guard.maximumPalmY,
         separationMeters:separation,initialHandSpanMeters:initialSpan,
