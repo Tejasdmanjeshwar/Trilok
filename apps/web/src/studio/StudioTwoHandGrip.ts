@@ -288,14 +288,6 @@ function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
   root.updateWorldMatrix(true,true);
   const facing=root.getWorldQuaternion(new THREE.Quaternion());
   const chest=world(jointBone(model,"chest",primary));
-  // Collision distances track the source's physical stature. The old
-  // adult-only 19cm head and 4.5cm forearm clearance falsely rejected
-  // infant rigs although the same proportions are valid at smaller scale.
-  const root=model.human.spike.character.root;
-  const ankle=world(jointBone(model,"ankle_left","left"));
-  const headLocal=root.worldToLocal(head.clone());
-  const ankleLocal=root.worldToLocal(ankle.clone());
-  const scale=THREE.MathUtils.clamp((headLocal.y-ankleLocal.y+.13)/1.75,.4,1.2);
   const scale=dim.scale;
   const offset=kind==="longsword"?
     new THREE.Vector3(0,-.18*scale,.28*scale):
