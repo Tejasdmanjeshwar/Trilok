@@ -8,7 +8,7 @@ import {MakeHumanBodyController,type BodyAtlas} from
 import {AnatomicalFK} from "../apps/web/src/characters/geometry/AnatomicalFK";
 import {generateStudioCharacter,STUDIO_GENERATOR_VERSION} from "../apps/web/src/studio/StudioGenerator";
 import {applyHumanMorphology} from "../apps/web/src/characters/geometry/HumanMorphology";
-import {createHumanHeadRecipe} from "@trilok/character-core";
+import {createHumanHeadRecipe} from "../packages/character-core/src/index";
 import {solveTwoHandIK,StudioTwoHandPreview,twoHandSolvedContactWorld,type HandSide} from "../apps/web/src/studio/StudioTwoHandGrip";
 import type {StudioHumanModel} from "../apps/web/src/studio/StudioHumanModel";
 import type {SourceRig,SourceWeights} from
