@@ -205,12 +205,7 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
   // approved finger curl; only its arm pose seed is different on failure.
   const pose=STANCES[kind==="longsword"&&seed>=REACH_SEEDS.length?"staff":kind];
   const variation=REACH_SEEDS[seed%REACH_SEEDS.length]!;
-  // Rare morphology-only restarts may lift/protract the source clavicle
-  // before solving: its DOFs are source-calibrated and remain FK-bounded.
-  // No such change is applied to the accepted nominal grip or staff.
-  const clavicleRestart=kind==="longsword"&&seed>=REACH_SEEDS.length*2;
-
-  const add=(hand:HandSide,role:string,motion:AnatomicalMotion,value:number)=>{
+   const add=(hand:HandSide,role:string,motion:AnatomicalMotion,value:number)=>{
     const joint=scopedJoint(graph,role+"_"+hand,hand);
     const freedom=fk.frames.get(joint.id)?.freedoms.get(motion);
     if(!freedom)throw new Error("Missing authored grip freedom");
@@ -221,8 +216,8 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
     const mirror=hand==="right"?1:-1;
     // Deliberately asymmetric, no mirrored overhead X-shaped arms.
     const isLead=hand===primary;
-    add(hand,"clavicle","abduction",clavicleRestart?.30:0);
-    add(hand,"clavicle","flexion",clavicleRestart?.24:0);
+    add(hand,"clavicle","abduction",0);
+    add(hand,"clavicle","flexion",0);
     add(hand,"shoulder","abduction",pose.shoulderAbduction+variation.abduction);
     add(hand,"shoulder","flexion",pose.shoulderFlexion+variation.flexion+
       (kind==="longsword"?(isLead?.20:-.15):0));
@@ -927,7 +922,7 @@ function fitTorsoCenteredSword(model:StudioHumanModel,fk:AnatomicalFK,
   const chest=world(jointBone(model,"chest",lead));
   const origin=chest.lerp(midpoint,.35);
   const graph=model.human.spike.graph;
-  for(const seed of [0,6,7,4,2,16,20]){
+  for(const seed of [0,6,7,4,2]){
     const state=poseMap(fingerState);
     stageReadyPose(graph,fk,state,"longsword",lead,seed);
     const staged=[...state.values()];
@@ -936,25 +931,13 @@ function fitTorsoCenteredSword(model:StudioHumanModel,fk:AnatomicalFK,
       .distanceTo(twoHandGripContactWorld(model,off));
     // These two frames sit in the physical intersection of the source arm
     // reach spheres rather than inheriting the dislocated original hands.
-    // Only fallback candidates: adjust a rigid sword's *placement and
-    // orientation*, not its hilt dimensions or the accepted normal guard.
-    // An asymmetric source shoulder may reach an upright/forward grip better
-    // than the same fixed diagonal angle used for an average adult.
-    for(const [rise,depth,tilt,lateral] of [
-      [-.18,.30,0,0],[-.27,.38,0,0],
-      [-.05,.22,-.32,0],[-.18,.22,-.35,0],
-      [-.25,.25,.32,0],[-.30,.13,.18,0],
-      [-.12,.43,-.30,0],[-.15,.30,-.25,.06],
-      [-.23,.25,.25,-.06],
-    ] as const){
+    for(const [rise,depth] of [[-.18,.30],[-.27,.38]] as const){
       state.clear();
       for(const c of staged)state.set(key(c.jointId,c.motion),c);
       fk.apply(staged);
       const frame=authoredWeaponWorld(model,"longsword",lead,dimensions);
-      if(tilt)frame.multiply(new THREE.Matrix4().makeRotationZ(tilt));
       frame.setPosition(origin.clone().add(new THREE.Vector3(
-        lateral*dimensions.scale,rise*dimensions.scale,
-        depth*dimensions.scale).applyQuaternion(facing)));
+        0,rise*dimensions.scale,depth*dimensions.scale).applyQuaternion(facing)));
       const shaft=weaponAxis(frame);
       const goalA=gripWorld(frame,dimensions.primaryGripY);
       const goalB=gripWorld(frame,dimensions.secondaryGripY);
@@ -1182,7 +1165,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   // Only an otherwise rejected morphology or Studio pose enters the
   // relative-hand solver. The approved, successful presentation is immutable.
   if(!chosen?.reachable){
-    for(const seed of kind==="longsword"?[6,7,4,5,2,0,16,18,20,22]:[3,2,1,0]){
+    for(const seed of kind==="longsword"?[6,7,4,5,2,0]:[3,2,1,0]){
       const paired=fitRelativeTwoHandContacts(model,fk,fingerState,
         kind,primary,dimensions,seed,diagnostics);
       if(paired){chosen=paired;break;}
