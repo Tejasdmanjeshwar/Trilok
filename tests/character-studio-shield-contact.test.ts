@@ -37,6 +37,7 @@ describe("sword and shield source-skin attachments",()=>{
       pose.setGrip(("sword-shield-"+side) as "sword-shield-left"|"sword-shield-right");
       const result=pose.shieldPoseResult;
       expect(result).toBeDefined();
+      expect(result!.reachable,"mirrored shield guard must be attainable").toBe(true);
       expect(result!.iterations).toBeLessThanOrEqual(32);
       expect(result!.commands.length).toBeGreaterThan(15);
       const sword=new StudioSwordPreview(model,side);
@@ -76,6 +77,7 @@ describe("sword and shield source-skin attachments",()=>{
         pose.setShieldStance(stance);
         const first=pose.shieldPoseResult!;
         expect(first).toBeDefined();
+        expect(first.reachable,stance+" shield must have legal arm reach").toBe(true);
         expect(Number.isFinite(first.wristErrorMeters)).toBe(true);
         const stable=first.commands.map(c=>[c.jointId,c.motion,c.radians]);
         pose.refresh();
@@ -93,10 +95,11 @@ describe("sword and shield source-skin attachments",()=>{
     const pose=new StudioPosePreview(model);
     try{
       pose.setGrip("sword-shield-right");
+      expect(pose.shieldPoseResult?.reachable,"extreme morphology requires shield reach").toBe(true);
       const shield=new StudioShieldPreview(model,"left");
       try{
         expect(shield.contact.plateSkinClearanceMeters).toBeGreaterThan(-.005);
-        expect(Number.isFinite(shield.contact.torsoClearanceMeters)).toBe(true);
+        expect(shield.contact.torsoClearanceMeters).toBeGreaterThan(-.005);
         const skin=human.mesh.geometry.getAttribute("skinIndex");
         expect(skin.count).toBeGreaterThan(1000);
       }finally{shield.dispose();}
