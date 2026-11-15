@@ -16,7 +16,7 @@ import type {SourceRig,SourceWeights} from
 
 const load=(name:string)=>readFileSync("apps/web/public/anatomy/"+name,"utf8");
 const atlas=JSON.parse(readFileSync("assets/cache/makehuman-body-v1.json","utf8")) as BodyAtlas;
-function make(body:Readonly<Record<string,number>>={}){
+function make(body:Readonly<Record<string,number>>={},shape?:ReturnType<typeof generateStudioCharacter>["morphology"]["shape"]){
   const human=bindTemplateToSemanticRig(
     parseAnatomicalOBJ(load("makehuman-base.obj"),{includeGroups:["body"]}),{
       rig:JSON.parse(load("makehuman-default.mhskel")) as SourceRig,
@@ -107,9 +107,8 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
     expect(generated.morphology.shape.breadth).toBe(1.092271);
     expect(generated.morphology.shape.shoulders).toBe(1.055359);
     expect(generated.morphology.shape.arms).toBe(.953258);
-    const {human,model,fk}=make(values);
+    const {human,model,fk}=make(values,generated.morphology.shape);
     try{
-      applyHumanMorphology(human,createHumanHeadRecipe(generated.morphology.shape));
       // Both leads must work; finite but unreachable diagnostics are not success.
       for(const lead of ["right","left"] as const){
         fk.apply([]);
