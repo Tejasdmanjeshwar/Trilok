@@ -96,7 +96,8 @@ export function createStudioViewport(
   function clearSword():void{sword?.dispose();sword=undefined;}
   function refreshSword():void{
     clearSword();
-    if(!active||equipment==="none")return;
+    if(equipment==="none"){onEditError("");return;}
+    if(!active)return;
     try{
       if(isTwoHandEquipment(equipment)){
         const solved=posePreview?.twoHandResult;
@@ -498,7 +499,7 @@ export function createStudioViewport(
         posePreview?.refresh();
         if(isTwoHandEquipment(equipment))refreshSword();
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
-        onEditError("");
+        if(equipment==="none"||sword)onEditError("");
         return true;
       }catch(_error){
         if(valid())onEditError("This adjustment could not be applied. Your previous character remains available.");
@@ -535,7 +536,7 @@ export function createStudioViewport(
       refreshInspection();
       onReady();
       if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
-      onEditError("");
+      if(equipment==="none"||sword)onEditError("");
       return true;
     }catch(_error){
       incoming?.dispose();
