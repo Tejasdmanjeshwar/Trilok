@@ -53,6 +53,28 @@ interface GripGeometryReport {
   readonly wristGuardClearance:number;
   readonly wristGuardPenetration:number;
 }
+/** Conservative geometric regression gate, measured in meters.
+ * Prevents lost digits, entire-finger displacement through a handle, and
+ * guard/wrist intersections. It is NOT a 1-2mm physical-contact guarantee:
+ * the visually accepted source-handle poses have larger thumb residuals. */
+function assertGripRegression(report:GripGeometryReport):void{
+  finiteReport(report);
+  const nearLimit=Math.max(.010,report.radius*.75);
+  const penetrationLimit=Math.max(.005,report.radius*.85);
+  let contacts=0;
+  for(const digit of DIGITS){
+    const d=report.digits[digit];
+    expect(d.closestGap, digit+" exceeds calibrated handle proximity")
+      .toBeLessThan(nearLimit);
+    expect(d.deepestPenetration,digit+" clips through calibrated handle")
+      .toBeLessThan(penetrationLimit);
+    contacts+=d.contactVertices;
+  }
+  expect(contacts,"no source fingers contact the handle").toBeGreaterThan(3);
+  expect(report.guardPenetration,"finger intersects solid crossguard").toBeLessThan(.003);
+  expect(report.wristGuardPenetration,"wrist intersects crossguard").toBeLessThan(.003);
+  expect(report.wristGuardClearance,"crossguard too near wrist").toBeGreaterThan(.002);
+}
 function finiteReport(report:GripGeometryReport):void {
   for(const value of [report.radius,report.length,report.guardSkinClearance,
     report.guardPenetration,report.wristGuardClearance,report.wristGuardPenetration])
@@ -212,10 +234,7 @@ describe("C5.1 actual MakeHuman grip geometry",()=>{
         try{
           const report=measure(human,sword,hand);
           console.log("C5.1-MORPHOLOGY",JSON.stringify({case:id,hand,...report}));
-          finiteReport(report);
-          expect(report.guardPenetration).toBeLessThan(.003);
-          expect(report.wristGuardPenetration).toBeLessThan(.003);
-          expect(report.wristGuardClearance).toBeGreaterThan(.002);
+          assertGripRegression(report);
         }finally{sword.dispose();}
       }finally{human.dispose();}
     }
