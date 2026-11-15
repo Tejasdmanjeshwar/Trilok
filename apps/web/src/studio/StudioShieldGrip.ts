@@ -57,8 +57,7 @@ export function validateShieldAttachment(value:ShieldAttachmentV1,graph:Anatomic
 
 const roleBone=(model:StudioHumanModel,role:string,side:ShieldHand):THREE.Bone=>{
   const joint=model.human.spike.graph.joints.find(j=>j.role===role&&
-    (role.startsWith("finger_")?j.id.includes("arm["+side+",0]"):
-      role.endsWith("_"+side)?j.id.includes("arm["+side+",0]"):true));
+    (!role.startsWith("finger_")||j.id.includes("arm["+side+",0]")));
   const bone=joint&&model.human.spike.bones.get(joint.id);
   if(!bone)throw new Error("Missing source shield landmark "+role);
   return bone;
@@ -161,8 +160,7 @@ export function solveShieldPose(model:StudioHumanModel,fk:AnatomicalFK,
   const initial:number[]=[];
   let index=0;
   for(const [part,motions] of freedomNames){
-    const j=graph.joints.find(j=>j.role===part+"_"+hand&&
-      j.id.includes("arm["+hand+",0]"));
+    const j=graph.joints.find(j=>j.role===part+"_"+hand);
     if(!j)throw new Error("Missing shield arm joint "+part);
     for(const motion of motions){
       const limit=fk.frames.get(j.id)?.freedoms.get(motion);
