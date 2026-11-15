@@ -13,8 +13,10 @@ export class StudioPosePreview {
   private readonly spreads:Readonly<Record<"left"|"right",GripSpreads>>;
   private correctives?:HumanPoseCorrectives;
   private current:StudioPose="neutral";
-  private grip:SwordHand="none";
-  setGrip(hand:SwordHand):void{this.grip=hand;this.refresh();}
+  private grip:EquipmentChoice="none";
+  private result:TwoHandIKResult|undefined;
+  get twoHandResult():TwoHandIKResult|undefined{return this.result;}
+  setGrip(hand:EquipmentChoice):void{this.grip=hand;this.refresh();}
   constructor(private readonly model:StudioHumanModel){
     const h=model.human;
     this.fk=new AnatomicalFK(h.spike.graph,h.spike.bones,{
@@ -32,7 +34,8 @@ export class StudioPosePreview {
     const human=this.model.human;
     const commands=resolveAnatomicalPose(anatomicalPoseById(id),
       human.spike.graph,this.fk);
-    const grip=this.grip==="none"?[]:swordGripTargets(human.spike.graph,this.grip,this.spreads[this.grip]);
+    const grip=this.grip==="none"||isTwoHandEquipment(this.grip)?[]:
+      swordGripTargets(human.spike.graph,this.grip,this.spreads[this.grip]);
     const covered=new Set(grip.map(c=>c.jointId+"/"+c.motion));
     const composed=[...commands.filter(c=>!covered.has(c.jointId+"/"+c.motion)),...grip];
     const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")?.id;
@@ -42,13 +45,19 @@ export class StudioPosePreview {
         /^(shoulder|hip)_/.test(j.role)))){
       this.correctives=new HumanPoseCorrectives(human);
     }
-    this.fk.apply(effective);
-    this.correctives?.apply(effective);
+    this.result=undefined;
+    if(isTwoHandEquipment(this.grip)){
+      this.result=solveTwoHandIK(this.model,this.fk,effective,primaryHand(this.grip)!);
+      // No second arm snap on unreachable targets; the solver restores the
+      // input pose and returns a descriptive status without changing the root.
+    }else this.fk.apply(effective);
+    this.correctives?.apply(this.result?.reachable?this.result.commands:effective);
     human.spike.character.root.updateWorldMatrix(true,true);
     this.current=id;
   }
   refresh():void{this.setPose(this.current);}
   dispose():void{
+    this.result=undefined;
     this.fk.apply([]);
     this.correctives?.dispose();
   }
