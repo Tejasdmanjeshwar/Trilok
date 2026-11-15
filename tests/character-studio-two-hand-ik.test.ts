@@ -8,7 +8,7 @@ import {MakeHumanBodyController,type BodyAtlas} from
   "../apps/web/src/characters/geometry/MakeHumanBodyTargets";
 import type {SourceRig,SourceWeights} from
   "../apps/web/src/characters/geometry/OfficialHumanRig";
-import {createTwoHandDescriptor,solveTwoHandIK,StudioTwoHandPreview,
+import {createTwoHandDescriptor,twoHandDimensions,TWO_HAND_REFERENCE,solveTwoHandIK,StudioTwoHandPreview,
   type HandSide,type TwoHandWeapon} from "../apps/web/src/studio/StudioTwoHandGrip";
 import type {StudioHumanModel} from "../apps/web/src/studio/StudioHumanModel";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
@@ -50,8 +50,8 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
       expect(first.elbowMaxHeightMeters).toBeLessThan(first.headHeightMeters-.12);
       expect(first.maximumPalmHeightMeters).toBeLessThan(first.headHeightMeters-.18);
       expect(first.iterations).toBeLessThanOrEqual(24);
-      expect(first.primaryErrorMeters).toBeLessThan(.15);
-      expect(first.secondaryErrorMeters).toBeLessThan(.15);
+      expect(first.primaryErrorMeters).toBeLessThan(.025);
+      expect(first.secondaryErrorMeters).toBeLessThan(.025);
       expect(root.matrixWorld.elements).toEqual(original.elements);
       const second=solveTwoHandIK(model,fk,[],primary);
       expect(second.reason).toBe(first.reason);
@@ -77,13 +77,13 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           const lead=bone(model,"palm_"+primary).getWorldPosition(new THREE.Vector3());
           const follower=bone(model,"palm_"+(primary==="left"?"right":"left"))
             .getWorldPosition(new THREE.Vector3());
-          expect(contact(first.separationMeters/2).distanceTo(lead)).toBeLessThan(.006);
-          expect(contact(-first.separationMeters/2).distanceTo(follower))
+          expect(contact(first.dimensions.primaryGripY).distanceTo(lead)).toBeLessThan(.006);
+          expect(contact(first.dimensions.secondaryGripY).distanceTo(follower))
             .toBeLessThan(.025);
           root.position.set(.23,.12,-.31);root.rotation.y=.34;
           root.updateWorldMatrix(true,true);
           preview.update();
-          expect(contact(first.separationMeters/2).distanceTo(
+          expect(contact(first.dimensions.primaryGripY).distanceTo(
             bone(model,"palm_"+primary).getWorldPosition(new THREE.Vector3())))
             .toBeLessThan(.006);
           root.position.set(0,0,0);root.rotation.y=0;
@@ -133,7 +133,7 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           expect(Number.isFinite(result.primaryErrorMeters)).toBe(true);
           expect(Number.isFinite(result.secondaryErrorMeters)).toBe(true);
           if(result.reachable){
-            const desc=createTwoHandDescriptor(model,"staff",primary,result.separationMeters);
+            const desc=createTwoHandDescriptor(model,"staff",primary);
             expect(desc.primarySocket).not.toBe(desc.secondarySocket);
           }else expect(result.commands).toHaveLength(0);
         }
@@ -153,7 +153,7 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           expect(pose.headClearanceMeters).toBeGreaterThan(.19);
           expect(pose.elbowMaxHeightMeters).toBeLessThan(pose.headHeightMeters-.12);
           expect(pose.maximumPalmHeightMeters).toBeLessThan(pose.headHeightMeters-.18);
-          expect(pose.separationMeters).toBeGreaterThan(.25);
+          expect(pose.separationMeters).toBeCloseTo(pose.dimensions.primaryGripY-pose.dimensions.secondaryGripY,9);
           outcomes.push(pose);
           fk.apply([]);
         }
@@ -161,6 +161,32 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           outcomes[1]!.maximumPalmHeightMeters).toBeGreaterThan(.05);
       }finally{human.dispose();}
     },120_000);
+  it("enforces authoritative weapon dimensions and grip transforms independently of palms",()=>{
+    const {human,model,fk}=fixture();
+    try{
+      for(const kind of ["longsword","staff"] as const){
+        const blueprint=TWO_HAND_REFERENCE[kind];
+        const before=twoHandDimensions(model,kind);
+        for(const side of ["left","right"] as const){
+          const answer=solveTwoHandIK(model,fk,[],side,kind);
+          const after=twoHandDimensions(model,kind);
+          expect(after).toEqual(before);
+          expect(answer.dimensions.handleLength).toBeCloseTo(blueprint.handleLength*before.scale,9);
+          expect(answer.dimensions.bladeLength).toBeCloseTo(blueprint.bladeLength*before.scale,9);
+          expect(answer.dimensions.shaftLength).toBeCloseTo(blueprint.shaftLength*before.scale,9);
+          expect(answer.separationMeters).toBeCloseTo(
+            (blueprint.primaryGripY-blueprint.secondaryGripY)*before.scale,9);
+          expect(answer.weaponWorld.elements.every(Number.isFinite)).toBe(true);
+          if(kind==="longsword"){
+            expect(after.bladeLength/after.handleLength).toBeGreaterThan(2.8);
+            expect(after.primaryGripY).toBeLessThan(after.handleLength/2);
+            expect(after.secondaryGripY).toBeGreaterThan(-after.handleLength/2);
+          }else expect(after.shaftLength).toBeGreaterThan(answer.separationMeters*2);
+          fk.apply([]);
+        }
+      }
+    }finally{human.dispose();}
+  },120_000);
   it("diagnoses weapon-specific authored neutral reach without forced root movement",()=>{
     const {human,model,fk}=fixture();
     try{
