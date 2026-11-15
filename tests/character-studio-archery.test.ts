@@ -12,7 +12,7 @@ describe("Studio bow and visual nock contract",()=>{
     const pose=new StudioPosePreview(model);
     try{
       const root=human.spike.character.root.matrixWorld.clone();
-      pose.setGrip("bow-"+hand);
+      pose.setGrip(hand==="left"?"bow-left":"bow-right");
       const rest=pose.bowPoseResult!;
       expect(rest).toBeDefined();
       expect(rest.iterations).toBeLessThanOrEqual(48);
