@@ -11,7 +11,8 @@ export type HandSide="left"|"right";
 export type TwoHandWeapon="longsword"|"staff";
 export type TwoHandEquipment =
   "longsword-right"|"longsword-left"|"staff-right"|"staff-left";
-export type EquipmentChoice="none"|"left"|"right"|TwoHandEquipment;
+export type EquipmentChoice="none"|"left"|"right"|TwoHandEquipment|
+  "sword-shield-right"|"sword-shield-left";
 export const isTwoHandEquipment=(value:EquipmentChoice):
   value is TwoHandEquipment=>value.startsWith("longsword-")||value.startsWith("staff-");
 export function primaryHand(mode:EquipmentChoice):HandSide|undefined{
