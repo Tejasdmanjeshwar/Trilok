@@ -1003,7 +1003,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
     const minimum=kind==="staff"?.85:.42;
     diagnostics.push({seed,initialSpan,primaryError:errorA,secondaryError:errorB,
       primaryAxis:dotA,secondaryAxis:dotB,
-      reason:!guard.ok?"relative-unsafe":
+      reason:!guard.ok?`relative-unsafe(head=${guard.headClearance.toFixed(3)}/${(.19*guard.scale).toFixed(3)},forearm=${guard.forearmClearance.toFixed(3)}/${(.045*guard.scale).toFixed(3)},elbow=${guard.elbowMax.toFixed(3)}/${(guard.headY-.12*guard.scale).toFixed(3)},palm=${guard.maximumPalmY.toFixed(3)}/${(guard.headY-.18*guard.scale).toFixed(3)})`:
         dotA<=minimum||dotB<=minimum?"relative-orientation":"relative-span"});
     if(guard.ok&&errorA<=.023&&errorB<=.023&&dotA>minimum&&dotB>minimum){
       return Object.freeze({
