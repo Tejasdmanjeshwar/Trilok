@@ -857,8 +857,8 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     const guard=anatomicalGuard(model,kind,lead);
     // Continuation: first close BOTH contacts before paying for shaft-axis
     // alignment, then converge orientation with contact held strongly.
-    const axWeight=stage==="position"?.008:(kind==="staff"?.11:.105);
-    const contactWeight=stage==="position"?4:3;
+    const axWeight=stage==="position"?.008:(kind==="staff"?.11:.085);
+    const contactWeight=stage==="position"?4:3.5;
     // Soft safety barriers expose gradients to optimization instead of
     // declaring a near-contact result safe after it has converged.
     const head=Math.max(0,.195*guard.scale-guard.headClearance);
