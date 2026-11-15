@@ -245,7 +245,7 @@ function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
   const chest=world(jointBone(model,"chest",primary));
   const scale=dim.scale;
   const offset=kind==="longsword"?
-    new THREE.Vector3(0,-.10*scale,.28*scale):
+    new THREE.Vector3(0,-.16*scale,.28*scale):
     new THREE.Vector3(0,-.17*scale,.31*scale);
   const y=(kind==="longsword"?
     new THREE.Vector3(primary==="right"?.20:-.20,.64,.74):
@@ -278,7 +278,10 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
   {error:number;dot:number;iterations:number}{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
   const starting=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
-  const desiredAxis=shaft.clone().multiplyScalar(hand===lead?1:-1);
+  // Sword hands use the same little-to-index direction toward the guard;
+  // staff guards may use opposed grips. Never mistake sword grip for dual wield.
+  const direction=kind==="longsword"||hand===lead?1:-1;
+  const desiredAxis=shaft.clone().multiplyScalar(direction);
   const apply=()=>fk.apply([...state.values()]);
   const cost=()=>{
     const frame=palmFrame(model,hand);
@@ -296,7 +299,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     const palmGap=Math.max(0,guard.maximumPalmY-guard.headY+.20);
     const forearmGap=Math.max(0,.05-guard.forearmClearance);
     return {value:positionError*positionError*34+
-      .012*(1-dot)*(1-dot)+
+      .018*(1-dot)*(1-dot)+
       .006*Math.max(0,forwardOverlap-.36)**2+
       .00015*travel+35*(headGap*headGap+elbowGap*elbowGap+
         palmGap*palmGap+forearmGap*forearmGap),
@@ -354,7 +357,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const primaryError=first.palm.distanceTo(firstGoal);
   const secondaryError=second.palm.distanceTo(secondGoal);
   const primaryDot=first.axis.dot(shaft);
-  const secondaryDot=-second.axis.dot(shaft);
+  const secondaryDot=second.axis.dot(shaft)*(kind==="longsword"?1:-1);
   const guard=anatomicalGuard(model,kind,primary);
   const reached=guard.ok&&primaryError<=.023&&secondaryError<=.023&&
     primaryDot>.42&&secondaryDot>.42;
