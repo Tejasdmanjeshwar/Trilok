@@ -621,9 +621,12 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
     for(let j=0;j<dofs.length;j++){
       const dof=dofs[j]!;
       const h=.008;
-      const adjusted=THREE.MathUtils.clamp(base[j]!+h,dof.min,dof.max);
+      // Differencing inward at the upper limit retains a real legal
+      // derivative; forward-only sampling incorrectly froze maxed joints.
+      const direction=base[j]!+h<=dof.max?h:-h;
+      const adjusted=THREE.MathUtils.clamp(base[j]!+direction,dof.min,dof.max);
       const actualH=adjusted-base[j]!;
-      if(actualH<1e-7){
+      if(Math.abs(actualH)<1e-7){
         for(let i=0;i<9;i++)jacobian[i]!.push(0);
         continue;
       }
@@ -783,9 +786,10 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       const jacobian:number[][]=Array.from({length:best.length},()=>[]);
       for(let j=0;j<dofs.length;j++){
         const d=dofs[j]!;
-        const adjusted=THREE.MathUtils.clamp(baseValues[j]!+.006,d.min,d.max);
+        const direction=baseValues[j]!+.006<=d.max?.006:-.006;
+        const adjusted=THREE.MathUtils.clamp(baseValues[j]!+direction,d.min,d.max);
         const h=adjusted-baseValues[j]!;
-        if(h<1e-8){
+        if(Math.abs(h)<1e-8){
           for(const row of jacobian)row.push(0);
           continue;
         }
