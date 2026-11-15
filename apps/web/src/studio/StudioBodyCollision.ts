@@ -202,8 +202,15 @@ export class StudioBodyCollision {
       put(palm,.025*dim.scale);
       // Source index/little knuckle span approximates the outer grasp volume,
       // while the solver's separate finger-skin fit owns hilt contact.
-      const first=boneWorld(boneByRole(model,"finger_index_0"));
-      const last=boneWorld(boneByRole(model,"finger_little_0"));
+      const finger=(role:string)=>{
+        const joint=model.human.spike.graph.joints.find(j=>
+          j.role===role&&j.id.includes("arm["+hand+",0]"));
+        const bone=joint&&model.human.spike.bones.get(joint.id);
+        if(!bone)throw new Error("Missing source finger collision landmark");
+        return boneWorld(bone);
+      };
+      const first=finger("finger_index_0");
+      const last=finger("finger_little_0");
       if(first.distanceTo(last)<.30*dim.scale){
         put(first,.012*dim.scale);put(last,.012*dim.scale);
       }
