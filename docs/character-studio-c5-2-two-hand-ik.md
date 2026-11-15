@@ -1,31 +1,45 @@
-# Character Studio C5.2 — Two-Handed Greatsword and Staff Grip
+# Character Studio C5.2 — Weapon-first two-hand reconstruction
 
-## Scope and source
+**Status: draft PR #84, NOT accepted or merged.** The owner rejected preceding C5.2 renders: the pose looked like independently equipped hands and the sword handle approached blade length. C5.1 remains the accepted merged one-handed sword. No changes to combat authority.
 
-This C5.2 review candidate extends merged C5.1 on `main` at `5549de6cef8db6a6443e9a95075de23f1f2d9840`. The 2026-11-15 owner screenshot rejected the first version: both elbows were raised and crossed across the head, and a sword/staff appeared pinched between the wrists. Although that version met a numerical two-palm residual, **the render was not a valid grasp**. It remains unmerged in [PR #84](https://github.com/Tejasdmanjeshwar/Trilok/pull/84).
+## Interpretation of the reference
 
-The pinned MakeHuman skeleton, mesh and source skin weights are the anatomical ground truth. Official MakeHuman pose files are BVH poses, not a built-in weapon-grip IK or anatomical contact solver: [pose-authoring reference](https://www.makehumancommunity.org/assets/creatingassets/faq/how_can_i_create_poses.html). No unlicensed pose, external DCC asset or replacement rig is added.
+MakeHuman's native pose assets encode skeletal poses as BVH; MPFB also offers FK/IK pose captures and grip-control bone conventions. Neither source provides a validated, runtime, two-hand sword attachment solver. A *two-handed sword* is a **single rigid weapon with two hands stacked at separate locations on the same hilt**. It is not two swords, nor are the sword and staff interchangeable arm poses. References:
 
-## Corrected architecture
+- https://ww.makehumancommunity.org/assets/creatingassets/faq/how_can_i_create_poses.html
+- https://github.com/makehumancommunity/mpfb2/blob/master/docs/fileformats/pose.md
+- https://www.makehumancommunity.org/news/2024-06-23-mpfb-now-supports-bvh-style-poses.html
 
-- Reuse **one source-calibrated AnatomicalFK**, existing finger flexion/opposition/spread, shoulder source-skin correctives and source semantic `primary_grip` / `secondary_grip` sockets. Never change combat-domain timing, damage, projectile authority, root motion or C5.1 single-hand grips.
-- **Distinct authored resting stances:** a low, wider shaft guard for the staff and a higher, diagonal greatsword-ready guard. Both come from legal source-relative shoulder/elbow/forearm/wrist degrees of freedom, not a world-space Euler hack. Staff and greatsword no longer share the overhead symmetric arm pose.
-- **Weapon-specific geometry:** staff grip zones follow separated palms on a long continuous shaft. The greatsword reference deliberately uses an **extended, two-hand hilt**, rather than the short C5.1 sword handle. A sampled search over the source FK demonstrated that the compact 11 cm hilt was not reachable with safe low elbows in the tested mirrored family of source poses. Do not falsely label it an ordinary short-hilt longsword or claim all poses impossible.
-- **Small corrections after the authored pose:** calibrated forearm pronation aligns the knuckle lines with the weapon axis; a bounded offhand adjustment refines the support-hand contact; bounded wrist/forearm corrections minimize the remaining opposed grip-axis error. The primary-hand socket determines the rigid weapon transform and the opposite socket supplies the contact constraint. No second rig and no speculative whole-body motion.
-- **Anatomical safety:** reject poses with forearm centerlines passing near the head, elbows or palms raised toward it, insufficient forward grasp, or left/right forearm centerlines overlapping. An unreachable case restores the base pose and does not attach a floating weapon.
-- Fixed search step sizes, finite native joint limits, and no frame-time updates make the pose reproducible and bounded. Existing scene/morphology rebuild and disposal lifecycle are reused.
+No Blender dependency, external pose art or unverified licensed asset is added.
 
-## Verification
+## Fixed reference blueprints (base adult, before source-stature scaling)
 
-Real pinned MakeHuman source-rig tests check both handedness choices, hand-scale/height morphology variants, repeatable commands, root invariance under movement, socket identity, actual primary/secondary weapon contact coordinates, all existing Studio pose selections, neutral restoration and head/forearm safety envelopes. Crossguard/fingertip surface-to-surface contact and production art quality are **not** certified by palm-frame distances alone.
+| Property | Two-hand sword | Staff |
+| --- | ---: | ---: |
+| Hilt/handle length | 0.28 m | n/a |
+| Blade length | 0.86 m | n/a |
+| Continuous shaft length | n/a | 1.72 m |
+| Grip locations on weapon-local +Y | +0.075 m and -0.075 m | +0.245 m and -0.245 m |
+| Separation | 0.15 m | 0.49 m |
+| Guard width | 0.22 m | n/a |
+| Nominal shaft/handle radius | 0.0135 m | 0.015 m |
 
-The reworked source-rig candidate before the last extra guard checks was measured in Verify #43682906063 (successful, 69 test files plus typecheck/build):
+Blueprints are independent constants. Source stature changes their *scale*, with explicit limits; finger/palm distance, IK residual, elbow position and arm reach must **never** increase a hilt or shaft. The sword blade-to-hilt ratio is about 3.07. Grip zones are fixed inside the hilt with guard/pommel clearance.
 
-| Reference | Offhand residual | Opposed grip-axis dot | Highest elbow, world Y | Highest palm, world Y | Head joint, world Y |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Long-handled greatsword | 6.54 mm | 0.626 | 1.448 m | 1.500 m | 1.709 m |
-| Staff | 4.90 mm | 0.796 | 1.354 m | 1.373 m | 1.709 m |
+## Revised constraint chain
 
-These are geometry measurements on the default source rig, not visual acceptance. Root, hands, fingers and upper-arm visual deformation still require close-up inspection. The Playwright tests capture **whole-body and focused desktop/touch screenshots** for both weapons and either lead hand, as well as a source-body regeneration; in accordance with the existing CI policy they run through manually invoked Phase Acceptance, not automatic PR Verify.
+1. Reuse the pinned CC0 MakeHuman source skeleton, actual skinned human and legal `AnatomicalFK` freedoms. Keep C5.1 `StudioWeaponGrip.ts` unchanged.
+2. Establish separate ready-stance joint presets for sword and staff, with forearm and wrist channels.
+3. Define a **single** body-relative rigid weapon matrix using torso/root orientation, independent of hands. The sword is forward-up diagonal, while the staff presents a wider transverse low guard.
+4. Transform both fixed weapon-local grip landmarks through that one matrix.
+5. Deterministically optimize each arm's calibrated clavicle, shoulder, elbow, forearm pronation and wrist freedoms toward its assigned landmark and shaft orientation. Steps and sweep counts are finite; no root or weapon adjustment is permitted.
+6. Preserve existing finger flexion, source-calibrated spread and thumb opposition overlay. Disallow head proximity, crossed forearm centerlines, high elbows/palms and excessive wrist/arm travel. If convergence is inadequate, restore the original pose and show an unavailable message rather than a wrong grip.
+7. Attach one disposable weapon visual to the primary semantic socket using the solved *fixed world matrix*. The offhand does not create a second weapon or determine its transform.
 
-**Status:** rework in progress on PR #84; do **not** merge or claim completion without latest-head Verify, a rendered preview checked against the owner-reported failure, and owner approval. C5.3, combat presentation migrations, Save/Load and baking remain excluded.
+## Verification and unresolved gates
+
+Tests must assert the constants above **independently** of computed palm positions, the full rigid transform, grip contact, source anatomically bounded joint commands, mirror sides, morphologies, pose changes, determinism and root invariance. Hand/finger **surface** contact and skinned-mesh self-collision remain additional acceptance criteria. A valid palm residual is not visual success.
+
+`e2e/studio-two-hand-grip.spec.ts` is configured to save front, side, three-quarter and hand-focused images on both desktop Chromium and mobile touch for each weapon/leading hand, in addition to pose and morphology reapplication. Full Chromium runs are reserved for manually dispatched Phase Acceptance, per the existing project CI policy.
+
+**No visual signoff:** screenshots of the **current reconstruction** must be actually rendered and inspected, not inferred from tests or old branch preview. Do not merge PR #84 until green Verify, browser and source-skin inspection, exact Cloudflare preview identity, and the owner's visual approval. If the static body-relative placement cannot be reached without ugly arm rotations, change the authored *stance or placement* with anatomical evidence; do not change the weapon dimensions to fit hands.
