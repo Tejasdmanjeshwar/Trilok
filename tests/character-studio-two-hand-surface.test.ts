@@ -200,4 +200,48 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
       expect(failed,"all source anatomies must equip both grips").toEqual([]);
     }finally{human.dispose();}
   },120_000);
+
+  it.each([
+    {name:"infant",morph:{"macro/age":.06}},
+    {name:"wide shoulders",morph:{"native/torso/torso-scale-horiz-decr-incr":1}},
+    {name:"long arms",morph:{"native/measure/measure-upperarm-length-decr-incr":1}},
+    {name:"unequal hands",morph:{"native/armslegs/l-hand-scale-decr-incr":1,
+      "native/armslegs/r-hand-scale-decr-incr":-1}},
+    {name:"compact powerful",morph:{"macro/height":0,"macro/weight":1,
+      "macro/muscle":1}},
+    {name:"tall slender",morph:{"macro/height":1,"macro/weight":0,
+      "macro/muscle":0}},
+  ])("equips one dimensionally fixed sword or staff on $name anatomy",({name,morph})=>{
+    const {human,model,fk}=make(morph);
+    try{
+      const original=human.spike.character.root.matrixWorld.clone();
+      const failures:string[]=[];
+      for(const kind of ["longsword","staff"] as const)
+        for(const lead of ["left","right"] as const){
+          const solved=solveTwoHandIK(model,fk,[],lead,kind);
+          console.log("C52-EXTRA-MORPH",JSON.stringify({name,kind,lead,
+            reachable:solved.reachable,error:[solved.primaryErrorMeters,
+              solved.secondaryErrorMeters],reason:solved.reason,
+            attempts:solved.reachDiagnostics}));
+          if(!solved.reachable){
+            failures.push(kind+"/"+lead+":"+solved.reason);
+            continue;
+          }
+          expect(solved.primaryErrorMeters).toBeLessThanOrEqual(.023);
+          expect(solved.secondaryErrorMeters).toBeLessThanOrEqual(.023);
+          const weapon=new StudioTwoHandPreview(model,kind,lead,solved);
+          try{
+            expect(weapon.descriptor.dimensions).toEqual(solved.dimensions);
+            expect(weapon.object.matrix.elements.every(Number.isFinite)).toBe(true);
+            expect(solved.separationMeters).toBeCloseTo(
+              solved.dimensions.primaryGripY-solved.dimensions.secondaryGripY,8);
+          }finally{weapon.dispose();}
+          expect(human.spike.character.root.matrixWorld.elements)
+            .toEqual(original.elements);
+          fk.apply([]);
+        }
+      expect(failures,name+" source morphology equip failures").toEqual([]);
+    }finally{human.dispose();}
+  },120_000);
+
 });
