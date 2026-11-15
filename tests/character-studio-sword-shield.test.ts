@@ -54,6 +54,11 @@ describe("independent sword and shield contracts",()=>{
       expect(first.commands.every(c=>Number.isFinite(c.radians))).toBe(true);
       if(first.reachable){
         expect(first.minimumClearanceMeters).toBeGreaterThan(-.006);
+        // A shield is a guarding surface, not a plate edge-on to an opponent.
+        const face=new THREE.Vector3(0,0,1).transformDirection(first.shieldWorld);
+        const forward=new THREE.Vector3(0,0,1).applyQuaternion(
+          root.getWorldQuaternion(new THREE.Quaternion()));
+        expect(face.dot(forward)).toBeGreaterThan(.95);
         const shield=new StudioShieldPreview(model,first);
         try{
           expect(shield.object.children.length).toBeGreaterThan(4);
