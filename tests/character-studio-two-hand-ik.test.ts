@@ -130,6 +130,34 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
         expect(palm.quaternion.angleTo(restRotation)).toBeLessThan(1e-7);
       }finally{preview.dispose();human.dispose();}
     },120_000);
+  it.each([
+    ["longsword","left"],["longsword","right"],
+    ["staff","left"],["staff","right"],
+  ] as const)("equips %s on %s lead in every supported Studio pose",(kind,lead)=>{
+    const {human,model}=fixture();
+    const pose=new StudioPosePreview(model);
+    try{
+      const root=human.spike.character.root.matrixWorld.clone();
+      pose.setGrip((kind+"-"+lead) as "longsword-left"|"longsword-right"|
+        "staff-left"|"staff-right");
+      const failures:string[]=[];
+      for(const id of Object.keys(STUDIO_POSES) as (keyof typeof STUDIO_POSES)[]){
+        pose.setPose(id);
+        const solved=pose.twoHandResult;
+        if(!solved?.reachable){
+          failures.push(id+"/"+(solved?.reason??"missing"));
+          continue;
+        }
+        expect(solved.primaryErrorMeters).toBeLessThanOrEqual(.023);
+        expect(solved.secondaryErrorMeters).toBeLessThanOrEqual(.023);
+        expect(solved.dimensions.primaryGripY-solved.dimensions.secondaryGripY)
+          .toBeCloseTo(solved.separationMeters,8);
+        expect(human.spike.character.root.matrixWorld.elements)
+          .toEqual(root.elements);
+      }
+      expect(failures,kind+"/"+lead+" missing Studio poses").toEqual([]);
+    }finally{pose.dispose();human.dispose();}
+  },120_000);
   it("adapts socket spacing to native hand proportions",()=>{
     const samples:Readonly<Record<string,number>>[]=[{},{"macro/height":0},{"macro/height":1},
       {"native/armslegs/l-hand-scale-decr-incr":1},
