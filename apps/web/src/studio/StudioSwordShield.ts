@@ -382,15 +382,16 @@ export function solveIndependentGrips(model:StudioHumanModel,fk:AnatomicalFK,
   const wrist=world(scopedBone(model,"wrist",shieldHand));
   const elbow=world(scopedBone(model,"elbow",shieldHand));
   const grip=twoHandGripContactWorld(model,shieldHand);
-  const forearm=measureSkinnedForearm(model,shieldHand,front);
   const armLength=wrist.distanceTo(elbow);
   const thickness=THREE.MathUtils.clamp(armLength*.045,.005,.018);
-  const longAxis=elbow.clone().sub(wrist).normalize();
-  const plateNormal=front.clone().addScaledVector(longAxis,
-    -front.dot(longAxis)).normalize();
-  if(plateNormal.lengthSq()<.5)throw new Error("Degenerate shield forearm frame");
-  const plateX=new THREE.Vector3().crossVectors(longAxis,plateNormal).normalize();
+  // The offhand rotates its forearm to *support* a forward-facing shield;
+  // the plate must not roll edge-on when the arm points toward the camera.
+  // Keep an intentional modest outward cant, defined in character space.
+  const plateNormal=front.clone().addScaledVector(right,
+    shieldHand==="right"?.16:-.16).normalize();
+  const plateX=new THREE.Vector3().crossVectors(up,plateNormal).normalize();
   const plateY=new THREE.Vector3().crossVectors(plateNormal,plateX).normalize();
+  const forearm=measureSkinnedForearm(model,shieldHand,plateNormal);
   const orientation=new THREE.Quaternion().setFromRotationMatrix(
     new THREE.Matrix4().makeBasis(plateX,plateY,plateNormal));
   const center=wrist.clone().lerp(elbow,.47)
