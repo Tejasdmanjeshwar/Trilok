@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 import bpy
-from mathutils import Vector, Quaternion
+from mathutils import Vector, Quaternion, Matrix
 
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 DIRECTORY = Path(ARGS[0] if ARGS else "test-results/blender-c52")
@@ -195,6 +195,25 @@ def solve_pose(kind, lead, center, axis, grips):
         constraint.use_tail = True
         positions[hand] = {"grip":tuple(round(v,6) for v in goal),
                            "pole":tuple(round(v,6) for v in pole)}
+    # Set the actual anatomical knuckle line (little -> index) along the
+    # one common shaft, as in accepted C5.1. Wrist IK head coincidence alone
+    # allows fingers pointing away from the grip.
+    bpy.context.view_layer.update()
+    for hand in ("left","right"):
+        wrist = joint("wrist_"+hand)
+        little = posed_pos("finger_little_0_"+hand)
+        index = posed_pos("finger_index_0_"+hand)
+        across = index-little
+        direction = 1 if kind=="longsword" or hand==lead else -1
+        desired = axis * direction
+        if across.length < .005:
+            raise ValueError("Degenerate source knuckle line")
+        delta = across.normalized().rotation_difference(desired)
+        pivot = posed_pos("wrist_"+hand)
+        rotation = Matrix.Translation(pivot) @ delta.to_matrix().to_4x4() @ Matrix.Translation(-pivot)
+        wrist.matrix = rotation @ wrist.matrix
+        bpy.context.view_layer.update()
+
     # IK constrains the wrist BONE HEAD, not the palm landmark. Source palm
     # offset changes when wrist orientation rotates, so iteratively re-target
     # against the ACTUAL posed palm. A wrist-only solve can miss by >5cm.
