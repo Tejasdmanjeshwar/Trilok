@@ -955,6 +955,86 @@ function fitTorsoCenteredSword(model:StudioHumanModel,fk:AnatomicalFK,
   return undefined;
 }
 
+/** Last-chance bounded staff reach from a shared torso-relative contact line.
+ * A staff has generous legal contact spacing but never two independent shafts.
+ * Used only when existing same-thumb contact fits cannot reach. */
+function fitTorsoCenteredStaff(model:StudioHumanModel,fk:AnatomicalFK,
+  fingerState:readonly JointTarget[],lead:HandSide,
+  dimensions:TwoHandDimensions,
+  diagnostics:{seed:number;initialSpan:number;primaryError:number;
+    secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]):
+  TwoHandIKResult|undefined{
+  const off:HandSide=lead==="left"?"right":"left";
+  const root=model.human.spike.character.root;
+  root.updateWorldMatrix(true,true);
+  const facing=root.getWorldQuaternion(new THREE.Quaternion());
+  const shoulderA=world(jointBone(model,"shoulder_"+lead,lead));
+  const shoulderB=world(jointBone(model,"shoulder_"+off,off));
+  const chest=world(jointBone(model,"chest",lead));
+  const center=chest.lerp(shoulderA.add(shoulderB).multiplyScalar(.5),.35);
+  const state=poseMap(fingerState);
+  stageReadyPose(model.human.spike.graph,fk,state,"staff",lead,3);
+  const staged=[...state.values()];
+  fk.apply(staged);
+  const anchors=calibrateStaffAnchors(model,dimensions);
+  const initialSpan=contactWorld(model,lead,anchors)
+    .distanceTo(contactWorld(model,off,anchors));
+  for(const [height,forward] of [[-.20,.32],[-.30,.40]] as const){
+    for(const spanFactor of [.24,.32] as const){
+      state.clear();
+      for(const command of staged)state.set(key(command.jointId,command.motion),command);
+      fk.apply(staged);
+      const separation=dimensions.shaftLength*spanFactor;
+      const dim:TwoHandDimensions=Object.freeze({...dimensions,
+        primaryGripY:separation*.5,secondaryGripY:-separation*.5});
+      const matrix=authoredWeaponWorld(model,"staff",lead,dimensions);
+      matrix.setPosition(center.clone().add(new THREE.Vector3(
+        0,height*dimensions.scale,forward*dimensions.scale).applyQuaternion(facing)));
+      const axis=weaponAxis(matrix);
+      const firstGoal=gripWorld(matrix,dim.primaryGripY);
+      const secondGoal=gripWorld(matrix,dim.secondaryGripY);
+      let refinementIterations=0;
+      for(let pass=0;pass<2;pass++){
+        refinementIterations+=fitHandDamped(model,fk,state,"staff",
+          lead,off,secondGoal,axis,anchors);
+        refinementIterations+=fitHandDamped(model,fk,state,"staff",
+          lead,lead,firstGoal,axis,anchors);
+      }
+      fk.apply([...state.values()]);
+      const first=contactWorld(model,lead,anchors);
+      const second=contactWorld(model,off,anchors);
+      const errorA=first.distanceTo(firstGoal);
+      const errorB=second.distanceTo(secondGoal);
+      const dotA=palmFrame(model,lead).axis.dot(axis);
+      const dotB=palmFrame(model,off).axis.dot(axis);
+      const guard=anatomicalGuard(model,"staff",lead);
+      diagnostics.push({seed:200,initialSpan,
+        primaryError:errorA,secondaryError:errorB,
+        primaryAxis:dotA,secondaryAxis:dotB,
+        reason:guard.ok?"staff-torso-contact":"staff-torso-unsafe"});
+      if(guard.ok&&errorA<=.023&&errorB<=.023&&dotA>.85&&dotB>.85)
+        return Object.freeze({
+          reachable:true,commands:Object.freeze([...state.values()]),
+          primaryErrorMeters:errorA,secondaryErrorMeters:errorB,
+          primaryDeltaMeters:Object.freeze(first.sub(firstGoal).toArray()),
+          secondaryDeltaMeters:Object.freeze(second.sub(secondGoal).toArray()),
+          primaryAxisDot:dotA,secondaryAxisDot:dotB,
+          iterations:0,refinementIterations,
+          reason:"ok" as const,headClearanceMeters:guard.headClearance,
+          elbowMaxHeightMeters:guard.elbowMax,headHeightMeters:guard.headY,
+          maximumPalmHeightMeters:guard.maximumPalmY,
+          separationMeters:separation,initialHandSpanMeters:initialSpan,
+          dimensions:dim,weaponWorld:matrix,
+          gripAnchors:Object.freeze({
+            left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
+            right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
+          }),
+        });
+    }
+  }
+  return undefined;
+}
+
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult {
@@ -1067,6 +1147,11 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     }
     if(!chosen?.reachable&&kind==="longsword"){
       const torso=fitTorsoCenteredSword(model,fk,fingerState,primary,
+        dimensions,diagnostics);
+      if(torso)chosen=torso;
+    }
+    if(!chosen?.reachable&&kind==="staff"){
+      const torso=fitTorsoCenteredStaff(model,fk,fingerState,primary,
         dimensions,diagnostics);
       if(torso)chosen=torso;
     }
