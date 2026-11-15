@@ -114,7 +114,7 @@ const STANCES:Readonly<Record<TwoHandWeapon,{
   readonly forearmRoll:number;
   readonly wristFlexion:number;
 }>>=Object.freeze({
-  longsword:{shoulderAbduction:.60,shoulderFlexion:.40,
+  longsword:{shoulderAbduction:.60,shoulderFlexion:.20,
     shoulderRoll:1.08,elbowFlexion:1.10,forearmRoll:0,wristFlexion:-.08},
   staff:{shoulderAbduction:.16,shoulderFlexion:.34,
     shoulderRoll:1.07,elbowFlexion:.98,forearmRoll:0,wristFlexion:0},
