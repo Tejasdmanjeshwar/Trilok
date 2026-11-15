@@ -112,7 +112,7 @@ host.innerHTML=String.raw`
               <option value="right">Right hand</option>
               <option value="left">Left hand</option>
             </optgroup>
-            <optgroup label="Two-handed sword">
+            <optgroup label="Two-handed greatsword">
               <option value="longsword-right">Right hand leads</option>
               <option value="longsword-left">Left hand leads</option>
             </optgroup>
