@@ -200,3 +200,32 @@ same-thumb staff assertions are mandatory; CI, exact deployed SHA,
 close-up skinned contacts, mobile/desktop screenshots, owner review and
 further deterministic seeds are separate gates. Retain draft PR #84; do not
 merge or begin C5.3 on the basis of the mathematical changes alone.
+
+
+## Repeatable owner verification in Studio (manual seed entry)
+
+The Generate section now offers both the unchanged **Random character** action
+and an optional **Character seed** field with **Generate seed** action. The
+field accepts exact decimal uint32 seed values in 1–4294967295, rejects
+invalid values without touching history or the character, reports the last
+generated seed and supports Undo/Redo. Repeated valid seeds flow through the
+existing `generateStudioCharacter` and Studio recipe reducer, without
+secondary generation algorithms or normalization.
+
+To reproduce the originally reported case on a deployed candidate that
+actually contains these changes:
+
+1. Open `/studio/`, go to **Generate**, enter **2694905601**, press
+   **Generate seed**; confirm the current-seed line.
+2. Open **Pose**, set **Relaxed** (neutral), choose **Two-handed greatsword →
+   Right hand leads** and inspect both hands.
+3. Flip to the opposite sword lead and both staff leads, use Focus for
+   palm/finger close-ups and Reset view for full-body framing.
+4. Check the preview's `/build-info.json` against the **exact PR head
+   commit**. A passing GitHub workflow is not evidence that Cloudflare serves
+   the same SHA.
+
+The automatic desktop/touch Playwright regression includes the seeded
+character, right-hand sword equip, full-body and hand-focused screenshots,
+invalid-seed rejection and deterministic regeneration. It requires manual
+Phase Acceptance dispatch under the existing workflow policy.
