@@ -314,7 +314,7 @@ export class StudioShieldPreview {
     for(let i=0;i<12;i++){
       torso=Math.min(...[-1,0,1].flatMap(x=>[-1,0,1].map(y=>
         collision.clearance(face.clone().addScaledVector(frame.across,halfW*x)
-          .addScaledVector(frame.up,halfH*y))));
+          .addScaledVector(frame.up,halfH*y)))));
       if(torso>.008*factor)break;
       face.addScaledVector(frame.normal,.018*factor);
     }
