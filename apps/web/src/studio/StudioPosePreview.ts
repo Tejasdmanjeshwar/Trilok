@@ -47,18 +47,17 @@ export class StudioPosePreview {
       human.spike.graph,this.fk);
     const dual=isSwordShieldEquipment(this.grip);
     const grip=this.grip==="none"||isTwoHandEquipment(this.grip)?[]:
-      dual?([...swordGripTargets(human.spike.graph,
-        this.grip.endsWith("right")?"right":"left",
-        this.spreads[this.grip.endsWith("right")?"right":"left"]),
-        ...swordGripTargets(human.spike.graph,
-          shieldHand(this.grip.endsWith("right")?"right":"left"),
-          this.spreads[shieldHand(this.grip.endsWith("right")?"right":"left")])]):
-        swordGripTargets(human.spike.graph,this.grip,this.spreads[this.grip]);
+      isSwordShieldEquipment(this.grip)?(()=>{
+        const swordSide=this.grip.endsWith("right")?"right":"left";
+        const offhand=shieldHand(swordSide);
+        return [...swordGripTargets(human.spike.graph,swordSide,this.spreads[swordSide]),
+          ...swordGripTargets(human.spike.graph,offhand,this.spreads[offhand])];
+      })():swordGripTargets(human.spike.graph,this.grip,this.spreads[this.grip]);
     const covered=new Set(grip.map(c=>c.jointId+"/"+c.motion));
     const composed=[...commands.filter(c=>!covered.has(c.jointId+"/"+c.motion)),...grip];
     const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")?.id;
     const effective=coordinateFacialJawPose(composed,jaw,this.model.sourceJawOpeningRadians);
-    if(!this.correctives&&(isTwoHandEquipment(this.grip)||
+    if(!this.correctives&&(isTwoHandEquipment(this.grip)||dual||
       id!=="neutral"&&commands.some(c=>human.spike.graph.joints.some(j=>
         j.id===c.jointId&&/^(shoulder|hip)_/.test(j.role))))){
       this.correctives=new HumanPoseCorrectives(human);
