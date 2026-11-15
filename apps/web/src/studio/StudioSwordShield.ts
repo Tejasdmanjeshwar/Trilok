@@ -307,7 +307,7 @@ export function solveIndependentGrips(model:StudioHumanModel,fk:AnatomicalFK,
   const graph=model.human.spike.graph;
   fk.apply([]);
   const collision=new StudioBodyCollision(model);
-  const {rotation,front,right,up}=basis(model);
+  const {front,right,up}=basis(model);
   const chest=world((()=>{
     const j=graph.joints.find(x=>x.role==="chest")!;
     return model.human.spike.bones.get(j.id)!;
@@ -384,9 +384,18 @@ export function solveIndependentGrips(model:StudioHumanModel,fk:AnatomicalFK,
   const forearm=measureSkinnedForearm(model,shieldHand,front);
   const armLength=wrist.distanceTo(elbow);
   const thickness=THREE.MathUtils.clamp(armLength*.045,.005,.018);
+  const longAxis=elbow.clone().sub(wrist).normalize();
+  const plateNormal=front.clone().addScaledVector(longAxis,
+    -front.dot(longAxis)).normalize();
+  if(plateNormal.lengthSq()<.5)throw new Error("Degenerate shield forearm frame");
+  const plateX=new THREE.Vector3().crossVectors(longAxis,plateNormal).normalize();
+  const plateY=new THREE.Vector3().crossVectors(plateNormal,plateX).normalize();
+  const orientation=new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(plateX,plateY,plateNormal));
   const center=wrist.clone().lerp(elbow,.47)
-    .addScaledVector(front,forearm.radius+thickness*.8+.008*scale);
-  const shieldWorld=new THREE.Matrix4().compose(center,rotation,new THREE.Vector3(1,1,1));
+    .addScaledVector(plateNormal,forearm.radius+thickness*.8+.008*scale);
+  const shieldWorld=new THREE.Matrix4().compose(center,orientation,
+    new THREE.Vector3(1,1,1));
   const invert=shieldWorld.clone().invert();
   const gripLocal=grip.clone().applyMatrix4(invert);
   const width=THREE.MathUtils.clamp(armLength*.92,.095,.36);
@@ -403,10 +412,10 @@ export function solveIndependentGrips(model:StudioHumanModel,fk:AnatomicalFK,
   validateShieldDescriptor(descriptor,graph);
   const samples:THREE.Vector3[]=[
     center,
-    center.clone().addScaledVector(right,width*.4),
-    center.clone().addScaledVector(right,-width*.4),
-    center.clone().addScaledVector(up,height*.33),
-    center.clone().addScaledVector(up,-height*.4),
+    center.clone().addScaledVector(plateX,width*.4),
+    center.clone().addScaledVector(plateX,-width*.4),
+    center.clone().addScaledVector(plateY,height*.33),
+    center.clone().addScaledVector(plateY,-height*.4),
     grip,
     ...[swordHand,shieldHand].flatMap(hand=>[
       world(scopedBone(model,"elbow",hand)),
