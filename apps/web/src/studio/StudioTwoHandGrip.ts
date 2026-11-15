@@ -66,7 +66,7 @@ export interface TwoHandDimensions {
 export const TWO_HAND_REFERENCE:Readonly<Record<TwoHandWeapon,Omit<TwoHandDimensions,"scale">>>=
   Object.freeze({
     longsword:Object.freeze({handleLength:.28,bladeLength:.86,shaftLength:0,
-      guardWidth:.22,radius:.0135,primaryGripY:.075,secondaryGripY:-.075}),
+      guardWidth:.22,radius:.0135,primaryGripY:.095,secondaryGripY:-.095}),
     staff:Object.freeze({handleLength:0,bladeLength:0,shaftLength:1.72,
       guardWidth:0,radius:.015,primaryGripY:.245,secondaryGripY:-.245}),
   });
@@ -247,10 +247,10 @@ function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
   const chest=world(jointBone(model,"chest",primary));
   const scale=dim.scale;
   const offset=kind==="longsword"?
-    new THREE.Vector3(0,-.16*scale,.28*scale):
+    new THREE.Vector3(0,-.18*scale,.28*scale):
     new THREE.Vector3(0,-.17*scale,.31*scale);
   const y=(kind==="longsword"?
-    new THREE.Vector3(primary==="right"?.20:-.20,.64,.74):
+    new THREE.Vector3(primary==="right"?.76:-.76,.51,.42):
     new THREE.Vector3(primary==="right"?.94:-.94,.16,.30))
     .normalize().applyQuaternion(facing);
   const referenceX=(kind==="longsword"?
