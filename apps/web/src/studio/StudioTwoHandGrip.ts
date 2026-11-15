@@ -255,6 +255,59 @@ function calibrateStaffForearms(model:StudioHumanModel,fk:AnatomicalFK,
     apply();
   }
 }
+/** Small wrist-level corrections align both opposing knuckle lines with
+ * the same handle, without moving the shoulders or inventing a new pose. */
+function refineGripWristAxes(model:StudioHumanModel,fk:AnatomicalFK,
+  state:Map<string,JointTarget>,primary:HandSide,gap:number):void{
+  const secondary:HandSide=primary==="left"?"right":"left";
+  const graph=model.human.spike.graph;
+  const candidates=[primary,secondary].flatMap(hand=>{
+    const wrist=scopedJoint(graph,"wrist_"+hand,hand);
+    const elbow=scopedJoint(graph,"elbow_"+hand,hand);
+    return [
+      {jointId:wrist.id,motion:"flexion" as const},
+      {jointId:wrist.id,motion:"abduction" as const},
+      {jointId:elbow.id,motion:"rotation" as const},
+    ].map(c=>({...c,k:key(c.jointId,c.motion),
+      frame:fk.frames.get(c.jointId)!.freedoms.get(c.motion)!}));
+  });
+  const center=new Map(candidates.map(d=>[d.k,state.get(d.k)?.radians??0]));
+  const apply=()=>fk.apply([...state.values()]);
+  const metric=()=>{
+    const p=palmFrame(model,primary),s=palmFrame(model,secondary);
+    const shaft=p.palm.clone().sub(s.palm).normalize();
+    const pointError=s.palm.distanceTo(p.palm.clone().addScaledVector(shaft,-gap));
+    const alignment=-p.axis.dot(s.axis);
+    const lead=p.axis.dot(shaft),off=-s.axis.dot(shaft);
+    let travel=0;
+    for(const d of candidates){
+      const delta=(state.get(d.k)?.radians??0)-center.get(d.k)!;
+      travel+=delta*delta;
+    }
+    return pointError*pointError*8+.002*(1-alignment)**2+
+      .001*(1-lead)**2+.001*(1-off)**2+.00005*travel;
+  };
+  apply();let best=metric();
+  for(const step of [.16,.08,.04,.02]){
+    for(let round=0;round<2;round++){
+      let improved=false;
+      for(const d of candidates){
+        const old=state.get(d.k)?.radians??0;
+        let chosen=old;
+        for(const sign of [-1,1]){
+          const next=THREE.MathUtils.clamp(old+step*sign,d.frame.min,d.frame.max);
+          if(Math.abs(next-center.get(d.k)!)>.32)continue;
+          state.set(d.k,{jointId:d.jointId,motion:d.motion,radians:next});
+          apply();const score=metric();
+          if(score<best-1e-12){best=score;chosen=next;improved=true;}
+        }
+        state.set(d.k,{jointId:d.jointId,motion:d.motion,radians:chosen});
+        apply();
+      }
+      if(!improved)break;
+    }
+  }
+}
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult{
@@ -280,9 +333,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const axis=axisDirection(follower.palm,lead.palm);
   const target=lead.palm.clone().addScaledVector(axis,-gap);
   const secondaryResult=refineOffhand(model,fk,state,kind,primary,target,axis);
-  // Resolve final forearm roll after the modest support-arm correction, so
-  // knuckles rotate onto the shared handle instead of hovering beside it.
-  calibrateStaffForearms(model,fk,state,primary);
+  refineGripWristAxes(model,fk,state,primary,gap);
   const actualLead=palmFrame(model,primary),actualOff=palmFrame(model,secondary);
   const actualAxis=axisDirection(actualOff.palm,actualLead.palm);
   const secondaryError=actualOff.palm.distanceTo(
