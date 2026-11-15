@@ -224,6 +224,37 @@ function refineOffhand(model:StudioHumanModel,fk:AnatomicalFK,
   }
   return {...measure(),iterations};
 }
+/** Rotate the forearms around their anatomical long axes to let the
+ * knuckle lines follow the shaft, without changing the actual low elbow
+ * positions. This is the missing physical constraint in a staff grasp. */
+function calibrateStaffForearms(model:StudioHumanModel,fk:AnatomicalFK,
+  state:Map<string,JointTarget>,primary:HandSide):void{
+  const secondary:HandSide=primary==="left"?"right":"left";
+  const graph=model.human.spike.graph;
+  const apply=()=>fk.apply([...state.values()]);
+  apply();
+  const initial=palmFrame(model,primary).palm;
+  const opposite=palmFrame(model,secondary).palm;
+  const shaft=initial.sub(opposite).normalize();
+  for(const hand of [primary,secondary]){
+    const joint=scopedJoint(graph,"elbow_"+hand,hand);
+    const freedom=fk.frames.get(joint.id)!.freedoms.get("rotation")!;
+    const desired=hand===primary?1:-1;
+    let best=-Infinity,bestAngle=0;
+    for(let i=-12;i<=12;i++){
+      const angle=THREE.MathUtils.clamp(i*.11,freedom.min,freedom.max);
+      state.set(key(joint.id,"rotation"),{
+        jointId:joint.id,motion:"rotation",radians:angle});
+      apply();
+      const alignment=palmFrame(model,hand).axis.dot(shaft)*desired;
+      const score=alignment-.025*Math.abs(angle);
+      if(score>best){best=score;bestAngle=angle;}
+    }
+    state.set(key(joint.id,"rotation"),{
+      jointId:joint.id,motion:"rotation",radians:bestAngle});
+    apply();
+  }
+}
 /** Authoring-time constrained search for a lower, joint-valid sword
  * stance. A candidate is never shown if head/elbow safety fails. */
 function fitSwordGuardCandidate(model:StudioHumanModel,fk:AnatomicalFK,
@@ -308,6 +339,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     }
   }
   fk.apply([...state.values()]);
+  if(kind==="staff")calibrateStaffForearms(model,fk,state,primary);
   const lead=palmFrame(model,primary),follower=palmFrame(model,secondary);
   // Staff: a wide shaft passes between palms, measured from their actual
   // ready-stance positions. Sword: compact stacked hilt near the lead hand.
