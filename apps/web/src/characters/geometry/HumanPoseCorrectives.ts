@@ -52,7 +52,11 @@ export class HumanPoseCorrectives {
       const center = centers.get(role)!;
       const axis = distal.get(role)!.clone().sub(center);
       const length = axis.length();
-      if (!Number.isFinite(length) || length < .15) throw new Error("C3.3 short limb");
+      // A fixed adult 15 cm cutoff rejects valid infant-generated limbs.
+      // The same source skeleton permits any finite, noncollapsed two-link
+      // segment; short limbs receive proportionately smaller correctives.
+      if (!Number.isFinite(length) || length <= 1e-5)
+        throw new Error("C3.3 collapsed limb " + role);
       axis.divideScalar(length);
       const data = new Float32Array(positions.count * 3);
       const isArm = role.startsWith("shoulder");
@@ -84,7 +88,8 @@ export class HumanPoseCorrectives {
         // while preserving UV-seam duplicates and uncorrected hand/foot geometry.
         const u = Math.abs(along) / maxDistance;
         const envelope = (1 - u*u)**2 * Math.min(1, ownership);
-        const amplitude = (isArm ? .012 : .015) * envelope;
+        const amplitude = (isArm ? .012 : .015) *
+          Math.min(1,length/.15) * envelope;
         const offset = radial.multiplyScalar(amplitude / radialLength);
         data[i*3] = offset.x;
         data[i*3+1] = offset.y;
