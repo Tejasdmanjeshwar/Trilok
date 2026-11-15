@@ -7,6 +7,8 @@ import {calibrateGripSpreads,swordGripTargets,type GripSpreads} from "./StudioWe
 import {isTwoHandEquipment,primaryHand,twoHandKind,solveTwoHandIK,type EquipmentChoice,
   type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
+import {solveArcheryPose,isBowEquipment,type ArcheryPoseResult,
+  type ArcheryState} from "./StudioArchery";
 import {isSwordShieldEquipment,shieldHand,solveShieldPose,type ShieldPoseResult,
   type ShieldStance} from "./StudioShieldGrip";
 
@@ -21,6 +23,12 @@ export class StudioPosePreview {
   private result:TwoHandIKResult|undefined;
   private shieldResult:ShieldPoseResult|undefined;
   private shieldStance:ShieldStance="guard";
+  private archeryState:ArcheryState="rest";
+  private archeryDraw=1;
+  private archeryResult?:ArcheryPoseResult;
+  get bowPoseResult():ArcheryPoseResult|undefined{return this.archeryResult;}
+  setArcheryState(state:ArcheryState):void{this.archeryState=state;this.refresh();}
+  setArcheryDraw(value:number):void{this.archeryDraw=value;this.refresh();}
   get shieldPoseResult():ShieldPoseResult|undefined{return this.shieldResult;}
   setShieldStance(stance:ShieldStance):void{
     if(!["guard","attack-ready","parry"].includes(stance))throw new Error("Unknown shield stance");
@@ -46,7 +54,7 @@ export class StudioPosePreview {
     const commands=resolveAnatomicalPose(anatomicalPoseById(id),
       human.spike.graph,this.fk);
     const dual=isSwordShieldEquipment(this.grip);
-    const grip=this.grip==="none"||isTwoHandEquipment(this.grip)?[]:
+    const grip=this.grip==="none"||isTwoHandEquipment(this.grip)||isBowEquipment(this.grip)?[]:
       isSwordShieldEquipment(this.grip)?(()=>{
         const swordSide=this.grip.endsWith("right")?"right":"left";
         const offhand=shieldHand(swordSide);
@@ -57,7 +65,7 @@ export class StudioPosePreview {
     const composed=[...commands.filter(c=>!covered.has(c.jointId+"/"+c.motion)),...grip];
     const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")?.id;
     const effective=coordinateFacialJawPose(composed,jaw,this.model.sourceJawOpeningRadians);
-    if(!this.correctives&&(isTwoHandEquipment(this.grip)||dual||
+    if(!this.correctives&&(isTwoHandEquipment(this.grip)||dual||isBowEquipment(this.grip)||
       id!=="neutral"&&commands.some(c=>human.spike.graph.joints.some(j=>
         j.id===c.jointId&&/^(shoulder|hip)_/.test(j.role))))){
       this.correctives=new HumanPoseCorrectives(human);
@@ -74,7 +82,7 @@ export class StudioPosePreview {
       // input pose and returns a descriptive status without changing the root.
     }else this.fk.apply(effective);
     this.correctives?.apply(this.result?.reachable?this.result.commands:
-      this.shieldResult?.commands??effective);
+      this.shieldResult?.commands??this.archeryResult?.commands??effective);
     human.spike.character.root.updateWorldMatrix(true,true);
     this.current=id;
   }
