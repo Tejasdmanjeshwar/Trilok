@@ -152,20 +152,32 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,
   const result=measure();
   return {error:result.error,dot:result.dot,iterations};
 }
-function primaryGoal(model:StudioHumanModel,hand:HandSide):{
-  center:THREE.Vector3;axis:THREE.Vector3}{
-  const chest=world(jointBone(model,"chest",hand));
-  const shoulder=world(jointBone(model,"shoulder_"+hand,hand));
-  const wrist=world(jointBone(model,"wrist_"+hand,hand));
-  const reach=shoulder.distanceTo(wrist);
-  const q=model.human.spike.character.root.getWorldQuaternion(new THREE.Quaternion());
-  const side=hand==="right"?1:-1;
-  // Relative to the *actual* morph-calibrated chest, not magic character
-  // root scaling. The forward reach and vertical drop scale with arm reach.
-  const offset=new THREE.Vector3(side*.055,-reach*.18,reach*.35)
-    .applyQuaternion(q);
-  const axis=new THREE.Vector3(side*.08,1,.25).normalize().applyQuaternion(q);
-  return {center:chest.add(offset),axis};
+/** A reproducible source-valid two-hand guard stance. Starting from the
+ * C1 A-pose is a poor IK seed: individual shoulder rotations initially move
+ * the wrists away from the hilt and greedy CCD stalls at a local minimum.
+ * These anatomical joint angles were selected by evaluating the pinned
+ * MakeHuman arm envelope: mirrored palms can meet near upper chest while
+ * staying within ALL native FK joint limits. The grip then drives offhand IK. */
+function stageTwoHandArms(graph:AnatomicalGraphV1,fk:AnatomicalFK,
+  state:Map<string,JointTarget>):void{
+  for(const hand of ["left","right"] as const){
+    for(const [role,motion,value] of [
+      ["shoulder","abduction",2.20],
+      ["shoulder","flexion",-.50],
+      ["shoulder","rotation",0],
+      ["elbow","flexion",1.50],
+      ["elbow","rotation",0],
+      ["wrist","flexion",0],
+      ["wrist","abduction",0],
+    ] as const){
+      const joint=scopedJoint(graph,role+"_"+hand,hand);
+      const frame=fk.frames.get(joint.id)?.freedoms.get(motion);
+      if(!frame)throw new Error("Missing guard stance freedom");
+      state.set(key(joint.id,motion),{
+        jointId:joint.id,motion,
+        radians:THREE.MathUtils.clamp(value,frame.min,frame.max)});
+    }
+  }
 }
 function secondaryTarget(model:StudioHumanModel,primary:HandSide,
   separation:number):{position:THREE.Vector3;axis:THREE.Vector3}{
@@ -183,17 +195,20 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     for(const c of swordGripTargets(graph,hand,spread))
       state.set(key(c.jointId,c.motion),c);
   }
+  stageTwoHandArms(graph,fk,state);
   fk.apply([...state.values()]);
-  const width=palmFrame(model,primary).width;
-  const gap=THREE.MathUtils.clamp(width*1.55,.058,.16);
-  const goal=primaryGoal(model,primary);
-  const first=fitArm(model,fk,state,primary,goal.center,goal.axis,1);
-  // The primary socket / actually posed knuckle frame now defines the sole
-  // weapon reference: the offhand target follows it, never vice versa.
+  const frame=palmFrame(model,primary);
+  const gap=THREE.MathUtils.clamp(frame.width*1.55,.058,.16);
+  // The primary palm itself defines the weapon's rigid world pose. Never
+  // drag it toward a fabricated world-space chest target or move the root.
+  const primaryGoal=frame.palm.clone(),primaryAxis=frame.axis.clone();
   const offhand=secondaryTarget(model,primary,gap);
   const second=fitArm(model,fk,state,secondary,offhand.position,offhand.axis,-1);
-  const primaryOkay=first.error<=.075&&first.dot>.30;
-  const secondaryOkay=second.error<=.065&&second.dot>-.15;
+  const primaryFrame=palmFrame(model,primary);
+  const first={error:primaryFrame.palm.distanceTo(primaryGoal),
+    dot:primaryFrame.axis.dot(primaryAxis),iterations:0};
+  const primaryOkay=first.error<=.002&&first.dot>.99;
+  const secondaryOkay=second.error<=.035&&second.dot>.40;
   const reachable=primaryOkay&&secondaryOkay;
   if(!reachable)fk.apply(base);
   const commands=reachable?[...state.values()]:[...base];
