@@ -6,7 +6,7 @@ import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from
 import {MakeHumanBodyController,type BodyAtlas} from
   "../apps/web/src/characters/geometry/MakeHumanBodyTargets";
 import {AnatomicalFK} from "../apps/web/src/characters/geometry/AnatomicalFK";
-import {solveTwoHandIK,type HandSide} from "../apps/web/src/studio/StudioTwoHandGrip";
+import {solveTwoHandIK,StudioTwoHandPreview,twoHandSolvedContactWorld,type HandSide} from "../apps/web/src/studio/StudioTwoHandGrip";
 import type {StudioHumanModel} from "../apps/web/src/studio/StudioHumanModel";
 import type {SourceRig,SourceWeights} from
   "../apps/web/src/characters/geometry/OfficialHumanRig";
@@ -167,6 +167,29 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
             reason:outcome.reason,attempts:outcome.reachDiagnostics,
           }));
           expect(Number.isFinite(outcome.primaryErrorMeters)).toBe(true);
+          expect(outcome.weaponWorld.elements.every(Number.isFinite)).toBe(true);
+          if(outcome.reachable){
+            expect(outcome.primaryErrorMeters).toBeLessThanOrEqual(.023);
+            expect(outcome.secondaryErrorMeters).toBeLessThanOrEqual(.023);
+            expect(outcome.separationMeters).toBeCloseTo(
+              outcome.dimensions.primaryGripY-outcome.dimensions.secondaryGripY,9);
+            expect(outcome.dimensions.handleLength/outcome.dimensions.bladeLength>0 ||
+              outcome.dimensions.shaftLength>0).toBe(true);
+            const preview=new StudioTwoHandPreview(model,kind,lead,outcome);
+            try{
+              expect(preview.object.children.length).toBeGreaterThan(0);
+              expect(preview.descriptor.dimensions).toEqual(outcome.dimensions);
+              const axis=new THREE.Vector3(0,1,0).transformDirection(outcome.weaponWorld);
+              const primaryGrip=new THREE.Vector3(0,outcome.dimensions.primaryGripY,0)
+                .applyMatrix4(preview.object.matrix);
+              const secondaryGrip=new THREE.Vector3(0,outcome.dimensions.secondaryGripY,0)
+                .applyMatrix4(preview.object.matrix);
+              expect(primaryGrip.clone().sub(secondaryGrip).normalize().dot(axis))
+                .toBeGreaterThan(.999);
+              expect(primaryGrip.distanceTo(
+                twoHandSolvedContactWorld(model,lead,outcome))).toBeLessThanOrEqual(.023);
+            }finally{preview.dispose();}
+          }
           // Report all failures without hiding unsupported anatomies behind
           // a green diagnostic-only test. Never weaken the grip thresholds.
           if(!outcome.reachable)failed.push(
