@@ -87,6 +87,38 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
                 y:a.y,z:a.z};
             }
       console.log("C5.2-BEST-SEED",primary,JSON.stringify(bestSeed));
+      const axis=(hand:"left"|"right")=>{
+        const wp=(role:string)=>bone(model,role).getWorldPosition(new THREE.Vector3());
+        const wrist=wp("wrist_"+hand),middle=wp("finger_middle_0");
+        const index=wp("finger_index_0"),little=wp("finger_little_0");
+        const forward=middle.sub(wrist).normalize();
+        return index.sub(little).addScaledVector(forward,
+          -index.clone().sub(little).dot(forward)).normalize();
+      };
+      let bestGrip={score:Infinity,primaryRotation:0,secondaryRotation:0,
+        error:Infinity,dot:-1};
+      const j=(side:"left"|"right",role:string)=>
+        graph.joints.find(j=>j.role===role+"_"+side)!.id;
+      const handAngles=(side:"left"|"right",rotation:number)=>[
+        {jointId:j(side,"shoulder"),motion:"abduction" as const,radians:2.2},
+        {jointId:j(side,"shoulder"),motion:"flexion" as const,radians:-.5},
+        {jointId:j(side,"elbow"),motion:"flexion" as const,radians:1.5},
+        {jointId:j(side,"elbow"),motion:"rotation" as const,radians:rotation}];
+      for(const a of [-1.3,-.7,0,.7,1.3])
+        for(const b of [-1.3,-.7,0,.7,1.3]){
+          const p=primary,s=side;
+          fk.apply([...handAngles(p,a),...handAngles(s,b)]);
+          const left=bone(model,"palm_"+p).getWorldPosition(new THREE.Vector3());
+          const right=bone(model,"palm_"+s).getWorldPosition(new THREE.Vector3());
+          const pa=axis(p),sa=axis(s);
+          const target=left.addScaledVector(pa,-.111);
+          const error=target.distanceTo(right);
+          const dot=-pa.dot(sa);
+          const score=error+.045*(1-dot);
+          if(score<bestGrip.score)bestGrip={
+            score,primaryRotation:a,secondaryRotation:b,error,dot};
+        }
+      console.log("C5.2-BEST-GRIP-SEED",primary,JSON.stringify(bestGrip));
       fk.apply([]);
       const first=solveTwoHandIK(model,fk,[],primary);
       console.log("C5.2-IK",primary,JSON.stringify(first));
