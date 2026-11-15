@@ -89,7 +89,7 @@ describe("sword and shield source-skin attachments",()=>{
     {"macro/height":1},
     {"macro/muscle":1},
   ])("measures source body skin for shield contact: %j",body=>{
-    const {human,model}=fixture(body as Record<string,number>);
+    const {human,model}=fixture(Object.fromEntries(Object.entries(body).filter(([,v])=>v!==undefined)));
     const pose=new StudioPosePreview(model);
     try{
       pose.setGrip("sword-shield-right");
