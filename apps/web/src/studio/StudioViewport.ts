@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import {getBuildIdentity} from "../build-info";
+import {initialStudioRecipe} from "./StudioRecipe";
+import {createStudioGripFailureReport,type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {buildStudioHuman,type StudioHumanModel} from "./StudioHumanModel";
 import {defaultStudioMorphState,type StudioMorphState} from "./StudioMorphCatalog";
@@ -12,7 +15,7 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
 import {StudioPosePreview} from "./StudioPosePreview";
 import {StudioSwordPreview} from "./StudioWeaponGrip";
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
-  type EquipmentChoice} from "./StudioTwoHandGrip";
+  type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
 import {isShortTap,isDoubleTap,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
@@ -40,6 +43,7 @@ export function createStudioViewport(
   element:HTMLElement,onReady:()=>void,onFailure:(message:string)=>void,
   onEditError:(message:string)=>void,
   onSurfaceFocus?:(area:StudioFocus)=>void,
+  onGripFailure?:(report:StudioGripFailureReport|undefined)=>void,
 ):StudioViewport {
   const scene=new THREE.Scene();
   const perspective=new THREE.PerspectiveCamera(40,1,.05,90);
@@ -92,16 +96,27 @@ export function createStudioViewport(
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
   let equipment:EquipmentChoice="none";
+  let currentRecipe:StudioRecipeV1=initialStudioRecipe();
   let sword:StudioSwordPreview|StudioTwoHandPreview|undefined;
+  const reportGripFailure=(result?:TwoHandIKResult,error?:unknown):void=>{
+    if(!isTwoHandEquipment(equipment))return;
+    const report=createStudioGripFailureReport(currentRecipe,pose,equipment,
+      getBuildIdentity(),result,error);
+    onGripFailure?.(report);
+  };
   function clearSword():void{sword?.dispose();sword=undefined;}
   function refreshSword():void{
     clearSword();
-    if(equipment==="none"){onEditError("");return;}
+    if(equipment==="none"){
+      onGripFailure?.(undefined);
+      onEditError("");return;
+    }
     if(!active)return;
     try{
       if(isTwoHandEquipment(equipment)){
         const solved=posePreview?.twoHandResult;
         if(!solved?.reachable){
+          reportGripFailure(solved);
           onEditError("Both hands cannot comfortably reach this weapon in the selected pose.");
           return;
         }
@@ -112,8 +127,10 @@ export function createStudioViewport(
         const next=new StudioSwordPreview(active,equipment);
         scene.add(next.object);sword=next;
       }
+      onGripFailure?.(undefined);
       onEditError("");
-    }catch{
+    }catch(error){
+      reportGripFailure(posePreview?.twoHandResult,error);
       onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
   }
@@ -473,9 +490,10 @@ export function createStudioViewport(
     return applyState(state,currentAppearance);
   }
   async function applyRecipe(recipe:StudioRecipeV1):Promise<boolean>{
-    return applyState(recipe.morphology,recipe.appearance);
+    return applyState(recipe.morphology,recipe.appearance,recipe);
   }
-  async function applyState(state:StudioMorphState,appearance:StudioAppearanceV1):Promise<boolean>{
+  async function applyState(state:StudioMorphState,appearance:StudioAppearanceV1,
+    recipe?:StudioRecipeV1):Promise<boolean>{
     const started=performance.now();
     const hadActive=!!active;
     validateStudioAppearance(appearance);
@@ -496,6 +514,7 @@ export function createStudioViewport(
         applyStudioSkinMaterial(active!.human.mesh,appearance);
         currentAppearance=appearance;
         currentMorphology=state;
+        currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
         posePreview?.refresh();
         if(isTwoHandEquipment(equipment))refreshSword();
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
@@ -528,6 +547,7 @@ export function createStudioViewport(
       scene.add(incoming.human.spike.character.root);
       active=incoming;
       posePreview=preview;
+      currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
       refreshSword();
       currentMorphology=state;
       currentAppearance=appearance;
