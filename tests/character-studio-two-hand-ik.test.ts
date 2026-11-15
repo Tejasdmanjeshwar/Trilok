@@ -65,6 +65,28 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
             .distanceTo(bone(model,"palm_right").getWorldPosition(new THREE.Vector3())),
         }));
       }
+      let bestSeed={distance:Infinity,description:"",y:0,z:0};
+      for(const abduct of [-.3,.4,1,1.6,2.2])
+        for(const flex of [-.5,.5,1.5])
+          for(const rotation of [-1.2,0,1.2])
+            for(const elbow of [.6,1.5,2.35]){
+              const joint=(hand:"left"|"right",role:string)=>
+                graph.joints.find(j=>j.role===role+"_"+hand)!.id;
+              const trial=(hand:"left"|"right")=>[
+                {jointId:joint(hand,"shoulder"),motion:"abduction" as const,radians:abduct},
+                {jointId:joint(hand,"shoulder"),motion:"flexion" as const,radians:flex},
+                {jointId:joint(hand,"shoulder"),motion:"rotation" as const,radians:rotation},
+                {jointId:joint(hand,"elbow"),motion:"flexion" as const,radians:elbow}];
+              fk.apply([...trial("left"),...trial("right")]);
+              const a=bone(model,"palm_left").getWorldPosition(new THREE.Vector3());
+              const b=bone(model,"palm_right").getWorldPosition(new THREE.Vector3());
+              const distance=a.distanceTo(b);
+              if(a.y<1.15||a.y>1.85||Math.abs(a.z)>.42)continue;
+              if(distance<bestSeed.distance)bestSeed={
+                distance,description:[abduct,flex,rotation,elbow].join(","),
+                y:a.y,z:a.z};
+            }
+      console.log("C5.2-BEST-SEED",primary,JSON.stringify(bestSeed));
       fk.apply([]);
       const first=solveTwoHandIK(model,fk,[],primary);
       console.log("C5.2-IK",primary,JSON.stringify(first));
