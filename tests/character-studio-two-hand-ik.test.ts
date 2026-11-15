@@ -90,6 +90,7 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
       fk.apply([]);
       const first=solveTwoHandIK(model,fk,[],primary);
       console.log("C5.2-IK",primary,JSON.stringify(first));
+      expect(first.reachable,"both source hands must actually meet on the weapon").toBe(true);
       expect(first.iterations).toBeLessThanOrEqual(24);
       expect(first.primaryErrorMeters).toBeLessThan(.15);
       expect(first.secondaryErrorMeters).toBeLessThan(.15);
