@@ -7,6 +7,7 @@ import {MakeHumanBodyController,type BodyAtlas} from
   "../apps/web/src/characters/geometry/MakeHumanBodyTargets";
 import {AnatomicalFK} from "../apps/web/src/characters/geometry/AnatomicalFK";
 import {HumanPoseCorrectives} from "../apps/web/src/characters/geometry/HumanPoseCorrectives";
+import {StudioBodyCollision} from "../apps/web/src/studio/StudioBodyCollision";
 import {generateStudioCharacter,STUDIO_GENERATOR_VERSION} from "../apps/web/src/studio/StudioGenerator";
 import {applyHumanMorphology} from "../apps/web/src/characters/geometry/HumanMorphology";
 import {createHumanHeadRecipe} from "../packages/character-core/src/index";
@@ -109,6 +110,53 @@ function diagnoseArmReach(model:StudioHumanModel,result:ReturnType<typeof solveT
   }));
   return points;
 }
+describe("C5.2 generated skinned-body occupied volume",()=>{
+  it("reconstructs full deterministic recipe 1103498626 and samples its abdomen",()=>{
+    const seed=1103498626;
+    const generated=generateStudioCharacter(seed);
+    expect(STUDIO_GENERATOR_VERSION).toBe("studio-human-v2");
+    expect(generated.seed).toBe(seed);
+    const repeat=generateStudioCharacter(seed);
+    expect(repeat).toEqual(generated);
+    const {human,model,fk}=make(generated.morphology.body,generated.morphology.shape);
+    try{
+      const collision=new StudioBodyCollision(model);
+      expect(collision.sourceVertices).toBeGreaterThan(150);
+      const root=human.spike.character.root;
+      root.updateWorldMatrix(true,true);
+      const abdomen=human.spike.graph.joints.find(j=>j.role==="spine_lower")!;
+      const center=human.spike.bones.get(abdomen.id)!
+        .getWorldPosition(new THREE.Vector3());
+      expect(Number.isFinite(collision.clearance(center))).toBe(true);
+      const snap=root.matrixWorld.clone();
+      for(const lead of ["right","left"] as const){
+        for(const kind of ["longsword","staff"] as const){
+          fk.apply([]);
+          const first=solveTwoHandIK(model,fk,[],lead,kind);
+          expect(first.weaponWorld.elements.every(Number.isFinite)).toBe(true);
+          expect(Number.isFinite(first.bodyClearanceMeters)).toBe(true);
+          if(first.reachable){
+            expect(first.bodyClearanceMeters,kind+"/"+lead+
+              " must not intersect morphed abdomen").toBeGreaterThanOrEqual(0);
+            expect(first.primaryErrorMeters).toBeLessThanOrEqual(.023);
+            expect(first.secondaryErrorMeters).toBeLessThanOrEqual(.023);
+            const clearance=new StudioBodyCollision(model).measure(model,
+              first.weaponWorld,kind,first.dimensions);
+            expect(clearance.maximumPenetrationMeters).toBeLessThanOrEqual(
+              .003*first.dimensions.scale+1e-9);
+          }
+          fk.apply([]);
+          const second=solveTwoHandIK(model,fk,[],lead,kind);
+          expect(second.reachable).toBe(first.reachable);
+          expect(second.primaryErrorMeters).toBeCloseTo(first.primaryErrorMeters,7);
+          expect(second.secondaryErrorMeters).toBeCloseTo(first.secondaryErrorMeters,7);
+          expect(second.bodyClearanceMeters).toBeCloseTo(first.bodyClearanceMeters,7);
+          expect(root.matrixWorld.elements).toEqual(snap.elements);
+        }
+      }
+    }finally{human.dispose();}
+  },120_000);
+});
 describe("C5.2 staff source-skinned contact diagnostics",()=>{
   it.each([
     {seed:498155388,sex:.003517,age:.05506,height:.082736,
