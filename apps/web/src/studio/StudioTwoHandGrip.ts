@@ -167,7 +167,7 @@ function freedomSet(graph:AnatomicalGraphV1,fk:AnatomicalFK,hand:HandSide):AxisD
  * channels in the existing MakeHuman rest-relative FK, not an independent rig.
  * Both elbows remain below shoulder level and the hands in front of the torso.
  * The sword starts with the lead elbow forward and its supporting arm folded
- * inward; the staff starts as a wide, lower horizontal guard. */
+ * inward; the staff starts as a comfortable inclined two-hand guard. */
 const STANCES:Readonly<Record<TwoHandWeapon,{
   readonly shoulderAbduction:number;
   readonly shoulderFlexion:number;
@@ -294,7 +294,7 @@ function authoredWeaponWorld(model:StudioHumanModel,kind:TwoHandWeapon,
     new THREE.Vector3(0,-.17*scale,.31*scale);
   const y=(kind==="longsword"?
     new THREE.Vector3(primary==="right"?.76:-.76,.51,.42):
-    new THREE.Vector3(primary==="right"?.94:-.94,.16,.30))
+    new THREE.Vector3(primary==="right"?.65:-.65,.70,.29))
     .normalize().applyQuaternion(facing);
   const referenceX=(kind==="longsword"?
     new THREE.Vector3(1,0,0):new THREE.Vector3(0,0,1))
@@ -381,18 +381,18 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
     const handSpan=lead.palm.clone().sub(offhand.palm);
     if(handSpan.lengthSq()<1e-8)handSpan.copy(nominal);
     handSpan.normalize();
-    const knuckles=lead.axis.clone().sub(offhand.axis);
+    const knuckles=lead.axis.clone().add(offhand.axis);
     if(staffAxisMode==="knuckle"&&knuckles.lengthSq()>1e-8){
       knuckles.normalize();
       if(knuckles.dot(handSpan)<0)knuckles.negate();
-      // The shaft must be COLLINEAR with the two opposed fist axes,
-      // not merely lie near the two approximate palm-joint landmarks.
-      axis=knuckles.multiplyScalar(.60)
-        .addScaledVector(handSpan,.35)
-        .addScaledVector(nominal,.05).normalize();
+      // Same-direction thumbs require aligned knuckle axes, not opposition.
+      // Preserve the inclined staff guard while resolving shared contact.
+      axis=knuckles.multiplyScalar(.24)
+        .addScaledVector(handSpan,.23)
+        .addScaledVector(nominal,.53).normalize();
     }else{
-      axis=handSpan.multiplyScalar(.82)
-        .addScaledVector(nominal,.18).normalize();
+      axis=handSpan.multiplyScalar(.30)
+        .addScaledVector(nominal,.70).normalize();
     }
   }
   if(axis.lengthSq()<.9)throw new Error("Degenerate two-hand shaft axis");
@@ -491,9 +491,8 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
   {error:number;dot:number;iterations:number}{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
   const starting=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
-  // Sword hands use the same little-to-index direction toward the guard;
-  // staff guards may use opposed grips. Never mistake sword grip for dual wield.
-  const direction=kind==="longsword"||hand===lead?1:-1;
+  // Both hands share the same index-to-little axis: no mixed thumb grip.
+  const direction=1;
   const desiredAxis=shaft.clone().multiplyScalar(direction);
   const apply=()=>fk.apply([...state.values()]);
   const cost=()=>{
@@ -576,7 +575,7 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
   hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3,
   anchors?:GripAnchors):number{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
-  const direction=kind==="longsword"||hand===lead?1:-1;
+  const direction=1;
   const desiredAxis=shaft.clone().multiplyScalar(direction);
   const elbowGoal=referenceElbow(model,kind,lead,hand);
   const desired=[target.x,target.y,target.z,
@@ -592,8 +591,7 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
       frame.axis.z*.15*direction,
       elbow.x*.035,elbow.y*.035,elbow.z*.035];
   };
-  // Desired shaft orientation accounts for the opposed staff offhand:
-  // sample already carries the sign, so the reference uses unflipped shaft.
+  // Both hands use the same shared shaft orientation.
   desired[3]=shaft.x*.15;
   desired[4]=shaft.y*.15;
   desired[5]=shaft.z*.15;
@@ -736,14 +734,13 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       const span=contactWorld(model,lead,anchors)
         .sub(contactWorld(model,off,anchors));
       const axis=span.lengthSq()>1e-7?span.normalize():referenceAxis.clone();
-      return axis.multiplyScalar(.84).addScaledVector(referenceAxis,.16).normalize();
+      return axis.multiplyScalar(.30).addScaledVector(referenceAxis,.70).normalize();
     };
     const sample=()=>{
       const axis=shaft();
       const first=contactWorld(model,lead,anchors),second=contactWorld(model,off,anchors);
       const relative=first.sub(second).addScaledVector(axis,-separation);
-      const supportAxis=palmFrame(model,off).axis
-        .multiplyScalar(kind==="staff"?-1:1);
+      const supportAxis=palmFrame(model,off).axis;
       const guard=anatomicalGuard(model,kind,lead);
       // Derivative-aware soft barriers prevent convergence by twisting the
       // wrist through the face or crossing the forearm centerlines.
@@ -852,7 +849,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
     const errorA=leadContact.distanceTo(firstGoal);
     const errorB=offContact.distanceTo(secondGoal);
     const dotA=palmFrame(model,lead).axis.dot(axis);
-    const dotB=palmFrame(model,off).axis.dot(axis)*(kind==="staff"?-1:1);
+    const dotB=palmFrame(model,off).axis.dot(axis);
     const guard=anatomicalGuard(model,kind,lead);
     const minimum=kind==="staff"?.85:.42;
     diagnostics.push({seed,initialSpan,primaryError:errorA,secondaryError:errorB,
@@ -947,7 +944,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const primaryError=contactWorld(model,primary,anchors).distanceTo(firstGoal);
     const secondaryError=contactWorld(model,secondary,anchors).distanceTo(secondGoal);
     const primaryDot=first.axis.dot(shaft);
-    const secondaryDot=second.axis.dot(shaft)*(kind==="longsword"?1:-1);
+    const secondaryDot=second.axis.dot(shaft);
     const guard=anatomicalGuard(model,kind,primary);
     const orientationMinimum=kind==="staff"?.85:.42;
     const reached=guard.ok&&primaryError<=.023&&secondaryError<=.023&&
