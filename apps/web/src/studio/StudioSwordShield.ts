@@ -108,7 +108,7 @@ export function measureSkinnedForearm(model:StudioHumanModel,hand:HandSide,
   const index=mesh.geometry.getAttribute("skinIndex");
   const weight=mesh.geometry.getAttribute("skinWeight");
   const id=spike.skeleton.bones.indexOf(scopedBone(model,"elbow",hand));
-  const helper=spike.forearmSkinBones.get(hand);
+  const helper=spike.forearmSkinBones?.get(hand);
   const helperIndex=helper?spike.skeleton.bones.indexOf(helper):-1;
   let maximum=0,count=0;
   const point=new THREE.Vector3(),relative=new THREE.Vector3();
