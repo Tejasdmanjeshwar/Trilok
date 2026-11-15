@@ -702,7 +702,6 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   // this pose cannot satisfy the SAME unchanged anatomical acceptance gates.
   const fingerState=Object.freeze([...state.values()]);
   let chosen:TwoHandIKResult|undefined;
-  let bestFailedState:Map<string,JointTarget>|undefined;
   let lowest=Infinity;
   const diagnostics:{seed:number;initialSpan:number;primaryError:number;
     secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]=[];
@@ -787,65 +786,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       .04*(Math.max(0,.42-primaryDot)+Math.max(0,.42-secondaryDot))+
       (guard.ok?0:.1);
     if(reached){chosen=result;break candidateSeeds;}
-    if(score<lowest){
-      lowest=score;chosen=result;
-      bestFailedState=poseMap([...state.values()]);
-    }
+    if(score<lowest){lowest=score;chosen=result;}
 
-    }
-  }
-  // Final fallback only: alternate TWO-arm FK and rigid weapon fitting from
-  // the best failed candidate. In the previous independent-hand solver the
-  // secondary hand could remain 10-20cm away after the lead was fitted, even
-  // though legal poses exist closer to the shared center. No weapon stretch,
-  // root movement, joint-limit bypass, or changes to successful default poses.
-  if(kind==="longsword"&&!chosen?.reachable&&bestFailedState&&chosen){
-    const rescue=bestFailedState as Map<string,JointTarget>;
-    let weapon=chosen.weaponWorld.clone();
-    const reference=authoredWeaponWorld(model,kind,primary,dimensions);
-    for(let pass=0;pass<3;pass++){
-      fk.apply([...rescue.values()]);
-      // Refit a NEW rigid frame against the current two-hand pose. The blade
-      // geometry and local grip separation remain independently dimensioned.
-      if(pass>0)weapon=adaptiveTwoHandWeaponWorld(model,kind,primary,
-        dimensions,reference,undefined,"sword-span");
-      const axis=weaponAxis(weapon);
-      const goalA=gripWorld(weapon,dimensions.primaryGripY);
-      const goalB=gripWorld(weapon,dimensions.secondaryGripY);
-      fitHand(model,fk,rescue,kind,primary,primary,goalA,axis,undefined,1.65);
-      fitHand(model,fk,rescue,kind,primary,secondary,goalB,axis,undefined,1.65);
-      if(pass>0){
-        fitHandDamped(model,fk,rescue,kind,primary,primary,goalA,axis);
-        fitHandDamped(model,fk,rescue,kind,primary,secondary,goalB,axis);
-      }
-      fk.apply([...rescue.values()]);
-      const first=palmFrame(model,primary),second=palmFrame(model,secondary);
-      const primaryError=twoHandGripContactWorld(model,primary).distanceTo(goalA);
-      const secondaryError=twoHandGripContactWorld(model,secondary).distanceTo(goalB);
-      const primaryDot=first.axis.dot(axis);
-      const secondaryDot=second.axis.dot(axis);
-      const guard=anatomicalGuard(model,kind,primary);
-      const reachable=guard.ok&&primaryError<=.023&&secondaryError<=.023&&
-        primaryDot>.42&&secondaryDot>.42;
-      diagnostics.push({seed:REACH_SEEDS.length*2+pass,
-        initialSpan:first.palm.distanceTo(second.palm),primaryError,secondaryError,
-        primaryAxis:primaryDot,secondaryAxis:secondaryDot,
-        reason:reachable?"ok":!guard.ok?"unsafe-stance":
-          primaryError>.023||primaryDot<=.42?"primary-unreachable":"secondary-unreachable"});
-      if(reachable){
-        chosen=Object.freeze({...chosen,reachable:true,reason:"ok" as const,
-          commands:Object.freeze([...rescue.values()]),
-          primaryErrorMeters:primaryError,secondaryErrorMeters:secondaryError,
-          primaryDeltaMeters:Object.freeze(first.palm.clone().sub(goalA).toArray()),
-          secondaryDeltaMeters:Object.freeze(second.palm.clone().sub(goalB).toArray()),
-          primaryAxisDot:primaryDot,secondaryAxisDot:secondaryDot,
-          headClearanceMeters:guard.headClearance,
-          elbowMaxHeightMeters:guard.elbowMax,headHeightMeters:guard.headY,
-          maximumPalmHeightMeters:guard.maximumPalmY,
-          initialHandSpanMeters:first.palm.distanceTo(second.palm),
-          weaponWorld:weapon.clone()});
-        break;
-      }
     }
   }
   // Failed candidates are not allowed to persist an invalid skin pose.
