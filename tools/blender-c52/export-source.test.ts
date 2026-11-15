@@ -7,6 +7,8 @@ import * as THREE from "three";
 import {readFileSync,mkdirSync,writeFileSync} from "node:fs";
 import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from "../../apps/web/src/characters/geometry/AnatomicalTemplate";
 import type {SourceRig,SourceWeights} from "../../apps/web/src/characters/geometry/OfficialHumanRig";
+import {AnatomicalFK} from "../../apps/web/src/characters/geometry/AnatomicalFK";
+import {calibrateGripSpreads,swordGripTargets} from "../../apps/web/src/studio/StudioWeaponGrip";
 
 test("export pinned source skin, original bone identities and neutral bind geometry",()=>{
   const source=(file:string)=>readFileSync("apps/web/public/anatomy/"+file,"utf8");
@@ -16,6 +18,21 @@ test("export pinned source skin, original bone identities and neutral bind geome
     weights:JSON.parse(source("makehuman-default_weights.mhw")) as SourceWeights,
   });
   try{
+    // Carry the owner-accepted C5.1 SOURCE fingertip articulation into
+    // the Blender skin reference. The geometry remains fully source-skinned:
+    // this is a baked authored pose, not a schematic replacement hand.
+    const graph=human.spike.graph;
+    const fk=new AnatomicalFK(graph,human.spike.bones,{
+      jawTipWorldRest:human.jawTipWorldRest,
+      forearmSkinBones:human.spike.forearmSkinBones,
+      shoulderSkinBones:human.spike.shoulderSkinBones,
+    });
+    const gripCommands=["left","right"].flatMap(s=>{
+      const side=s as "left"|"right";
+      const spread=calibrateGripSpreads(graph,human.spike.bones,fk.frames,side);
+      return swordGripTargets(graph,side,spread);
+    });
+    fk.apply(gripCommands);
     const root=human.spike.character.root;
     root.updateWorldMatrix(true,true);
     const mesh=human.mesh;
@@ -61,6 +78,7 @@ test("export pinned source skin, original bone identities and neutral bind geome
     }
     const rig={
       schemaVersion:1,source:"Trilok pinned CC0 MakeHuman skin + default rig",
+      fingerPose:"C5.1 owner-accepted calibrated finger flexion and thumb opposition",
       coordinateSystem:"Y-up, +Z forward, meters",
       vertices:vertices.count,triangles:count/3,
       bones:bones.map((bone,i)=>({
@@ -73,7 +91,7 @@ test("export pinned source skin, original bone identities and neutral bind geome
     const out="test-results/blender-c52";
     mkdirSync(out,{recursive:true});
     writeFileSync(out+"/source-human.obj",
-      "# Neutral source-skinned MakeHuman body; Y-up, +Z forward; generated, do not edit\n"+
+      "# Source-skinned MakeHuman body with C5.1 finger pose; Y-up, +Z forward\n"+
       resultVerts.join("\n")+"\n"+faces.join("\n")+"\n");
     writeFileSync(out+"/source-rig.v1.json",JSON.stringify(rig));
     console.log("C52 BLENDER SOURCE",JSON.stringify({
