@@ -188,11 +188,6 @@ const REACH_SEEDS=Object.freeze([
   {abduction:-.45,flexion:.20,rotation:-.25,elbow:.40},
   {abduction:-.65,flexion:.12,rotation:.30,elbow:.45},
   {abduction:-.30,flexion:-.20,rotation:-.45,elbow:.12},
-  // Longer source arms require a substantially more folded initial guard.
-  // These remain calibrated FK commands; neither root nor weapon stretches.
-  {abduction:-.85,flexion:.26,rotation:.32,elbow:.85},
-  {abduction:-1.0,flexion:.16,rotation:-.22,elbow:1.0},
-  {abduction:-.85,flexion:-.12,rotation:.75,elbow:.65},
 ] as const);
 function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide,
@@ -405,6 +400,47 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
     new THREE.Matrix4().makeBasis(x,axis,z));
   return new THREE.Matrix4().compose(center,rotation,new THREE.Vector3(1,1,1));
 }
+/** Project one RIGID weapon's center into the shared physical arm-reach
+ * region, keeping its dimensions and axis unchanged. A primary-hand-only
+ * candidate may be unreachable by the offhand on tall/wide morphologies.
+ * This is a position-only fallback; the original approved sword matrix is
+ * always tested first and is never changed when successful. */
+function projectWeaponIntoArmReach(model:StudioHumanModel,
+  primary:HandSide,dim:TwoHandDimensions,
+  weapon:THREE.Matrix4):THREE.Matrix4{
+  const secondary:HandSide=primary==="right"?"left":"right";
+  const axis=weaponAxis(weapon);
+  const candidate=weapon.clone();
+  const center=new THREE.Vector3().setFromMatrixPosition(candidate);
+  const arms=[{hand:primary,y:dim.primaryGripY},
+    {hand:secondary,y:dim.secondaryGripY}] as const;
+  const limits=arms.map(({hand,y})=>{
+    const shoulder=world(jointBone(model,"shoulder_"+hand,hand));
+    const elbow=world(jointBone(model,"elbow_"+hand,hand));
+    const wrist=world(jointBone(model,"wrist_"+hand,hand));
+    const palm=twoHandGripContactWorld(model,hand);
+    const reach=(shoulder.distanceTo(elbow)+elbow.distanceTo(wrist)+
+      wrist.distanceTo(palm))*.95;
+    return {shoulder,y,reach};
+  });
+  // Alternating projections onto convex shoulder-reach spheres. Unlike
+  // stretching the hilt, a rigid translation cannot change grip separation.
+  for(let iteration=0;iteration<10;iteration++){
+    let changed=false;
+    for(const {shoulder,y,reach} of limits){
+      const goal=center.clone().addScaledVector(axis,y);
+      const offset=shoulder.clone().sub(goal);
+      const distance=offset.length();
+      if(distance>reach&&distance>1e-9){
+        center.addScaledVector(offset,(distance-reach)/distance);
+        changed=true;
+      }
+    }
+    if(!changed)break;
+  }
+  candidate.setPosition(center);
+  return candidate;
+}
 /** Normalized source upper-arm directions measured from independently
  * skinned Blender 4.5.16 candidate poses. These guide elbow pole placement
  * without imposing a copied bone rotation or altering arm lengths.
@@ -533,8 +569,10 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       model,kind,primary,dimensions,authored,anchors);
     const aligned=kind==="staff"?adaptiveTwoHandWeaponWorld(
       model,kind,primary,dimensions,authored,anchors,"knuckle"):undefined;
+    const projected=kind==="longsword"?projectWeaponIntoArmReach(
+      model,primary,dimensions,adaptive):undefined;
     const candidates=kind==="longsword"?
-      (seed===0?[authored,adaptive]:[adaptive]):
+      (seed===0?[authored,adaptive,projected!]:[projected!,adaptive]):
       (seed===0?[aligned!,adaptive,authored]:[aligned!,adaptive]);
     for(const weaponWorld of candidates){
     state=poseMap(staged);
