@@ -145,7 +145,7 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
         pose.setPose(id);
         const solved=pose.twoHandResult;
         if(!solved?.reachable){
-          failures.push(id+"/"+(solved?.reason??"missing"));
+          failures.push(id+"/"+(solved?.reason??"missing")+"/"+JSON.stringify(solved?.reachDiagnostics?.slice(-6)));
           continue;
         }
         expect(solved.primaryErrorMeters).toBeLessThanOrEqual(.023);
