@@ -15,6 +15,7 @@ describe("Studio bow and visual nock contract",()=>{
       pose.setGrip(hand==="left"?"bow-left":"bow-right");
       const rest=pose.bowPoseResult!;
       expect(rest).toBeDefined();
+      expect(rest.reachable,"source bow-hand must reach reference grip: "+JSON.stringify({error:rest.bowHandErrorMeters,body:rest.bodyClearanceMeters})).toBe(true);
       expect(rest.iterations).toBeLessThanOrEqual(48);
       expect(rest.bowHandErrorMeters).toBeLessThan(.12);
       expect(root.elements).toEqual(human.spike.character.root.matrixWorld.elements);
@@ -35,6 +36,7 @@ describe("Studio bow and visual nock contract",()=>{
         pose.setArcheryState(state);
         const report=pose.bowPoseResult!;
         expect(report.iterations).toBeLessThanOrEqual(48);
+        if(state==="aim")expect(report.reachable,JSON.stringify({state,hand,error:report.drawHandErrorMeters,body:report.bodyClearanceMeters})).toBe(true);
         expect(report.commands.every(c=>Number.isFinite(c.radians))).toBe(true);
         expect(root.elements).toEqual(human.spike.character.root.matrixWorld.elements);
         if(report.reachable){
