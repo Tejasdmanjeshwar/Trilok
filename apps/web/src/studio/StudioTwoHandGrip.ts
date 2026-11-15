@@ -107,7 +107,9 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,
     const frame=palmFrame(model,hand);
     const distance=frame.palm.distanceToSquared(goal);
     const dot=THREE.MathUtils.clamp(frame.axis.dot(wantedAxis)*alignSign,-1,1);
-    // An offhand at the right location but with perpendicular knuckles\n    // cannot wrap the same handle. Make orientation a first-class constraint.\n    const axisError=(1-dot)*.115;
+    // An offhand at the right location but with perpendicular knuckles
+    // cannot wrap the same handle. Make orientation a first-class constraint.
+    const axisError=(1-dot)*.115;
     // Soft preference for the unmodified input pose reduces extreme
     // rotations when several joint configurations reach the same point.
     let bias=0;
