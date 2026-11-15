@@ -1,9 +1,7 @@
 name: C5.2 Blender source reference
+# Heavy pinned Blender download/renders run only on explicit reference validation,
+# not on every iteration of a draft C5.2 PR.
 on:
-  pull_request:
-    paths:
-      - 'tools/blender-c52/**'
-      - '.github/workflows/c52-blender-reference.yml'
   workflow_dispatch:
 
 permissions:
