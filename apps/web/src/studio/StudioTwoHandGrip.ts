@@ -48,6 +48,9 @@ export interface TwoHandIKResult {
   readonly separationMeters:number;
   /** Distance between initially posed native source-hand grip channels. */
   readonly initialHandSpanMeters:number;
+  readonly reachDiagnostics?:readonly Readonly<{seed:number;initialSpan:number;
+    primaryError:number;secondaryError:number;primaryAxis:number;
+    secondaryAxis:number;reason:string}>[];
   readonly weaponWorld:THREE.Matrix4;
   readonly dimensions:TwoHandDimensions;
   /** Optional palm-local skin-fitted staff grip landmarks, measured before IK. */
@@ -510,6 +513,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const fingerState=Object.freeze([...state.values()]);
   let chosen:TwoHandIKResult|undefined;
   let lowest=Infinity;
+  const diagnostics:{seed:number;initialSpan:number;primaryError:number;
+    secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]=[];
   candidateSeeds:for(let seed=0;seed<REACH_SEEDS.length;seed++){
     state=poseMap(fingerState);
     stageReadyPose(graph,fk,state,kind,primary,seed);
@@ -566,6 +571,9 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
         right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
       }):undefined,
     });
+    diagnostics.push({seed,initialSpan:initialHandSpanMeters,
+      primaryError,secondaryError,primaryAxis:primaryDot,
+      secondaryAxis:secondaryDot,reason});
     const score=primaryError+secondaryError+
       .04*(Math.max(0,.42-primaryDot)+Math.max(0,.42-secondaryDot))+
       (guard.ok?0:.1);
@@ -576,7 +584,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   }
   // Failed candidates are not allowed to persist an invalid skin pose.
   if(!chosen?.reachable)fk.apply(base);
-  return chosen!;
+  return Object.freeze({...chosen!,
+    reachDiagnostics:Object.freeze(diagnostics.map(x=>Object.freeze(x)))});
 }
 
 export function createTwoHandDescriptor(model:StudioHumanModel,
