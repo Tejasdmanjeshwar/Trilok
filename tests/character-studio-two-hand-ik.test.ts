@@ -60,7 +60,10 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
       expect(second.commands.map(c=>[c.jointId,c.motion,c.radians]))
         .toEqual(first.commands.map(c=>[c.jointId,c.motion,c.radians]));
       if(first.reachable)for(const kind of ["longsword","staff"] as const){
-        const preview=new StudioTwoHandPreview(model,kind,primary,first);
+        fk.apply([]);
+        const solved=solveTwoHandIK(model,fk,[],primary,kind);
+        expect(solved.reachable,kind+" must solve its own fixed grips").toBe(true);
+        const preview=new StudioTwoHandPreview(model,kind,primary,solved);
         try{
           expect(preview.object.children.length).toBeGreaterThan(4);
           expect(preview.descriptor.primary).toBe(primary);
@@ -77,13 +80,13 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           const lead=bone(model,"palm_"+primary).getWorldPosition(new THREE.Vector3());
           const follower=bone(model,"palm_"+(primary==="left"?"right":"left"))
             .getWorldPosition(new THREE.Vector3());
-          expect(contact(first.dimensions.primaryGripY).distanceTo(lead)).toBeLessThan(.006);
-          expect(contact(first.dimensions.secondaryGripY).distanceTo(follower))
+          expect(contact(solved.dimensions.primaryGripY).distanceTo(lead)).toBeLessThan(.006);
+          expect(contact(solved.dimensions.secondaryGripY).distanceTo(follower))
             .toBeLessThan(.025);
           root.position.set(.23,.12,-.31);root.rotation.y=.34;
           root.updateWorldMatrix(true,true);
           preview.update();
-          expect(contact(first.dimensions.primaryGripY).distanceTo(
+          expect(contact(solved.dimensions.primaryGripY).distanceTo(
             bone(model,"palm_"+primary).getWorldPosition(new THREE.Vector3())))
             .toBeLessThan(.006);
           root.position.set(0,0,0);root.rotation.y=0;
