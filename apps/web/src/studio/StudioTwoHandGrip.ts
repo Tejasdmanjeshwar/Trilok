@@ -308,7 +308,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
       error:positionError,dot};
   };
   apply();let best=cost(),iterations=0;
-  for(const step of [.50,.26,.13,.065,.032]){
+  for(const step of [.50,.26,.13,.065,.032,.016]){
     for(let sweep=0;sweep<2;sweep++){
       iterations++;let improved=false;
       for(const dof of dofs){
@@ -329,74 +329,6 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
         apply();
       }
       if(!improved)break;
-    }
-  }
-  // A final damped-Jacobian correction drives the hand to the AUTHORITATIVE
-  // rigid-grip landmark at sub-centimetre precision. It does not alter the
-  // weapon matrix or length. Two bounded refinements replace the original
-  // coarsest last-stage sweeps; the full per-arm budget stays <= 12.
-  for(let refine=0;refine<2;refine++){
-    iterations++;
-    apply();
-    const initial=palmFrame(model,hand);
-    const before=initial.palm.distanceTo(target);
-    if(before<.0015)break;
-    const jacobians:THREE.Vector3[]=[];
-    const angles=dofs.map(d=>state.get(d.key)?.radians??0);
-    for(let i=0;i<dofs.length;i++){
-      const d=dofs[i]!;
-      const from=angles[i]!;
-      const to=THREE.MathUtils.clamp(from+.0025,d.min,d.max);
-      const probe=Math.abs(to-from)>1e-6?to:
-        THREE.MathUtils.clamp(from-.0025,d.min,d.max);
-      if(Math.abs(probe-from)<1e-8){
-        jacobians.push(new THREE.Vector3());continue;
-      }
-      state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:probe});
-      apply();
-      jacobians.push(palmFrame(model,hand).palm.sub(initial.palm)
-        .divideScalar(probe-from));
-      state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:from});
-    }
-    apply();
-    // J J^T + lambda^2 I: invert a small, positive-definite matrix,
-    // avoiding any dependency or unconstrained quaternion writes.
-    const normal=new THREE.Matrix3().set(
-      .000225,0,0,0,.000225,0,0,0,.000225);
-    const a=normal.elements;
-    for(const j of jacobians){
-      a[0]!+=j.x*j.x;a[1]!+=j.x*j.y;a[2]!+=j.x*j.z;
-      a[3]!+=j.y*j.x;a[4]!+=j.y*j.y;a[5]!+=j.y*j.z;
-      a[6]!+=j.z*j.x;a[7]!+=j.z*j.y;a[8]!+=j.z*j.z;
-    }
-    const rhs=target.clone().sub(initial.palm)
-      .applyMatrix3(normal.invert());
-    const shifts=jacobians.map(j=>THREE.MathUtils.clamp(j.dot(rhs),-.12,.12));
-    let accepted=false;
-    for(const alpha of [1,.5,.25,.125]){
-      for(let i=0;i<dofs.length;i++){
-        const d=dofs[i]!,start=angles[i]!;
-        let value=THREE.MathUtils.clamp(start+shifts[i]!*alpha,d.min,d.max);
-        value=THREE.MathUtils.clamp(value,
-          starting.get(d.key)!-1.10,starting.get(d.key)!+1.10);
-        state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:value});
-      }
-      apply();
-      const current=palmFrame(model,hand);
-      const dot=current.axis.dot(desiredAxis);
-      const guard=anatomicalGuard(model,kind,lead);
-      if(current.palm.distanceTo(target)<before-.00001 &&
-        dot>.45&&guard.ok){
-        accepted=true;break;
-      }
-    }
-    if(!accepted){
-      for(let i=0;i<dofs.length;i++){
-        const d=dofs[i]!;
-        state.set(d.key,{jointId:d.jointId,motion:d.motion,
-          radians:angles[i]!});
-      }
-      apply();break;
     }
   }
   return {...cost(),iterations};
