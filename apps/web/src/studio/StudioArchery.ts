@@ -5,7 +5,7 @@ import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
 import type {StudioHumanModel} from "./StudioHumanModel";
 import {fitConstrainedIK} from "./ConstrainedIK";
 import {StudioBodyCollision} from "./StudioBodyCollision";
-import {calibrateGripSpreads,swordGripTargets,fitHandleCenter}
+import {calibrateGripSpreads,swordGripTargets}
   from "./StudioWeaponGrip";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
 
@@ -210,7 +210,6 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const world=bowFrame(model,hand);
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
     at(bone(model,"finger_little_0",hand)));
-  const palm=at(bone(model,"palm_"+hand,hand));
   const drawSide=oppositeHand(hand);
   const socket=model.human.spike.graph.sockets.find(s=>s.purpose==="primary_grip"&&
     s.parentJointId===scoped(model,"palm",hand)?.id);
@@ -244,7 +243,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   if(state!=="rest"){
     const fit=fitArm(model,fk,staged,drawSide,target,true,scale);
     completed=fit.commands;
-    drawError=fit.error;drawClearance=fit.clearance;
+    drawError=fit.error;drawClearance=fit.clearance;drawIterations=fit.iterations;
     contact=twoHandGripContactWorld(model,drawSide);
   }
   const unsafe=collisions.clearance(contact)<-.015*scale;
@@ -258,7 +257,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     throw new Error("Archery IK must not move character root");
   const nock=(state==="rest"||state==="release"?
     new THREE.Vector3(0,0,-descriptor.stringRestMeters).applyMatrix4(world):
-    contact.clone());
+    target.clone());
   const z=new THREE.Vector3(0,0,1).transformDirection(world);
   const resolved=world.clone().invert();
   const contactLocal=contact.clone().applyMatrix4(resolved);
@@ -267,7 +266,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       drawError>=.085*scale?"draw-unreachable":
       unsafe?"body-intersection":"ok",
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
-    iterations:held.iterations+drawIterations+(state==="rest"?0:24),
+    iterations:held.iterations+drawIterations,
     bowHandErrorMeters:bowError,drawHandErrorMeters:drawError,
     bodyClearanceMeters:Math.min(held.clearance,drawClearance,
       collisions.clearance(nock)),drawMeters:Math.max(0,
@@ -347,7 +346,7 @@ export class StudioBowPreview {
       arrow.name="NockedArrowShaft";
       this.object.add(arrow);
       const tip=new THREE.Mesh(new THREE.ConeGeometry(.016*factor,.065*factor,6),steel);
-      tip.rotation.x=Math.PI/2;tip.position.copy(arrowTip).addScaledVector(
+      tip.rotation.x=-Math.PI/2;tip.position.copy(arrowTip).addScaledVector(
         new THREE.Vector3(0,0,1),-.0325*factor);
       tip.name="NockedArrowTip";this.object.add(tip);
       const nockCap=new THREE.Mesh(new THREE.SphereGeometry(.008*factor,8,6),gold);
