@@ -3,7 +3,9 @@ import {anatomicalPoseById,resolveAnatomicalPose} from "../characters/geometry/A
 import {HumanPoseCorrectives} from "../characters/geometry/HumanPoseCorrectives";
 import {coordinateFacialJawPose} from "../characters/geometry/MakeHumanFacialTargets";
 import type {StudioHumanModel} from "./StudioHumanModel";
-import {calibrateGripSpreads,swordGripTargets,type SwordHand,type GripSpreads} from "./StudioWeaponGrip";
+import {calibrateGripSpreads,swordGripTargets,type GripSpreads} from "./StudioWeaponGrip";
+import {isTwoHandEquipment,primaryHand,solveTwoHandIK,type EquipmentChoice,
+  type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
 
 /** One FK evaluator per owned human. Same calibrated rig and target matrix as Lab.
