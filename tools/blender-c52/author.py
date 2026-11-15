@@ -182,14 +182,17 @@ def solve_pose(kind, lead, center, axis, grips):
         pole = shoulder + cv((sign*.37, -.21, .18))
         target = marker(hand+" wrist IK target", goal_wrist)
         pole_target = marker(hand+" elbow pole", pole)
-        pb = joint("wrist_"+hand)
+        # A conventional TWO-BONE chain ends at the forearm's wrist-end.
+        # IK on the WRIST itself (chain_count=3) incorrectly pulls an extra
+        # small wrist link into the arm solve and folds the shoulder overhead.
+        pb = joint("elbow_"+hand)
         constraint = pb.constraints.new("IK")
-        constraint.name = "Anatomical arm reference — IK"
+        constraint.name = "Two bone shoulder / elbow reference IK"
         constraint.target = target
         constraint.pole_target = pole_target
-        constraint.chain_count = 3
-        constraint.pole_angle = sign * math.pi/2
-        constraint.use_tail = False
+        constraint.chain_count = 2
+        constraint.pole_angle = 0.0
+        constraint.use_tail = True
         positions[hand] = {"grip":tuple(round(v,6) for v in goal),
                            "pole":tuple(round(v,6) for v in pole)}
     # IK constrains the wrist BONE HEAD, not the palm landmark. Source palm
