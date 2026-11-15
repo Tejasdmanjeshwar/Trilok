@@ -5,13 +5,28 @@ import {StudioHistory} from "../apps/web/src/studio/StudioHistory";
 import {STUDIO_CONTROLS,controlValue} from "../apps/web/src/studio/StudioMorphCatalog";
 import {FACIAL_CONTROLS} from "../apps/web/src/characters/geometry/MakeHumanFacialTargets";
 import {STUDIO_GENERATOR_VERSION,generateStudioCharacter,
-  compareGeneratedCharacter,validateGeneratorSeed}
+  compareGeneratedCharacter,validateGeneratorSeed,parseStudioGeneratorSeed}
   from "../apps/web/src/studio/StudioGenerator";
 
 const generated=(seed:number)=>reduceStudioRecipe(initialStudioRecipe(),{
   type:"generate",seed,
 });
 describe("One-click random human character generator",()=>{
+  it("parses manual seed exactly without truncation or notation surprises",()=>{
+    expect(parseStudioGeneratorSeed("2694905601")).toBe(2694905601);
+    expect(parseStudioGeneratorSeed(" 2694905601 ")).toBe(2694905601);
+    expect(parseStudioGeneratorSeed("4294967295")).toBe(4294967295);
+    for(const seed of [""," ","0","4294967296","-1","+1","1.5",
+      "1e3","0x10","NaN","Infinity","1 2","0000000000000000000000001"]){
+      if(seed.startsWith("000"))continue;
+      expect(()=>parseStudioGeneratorSeed(seed),seed).toThrow();
+    }
+    const first=generated(parseStudioGeneratorSeed("2694905601"));
+    const second=generated(parseStudioGeneratorSeed("2694905601"));
+    expect(studioRecipeFingerprint(first)).toBe(studioRecipeFingerprint(second));
+    expect(first.seed).toBe(2694905601);
+  });
+
   it("uses one deterministic, versioned seed and immutable edit history",()=>{
     const first=generated(1729);
     expect(first.generatorVersion).toBe(STUDIO_GENERATOR_VERSION);
