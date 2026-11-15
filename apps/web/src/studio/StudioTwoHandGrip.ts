@@ -441,7 +441,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
     const elbowGap=Math.max(0,guard.elbowMax-guard.headY+.135);
     const palmGap=Math.max(0,guard.maximumPalmY-guard.headY+.20);
     const forearmGap=Math.max(0,.05-guard.forearmClearance);
-    return {value:positionError*positionError*95+
+    return {value:positionError*positionError*(kind==="staff"?180:95)+
       (kind==="staff"?1.2:.20)*(1-dot)*(1-dot)+
       .006*Math.max(0,forwardOverlap-.36)**2+
       .00015*travel+(kind==="longsword"?.06:0)*elbowPoleError*elbowPoleError+
