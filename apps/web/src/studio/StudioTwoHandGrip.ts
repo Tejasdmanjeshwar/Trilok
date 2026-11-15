@@ -218,11 +218,11 @@ export function createTwoHandDescriptor(model:StudioHumanModel,
   kind:TwoHandWeapon,primary:HandSide,separation:number):TwoHandGripV1{
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
-  const socket=(hand:HandSide)=>{
+  const socket=(hand:HandSide,purpose:"primary_grip"|"secondary_grip")=>{
     const palm=scopedJoint(graph,"palm_"+hand,hand);
-    const hits=graph.sockets.filter(s=>s.purpose==="primary_grip"&&
+    const hits=graph.sockets.filter(s=>s.purpose===purpose&&
       s.parentJointId===palm.id);
-    if(hits.length!==1)throw new Error("Ambiguous two-hand grip socket "+hand);
+    if(hits.length!==1)throw new Error("Missing/ambiguous "+purpose+" socket "+hand);
     return hits[0]!.id;
   };
   const width=palmFrame(model,primary).width;
@@ -230,7 +230,8 @@ export function createTwoHandDescriptor(model:StudioHumanModel,
   if(!Number.isFinite(separation)||separation<.045||separation>.17)
     throw new Error("Invalid two-hand separation");
   return Object.freeze({schemaVersion:1,kind,primary,secondary,
-    primarySocket:socket(primary),secondarySocket:socket(secondary),
+    primarySocket:socket(primary,"primary_grip"),
+    secondarySocket:socket(secondary,"secondary_grip"),
     separationMeters:separation,radiusMeters:radius});
 }
 function referenceWeapon(kind:TwoHandWeapon,radius:number,spacing:number,
