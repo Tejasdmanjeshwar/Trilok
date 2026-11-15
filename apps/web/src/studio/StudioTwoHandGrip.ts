@@ -48,6 +48,8 @@ export interface TwoHandIKResult {
   readonly separationMeters:number;
   readonly weaponWorld:THREE.Matrix4;
   readonly dimensions:TwoHandDimensions;
+  /** Optional palm-local skin-fitted staff grip landmarks, measured before IK. */
+  readonly gripAnchors?:Readonly<Record<HandSide,readonly [number,number,number]>>;
 }
 
 /** Independently specified dimensions in meters for a reference adult.
@@ -314,6 +316,15 @@ function calibrateStaffAnchors(model:StudioHumanModel,dim:TwoHandDimensions):
   }
   return anchors;
 }
+/** Resolve the exact source-surface contact point used by the selected
+ * two-hand solver result, including after deterministic root movement. */
+export function twoHandSolvedContactWorld(model:StudioHumanModel,
+  hand:HandSide,solved:TwoHandIKResult):THREE.Vector3{
+  const local=solved.gripAnchors?.[hand];
+  if(!local)return twoHandGripContactWorld(model,hand);
+  return jointBone(model,"palm_"+hand,hand).localToWorld(
+    new THREE.Vector3(local[0],local[1],local[2]));
+}
 /** C5.1-style anatomy calibration for two-hand placement.
  * Dimensions and the shaft remain rigid. Unlike the fixed chest-offset
  * reference, placement is obtained from the actual POSED source hands,
@@ -509,7 +520,12 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       headClearanceMeters:guard.headClearance,elbowMaxHeightMeters:guard.elbowMax,
       headHeightMeters:guard.headY,maximumPalmHeightMeters:guard.maximumPalmY,
       separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
-      dimensions,weaponWorld:weaponWorld.clone()});
+      dimensions,weaponWorld:weaponWorld.clone(),
+      gripAnchors:anchors?Object.freeze({
+        left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
+        right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
+      }):undefined,
+    });
     const score=primaryError+secondaryError+
       .04*(Math.max(0,.42-primaryDot)+Math.max(0,.42-secondaryDot))+
       (guard.ok?0:.1);
