@@ -737,9 +737,9 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       // Derivative-aware soft barriers prevent convergence by twisting the
       // wrist through the face or crossing the forearm centerlines.
       return [relative.x,relative.y,relative.z,
-        (supportAxis.x-axis.x)*.045,
-        (supportAxis.y-axis.y)*.045,
-        (supportAxis.z-axis.z)*.045,
+        (supportAxis.x-axis.x)*.025,
+        (supportAxis.y-axis.y)*.025,
+        (supportAxis.z-axis.z)*.025,
         Math.max(0,.195-guard.headClearance)*4,
         Math.max(0,guard.elbowMax-guard.headY+.135)*4,
         Math.max(0,guard.maximumPalmY-guard.headY+.20)*4,
@@ -749,12 +749,12 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       let sum=values.reduce((s,v)=>s+v*v,0);
       for(let i=0;i<dofs.length;i++){
         const delta=(state.get(dofs[i]!.key)?.radians??0)-start[i]!;
-        sum+=.000008*delta*delta;
+        sum+=.0000005*delta*delta;
       }
       return sum;
     };
     let best=sample(),bestCost=cost(best);
-    for(let iteration=0;iteration<34;iteration++){
+    for(let iteration=0;iteration<65;iteration++){
       const axis=shaft();
       const first=contactWorld(model,lead,anchors);
       const second=contactWorld(model,off,anchors);
@@ -787,7 +787,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
           let value=0;
           for(let row=0;row<best.length;row++)
             value+=jacobian[row]![j]!*jacobian[row]![k]!;
-          matrix[j]![k]=value+(j===k?.0018:0);
+          matrix[j]![k]=value+(j===k?.00025:0);
         }
         for(let row=0;row<best.length;row++)
           rhs[j]!-=jacobian[row]![j]!*best[row]!;
@@ -799,7 +799,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
         for(let j=0;j<n;j++){
           const d=dofs[j]!;
           const value=THREE.MathUtils.clamp(baseValues[j]!+
-            THREE.MathUtils.clamp(changes[j]!*gain,-.28,.28),d.min,d.max);
+            THREE.MathUtils.clamp(changes[j]!*gain,-.45,.45),d.min,d.max);
           state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:value});
         }
         apply();
@@ -855,7 +855,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
         primaryDeltaMeters:Object.freeze(leadContact.sub(firstGoal).toArray()),
         secondaryDeltaMeters:Object.freeze(offContact.sub(secondGoal).toArray()),
         primaryAxisDot:dotA,secondaryAxisDot:dotB,
-        iterations:0,refinementIterations:34,reason:"ok" as const,
+        iterations:0,refinementIterations:65,reason:"ok" as const,
         headClearanceMeters:guard.headClearance,elbowMaxHeightMeters:guard.elbowMax,
         headHeightMeters:guard.headY,maximumPalmHeightMeters:guard.maximumPalmY,
         separationMeters:separation,initialHandSpanMeters:initialSpan,
