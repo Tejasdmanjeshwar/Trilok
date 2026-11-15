@@ -202,9 +202,11 @@ describe("C5.1 actual MakeHuman grip geometry",()=>{
       }finally{human.dispose();}
     },120_000);
   it.each(cases)("covers source morphology: $id",({id,weights})=>{
-    const {human,model}=create(weights);
-    try{
-      for(const hand of ["left","right"] as const){
+    for(const hand of ["left","right"] as const){
+      // Each imported MakeHuman skeleton must be calibrated in neutral rest.
+      // This also prevents a posed hand leaking into the opposite-side case.
+      const {human,model}=create(weights);
+      try{
         pose(human,hand);
         const sword=new StudioSwordPreview(model,hand);
         try{
@@ -215,10 +217,7 @@ describe("C5.1 actual MakeHuman grip geometry",()=>{
           expect(report.wristGuardPenetration).toBeLessThan(.003);
           expect(report.wristGuardClearance).toBeGreaterThan(.002);
         }finally{sword.dispose();}
-        // Reset between hands; FK construction on posed skeleton is invalid.
-        // The fresh fixture for the other side is created below.
-        break;
-      }
-    }finally{human.dispose();}
+      }finally{human.dispose();}
+    }
   },120_000);
 });
