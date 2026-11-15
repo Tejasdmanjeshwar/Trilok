@@ -42,6 +42,11 @@ jobs:
         run: |
           /tmp/trilok-blender/blender -b -noaudio --python-exit-code 1 \
             --python tools/blender-c52/author.py -- test-results/blender-c52
+      - name: Create and expose compact visual contact sheet for inspection
+        run: |
+          python -m venv /tmp/c52-pillow
+          /tmp/c52-pillow/bin/python -m pip install --disable-pip-version-check pillow==11.3.0
+          /tmp/c52-pillow/bin/python tools/blender-c52/contact-sheet.py
       - name: Upload Blender references and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -49,6 +54,7 @@ jobs:
           name: c52-blender-source-reference-${{ github.sha }}
           path: |
             test-results/blender-c52/*.png
+            test-results/blender-c52/*.jpg
             test-results/blender-c52/reference-poses.v1.json
             test-results/blender-c52/source-rig.v1.json
           retention-days: 14
