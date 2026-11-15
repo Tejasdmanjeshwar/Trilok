@@ -138,8 +138,14 @@ export function createStudioViewport(
     if(!["none","left","right","longsword-left","longsword-right",
       "staff-left","staff-right"].includes(hand))throw new Error("Unknown equipment choice");
     equipment=hand;
-    posePreview?.setGrip(hand);
-    refreshSword();
+    try{
+      posePreview?.setGrip(hand);
+      refreshSword();
+    }catch(error){
+      clearSword();
+      reportGripFailure(undefined,error);
+      onEditError("The selected weapon cannot be held comfortably in this pose.");
+    }
     updateMarkers();
   }
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
@@ -276,9 +282,15 @@ export function createStudioViewport(
   }
   function setPose(next:StudioPose):void {
     pose=next;
-    posePreview?.setPose(next);
-    if(isTwoHandEquipment(equipment))refreshSword();
-    else sword?.update();
+    try{
+      posePreview?.setPose(next);
+      if(isTwoHandEquipment(equipment))refreshSword();
+      else sword?.update();
+    }catch(error){
+      clearSword();
+      reportGripFailure(undefined,error);
+      onEditError("The selected weapon cannot be held comfortably in this pose.");
+    }
     // The existing overlays follow posed bones without reallocating GPU buffers.
     updateMarkers();
   }
@@ -520,8 +532,11 @@ export function createStudioViewport(
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
         if(equipment==="none"||sword)onEditError("");
         return true;
-      }catch(_error){
-        if(valid())onEditError("This adjustment could not be applied. Your previous character remains available.");
+      }catch(error){
+        if(valid()){
+          reportGripFailure(undefined,error);
+          onEditError("This adjustment could not be applied. Your previous character remains available.");
+        }
         return false;
       }
     }
@@ -558,9 +573,14 @@ export function createStudioViewport(
       if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
       if(equipment==="none"||sword)onEditError("");
       return true;
-    }catch(_error){
+    }catch(error){
       incoming?.dispose();
       if(valid()){
+        if(isTwoHandEquipment(equipment)){
+          const attempted=recipe??{...currentRecipe,morphology:state,appearance};
+          onGripFailure?.(createStudioGripFailureReport(attempted,pose,equipment,
+            getBuildIdentity(),undefined,error));
+        }
         if(active)onEditError("This change could not be applied. The previous character has been preserved.");
         else onFailure("The character could not be opened. Check your connection and try again.");
       }
