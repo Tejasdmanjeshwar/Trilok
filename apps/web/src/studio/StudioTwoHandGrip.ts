@@ -232,7 +232,7 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
 }
 function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
   primary:HandSide):{ok:boolean;headClearance:number;elbowMax:number;
-    headY:number;maximumPalmY:number;forearmClearance:number;scale:number}{
+    headY:number;maximumPalmY:number;forearmClearance:number;forwardClearance:number;scale:number}{
   const secondary:HandSide=primary==="left"?"right":"left";
   const head=world(jointBone(model,"head",primary));
   const chest=world(jointBone(model,"chest",primary));
@@ -284,7 +284,7 @@ function anatomicalGuard(model:StudioHumanModel,kind:TwoHandWeapon,
     elbowMax<head.y-.12*scale&&maxRise<head.y-.18*scale&&
     minForward>-.06*scale,
     headClearance,elbowMax,headY:head.y,maximumPalmY:maxRise,
-    forearmClearance,scale};
+    forearmClearance,forwardClearance:minForward,scale};
 }
 /** Weapon authority: one rigid frame and two grip transforms, defined before
  * any arm optimization. The source chest determines placement, root orientation
@@ -769,7 +769,8 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
       (frameA.axis.z-axis.z)*axWeight,
       (frameB.axis.x-axis.x)*axWeight,(frameB.axis.y-axis.y)*axWeight,
       (frameB.axis.z-axis.z)*axWeight,
-      head*5,elbow*5,palm*5,forearm*5];
+      head*5,elbow*5,palm*5,forearm*5,
+      Math.max(0,-.055*guard.scale-guard.forwardClearance)*5];
     // A soft authored-reference prior preserves familiar sword/staff pose.
     for(let i=0;i<jointCount;i++)
       residual.push((values[i]!-initial[i]!)*.0015);
@@ -895,7 +896,8 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
         Math.max(0,.195*guard.scale-guard.headClearance)*4,
         Math.max(0,guard.elbowMax-guard.headY+.135*guard.scale)*4,
         Math.max(0,guard.maximumPalmY-guard.headY+.20*guard.scale)*4,
-        Math.max(0,.05*guard.scale-guard.forearmClearance)*4];
+        Math.max(0,.05*guard.scale-guard.forearmClearance)*4,
+        Math.max(0,-.055*guard.scale-guard.forwardClearance)*4];
     };
     const cost=(values:readonly number[])=>{
       let sum=values.reduce((s,v)=>s+v*v,0);
@@ -1003,7 +1005,7 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
     const minimum=kind==="staff"?.85:.42;
     diagnostics.push({seed,initialSpan,primaryError:errorA,secondaryError:errorB,
       primaryAxis:dotA,secondaryAxis:dotB,
-      reason:!guard.ok?`relative-unsafe(head=${guard.headClearance.toFixed(3)}/${(.19*guard.scale).toFixed(3)},forearm=${guard.forearmClearance.toFixed(3)}/${(.045*guard.scale).toFixed(3)},elbow=${guard.elbowMax.toFixed(3)}/${(guard.headY-.12*guard.scale).toFixed(3)},palm=${guard.maximumPalmY.toFixed(3)}/${(guard.headY-.18*guard.scale).toFixed(3)})`:
+      reason:!guard.ok?`relative-unsafe(head=${guard.headClearance.toFixed(3)}/${(.19*guard.scale).toFixed(3)},forearm=${guard.forearmClearance.toFixed(3)}/${(.045*guard.scale).toFixed(3)},forward=${guard.forwardClearance.toFixed(3)}/${(-.06*guard.scale).toFixed(3)},elbow=${guard.elbowMax.toFixed(3)}/${(guard.headY-.12*guard.scale).toFixed(3)},palm=${guard.maximumPalmY.toFixed(3)}/${(guard.headY-.18*guard.scale).toFixed(3)})`:
         dotA<=minimum||dotB<=minimum?"relative-orientation":"relative-span"});
     if(guard.ok&&errorA<=.023&&errorB<=.023&&dotA>minimum&&dotB>minimum){
       return Object.freeze({
