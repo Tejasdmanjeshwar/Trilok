@@ -273,8 +273,10 @@ export function createTwoHandDescriptor(model:StudioHumanModel,
   };
   const width=palmFrame(model,primary).width;
   const radius=THREE.MathUtils.clamp(width/5.2,.005,.018);
-  if(!Number.isFinite(separation)||separation<.045||separation>.17)
-    throw new Error("Invalid two-hand separation");
+  const minGap=kind==="staff"?.25:.045;
+  const maxGap=kind==="staff"?.90:.17;
+  if(!Number.isFinite(separation)||separation<minGap||separation>maxGap)
+    throw new Error("Invalid "+kind+" separation");
   return Object.freeze({schemaVersion:1,kind,primary,secondary,
     primarySocket:socket(primary,"primary_grip"),
     secondarySocket:socket(secondary,"secondary_grip"),
@@ -336,7 +338,15 @@ export class StudioTwoHandPreview {
       this.descriptor.separationMeters,frame.width);
     // Longsword/staff local +Y follows calibrated primary knuckle axis.
     // Primary and offhand contact locations are +gap/2 and -gap/2.
-    const x=frame.forward.clone().negate(),y=frame.axis,z=x.clone().cross(y).normalize();
+    const offhand=palmFrame(model,this.descriptor.secondary);
+    const y=kind==="staff"?
+      frame.palm.clone().sub(offhand.palm).normalize():frame.axis.clone();
+    // Primary-to-secondary grip points are separated in the REAL handle
+    // direction. The sword preserves C5.1's orthogonal hilt orientation.
+    const x=frame.forward.clone().negate()
+      .addScaledVector(y,frame.forward.dot(y)).normalize();
+    const z=x.clone().cross(y).normalize();
+    x.crossVectors(y,z).normalize();
     const rotation=new THREE.Quaternion().setFromRotationMatrix(
       new THREE.Matrix4().makeBasis(x,y,z));
     const origin=frame.palm.clone().addScaledVector(y,-solved.separationMeters/2)
