@@ -3,7 +3,7 @@ import type {AnatomicalGraphV1} from "@trilok/character-core";
 import {AnatomicalFK,type JointTarget,type AnatomicalMotion}
   from "../characters/geometry/AnatomicalFK";
 import type {StudioHumanModel} from "./StudioHumanModel";
-import {calibrateGripSpreads,swordGripTargets} from "./StudioWeaponGrip";
+import {calibrateGripSpreads,swordGripTargets,fitHandleCenter} from "./StudioWeaponGrip";
 
 export type HandSide="left"|"right";
 export type TwoHandWeapon="longsword"|"staff";
@@ -280,6 +280,40 @@ function gripWorld(weapon:THREE.Matrix4,y:number):THREE.Vector3 {
 function weaponAxis(weapon:THREE.Matrix4):THREE.Vector3 {
   return new THREE.Vector3(0,1,0).transformDirection(weapon);
 }
+/** Source-surface calibrated grip offset attached to the real palm bone.
+ * Solving target contact against this local landmark keeps shaft placement
+ * anatomically stable while the shoulder/elbow/wrist FK channels move. */
+type GripAnchor={readonly local:THREE.Vector3};
+type GripAnchors=ReadonlyMap<HandSide,GripAnchor>;
+function contactWorld(model:StudioHumanModel,hand:HandSide,anchors?:GripAnchors):
+  THREE.Vector3{
+  const offset=anchors?.get(hand);
+  if(offset)return jointBone(model,"palm_"+hand,hand).localToWorld(offset.local.clone());
+  return twoHandGripContactWorld(model,hand);
+}
+/** Reuse C5.1's actual source-skin five-finger cylinder fit, independently for
+ * the two hands. A rigid staff then aligns to THESE hand-local surface
+ * channels rather than penetrating the palm-joint proxy. */
+function calibrateStaffAnchors(model:StudioHumanModel,dim:TwoHandDimensions):
+  GripAnchors{
+  const anchors=new Map<HandSide,GripAnchor>();
+  model.human.spike.character.root.updateWorldMatrix(true,true);
+  for(const hand of ["left","right"] as const){
+    const frame=palmFrame(model,hand);
+    const bone=jointBone(model,"palm_"+hand,hand);
+    const palm=world(bone);
+    const x=frame.forward.clone().negate();
+    const y=frame.axis.clone();
+    const z=x.clone().cross(y).normalize();
+    const initial=palm.clone().addScaledVector(frame.forward,.012*dim.scale)
+      .addScaledVector(z,.006*dim.scale);
+    const width=frame.width;
+    const length=THREE.MathUtils.clamp(width*1.45,.035,.18);
+    const fitted=fitHandleCenter(model,hand,initial,x,y,z,dim.radius,length);
+    anchors.set(hand,{local:bone.worldToLocal(fitted)});
+  }
+  return anchors;
+}
 /** C5.1-style anatomy calibration for two-hand placement.
  * Dimensions and the shaft remain rigid. Unlike the fixed chest-offset
  * reference, placement is obtained from the actual POSED source hands,
@@ -287,9 +321,11 @@ function weaponAxis(weapon:THREE.Matrix4):THREE.Vector3 {
  * The offhand target still comes from ONE shaft, never a second weapon. */
 export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   kind:TwoHandWeapon,primary:HandSide,dim:TwoHandDimensions,
-  reference:THREE.Matrix4):THREE.Matrix4{
+  reference:THREE.Matrix4,anchors?:GripAnchors):THREE.Matrix4{
   const secondary:HandSide=primary==="right"?"left":"right";
   const lead=palmFrame(model,primary),offhand=palmFrame(model,secondary);
+  lead.palm.copy(contactWorld(model,primary,anchors));
+  offhand.palm.copy(contactWorld(model,secondary,anchors));
   const nominal=weaponAxis(reference);
   let axis:THREE.Vector3;
   if(kind==="longsword"){
@@ -354,7 +390,7 @@ function referenceElbow(model:StudioHumanModel,kind:TwoHandWeapon,
  * Arm and wrist joints are optimized, not the weapon, pelvis or root. */
 function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,lead:HandSide,
-  hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3):
+  hand:HandSide,target:THREE.Vector3,shaft:THREE.Vector3,anchors?:GripAnchors):
   {error:number;dot:number;iterations:number}{
   const dofs=freedomSet(model.human.spike.graph,fk,hand);
   const starting=new Map(dofs.map(d=>[d.key,state.get(d.key)?.radians??0]));
@@ -365,7 +401,7 @@ function fitHand(model:StudioHumanModel,fk:AnatomicalFK,
   const apply=()=>fk.apply([...state.values()]);
   const cost=()=>{
     const frame=palmFrame(model,hand);
-    const positionError=frame.palm.distanceTo(target);
+    const positionError=contactWorld(model,hand,anchors).distanceTo(target);
     const elbow=world(jointBone(model,"elbow_"+hand,hand));
     const poleReference=referenceElbow(model,kind,lead,hand);
     const elbowPoleError=elbow.distanceTo(poleReference);
@@ -432,8 +468,11 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   stageReadyPose(graph,fk,state,kind,primary);
   const staged=Object.freeze([...state.values()]);
   fk.apply(staged);
+  // The calibrated staff channel is a true source-skin contact point,
+  // whereas the accepted sword pose retains its existing grip semantics.
+  const anchors=kind==="staff"?calibrateStaffAnchors(model,dimensions):undefined;
   const authored=authoredWeaponWorld(model,kind,primary,dimensions);
-  const adaptive=adaptiveTwoHandWeaponWorld(model,kind,primary,dimensions,authored);
+  const adaptive=adaptiveTwoHandWeaponWorld(model,kind,primary,dimensions,authored,anchors);
   // Sword: preserve the owner-approved default pose if it is already valid.
   // Staff: try the line through both posed hands first. On a morphology
   // boundary, a rigid chest reference is a deterministic backup candidate.
@@ -446,12 +485,12 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const shaft=weaponAxis(weaponWorld);
     const firstGoal=gripWorld(weaponWorld,dimensions.primaryGripY);
     const secondGoal=gripWorld(weaponWorld,dimensions.secondaryGripY);
-    const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft);
-    const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft);
+    const a=fitHand(model,fk,state,kind,primary,primary,firstGoal,shaft,anchors);
+    const b=fitHand(model,fk,state,kind,primary,secondary,secondGoal,shaft,anchors);
     fk.apply([...state.values()]);
     const first=palmFrame(model,primary),second=palmFrame(model,secondary);
-    const primaryError=first.palm.distanceTo(firstGoal);
-    const secondaryError=second.palm.distanceTo(secondGoal);
+    const primaryError=contactWorld(model,primary,anchors).distanceTo(firstGoal);
+    const secondaryError=contactWorld(model,secondary,anchors).distanceTo(secondGoal);
     const primaryDot=first.axis.dot(shaft);
     const secondaryDot=second.axis.dot(shaft)*(kind==="longsword"?1:-1);
     const guard=anatomicalGuard(model,kind,primary);
@@ -463,8 +502,8 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     const result:TwoHandIKResult=Object.freeze({
       reachable:reached,commands:Object.freeze(commands),
       primaryErrorMeters:primaryError,secondaryErrorMeters:secondaryError,
-      primaryDeltaMeters:Object.freeze(first.palm.clone().sub(firstGoal).toArray()),
-      secondaryDeltaMeters:Object.freeze(second.palm.clone().sub(secondGoal).toArray()),
+      primaryDeltaMeters:Object.freeze(contactWorld(model,primary,anchors).sub(firstGoal).toArray()),
+      secondaryDeltaMeters:Object.freeze(contactWorld(model,secondary,anchors).sub(secondGoal).toArray()),
       primaryAxisDot:primaryDot,secondaryAxisDot:secondaryDot,
       iterations:a.iterations+b.iterations,reason,
       headClearanceMeters:guard.headClearance,elbowMaxHeightMeters:guard.elbowMax,
