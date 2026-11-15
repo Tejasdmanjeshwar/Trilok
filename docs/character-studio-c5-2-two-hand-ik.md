@@ -90,3 +90,21 @@ GitHub Verify [#43693876286](https://github.com/Tejasdmanjeshwar/Trilok/actions/
 The accepted candidate **for engineering review, not owner visual signoff** preserves the original 6 mm source finger-envelope grip acceptance and the 24-iteration ceiling. It uses one fixed authoritative sword or staff, and both left/right source-neutral lead configurations pass joint reach, orientation, root invariance, fixed dimensions and deterministic reruns. A `whole-extreme` Studio pose is allowed only if the real source reach solution is safe, or rejected with an explicit unavailable result; both cases are positively verified.
 
 Independent Blender [#43692889963](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43692889963) source-mesh pictures were inspected across front/side/three-quarter/closeup sword/staff and both leads. Their arms/one-shaft presentation improved materially relative to earlier rejected references, but finger penetration, staff elbow visual stiffness and guard clearance are not yet visually certified. The browser/C5.2 **exact feature-preview SHA** has not been independently checked and the desktop/mobile Chromium suite has not been executed on this latest runtime revision. Do not merge draft PR #84 until actual browser screenshots and owner review pass.
+
+
+## Owner follow-up: morphology adaptation and collinear staff grip (2026-11-15)
+
+The owner confirmed the **current neutral two-handed sword grip pose is visually acceptable**. The specific defects are (1) randomly generated characters and certain Studio poses being rejected as unreachable, and (2) a staff visibly piercing the hands despite numerical IK convergence. Do not change the approved sword stance or fake compliance by widening a hilt.
+
+Implementation on this draft PR since feedback:
+- Deterministic hand-relative alternative rigid weapon matrices, with the accepted nominal sword as the first candidate. Failed cases try other physically legal anatomical stance seeds, shared shoulder-reach projections, and bounded damped-least-squares FK refinement. Root and weapon dimensions remain invariant.
+- Staff axes derived from both posed hand contacts and opposed knuckle directions, enforcing a stronger >0.85 knuckle/shaft dot on each hand. Reuse C5.1's unchanged real five-finger source-surface handle fitting helper for staff grip landmarks.
+- Added tests/character-studio-two-hand-surface.test.ts sampling real CC0 MakeHuman source-skinned palm/thumb/digits against the staff cylinder, checking deterministic finite results and reporting height-morph reach and source-pose hand spans.
+- Made heavy pinned Blender image CI manual-dispatch rather than repeated on every source iteration.
+
+Verified intermediate CI runs including #43699663343 and #43700041303 passed 70 files and 388 tests, TypeScript, build and build identity. Both left/right neutral staff configurations and tested short/tall source-height configurations reach an aligned rigid shaft, while nominal source-neutral sword still uses the accepted unchanged candidate. These tests do NOT certify source skin collision-free grip.
+
+Outstanding acceptance defects:
+- Short/tall sword models still fail to reach the second hand. Source-sword ready stance opens the hands 0.740 m (short model) or 1.229 m (tall model) apart, against fixed grip spacing 0.149 m and 0.228 m. Numerically fitted lead hand does not solve the other arm; guarded alternative stances and DLS have not yet met the acceptance limit. Do not claim universal support.
+- Actual staff surface measurements continue to report approximately 10–14 mm penetration into some palm and finger vertices despite satisfying numeric shaft/contact checks. Source-correct per-digit articulation and palm-surface clearance remain necessary.
+- Latest Three.js desktop/mobile viewport images, exact Cloudflare deployed SHA, owner acceptance and strict all-generated-character morphological pass are NOT verified. Keep PR #84 DRAFT and unmerged. Do not begin C5.3.
