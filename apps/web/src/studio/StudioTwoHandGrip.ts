@@ -857,7 +857,17 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     const guard=anatomicalGuard(model,kind,lead);
     // Continuation: first close BOTH contacts before paying for shaft-axis
     // alignment, then converge orientation with contact held strongly.
-    const axWeight=stage==="position"?.008:(kind==="staff"?.11:.085);
+    // Optimize the legal alignment *margin*, not perfection of both wrists.
+    // A near-perfect support-hand axis must not steal degrees of freedom
+    // from the lead hand when only the latter violates the grip constraint.
+    const axisMin=kind==="staff"?.88:.50;
+    const alignment=stage==="position"?
+      [(frameA.axis.x-axis.x)*.008,(frameA.axis.y-axis.y)*.008,
+       (frameA.axis.z-axis.z)*.008,
+       (frameB.axis.x-axis.x)*.008,(frameB.axis.y-axis.y)*.008,
+       (frameB.axis.z-axis.z)*.008]:
+      [Math.max(0,axisMin-frameA.axis.dot(axis))*.40,0,0,
+       Math.max(0,axisMin-frameB.axis.dot(axis))*.40,0,0];
     const contactWeight=stage==="position"?4:3.5;
     // Soft safety barriers expose gradients to optimization instead of
     // declaring a near-contact result safe after it has converged.
@@ -867,10 +877,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
     const forearm=Math.max(0,.05*guard.scale-guard.forearmClearance);
     const residual=[a.x*contactWeight,a.y*contactWeight,a.z*contactWeight,
       b.x*contactWeight,b.y*contactWeight,b.z*contactWeight,
-      (frameA.axis.x-axis.x)*axWeight,(frameA.axis.y-axis.y)*axWeight,
-      (frameA.axis.z-axis.z)*axWeight,
-      (frameB.axis.x-axis.x)*axWeight,(frameB.axis.y-axis.y)*axWeight,
-      (frameB.axis.z-axis.z)*axWeight,
+      ...alignment,
       head*5,elbow*5,palm*5,forearm*5,
       Math.max(0,-.055*guard.scale-guard.forwardClearance)*5];
     // A soft authored-reference prior preserves familiar sword/staff pose.
