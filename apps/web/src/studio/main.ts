@@ -3,6 +3,7 @@ import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
 import {serializeStudioGripFailure,type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import {primaryHand,type EquipmentChoice} from "./StudioTwoHandGrip";
+import {isSwordShieldEquipment,shieldHand,type ShieldStance} from "./StudioShieldGrip";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {createStudioGeneratorPanel,type StudioGeneratorPanel} from "./StudioGeneratorPanel";
 import {STUDIO_VIEWS,STUDIO_LIGHTS,type StudioView,type StudioLight} from "./StudioPresentation";
@@ -121,10 +122,23 @@ host.innerHTML=String.raw`
               <option value="staff-right">Right hand leads</option>
               <option value="staff-left">Left hand leads</option>
             </optgroup>
+            <optgroup label="Sword and shield">
+              <option value="sword-shield-right">Sword right · shield left</option>
+              <option value="sword-shield-left">Sword left · shield right</option>
+            </optgroup>
           </select>
-          <p>Inspect the character's grip. Both hands follow the same weapon when reachable.</p>
+          <div id="studio-shield-pose" hidden>
+            <label class="studio-field-label" for="studio-shield-stance">Shield position</label>
+            <select id="studio-shield-stance" aria-label="Shield position">
+              <option value="guard">Guard</option>
+              <option value="attack-ready">Attack ready</option>
+              <option value="parry">Parry preview</option>
+            </select>
+          </div>
+          <p>Inspect each weapon's hand contact and fit. Your character design stays unchanged.</p>
           <div class="studio-action-pair studio-weapon-focus">
             <button id="studio-sword-focus" type="button">Focus on gripping hand</button>
+            <button id="studio-shield-focus" type="button" hidden>Focus on shield hand</button>
           </div>
         </fieldset>
         <div class="studio-rule"></div>
@@ -216,13 +230,32 @@ const poseSelect=element<HTMLSelectElement>("#studio-pose-select");
 const expressionSelect=element<HTMLSelectElement>("#studio-expression-select");
 const swordSelect=element<HTMLSelectElement>("#studio-sword-hand");
 const swordFocus=element<HTMLButtonElement>("#studio-sword-focus");
+const shieldFocus=element<HTMLButtonElement>("#studio-shield-focus");
+const shieldPose=element<HTMLElement>("#studio-shield-pose");
+const shieldStance=element<HTMLSelectElement>("#studio-shield-stance");
+shieldStance.addEventListener("change",()=>{
+  viewport.setShieldStance(shieldStance.value as ShieldStance);
+});
 swordFocus.disabled=true;
 swordSelect.addEventListener("change",()=>{
   const hand=swordSelect.value as EquipmentChoice;
   if(!["none","left","right","longsword-left","longsword-right",
-    "staff-left","staff-right"].includes(hand))return;
+    "staff-left","staff-right","sword-shield-left","sword-shield-right"].includes(hand))return;
   viewport.setEquipment(hand);
   swordFocus.disabled=hand==="none";
+  const dual=isSwordShieldEquipment(hand);
+  shieldPose.hidden=!dual;shieldFocus.hidden=!dual;
+});
+shieldFocus.addEventListener("click",()=>{
+  const mode=swordSelect.value as EquipmentChoice;
+  if(!isSwordShieldEquipment(mode))return;
+  const area=(shieldHand(mode.endsWith("right")?"right":"left")+"-hand") as StudioFocus;
+  focusArea.value=area;
+  if(viewport.focus(area)){
+    focused=true;
+    element<HTMLButtonElement>("#studio-return-focus").disabled=false;
+    setPressed("view","");
+  }
 });
 swordFocus.addEventListener("click",()=>{
   const hand=primaryHand(swordSelect.value as EquipmentChoice);

@@ -14,6 +14,8 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
 import {StudioSwordPreview} from "./StudioWeaponGrip";
+import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
+  from "./StudioShieldGrip";
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
@@ -31,6 +33,7 @@ export interface StudioViewport {
   returnFromFocus():void;
   setPose(pose:StudioPose):void;
   setEquipment(hand:EquipmentChoice):void;
+  setShieldStance(stance:ShieldStance):void;
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
@@ -98,13 +101,17 @@ export function createStudioViewport(
   let equipment:EquipmentChoice="none";
   let currentRecipe:StudioRecipeV1=initialStudioRecipe();
   let sword:StudioSwordPreview|StudioTwoHandPreview|undefined;
+  let shield:StudioShieldPreview|undefined;
   const reportGripFailure=(result?:TwoHandIKResult,error?:unknown):void=>{
     if(!isTwoHandEquipment(equipment))return;
     const report=createStudioGripFailureReport(currentRecipe,pose,equipment,
       getBuildIdentity(),result,error);
     onGripFailure?.(report);
   };
-  function clearSword():void{sword?.dispose();sword=undefined;}
+  function clearSword():void{
+    sword?.dispose();sword=undefined;
+    shield?.dispose();shield=undefined;
+  }
   function refreshSword():void{
     clearSword();
     if(equipment==="none"){
@@ -123,6 +130,16 @@ export function createStudioViewport(
         const next=new StudioTwoHandPreview(active,twoHandKind(equipment),
           primaryHand(equipment)!,solved);
         scene.add(next.object);sword=next;
+      }else if(isSwordShieldEquipment(equipment)){
+        const swordHand=equipment.endsWith("right")?"right":"left";
+        if(!posePreview?.shieldPoseResult?.reachable)
+          throw new Error("Shield arm cannot safely reach its guard");
+        const blade=new StudioSwordPreview(active,swordHand);
+        try{
+          const guard=new StudioShieldPreview(active,shieldHand(swordHand));
+          scene.add(blade.object,guard.object);
+          sword=blade;shield=guard;
+        }catch(error){blade.dispose();throw error;}
       }else{
         const next=new StudioSwordPreview(active,equipment);
         scene.add(next.object);sword=next;
@@ -136,7 +153,7 @@ export function createStudioViewport(
   }
   function setEquipment(hand:EquipmentChoice):void{
     if(!["none","left","right","longsword-left","longsword-right",
-      "staff-left","staff-right"].includes(hand))throw new Error("Unknown equipment choice");
+      "staff-left","staff-right","sword-shield-left","sword-shield-right"].includes(hand))throw new Error("Unknown equipment choice");
     equipment=hand;
     try{
       posePreview?.setGrip(hand);
@@ -146,6 +163,11 @@ export function createStudioViewport(
       reportGripFailure(undefined,error);
       onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
+    updateMarkers();
+  }
+  function setShieldStance(stance:ShieldStance):void{
+    posePreview?.setShieldStance(stance);
+    if(isSwordShieldEquipment(equipment))refreshSword();
     updateMarkers();
   }
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
@@ -269,6 +291,20 @@ export function createStudioViewport(
     const fromTarget=transition?.toTarget.clone()??target();
     const direction=from.sub(fromTarget).normalize();
     if(direction.lengthSq()<1e-8)direction.set(0,.08,1).normalize();
+    if(shield&&isSwordShieldEquipment(equipment)&&
+      area===shieldHand(equipment.endsWith("right")?"right":"left")+"-hand"){
+      // The shield plate occludes a generic wrist close-up. Aim at the
+      // source-fitted rear handle from the wielder's side instead, with
+      // a lateral component so the forearm and both strap contacts stay visible.
+      shield.object.updateWorldMatrix(true,true);
+      const rear=new THREE.Vector3(0,0,-1)
+        .transformDirection(shield.object.matrixWorld);
+      const lateral=new THREE.Vector3(equipment.endsWith("right")?-1:1,.12,0)
+        .applyQuaternion(active!.human.spike.character.root
+          .getWorldQuaternion(new THREE.Quaternion()));
+      direction.copy(rear.multiplyScalar(.78)
+        .add(lateral.multiplyScalar(.56)).normalize());
+    }
     focusedArea=area;
     moveTo(anchor.clone().addScaledVector(direction,point.distance),anchor);
     return true;
@@ -284,7 +320,8 @@ export function createStudioViewport(
     pose=next;
     try{
       posePreview?.setPose(next);
-      if(isTwoHandEquipment(equipment))refreshSword();
+      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))
+        refreshSword();
       else sword?.update();
     }catch(error){
       clearSword();
@@ -306,7 +343,7 @@ export function createStudioViewport(
       if(!ok)return false;
       expression=next;
       posePreview?.refresh();
-      if(isTwoHandEquipment(equipment))refreshSword();
+      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))refreshSword();
       return true;
     }catch{
       if(current===ticket){expression=previous;
@@ -528,7 +565,7 @@ export function createStudioViewport(
         currentMorphology=state;
         currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
         posePreview?.refresh();
-        if(isTwoHandEquipment(equipment))refreshSword();
+        if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))refreshSword();
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
         if(equipment==="none"||sword)onEditError("");
         return true;
@@ -630,5 +667,5 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,setEquipment,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setExpression,setInspection,resetView,dispose};
 }
