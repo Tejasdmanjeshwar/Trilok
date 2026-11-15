@@ -71,7 +71,7 @@ test("captured generated anatomies grasp the same sword on both leads",async({pa
   await page.getByRole("button",{name:"Generate",exact:true}).click();
   const input=page.locator("#studio-generator-seed");
   const generate=page.locator("#studio-generator-seed-create");
-  for(const id of [2694905601,498155388,802593405] as const){
+  for(const id of [2694905601,498155388,802593405,1103498626] as const){
     await input.fill(String(id));
     await generate.click();
     await expect(page.locator("#studio-generator-feedback"))
@@ -91,6 +91,21 @@ test("captured generated anatomies grasp the same sword on both leads",async({pa
       await page.screenshot({path:"test-results/studio/"+
         test.info().project.name+"-seed-"+id+"-sword-"+lead+"-close.png",fullPage:true});
       await page.locator("#studio-reset").click();
+      if(id===1103498626){
+        for(const view of ["side","three-quarter"] as const){
+          await page.getByRole("button",{name:"View",exact:true}).click();
+          await page.locator("#studio-views [data-view='"+view+"']").click();
+          await page.screenshot({path:"test-results/studio/"+
+            test.info().project.name+"-belly-seed-"+id+"-sword-"+lead+
+            "-"+view+".png",fullPage:true});
+        }
+        await page.getByRole("button",{name:"Pose",exact:true}).click();
+        await page.locator("#studio-sword-focus").click();
+        await page.screenshot({path:"test-results/studio/"+
+          test.info().project.name+"-belly-seed-"+id+"-sword-"+lead+
+          "-hand-belly-close.png",fullPage:true});
+        await page.locator("#studio-reset").click();
+      }
     }
     // Capture owner-approved staff with the same generated body.
     await page.locator("#studio-sword-hand").selectOption("staff-right");
