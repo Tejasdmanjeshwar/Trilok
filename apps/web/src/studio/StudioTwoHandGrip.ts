@@ -878,6 +878,83 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
   return undefined;
 }
 
+/** Morphology fallback: seek a common torso-centered grip instead of pinning
+ * the weapon to a widely displaced source-FK lead hand. All two-hand contacts
+ * remain rigid and dimensioned, and every emitted angle is FK-limit bounded. */
+function fitTorsoCenteredSword(model:StudioHumanModel,fk:AnatomicalFK,
+  fingerState:readonly JointTarget[],lead:HandSide,
+  dimensions:TwoHandDimensions,
+  diagnostics:{seed:number;initialSpan:number;primaryError:number;
+    secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]):
+  TwoHandIKResult|undefined{
+  const off:HandSide=lead==="left"?"right":"left";
+  const root=model.human.spike.character.root;
+  root.updateWorldMatrix(true,true);
+  const facing=root.getWorldQuaternion(new THREE.Quaternion());
+  const shoulderA=world(jointBone(model,"shoulder_"+lead,lead));
+  const shoulderB=world(jointBone(model,"shoulder_"+off,off));
+  const midpoint=shoulderA.add(shoulderB).multiplyScalar(.5);
+  const chest=world(jointBone(model,"chest",lead));
+  const origin=chest.lerp(midpoint,.35);
+  const graph=model.human.spike.graph;
+  for(const seed of [0,6,2]){
+    const state=poseMap(fingerState);
+    stageReadyPose(graph,fk,state,"longsword",lead,seed);
+    const staged=[...state.values()];
+    fk.apply(staged);
+    const initialSpan=twoHandGripContactWorld(model,lead)
+      .distanceTo(twoHandGripContactWorld(model,off));
+    // These two frames sit in the physical intersection of the source arm
+    // reach spheres rather than inheriting the dislocated original hands.
+    for(const [rise,depth] of [[-.18,.30],[-.27,.38]] as const){
+      state.clear();
+      for(const c of staged)state.set(key(c.jointId,c.motion),c);
+      fk.apply(staged);
+      const frame=authoredWeaponWorld(model,"longsword",lead,dimensions);
+      frame.setPosition(origin.clone().add(new THREE.Vector3(
+        0,rise*dimensions.scale,depth*dimensions.scale).applyQuaternion(facing)));
+      const shaft=weaponAxis(frame);
+      const goalA=gripWorld(frame,dimensions.primaryGripY);
+      const goalB=gripWorld(frame,dimensions.secondaryGripY);
+      let refinementIterations=0;
+      // Fitting the offhand first prevents the original lead-locked local
+      // minimum that had <1 mm primary error but >290 mm secondary error.
+      for(let pass=0;pass<2;pass++){
+        refinementIterations+=fitHandDamped(model,fk,state,"longsword",
+          lead,off,goalB,shaft);
+        refinementIterations+=fitHandDamped(model,fk,state,"longsword",
+          lead,lead,goalA,shaft);
+      }
+      fk.apply([...state.values()]);
+      const a=twoHandGripContactWorld(model,lead);
+      const b=twoHandGripContactWorld(model,off);
+      const errorA=a.distanceTo(goalA),errorB=b.distanceTo(goalB);
+      const dotA=palmFrame(model,lead).axis.dot(shaft);
+      const dotB=palmFrame(model,off).axis.dot(shaft);
+      const guard=anatomicalGuard(model,"longsword",lead);
+      diagnostics.push({seed:100+seed,initialSpan,
+        primaryError:errorA,secondaryError:errorB,
+        primaryAxis:dotA,secondaryAxis:dotB,
+        reason:guard.ok?"torso-contact":"torso-unsafe"});
+      if(errorA<=.023&&errorB<=.023&&dotA>.42&&dotB>.42&&guard.ok)
+        return Object.freeze({
+          reachable:true,commands:Object.freeze([...state.values()]),
+          primaryErrorMeters:errorA,secondaryErrorMeters:errorB,
+          primaryDeltaMeters:Object.freeze(a.sub(goalA).toArray()),
+          secondaryDeltaMeters:Object.freeze(b.sub(goalB).toArray()),
+          primaryAxisDot:dotA,secondaryAxisDot:dotB,
+          iterations:0,refinementIterations,reason:"ok" as const,
+          headClearanceMeters:guard.headClearance,
+          elbowMaxHeightMeters:guard.elbowMax,headHeightMeters:guard.headY,
+          maximumPalmHeightMeters:guard.maximumPalmY,
+          separationMeters:dimensions.primaryGripY-dimensions.secondaryGripY,
+          initialHandSpanMeters:initialSpan,dimensions,weaponWorld:frame,
+        });
+    }
+  }
+  return undefined;
+}
+
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult {
@@ -987,6 +1064,11 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       const paired=fitRelativeTwoHandContacts(model,fk,fingerState,
         kind,primary,dimensions,seed,diagnostics);
       if(paired){chosen=paired;break;}
+    }
+    if(!chosen?.reachable&&kind==="longsword"){
+      const torso=fitTorsoCenteredSword(model,fk,fingerState,primary,
+        dimensions,diagnostics);
+      if(torso)chosen=torso;
     }
     if(!chosen?.reachable)fk.apply(base);
   }
