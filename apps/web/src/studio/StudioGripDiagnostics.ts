@@ -26,6 +26,7 @@ export interface StudioGripFailureReport {
         primaryAxisDot:number;
         secondaryAxisDot:number;
         headClearanceMeters:number;
+        bodyClearanceMeters:number;
         elbowMaxHeightMeters:number;
         headHeightMeters:number;
         maximumPalmHeightMeters:number;
@@ -55,6 +56,7 @@ export function createStudioGripFailureReport(
     primaryAxisDot:result.primaryAxisDot,
     secondaryAxisDot:result.secondaryAxisDot,
     headClearanceMeters:result.headClearanceMeters,
+    bodyClearanceMeters:result.bodyClearanceMeters,
     elbowMaxHeightMeters:result.elbowMaxHeightMeters,
     headHeightMeters:result.headHeightMeters,
     maximumPalmHeightMeters:result.maximumPalmHeightMeters,
