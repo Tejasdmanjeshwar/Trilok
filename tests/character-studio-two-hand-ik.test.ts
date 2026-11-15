@@ -137,6 +137,64 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
       }finally{human.dispose();}
     }
   },120_000);
+  it("audits source-native low-elbow sword-hilt feasibility without changing joint limits",()=>{
+    const {human,model,fk}=fixture();
+    try{
+      const graph=human.spike.graph;
+      const id=(hand:"left"|"right",role:string)=>
+        graph.joints.find(j=>j.role===role+"_"+hand)!.id;
+      const target=(hand:"left"|"right",role:string,motion:
+        "flexion"|"abduction"|"rotation",radians:number)=>({
+        jointId:id(hand,role),motion,radians});
+      const wp=(role:string,hand:"left"|"right")=>
+        human.spike.bones.get(id(hand,role))!.getWorldPosition(new THREE.Vector3());
+      const finger=(hand:"left"|"right",digit:string)=>{
+        const joint=graph.joints.find(j=>j.role==="finger_"+digit+"_0"&&
+          j.id.includes("arm["+hand+",0]"))!;
+        return human.spike.bones.get(joint.id)!.getWorldPosition(new THREE.Vector3());
+      };
+      const angle=(hand:"left"|"right")=>{
+        const forward=finger(hand,"middle").sub(wp("wrist",hand)).normalize();
+        const across=finger(hand,"index").sub(finger(hand,"little"));
+        return across.addScaledVector(forward,-across.dot(forward)).normalize();
+      };
+      const head=human.spike.bones.get(graph.joints.find(j=>j.role==="head")!.id)!
+        .getWorldPosition(new THREE.Vector3());
+      let seen=0;
+      let closest:{cost:number;params:number[];position:number;dot:number;
+        palms:number[];elbows:number[]}|undefined;
+      for(const a of [.3,.7,1.1,1.5,1.9,2.2])
+        for(const f of [-.7,-.4,0,.4,.8])
+          for(const roll of [-1.2,0,1.2])
+            for(const bend of [.8,1.3,1.8,2.3]){
+              const pose=(hand:"left"|"right")=>[
+                target(hand,"shoulder","abduction",a),
+                target(hand,"shoulder","flexion",f),
+                target(hand,"shoulder","rotation",hand==="right"?roll:-roll),
+                target(hand,"elbow","flexion",bend),
+              ];
+              fk.apply([...pose("left"),...pose("right")]);
+              const p=wp("palm","right"),q=wp("palm","left");
+              const axis=angle("right");
+              const error=q.distanceTo(p.clone().addScaledVector(axis,-.11));
+              const dot=-axis.dot(angle("left"));
+              const e=[wp("elbow","right"),wp("elbow","left")];
+              const safe=Math.max(e[0]!.y,e[1]!.y)<head.y-.12&&
+                Math.max(p.y,q.y)<head.y-.18&&
+                [...e,p,q].every(t=>t.distanceTo(head)>.19);
+              if(safe){
+                seen++;
+                const cost=error+.035*(1-dot);
+                if(!closest||cost<closest.cost)
+                  closest={cost,params:[a,f,roll,bend],position:error,dot,
+                    palms:[p.y,q.y],elbows:e.map(x=>x.y)};
+              }
+            }
+      console.log("C52-LOW-SWORD-FEASIBILITY",JSON.stringify({seen,headY:head.y,
+        best:closest}));
+      expect(seen).toBeGreaterThan(0);
+    }finally{human.dispose();}
+  },120_000);
   it("diagnoses weapon-specific authored neutral reach without forced root movement",()=>{
     const {human,model,fk}=fixture();
     try{
