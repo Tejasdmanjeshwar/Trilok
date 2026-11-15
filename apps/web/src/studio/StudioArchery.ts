@@ -108,11 +108,17 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
     }
   }
   const sign=side==="right"?1:-1;
-  const initialAngles=drawHand?
-    [0,0,.48,.29,.86*sign,1.40,0,-.06,0]:
-    [0,0,.55,.40,.85*sign,.65,0,-.08,0];
-  const initial=axes.map((a,i)=>THREE.MathUtils.clamp(
-    initialAngles[i]!,a.min,a.max));
+  // A draw arm approaching the face from the contralateral shoulder needs
+  // alternative, anatomically legal elbow folds. Reuse the same bounded DLS
+  // solver, selecting the lowest measured source-contact residual.
+  const seedAngles=drawHand?[
+    [0,0,.48,.29,.86*sign,1.40,0,-.06,0],
+    [0,0,.16,.88,-.80*sign,1.58,0,-.12,0],
+    [0,0,-.12,.62,-1.45*sign,1.95,0,-.20,0],
+    [0,0,.62,.48,-1.10*sign,1.24,0,.16,0],
+  ]:[
+    [0,0,.55,.40,.85*sign,.65,0,-.08,0],
+  ];
   const stage=(values:readonly number[])=>merge(base,axes.map((a,i)=>({
     jointId:a.jointId,motion:a.motion,radians:values[i]!,
   })));
@@ -120,24 +126,39 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
   const wrist=bone(model,"wrist_"+side,side);
   const head=bone(model,"head",side);
   const collision=new StudioBodyCollision(model);
-  const evaluate=(values:readonly number[])=>{
-    fk.apply(stage(values));
-    const contact=twoHandGripContactWorld(model,side);
-    const elbowWorld=at(elbow),wristWorld=at(wrist),headWorld=at(head);
-    const body=collision.clearance(elbowWorld.clone().lerp(wristWorld,.5));
-    return [
-      (contact.x-target.x),(contact.y-target.y),(contact.z-target.z),
-      Math.max(0,.026*scale-body)*1.2,
-      Math.max(0,.11*scale-contact.distanceTo(headWorld)),
-      ...values.map((angle,i)=>(angle-initial[i]!)*.006),
-    ];
-  };
-  const fit=fitConstrainedIK(initial,axes,evaluate,24);
-  const commands=stage(fit.values);
-  fk.apply(commands);
-  const error=twoHandGripContactWorld(model,side).distanceTo(target);
-  const clearance=collision.clearance(at(elbow).lerp(at(wrist),.5));
-  return {commands,error,clearance,iterations:fit.iterations};
+  let best:{commands:JointTarget[];error:number;clearance:number;
+    iterations:number;score:number}|undefined;
+  let attempts=0;
+  for(const seed of seedAngles){
+    attempts++;
+    const initial=axes.map((a,i)=>THREE.MathUtils.clamp(
+      seed[i]!,a.min,a.max));
+    const evaluate=(values:readonly number[])=>{
+      fk.apply(stage(values));
+      const contact=twoHandGripContactWorld(model,side);
+      const elbowWorld=at(elbow),wristWorld=at(wrist),headWorld=at(head);
+      const body=collision.clearance(elbowWorld.clone().lerp(wristWorld,.5));
+      return [
+        contact.x-target.x,contact.y-target.y,contact.z-target.z,
+        Math.max(0,.026*scale-body)*1.2,
+        Math.max(0,.11*scale-contact.distanceTo(headWorld)),
+        ...values.map((angle,i)=>(angle-initial[i]!)*.003),
+      ];
+    };
+    const fit=fitConstrainedIK(initial,axes,evaluate,24);
+    const commands=stage(fit.values);
+    fk.apply(commands);
+    const error=twoHandGripContactWorld(model,side).distanceTo(target);
+    const clearance=collision.clearance(at(elbow).lerp(at(wrist),.5));
+    const score=error+Math.max(0,.01*scale-clearance)*2;
+    if(!best||score<best.score){
+      best={commands,error,clearance,iterations:fit.iterations,score};
+    }
+    if(error<.012*scale&&clearance>.01*scale)break;
+  }
+  if(!best)throw new Error("No calibrated archery arm candidates");
+  fk.apply(best.commands);
+  return {...best,attempts};
 }
 function bowFrame(model:StudioHumanModel,hand:HandSide,
   radius:number,length:number):THREE.Matrix4{
@@ -167,6 +188,7 @@ export interface ArcheryPoseResult {
   readonly state:ArcheryState;
   readonly commands:readonly JointTarget[];
   readonly iterations:number;
+  readonly solverAttempts:number;
   readonly bowHandErrorMeters:number;
   readonly drawHandErrorMeters:number;
   readonly bodyClearanceMeters:number;
@@ -205,8 +227,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     ...digitCommands(model,fk,oppositeHand(hand),true),
   ]);
   fk.apply(fingers);
-  const bowTarget=chest.clone().addScaledVector(right,(hand==="right"?1:-1)*.32*scale)
-    .addScaledVector(forward,.36*scale).addScaledVector(up,.06*scale);
+  const bowTarget=chest.clone().addScaledVector(right,(hand==="right"?1:-1)*.12*scale)
+    .addScaledVector(forward,.42*scale).addScaledVector(up,.06*scale);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale);
   const staged=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
@@ -221,7 +243,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     handleRadiusMeters:THREE.MathUtils.clamp(width/4.4,.003,.02),
     handleLengthMeters:THREE.MathUtils.clamp(width*1.45,.038,.18),
     arrowLengthMeters:.70*scale,stringRestMeters:.07*scale,
-    maximumDrawMeters:.40*scale,
+    maximumDrawMeters:.36*scale,
   });
   validateBowReference(descriptor,model.human.spike.graph);
   const world=bowFrame(model,hand,descriptor.handleRadiusMeters,
@@ -241,12 +263,12 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     }
   }
   let completed=staged;
-  let drawError=0,drawClearance=Infinity,drawIterations=0;
+  let drawError=0,drawClearance=Infinity,drawIterations=0,drawAttempts=0;
   let contact=target.clone();
   if(state!=="rest"){
     const fit=fitArm(model,fk,staged,drawSide,target,true,scale);
     completed=fit.commands;
-    drawError=fit.error;drawClearance=fit.clearance;drawIterations=fit.iterations;
+    drawError=fit.error;drawClearance=fit.clearance;drawIterations=fit.iterations;drawAttempts=fit.attempts;
     contact=twoHandGripContactWorld(model,drawSide);
   }
   const unsafe=collisions.clearance(contact)<-.015*scale;
@@ -269,7 +291,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       drawError>=.085*scale?"draw-unreachable":
       unsafe?"body-intersection":"ok",
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
-    iterations:held.iterations+drawIterations,
+    iterations:held.iterations+drawIterations,solverAttempts:held.attempts+\n      (state==="rest"?0:4),
     bowHandErrorMeters:bowError,drawHandErrorMeters:drawError,
     bodyClearanceMeters:Math.min(held.clearance,drawClearance,
       collisions.clearance(nock)),drawMeters:Math.max(0,
