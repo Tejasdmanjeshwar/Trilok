@@ -19,8 +19,15 @@ test("two-hand sword and staff remain attached across hands, poses and source mo
     // The Studio status shows an actionable unreachable diagnostic rather
     // than pretending that an absent weapon represents two-hand contact.
     await expect(page.locator("#studio-edit-status")).toBeEmpty();
-    await page.screenshot({path:"test-results/studio/"+
-      test.info().project.name+"-"+choice+"-fullbody.png",fullPage:true});
+    for(const view of ["front","side","three-quarter"] as const){
+      await page.getByRole("button",{name:"View",exact:true}).click();
+      await page.locator("#studio-views [data-view='"+view+"']").click();
+      await page.waitForTimeout(650);
+      await expect(page.locator("#studio-edit-status")).toBeEmpty();
+      await page.screenshot({path:"test-results/studio/"+
+        test.info().project.name+"-"+choice+"-"+view+".png",fullPage:true});
+    }
+    await page.getByRole("button",{name:"Pose",exact:true}).click();
     await page.locator("#studio-sword-focus").click();
     await page.waitForTimeout(600);
     await page.screenshot({path:"test-results/studio/"+
