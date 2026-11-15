@@ -121,3 +121,16 @@ Corrective experiments on draft PR #84 included (a) equal-weight shared weapon c
 **Release-blocking test correction:** `tests/character-studio-two-hand-surface.test.ts` previously asserted only finite errors in the short/tall morphology cases, so Verify could pass despite the owner-visible equip rejection. It now checks that **both weapons and both leading hands must be reachable** on each tested source morphology and records the failing distances/reasons. A red Verify is expected until the underlying two-arm grip convergence is resolved; do not waive, skip, loosen, or label that regression as passing.
 
 Next implementation must solve the **coupled kinematic problem** at a physically achievable rigid weapon frame rather than iterating separately fitted hands against a frozen hilt. Preserve source FK limits, actual skinned contact, C5.1, root invariance, weapon dimensions and the owner-approved nominal stance; validate generated age/build/height/arm/hand combinations and all supported Studio poses, followed by real browser render review and exact-SHA deployment verification. PR #84 remains draft/unmerged.
+
+
+## C5.2 final adaptation attempt — awaiting independent acceptance
+
+Following owner confirmation that the **existing nominal sword and staff poses must not be redesigned**, the draft branch now includes a gated hand-relative fallback. The original nominal sword seed, articulation and historical contact proxy are left intact. Only when every existing candidate fails, the solver tries a deterministic paired-hand adjustment:
+
+1. Restage one of the already authored FK guard poses; derive contact landmarks from actual posed source-skinned digits with the shared C5.1 `fitHandleCenter()` utility.
+2. Fit one rigid shaft from both anatomically posed hands, preserving the authored shaft axis at the start and fitting only the rigid weapon center after each bounded IK pass.
+3. Permit sword hand separation to vary among legal fractions of the **unchanged** hilt, and staff grip separation along the **unchanged** shaft; propagate the selected contact points to the visual descriptor and primary semantic socket attachment.
+4. Retain calibrated `AnatomicalFK` joint limits and existing head, elbow, wrist/arm orientation and forearm clearance gates. Failure leaves the input pose restored; there is never a second weapon or a shifted/scaled character root.
+5. Keep short/tall positive coverage mandatory, now additionally asserting one matching render descriptor, one collinear rigid weapon axis and a contact residual for successful cases.
+
+**This is an experimental corrective commit, not a verified success.** The latest pre-fix run [#43704774159](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43704774159) had 386 passing tests and 2 failing morphology assertions; no pass claim is possible until the latest corrective SHA passes those tests and the full suite. The owner-required remaining gates are source-skinned digit/palm clearance (including staff), all supported random anatomy/Studio poses and both leads, deterministic replay, actual desktop/touch screenshots with human visual review, and independently matched Cloudflare preview build identity. Keep PR #84 in draft, unmerged; do not begin C5.3.
