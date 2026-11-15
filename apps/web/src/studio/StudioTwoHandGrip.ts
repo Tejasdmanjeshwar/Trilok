@@ -314,10 +314,10 @@ function contactWorld(model:StudioHumanModel,hand:HandSide,anchors?:GripAnchors)
   if(offset)return jointBone(model,"palm_"+hand,hand).localToWorld(offset.local.clone());
   return twoHandGripContactWorld(model,hand);
 }
-/** Calibrate either reference weapon from C5.1's actual posed source-skinned
- * digits. Both contacts are stored palm-local so constrained IK cannot
- * invalidate their anatomical meaning; neither is a palm-bone proxy. */
-function calibrateHandAnchors(model:StudioHumanModel,dim:TwoHandDimensions):
+/** Reuse C5.1's actual source-skin five-finger cylinder fit, independently for
+ * the two hands. A rigid staff then aligns to THESE hand-local surface
+ * channels rather than penetrating the palm-joint proxy. */
+function calibrateStaffAnchors(model:StudioHumanModel,dim:TwoHandDimensions):
   GripAnchors{
   const anchors=new Map<HandSide,GripAnchor>();
   model.human.spike.character.root.updateWorldMatrix(true,true);
@@ -669,121 +669,6 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
   apply();
   return iterations;
 }
-
-/** Failed-grip fallback: bring both source-fitted hand contact frames to one
- * physically dimensioned, movable rigid hilt. The approved seed-0 solver is
- * always attempted first, and this routine never touches it when successful.
- *
- * The weapon center is the symmetric least-squares fit of both CURRENT posed
- * contacts to their own locations on one shaft. After each bounded arm step,
- * re-fit that center rather than optimizing an arm toward a fixed chest point.
- * Sword hands may slide along the real hilt, with enough space between palms
- * and away from pommel/guard; neither geometry nor character root is scaled.
- */
-function coupleTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
-  fingerState:readonly JointTarget[],kind:TwoHandWeapon,lead:HandSide,
-  dimensions:TwoHandDimensions,seedOrder:readonly number[],
-  diagnostics:{seed:number;initialSpan:number;primaryError:number;
-    secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]):
-  TwoHandIKResult|undefined{
-  const offhand:HandSide=lead==="left"?"right":"left";
-  const graph=model.human.spike.graph;
-  // The normal approved sword handle landmarks remain the default. Only a
-  // rejected pose may choose different (still legal) hilt contact locations.
-  const spacings=kind==="longsword"?
-    [.19,.145,.215].map(m=>m*dimensions.scale):
-    [.49,.40,.58].map(m=>m*dimensions.scale);
-  const maxSpacing=kind==="longsword"?
-    dimensions.handleLength-2*dimensions.radius*1.6:
-    dimensions.shaftLength*.70;
-  const minSpacing=kind==="longsword"?
-    dimensions.handleLength*.43:dimensions.shaftLength*.20;
-  for(const seed of seedOrder){
-    let state=poseMap(fingerState);
-    stageReadyPose(graph,fk,state,kind,lead,seed);
-    const staged=Object.freeze([...state.values()]);
-    fk.apply(staged);
-    const anchors=calibrateHandAnchors(model,dimensions);
-    const initialSpan=contactWorld(model,lead,anchors)
-      .distanceTo(contactWorld(model,offhand,anchors));
-    const authored=authoredWeaponWorld(model,kind,lead,dimensions);
-    const basis=adaptiveTwoHandWeaponWorld(
-      model,kind,lead,dimensions,authored,anchors);
-    for(const spacing of spacings){
-      if(spacing<minSpacing||spacing>maxSpacing)continue;
-      state=poseMap(staged);
-      fk.apply(staged);
-      const dim:TwoHandDimensions=Object.freeze({...dimensions,
-        primaryGripY:spacing*.5,secondaryGripY:-spacing*.5});
-      const weaponWorld=basis.clone();
-      const shaft=weaponAxis(weaponWorld);
-      let iterations=0;
-      const adaptCenter=(gain:number)=>{
-        const leadCenter=contactWorld(model,lead,anchors)
-          .addScaledVector(shaft,-dim.primaryGripY);
-        const offCenter=contactWorld(model,offhand,anchors)
-          .addScaledVector(shaft,-dim.secondaryGripY);
-        const fitted=leadCenter.lerp(offCenter,.5);
-        const center=new THREE.Vector3().setFromMatrixPosition(weaponWorld)
-          .lerp(fitted,gain);
-        weaponWorld.setPosition(center);
-      };
-      adaptCenter(1);
-      for(let pass=0;pass<6;pass++){
-        // Do not pin either wrist: the shared weapon follows the character,
-        // and each arm solves only the remaining geometric contact error.
-        const leadGoal=gripWorld(weaponWorld,dim.primaryGripY);
-        const supportGoal=gripWorld(weaponWorld,dim.secondaryGripY);
-        iterations+=fitHandDamped(model,fk,state,kind,lead,
-          lead,leadGoal,shaft,anchors);
-        iterations+=fitHandDamped(model,fk,state,kind,lead,
-          offhand,supportGoal,shaft,anchors);
-        fk.apply([...state.values()]);
-        // Keep the end points balanced, not sequentially locked to the lead.
-        adaptCenter(pass===5?.4:.75);
-        const a=contactWorld(model,lead,anchors);
-        const b=contactWorld(model,offhand,anchors);
-        const firstGoal=gripWorld(weaponWorld,dim.primaryGripY);
-        const secondGoal=gripWorld(weaponWorld,dim.secondaryGripY);
-        const frameA=palmFrame(model,lead),frameB=palmFrame(model,offhand);
-        const errorA=a.distanceTo(firstGoal),errorB=b.distanceTo(secondGoal);
-        const dotA=frameA.axis.dot(shaft);
-        const dotB=frameB.axis.dot(shaft)*(kind==="longsword"?1:-1);
-        const guard=anatomicalGuard(model,kind,lead);
-        const orientationMinimum=kind==="staff"?.85:.42;
-        const reachable=guard.ok&&errorA<=.023&&errorB<=.023&&
-          dotA>orientationMinimum&&dotB>orientationMinimum;
-        if(reachable){
-          diagnostics.push({seed,initialSpan,primaryError:errorA,
-            secondaryError:errorB,primaryAxis:dotA,secondaryAxis:dotB,
-            reason:"coupled-ok"});
-          return Object.freeze({
-            reachable:true,commands:Object.freeze([...state.values()]),
-            primaryErrorMeters:errorA,secondaryErrorMeters:errorB,
-            primaryDeltaMeters:Object.freeze(a.sub(firstGoal).toArray()),
-            secondaryDeltaMeters:Object.freeze(b.sub(secondGoal).toArray()),
-            primaryAxisDot:dotA,secondaryAxisDot:dotB,
-            iterations:0,refinementIterations:iterations,reason:"ok" as const,
-            headClearanceMeters:guard.headClearance,
-            elbowMaxHeightMeters:guard.elbowMax,headHeightMeters:guard.headY,
-            maximumPalmHeightMeters:guard.maximumPalmY,
-            separationMeters:spacing,initialHandSpanMeters:initialSpan,
-            dimensions:dim,weaponWorld:weaponWorld.clone(),
-            gripAnchors:Object.freeze({
-              left:Object.freeze(anchors.get("left")!.local.toArray() as [number,number,number]),
-              right:Object.freeze(anchors.get("right")!.local.toArray() as [number,number,number]),
-            }),
-          });
-        }
-        if(pass===5)diagnostics.push({seed,initialSpan,primaryError:errorA,
-          secondaryError:errorB,primaryAxis:dotA,secondaryAxis:dotB,
-          reason:guard.ok?"coupled-reach":"coupled-unsafe"});
-      }
-    }
-  }
-  return undefined;
-}
-
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult {
@@ -804,7 +689,6 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const fingerState=Object.freeze([...state.values()]);
   let chosen:TwoHandIKResult|undefined;
   let lowest=Infinity;
-  const sourceSeedSpans:{seed:number;span:number}[]=[];
   const diagnostics:{seed:number;initialSpan:number;primaryError:number;
     secondaryError:number;primaryAxis:number;secondaryAxis:number;reason:string}[]=[];
   candidateSeeds:for(let seed=0;seed<REACH_SEEDS.length*(kind==="longsword"?2:1);seed++){
@@ -812,10 +696,9 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     stageReadyPose(graph,fk,state,kind,primary,seed);
     const staged=Object.freeze([...state.values()]);
     fk.apply(staged);
-    const anchors=kind==="staff"?calibrateHandAnchors(model,dimensions):undefined;
+    const anchors=kind==="staff"?calibrateStaffAnchors(model,dimensions):undefined;
     const initialHandSpanMeters=contactWorld(model,primary,anchors).distanceTo(
       contactWorld(model,secondary,anchors));
-    sourceSeedSpans.push({seed,span:initialHandSpanMeters});
     const authored=authoredWeaponWorld(model,kind,primary,dimensions);
     const adaptive=adaptiveTwoHandWeaponWorld(
       model,kind,primary,dimensions,authored,anchors);
@@ -888,24 +771,14 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
 
     }
   }
-  // Do not alter an accepted approved pose. Morphological fallback uses the
-  // nearest preposed hand pairs first, with a shared movable shaft and legal
-  // variable grip points instead of fixed +/-9.5 cm sword targets.
-  if(!chosen?.reachable){
-    const nearest=sourceSeedSpans.slice().sort((a,b)=>
-      a.span-b.span||a.seed-b.seed).slice(0,3).map(x=>x.seed);
-    const coupled=coupleTwoHandContacts(model,fk,fingerState,kind,primary,
-      dimensions,nearest,diagnostics);
-    if(coupled)chosen=coupled;
-    else fk.apply(base);
-  }
+  // Failed candidates are not allowed to persist an invalid skin pose.
+  if(!chosen?.reachable)fk.apply(base);
   return Object.freeze({...chosen!,
     reachDiagnostics:Object.freeze(diagnostics.map(x=>Object.freeze(x)))});
 }
 
 export function createTwoHandDescriptor(model:StudioHumanModel,
-  kind:TwoHandWeapon,primary:HandSide,
-  dimensions=twoHandDimensions(model,kind)):TwoHandGripV1 {
+  kind:TwoHandWeapon,primary:HandSide):TwoHandGripV1 {
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
   const socket=(hand:HandSide,purpose:"primary_grip"|"secondary_grip")=>{
@@ -915,6 +788,7 @@ export function createTwoHandDescriptor(model:StudioHumanModel,
     if(hits.length!==1)throw new Error("Missing/ambiguous "+purpose+" socket "+hand);
     return hits[0]!.id;
   };
+  const dimensions=twoHandDimensions(model,kind);
   return Object.freeze({schemaVersion:1,kind,primary,secondary,
     primarySocket:socket(primary,"primary_grip"),
     secondarySocket:socket(secondary,"secondary_grip"),
@@ -976,7 +850,7 @@ export class StudioTwoHandPreview {
     primary:HandSide,solved:TwoHandIKResult){
     if(!solved.reachable)throw new Error("Unable to reach both weapon grips");
     model.human.spike.character.root.updateWorldMatrix(true,true);
-    this.descriptor=createTwoHandDescriptor(model,kind,primary,solved.dimensions);
+    this.descriptor=createTwoHandDescriptor(model,kind,primary);
     this.object=referenceWeapon(kind,this.descriptor.dimensions);
     this.offset=model.human.spike.character
       .socketWorld(this.descriptor.primarySocket).invert().multiply(solved.weaponWorld);
