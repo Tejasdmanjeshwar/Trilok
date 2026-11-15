@@ -741,13 +741,19 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       const first=contactWorld(model,lead,anchors),second=contactWorld(model,off,anchors);
       const relative=first.sub(second).addScaledVector(axis,-separation);
       const supportAxis=palmFrame(model,off).axis;
+      const leadingAxis=palmFrame(model,lead).axis;
       const guard=anatomicalGuard(model,kind,lead);
       // Derivative-aware soft barriers prevent convergence by twisting the
       // wrist through the face or crossing the forearm centerlines.
       return [relative.x,relative.y,relative.z,
-        (supportAxis.x-axis.x)*.025,
-        (supportAxis.y-axis.y)*.025,
-        (supportAxis.z-axis.z)*.025,
+        (supportAxis.x-axis.x)*(kind==="staff"?.08:.025),
+        (supportAxis.y-axis.y)*(kind==="staff"?.08:.025),
+        (supportAxis.z-axis.z)*(kind==="staff"?.08:.025),
+        // Both hands, not merely the offhand, must orient their knuckles
+        // along the shared shaft (including the uncommon extreme pose).
+        (leadingAxis.x-axis.x)*(kind==="staff"?.12:.025),
+        (leadingAxis.y-axis.y)*(kind==="staff"?.12:.025),
+        (leadingAxis.z-axis.z)*(kind==="staff"?.12:.025),
         Math.max(0,.195*guard.scale-guard.headClearance)*4,
         Math.max(0,guard.elbowMax-guard.headY+.135*guard.scale)*4,
         Math.max(0,guard.maximumPalmY-guard.headY+.20*guard.scale)*4,
@@ -768,7 +774,11 @@ function fitRelativeTwoHandContacts(model:StudioHumanModel,fk:AnatomicalFK,
       const second=contactWorld(model,off,anchors);
       const difference=first.sub(second).addScaledVector(axis,-separation);
       const guard=anatomicalGuard(model,kind,lead);
-      if(difference.length()<.008&&guard.ok)break;
+      const leadAlignment=palmFrame(model,lead).axis.dot(axis);
+      const supportAlignment=palmFrame(model,off).axis.dot(axis);
+      const alignmentMin=kind==="staff"?.85:.42;
+      if(difference.length()<.008&&guard.ok&&
+        leadAlignment>alignmentMin&&supportAlignment>alignmentMin)break;
       const baseValues=dofs.map(d=>state.get(d.key)?.radians??0);
       const jacobian:number[][]=Array.from({length:best.length},()=>[]);
       for(let j=0;j<dofs.length;j++){
