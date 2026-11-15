@@ -42,9 +42,9 @@ export class StudioPosePreview {
     const composed=[...commands.filter(c=>!covered.has(c.jointId+"/"+c.motion)),...grip];
     const jaw=human.spike.graph.joints.find(j=>j.role==="jaw")?.id;
     const effective=coordinateFacialJawPose(composed,jaw,this.model.sourceJawOpeningRadians);
-    if(id!=="neutral"&&!this.correctives &&
-      commands.some(c=>human.spike.graph.joints.some(j=>j.id===c.jointId&&
-        /^(shoulder|hip)_/.test(j.role)))){
+    if(!this.correctives&&(isTwoHandEquipment(this.grip)||
+      id!=="neutral"&&commands.some(c=>human.spike.graph.joints.some(j=>
+        j.id===c.jointId&&/^(shoulder|hip)_/.test(j.role))))){
       this.correctives=new HumanPoseCorrectives(human);
     }
     this.result=undefined;
