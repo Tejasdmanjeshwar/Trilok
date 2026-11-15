@@ -192,6 +192,20 @@ def solve_pose(kind, lead, center, axis, grips):
         constraint.use_tail = False
         positions[hand] = {"grip":tuple(round(v,6) for v in goal),
                            "pole":tuple(round(v,6) for v in pole)}
+    # IK constrains the wrist BONE HEAD, not the palm landmark. Source palm
+    # offset changes when wrist orientation rotates, so iteratively re-target
+    # against the ACTUAL posed palm. A wrist-only solve can miss by >5cm.
+    targets = {o.name.split(" wrist IK target")[0]:o for o in bpy.data.objects
+               if o.type == "EMPTY" and o.name.endswith(" wrist IK target")}
+    for iteration in range(18):
+        bpy.context.view_layer.update()
+        residual = 0
+        for hand in ("left", "right"):
+            error = Vector(positions[hand]["grip"]) - posed_pos("palm_"+hand)
+            residual = max(residual, error.length)
+            targets[hand].location += .78 * error
+        if residual < .003:
+            break
     bpy.context.view_layer.update()
     for hand in ("left","right"):
         positions[hand]["shoulder"] = tuple(round(v,6) for v in posed_pos("shoulder_"+hand))
