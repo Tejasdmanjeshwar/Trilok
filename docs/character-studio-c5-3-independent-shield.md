@@ -18,6 +18,11 @@ Status: feature branch awaiting automated CI and owner visual inspection. This i
 
 ## Verification
 - Unit: `tests/character-studio-sword-shield.test.ts`.
-- Browser: `e2e/studio-sword-shield.spec.ts` for desktop and mobile Chromium screenshots and contact focus.
+- Browser: `e2e/studio-sword-shield.spec.ts` for desktop and mobile Chromium screenshots and contact focus. A one-time diagnostic run #43738711144 passed for an earlier C5.3 commit; its screenshots exposed an edge-on shield and insufficiently convincing sword/shield silhouette. The shielding frame was revised after that capture, so those images do not validate the newer commit. Normal PR CI must not run Chromium; repository policy reserves browser automation for explicit whole-C5 Phase Acceptance.
 - Required before owner approval: `pnpm typecheck`, `pnpm test`, `pnpm build`, browser screenshots, checked preview build SHA and visual correction of any observed penetration.
 - No C5 Phase Acceptance is triggered here; it is reserved for full C5 closure.
+
+## Latest corrective work
+- Posed-skinned source contact is sampled per body and mirror hand, but a reproducible shield silhouette requires an opponent-facing plate frame. The earlier attempt projected the normal orthogonally to the forearm, which allowed the shield to turn edge-on in guard. The current candidate uses an outward-canted body-relative front plane and retains source wrist/forearm attachment and skin offsets. A regression asserts its facing normal.
+- Additional generated-body tests exercise infant, heavy abdomen, compact powerful and tall slender MakeHuman morphologies in all three stances on both leads. These tests must be green before claiming anatomy coverage.
+- Remaining visual acceptance includes rendered inspection of the latest shield frame, sword blade posture, actual strap/forearm pressure, and shield/sword mutual collision across generated seed 1103498626; the prior Chromium run is not evidence that those are solved.
