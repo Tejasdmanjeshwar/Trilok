@@ -88,12 +88,16 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
             }
       console.log("C5.2-BEST-SEED",primary,JSON.stringify(bestSeed));
       const axis=(hand:"left"|"right")=>{
-        const wp=(role:string)=>bone(model,role).getWorldPosition(new THREE.Vector3());
+        const wp=(role:string)=>{
+          const j=graph.joints.find(j=>j.role===role&&
+            (role.startsWith("finger_")?j.id.includes("arm["+hand+",0]"):true))!;
+          return human.spike.bones.get(j.id)!.getWorldPosition(new THREE.Vector3());
+        };
         const wrist=wp("wrist_"+hand),middle=wp("finger_middle_0");
         const index=wp("finger_index_0"),little=wp("finger_little_0");
         const forward=middle.sub(wrist).normalize();
-        return index.sub(little).addScaledVector(forward,
-          -index.clone().sub(little).dot(forward)).normalize();
+        const across=index.sub(little);
+        return across.addScaledVector(forward,-across.dot(forward)).normalize();
       };
       let bestGrip={score:Infinity,primaryRotation:0,secondaryRotation:0,
         error:Infinity,dot:-1};
