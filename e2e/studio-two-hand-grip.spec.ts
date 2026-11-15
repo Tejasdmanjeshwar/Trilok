@@ -3,7 +3,7 @@ import {mkdirSync} from "node:fs";
 
 test("two-hand sword and staff remain attached across hands, poses and source morphs",
   async({page})=>{
-  test.setTimeout(180_000);
+  test.setTimeout(360_000);
   const errors:string[]=[];
   page.on("pageerror",error=>errors.push(error.message));
   await page.goto("/studio/");
@@ -37,13 +37,19 @@ test("two-hand sword and staff remain attached across hands, poses and source mo
   await expect(page.locator("#studio-edit-status")).toBeEmpty();
   await page.screenshot({path:"test-results/studio/"+
     test.info().project.name+"-two-hand-pose.png",fullPage:true});
-  await page.getByRole("button",{name:"Body",exact:true}).click();
-  await page.locator("#studio-preset").selectOption("largeHands");
-  await expect(page.locator("#studio-edit-status")).toBeEmpty({timeout:90_000});
-  await page.getByRole("button",{name:"Pose",exact:true}).click();
-  await expect(equipment).toHaveValue("staff-left");
-  await page.screenshot({path:"test-results/studio/"+
-    test.info().project.name+"-two-hand-morphology.png",fullPage:true});
+  for(const preset of ["short","tall","largeHands"] as const){
+    await page.getByRole("button",{name:"Body",exact:true}).click();
+    await page.locator("#studio-preset").selectOption(preset);
+    await expect(page.locator("#studio-edit-status")).toBeEmpty({timeout:90_000});
+    await page.getByRole("button",{name:"Pose",exact:true}).click();
+    for(const choice of ["longsword-right","longsword-left",
+      "staff-right","staff-left"] as const){
+      await equipment.selectOption(choice);
+      await expect(page.locator("#studio-edit-status")).toBeEmpty({timeout:90_000});
+      await page.screenshot({path:"test-results/studio/"+
+        test.info().project.name+"-"+preset+"-"+choice+".png",fullPage:true});
+    }
+  }
   await equipment.selectOption("right");
   await expect(page.locator("#studio-edit-status")).toBeEmpty();
   await equipment.selectOption("none");
