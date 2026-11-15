@@ -137,52 +137,16 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
       }finally{human.dispose();}
     }
   },120_000);
-  it("diagnoses source FK candidates for low sword and staff authored poses",()=>{
+  it("diagnoses weapon-specific authored neutral reach without forced root movement",()=>{
     const {human,model,fk}=fixture();
     try{
-      const graph=human.spike.graph;
-      const id=(side:"left"|"right",role:string)=>graph.joints.find(j=>j.role===role+"_"+side)!.id;
-      const wp=(role:string)=>bone(model,role).getWorldPosition(new THREE.Vector3());
-      const c=(side:"left"|"right",role:string,motion:"abduction"|"flexion"|"rotation",radians:number)=>({
-        jointId:id(side,role),motion,radians,
-      });
-      for(const kind of ["sword","staff"] as const){
-        for(const hand of ["right","left"] as const){
-          const side=hand==="right"?1:-1;
-          const targets=kind==="sword"?
-            [{x:side*.075,y:1.28,z:.28,mark:"upper"},
-              {x:side*.025,y:1.16,z:.29,mark:"lower"}]:
-            [{x:side*.19,y:1.32,z:.30,mark:"outer"},
-              {x:side*.15,y:1.18,z:.28,mark:"inner"}];
-          for(const goal of targets){
-            const best:{score:number;v:number[];p:number[];e:number[]}[]=[];
-            for(const sa of [.15,.6,1,1.4,1.8,2.3])
-              for(const sf of [-.8,-.4,0,.4,.8,1.3,1.8])
-                for(const sr of [-1.1,0,1.1])
-                  for(const ef of [.4,1.0,1.5,2.0,2.4]){
-                    fk.apply([c(hand,"shoulder","abduction",sa),
-                      c(hand,"shoulder","flexion",sf),c(hand,"shoulder","rotation",sr),
-                      c(hand,"elbow","flexion",ef)]);
-                    const p=wp("palm_"+hand),e=wp("elbow_"+hand);
-                    const dx=p.x-goal.x,dy=p.y-goal.y,dz=p.z-goal.z;
-                    const ep=(
-                      Math.max(0,e.y-1.48)*2.0+
-                      Math.max(0,-side*e.x+.10)*1.2+
-                      Math.max(0,1.02-e.y)*1.0);
-                    const score=Math.hypot(dx,dy,dz)+ep;
-                    if(best.length<5||score<best[best.length-1]!.score){
-                      best.push({score,v:[sa,sf,sr,ef],
-                        p:p.toArray(),e:e.toArray()});
-                      best.sort((a,b)=>a.score-b.score);
-                      if(best.length>5)best.pop();
-                    }
-                  }
-            console.log("C52-AUTHOR-SEARCH",JSON.stringify({kind,hand,mark:goal.mark,
-              goal,best:best.map(t=>({...t,score:+t.score.toFixed(4),
-                p:t.p.map(x=>+x.toFixed(3)),e:t.e.map(x=>+x.toFixed(3))}))}));
-          }
+      for(const kind of ["longsword","staff"] as const)
+        for(const side of ["right","left"] as const){
+          const result=solveTwoHandIK(model,fk,[],side,kind);
+          console.log("C52-NEUTRAL-STANCE",JSON.stringify({kind,side,
+            reachable:result.reachable,position:result.secondaryErrorMeters,
+            axis:result.secondaryAxisDot,iterations:result.iterations}));
         }
-      }
     }finally{human.dispose();}
   },120_000);
 
