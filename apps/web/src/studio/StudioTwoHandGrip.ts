@@ -696,6 +696,79 @@ function fitHandDamped(model:StudioHumanModel,fk:AnatomicalFK,
  * This is only a fallback. The owner's approved sword/staff candidate is
  * returned unchanged when it reaches both grips.
  */
+/** Geometric two-bone elbow pole derived from the *morphed* arm.
+ * This is a target for the legal FK channels, not a direct bone transform.
+ * It never modifies source segment lengths or bypasses joint limits.
+ */
+function geometricElbowPole(model:StudioHumanModel,kind:TwoHandWeapon,
+  lead:HandSide,hand:HandSide,contactTarget:THREE.Vector3):THREE.Vector3 {
+  const shoulder=world(jointBone(model,"shoulder_"+hand,hand));
+  const elbow=world(jointBone(model,"elbow_"+hand,hand));
+  const wrist=world(jointBone(model,"wrist_"+hand,hand));
+  const contact=twoHandGripContactWorld(model,hand);
+  const desiredWrist=contactTarget.clone().add(wrist).sub(contact);
+  const upper=shoulder.distanceTo(elbow);
+  const lower=elbow.distanceTo(wrist);
+  const direction=desiredWrist.sub(shoulder);
+  const distance=direction.length();
+  if(upper<1e-5||lower<1e-5||distance<1e-5)
+    return referenceElbow(model,kind,lead,hand);
+  direction.normalize();
+  const reach=THREE.MathUtils.clamp(distance,
+    Math.abs(upper-lower)+1e-5,upper+lower-1e-5);
+  const along=(upper*upper-lower*lower+reach*reach)/(2*reach);
+  const height=Math.sqrt(Math.max(0,upper*upper-along*along));
+  // Source elbow pole, projected onto the circle perpendicular to reach.
+  let pole=referenceElbow(model,kind,lead,hand).sub(shoulder);
+  pole.addScaledVector(direction,-pole.dot(direction));
+  if(pole.lengthSq()<1e-9){
+    const side=hand==="left"?-1:1;
+    pole=new THREE.Vector3(side,-1,.4)
+      .applyQuaternion(model.human.spike.character.root.getWorldQuaternion(
+        new THREE.Quaternion()));
+    pole.addScaledVector(direction,-pole.dot(direction));
+  }
+  return shoulder.addScaledVector(direction,along)
+    .addScaledVector(pole.normalize(),height);
+}
+function warmStartWeaponArms(model:StudioHumanModel,fk:AnatomicalFK,
+  state:Map<string,JointTarget>,kind:TwoHandWeapon,lead:HandSide,
+  weapon:THREE.Matrix4,dimensions:TwoHandDimensions,
+  anchors:GripAnchors):void {
+  const shaft=weaponAxis(weapon);
+  const apply=()=>fk.apply([...state.values()]);
+  // Establish a legal forearm-forward reach against the *same* weapon
+  // without premature axis alignment. The subsequent coupled fit imposes
+  // both knuckle axes, contact, safety and the authored weapon orientation.
+  for(const hand of [lead,lead==="left"?"right":"left"] as const){
+    apply();
+    const goal=gripWorld(weapon,hand===lead?
+      dimensions.primaryGripY:dimensions.secondaryGripY);
+    const elbowPole=geometricElbowPole(model,kind,lead,hand,goal);
+    const dofs=freedomSet(model.human.spike.graph,fk,hand);
+    const limits=dofs.map(d=>({min:d.min,max:d.max}));
+    const start=dofs.map(d=>state.get(d.key)?.radians??0);
+    const objective=(values:readonly number[])=>{
+      for(let i=0;i<dofs.length;i++){
+        const d=dofs[i]!;
+        state.set(d.key,{jointId:d.jointId,motion:d.motion,radians:values[i]!});
+      }
+      apply();
+      const delta=contactWorld(model,hand,anchors).sub(goal);
+      const elbowDelta=world(jointBone(model,"elbow_"+hand,hand)).sub(elbowPole);
+      const guard=anatomicalGuard(model,kind,lead);
+      const axis=palmFrame(model,hand).axis;
+      return [delta.x*3,delta.y*3,delta.z*3,
+        elbowDelta.x*.28,elbowDelta.y*.28,elbowDelta.z*.28,
+        (axis.x-shaft.x)*.012,(axis.y-shaft.y)*.012,(axis.z-shaft.z)*.012,
+        Math.max(0,-.055*guard.scale-guard.forwardClearance)*3,
+        Math.max(0,.195*guard.scale-guard.headClearance)*3,
+        Math.max(0,.05*guard.scale-guard.forearmClearance)*3];
+    };
+    fitConstrainedIK(start,limits,objective,42);
+  }
+  apply();
+}
 /** Weapon-centric paired IK. One rigid matrix owns both socket goals.
  * Calibrated source FK handles the actual morphed skeleton, while a shared
  * bounded least-squares pass moves both arms and the *single* weapon together.
@@ -721,6 +794,8 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   const authored=authoredWeaponWorld(model,kind,lead,dimensions);
   const authoredCenter=new THREE.Vector3().setFromMatrixPosition(authored);
   const authoredRotation=new THREE.Quaternion().setFromRotationMatrix(authored);
+  warmStartWeaponArms(model,fk,state,kind,lead,authored,dimensions,anchors);
+  const warm=dofs.map(d=>state.get(d.key)?.radians??0);
   const rootRotation=model.human.spike.character.root.getWorldQuaternion(new THREE.Quaternion());
   const freedom=dofs.map(d=>({min:d.min,max:d.max}));
   const travel=kind==="staff"?.28:.25;
@@ -729,7 +804,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   }));
   const limits=[...freedom,...translationBounds,
     {min:-.65,max:.65},{min:-.65,max:.65}];
-  const start=[...initial,0,0,0,0,0];
+  const start=[...warm,0,0,0,0,0];
   const jointCount=dofs.length;
   const worldFrame=(values:readonly number[])=>{
     const shift=new THREE.Vector3(values[jointCount]!,values[jointCount+1]!,
