@@ -45,6 +45,9 @@ const boneWorld=(bone:THREE.Bone)=>bone.getWorldPosition(new THREE.Vector3());
  * inspectable by regression tests, including the belly bulge of real recipes. */
 export class StudioBodyCollision {
   private readonly sections:readonly Section[];
+  /** Indexed source-skin surface triangle topology, cached per generated body. */
+  private readonly torsoTriangles:readonly (readonly [number,number,number])[];
+  readonly sourceTriangleCount:number;
   private readonly carriers:readonly THREE.Bone[];
   private readonly bindMatrices:readonly THREE.Matrix4[];
   private readonly bindRootInverse:THREE.Matrix4;
@@ -130,6 +133,30 @@ export class StudioBodyCollision {
     if(sections.length<10)throw new Error("Incomplete anatomical torso envelope");
     this.sections=Object.freeze(sections);
     this.sourceVertices=accepted;
+    // The source topology and weights never change during FK. Preserve a
+    // compact, morphology-local torso triangle index, rather than reclassify
+    // or search the entire MakeHuman mesh for each final IK candidate.
+    const index=mesh.geometry.getIndex();
+    if(!index)throw new Error("Missing indexed source skin triangles");
+    const ownership=new Float32Array(position.count);
+    for(let i=0;i<position.count;i++){
+      let weight=0;
+      for(let k=0;k<4;k++)
+        if(torsoIds.has(indices.getComponent(i,k)))
+          weight+=weights.getComponent(i,k);
+      ownership[i]=weight;
+    }
+    const triangleRefs:(readonly [number,number,number])[]=[];
+    for(let i=0;i<index.count;i+=3){
+      const a=index.getX(i),b=index.getX(i+1),c=index.getX(i+2);
+      const owned=Number(ownership[a]!>=.3)+
+        Number(ownership[b]!>=.3)+Number(ownership[c]!>=.3);
+      if(owned>=2)triangleRefs.push(Object.freeze([a,b,c] as const));
+    }
+    if(triangleRefs.length<250)
+      throw new Error("Insufficient actual torso-surface triangle coverage");
+    this.torsoTriangles=Object.freeze(triangleRefs);
+    this.sourceTriangleCount=triangleRefs.length;
   }
 
   /**
@@ -168,9 +195,8 @@ export class StudioBodyCollision {
    * All probes are fixed-count: deterministic least-squares residuals.
    * The first half of a sword blade is included near the torso.
    */
-  measure(model:StudioHumanModel,weapon:THREE.Matrix4,
-    kind:BodyCollisionWeapon,dim:BodyCollisionDimensions):BodyClearance{
-    const transforms=this.transforms();
+  private collectProbes(model:StudioHumanModel,weapon:THREE.Matrix4,
+    kind:BodyCollisionWeapon,dim:BodyCollisionDimensions):readonly Probe[]{
     const probes:Probe[]=[];
     const put=(point:THREE.Vector3,radius:number)=>
       probes.push({point,radius});
@@ -215,6 +241,12 @@ export class StudioBodyCollision {
         put(first,.012*dim.scale);put(last,.012*dim.scale);
       }
     }
+    return probes;
+  }
+  measure(model:StudioHumanModel,weapon:THREE.Matrix4,
+    kind:BodyCollisionWeapon,dim:BodyCollisionDimensions):BodyClearance{
+    const transforms=this.transforms();
+    const probes=this.collectProbes(model,weapon,kind,dim);
     const penalties:number[]=[];
     let minimum=Infinity,maximumPenetration=0;
     for(const probe of probes){
@@ -227,4 +259,74 @@ export class StudioBodyCollision {
     return {minimumMeters:minimum,maximumPenetrationMeters:maximumPenetration,
       penalties:Object.freeze(penalties)};
   }
+  /** Independent final source-skinned triangle check.
+   *
+   * A small fixed set of weapon/arm capsule probes is compared to the
+   * ACTUAL posed MakeHuman torso triangle surface. Topology and skin
+   * ownership are cached at model creation; the exact posed triangle
+   * positions are sampled ONLY on a promising final candidate, never
+   * inside the numerical IK/Jacobian loop. A spatial AABB prefilter bounds
+   * the number of closest-point evaluations. The conservative volume
+   * envelope remains responsible for rejecting fully enclosed probes.
+   */
+  measureSkinnedSurface(model:StudioHumanModel,weapon:THREE.Matrix4,
+    kind:BodyCollisionWeapon,dim:BodyCollisionDimensions):BodyClearance {
+    const mesh=model.human.mesh;
+    model.human.spike.character.root.updateWorldMatrix(true,true);
+    mesh.updateWorldMatrix(true,false);
+    const probes=this.collectProbes(model,weapon,kind,dim);
+    const skin=new Map<number,THREE.Vector3>();
+    const sourcePoint=(index:number):THREE.Vector3=>{
+      let value=skin.get(index);
+      if(!value){
+        value=mesh.getVertexPosition(index,new THREE.Vector3())
+          .applyMatrix4(mesh.matrixWorld);
+        if(!value.toArray().every(Number.isFinite))
+          throw new Error("Nonfinite posed source-skin surface");
+        skin.set(index,value);
+      }
+      return value;
+    };
+    const queryMin=new THREE.Vector3(Infinity,Infinity,Infinity);
+    const queryMax=new THREE.Vector3(-Infinity,-Infinity,-Infinity);
+    const queryMargin=.07*dim.scale;
+    for(const {point,radius} of probes){
+      const margin=radius+queryMargin;
+      queryMin.min(new THREE.Vector3(point.x-margin,point.y-margin,point.z-margin));
+      queryMax.max(new THREE.Vector3(point.x+margin,point.y+margin,point.z+margin));
+    }
+    const triangle=new THREE.Triangle(),closest=new THREE.Vector3();
+    const penalties=new Array<number>(probes.length).fill(0);
+    let minimum=.07*dim.scale;
+    for(const [ai,bi,ci] of this.torsoTriangles){
+      const a=sourcePoint(ai),b=sourcePoint(bi),c=sourcePoint(ci);
+      const loX=Math.min(a.x,b.x,c.x),hiX=Math.max(a.x,b.x,c.x);
+      const loY=Math.min(a.y,b.y,c.y),hiY=Math.max(a.y,b.y,c.y);
+      const loZ=Math.min(a.z,b.z,c.z),hiZ=Math.max(a.z,b.z,c.z);
+      if(loX>queryMax.x||hiX<queryMin.x||
+        loY>queryMax.y||hiY<queryMin.y||
+        loZ>queryMax.z||hiZ<queryMin.z)continue;
+      triangle.set(a,b,c);
+      for(let i=0;i<probes.length;i++){
+        const probe=probes[i]!;
+        const {point,radius}=probe;
+        const margin=radius+queryMargin;
+        if(point.x<loX-margin||point.x>hiX+margin||
+          point.y<loY-margin||point.y>hiY+margin||
+          point.z<loZ-margin||point.z>hiZ+margin)continue;
+        triangle.closestPointToPoint(point,closest);
+        const signed=closest.distanceTo(point)-radius;
+        minimum=Math.min(minimum,signed);
+        penalties[i]=Math.max(penalties[i]!,
+          Math.max(0,.002*dim.scale-signed));
+      }
+    }
+    const maximumPenetration=Math.max(0,...penalties.map(p=>
+      Math.max(0,p-.002*dim.scale)));
+    return Object.freeze({
+      minimumMeters:minimum,maximumPenetrationMeters:maximumPenetration,
+      penalties:Object.freeze(penalties),
+    });
+  }
+
 }
