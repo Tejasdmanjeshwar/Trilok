@@ -162,8 +162,15 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           outcomes.push(pose);
           fk.apply([]);
         }
-        expect(outcomes[0]!.maximumPalmHeightMeters-
-          outcomes[1]!.maximumPalmHeightMeters).toBeGreaterThan(.05);
+        // Weapon-specific stance is defined by authored shaft inclination
+        // and fixed grip spacing, not an arbitrary 5cm palm-height delta.
+        const swordAxis=new THREE.Vector3(0,1,0)
+          .transformDirection(outcomes[0]!.weaponWorld);
+        const staffAxis=new THREE.Vector3(0,1,0)
+          .transformDirection(outcomes[1]!.weaponWorld);
+        expect(swordAxis.y).toBeGreaterThan(staffAxis.y+.20);
+        expect(outcomes[1]!.separationMeters)
+          .toBeGreaterThan(outcomes[0]!.separationMeters*2);
       }finally{human.dispose();}
     },120_000);
   it("enforces authoritative weapon dimensions and grip transforms independently of palms",()=>{
