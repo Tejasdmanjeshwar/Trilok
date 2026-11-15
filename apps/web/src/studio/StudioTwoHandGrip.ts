@@ -354,7 +354,7 @@ export function twoHandSolvedContactWorld(model:StudioHumanModel,
 export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   kind:TwoHandWeapon,primary:HandSide,dim:TwoHandDimensions,
   reference:THREE.Matrix4,anchors?:GripAnchors,
-  staffAxisMode:"span"|"knuckle"="span"):THREE.Matrix4{
+  staffAxisMode:"span"|"knuckle"|"sword-span"="span"):THREE.Matrix4{
   const secondary:HandSide=primary==="right"?"left":"right";
   const lead=palmFrame(model,primary),offhand=palmFrame(model,secondary);
   lead.palm.copy(contactWorld(model,primary,anchors));
@@ -362,9 +362,20 @@ export function adaptiveTwoHandWeaponWorld(model:StudioHumanModel,
   const nominal=weaponAxis(reference);
   let axis:THREE.Vector3;
   if(kind==="longsword"){
-    // Preserve the approved diagonal sword presentation while allowing its
-    // grip direction to follow the lead hand as in C5.1.
-    axis=nominal.multiplyScalar(.38).addScaledVector(lead.axis,.62).normalize();
+    if(staffAxisMode==="sword-span"){
+      // Fallback only. A single rigid hilt must serve both real hands:
+      // primary-hand-only alignment can strand the offhand outside its
+      // anatomical reach when shoulder width/arm proportions change.
+      const span=lead.palm.clone().sub(offhand.palm);
+      if(span.lengthSq()<1e-8)span.copy(lead.axis);
+      span.normalize();
+      // Keep the signed pommel-to-guard direction and a diagonal sword,
+      // without stretching the handle or applying any character root scale.
+      axis=span.multiplyScalar(.64).addScaledVector(nominal,.36).normalize();
+    }else{
+      // Preserve the owner-approved neutral sword presentation.
+      axis=nominal.multiplyScalar(.38).addScaledVector(lead.axis,.62).normalize();
+    }
   }else{
     // Both hands MUST lie along one collinear staff. Derive its world axis
     // from the actual knuckle-contact span, not a preselected chest slope.
@@ -709,8 +720,13 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       model,kind,primary,dimensions,authored,anchors,"knuckle"):undefined;
     const projected=kind==="longsword"?projectWeaponIntoArmReach(
       model,primary,dimensions,adaptive):undefined;
+    const shared=kind==="longsword"?adaptiveTwoHandWeaponWorld(
+      model,kind,primary,dimensions,authored,anchors,"sword-span"):undefined;
+    const projectedShared=shared?projectWeaponIntoArmReach(
+      model,primary,dimensions,shared):undefined;
     const candidates=kind==="longsword"?
-      (seed===0?[authored,adaptive,projected!]:[adaptive,projected!]):
+      (seed===0?[authored,adaptive,projected!,shared!,projectedShared!]:
+        [adaptive,projected!,shared!,projectedShared!]):
       (seed===0?[aligned!,adaptive,authored]:[aligned!,adaptive]);
     for(const weaponWorld of candidates){
     state=poseMap(staged);
