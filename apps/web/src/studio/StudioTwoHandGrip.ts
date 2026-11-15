@@ -189,6 +189,13 @@ const REACH_SEEDS=Object.freeze([
   {abduction:-.45,flexion:.20,rotation:-.25,elbow:.40},
   {abduction:-.65,flexion:.12,rotation:.30,elbow:.45},
   {abduction:-.30,flexion:-.20,rotation:-.45,elbow:.12},
+  // Valid inward shoulder rotations were absent from previous seeds.
+  // A morphed arm can need to cross the sagittal plane to share a short
+  // sword hilt even though both hands individually have ample reach.
+  {abduction:-.50,flexion:.25,rotation:-1.05,elbow:.40},
+  {abduction:-.60,flexion:.40,rotation:-1.40,elbow:.60},
+  {abduction:-.30,flexion:.55,rotation:-1.70,elbow:.65},
+  {abduction:-.15,flexion:.18,rotation:-1.90,elbow:.85},
 ] as const);
 function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
   state:Map<string,JointTarget>,kind:TwoHandWeapon,primary:HandSide,
@@ -916,7 +923,7 @@ function fitTorsoCenteredSword(model:StudioHumanModel,fk:AnatomicalFK,
   const chest=world(jointBone(model,"chest",lead));
   const origin=chest.lerp(midpoint,.35);
   const graph=model.human.spike.graph;
-  for(const seed of [0,6,2]){
+  for(const seed of [0,6,7,4,2]){
     const state=poseMap(fingerState);
     stageReadyPose(graph,fk,state,"longsword",lead,seed);
     const staged=[...state.values()];
@@ -1159,7 +1166,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   // Only an otherwise rejected morphology or Studio pose enters the
   // relative-hand solver. The approved, successful presentation is immutable.
   if(!chosen?.reachable){
-    for(const seed of kind==="longsword"?[6,2,5,0]:[3,2,1,0]){
+    for(const seed of kind==="longsword"?[6,7,4,5,2,0]:[3,2,1,0]){
       const paired=fitRelativeTwoHandContacts(model,fk,fingerState,
         kind,primary,dimensions,seed,diagnostics);
       if(paired){chosen=paired;break;}
