@@ -741,7 +741,7 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
     let refinementIterations=0;
     // The original accepted pose uses only the existing coordinate-descent
     // solver. Damped refinement is strictly a failed sword configuration path.
-    if(kind==="longsword"&&a.error<.07&&b.error<.40&&
+    if(kind==="longsword"&&a.error<.12&&b.error<.14&&
       (a.error>.023||b.error>.023||a.dot<.42||b.dot<.42)){
       refinementIterations+=fitHandDamped(model,fk,state,kind,primary,
         secondary,secondGoal,shaft,anchors);
