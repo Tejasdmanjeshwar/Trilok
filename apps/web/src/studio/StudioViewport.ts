@@ -14,6 +14,7 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
 import {StudioSwordPreview} from "./StudioWeaponGrip";
+import {StudioBowPreview,isBowEquipment,type ArcheryState} from "./StudioArchery";
 import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
   from "./StudioShieldGrip";
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
@@ -34,6 +35,8 @@ export interface StudioViewport {
   setPose(pose:StudioPose):void;
   setEquipment(hand:EquipmentChoice):void;
   setShieldStance(stance:ShieldStance):void;
+  setArcheryState(state:ArcheryState):void;
+  setArcheryDraw(value:number):void;
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
@@ -100,7 +103,7 @@ export function createStudioViewport(
   let posePreview:StudioPosePreview|undefined;
   let equipment:EquipmentChoice="none";
   let currentRecipe:StudioRecipeV1=initialStudioRecipe();
-  let sword:StudioSwordPreview|StudioTwoHandPreview|undefined;
+  let sword:StudioSwordPreview|StudioTwoHandPreview|StudioBowPreview|undefined;
   let shield:StudioShieldPreview|undefined;
   const reportGripFailure=(result?:TwoHandIKResult,error?:unknown):void=>{
     if(!isTwoHandEquipment(equipment))return;
@@ -120,7 +123,12 @@ export function createStudioViewport(
     }
     if(!active)return;
     try{
-      if(isTwoHandEquipment(equipment)){
+      if(isBowEquipment(equipment)){
+        const result=posePreview?.bowPoseResult;
+        if(!result?.reachable)throw new Error("Bow draw is unreachable");
+        const next=new StudioBowPreview(active,result);
+        scene.add(next.object);sword=next;
+      }else if(isTwoHandEquipment(equipment)){
         const solved=posePreview?.twoHandResult;
         if(!solved?.reachable){
           reportGripFailure(solved);
@@ -153,7 +161,8 @@ export function createStudioViewport(
   }
   function setEquipment(hand:EquipmentChoice):void{
     if(!["none","left","right","longsword-left","longsword-right",
-      "staff-left","staff-right","sword-shield-left","sword-shield-right"].includes(hand))throw new Error("Unknown equipment choice");
+      "staff-left","staff-right","sword-shield-left","sword-shield-right",
+      "bow-left","bow-right"].includes(hand))throw new Error("Unknown equipment choice");
     equipment=hand;
     try{
       posePreview?.setGrip(hand);
@@ -168,6 +177,16 @@ export function createStudioViewport(
   function setShieldStance(stance:ShieldStance):void{
     posePreview?.setShieldStance(stance);
     if(isSwordShieldEquipment(equipment))refreshSword();
+    updateMarkers();
+  }
+  function setArcheryState(state:ArcheryState):void{
+    posePreview?.setArcheryState(state);
+    if(isBowEquipment(equipment))refreshSword();
+    updateMarkers();
+  }
+  function setArcheryDraw(value:number):void{
+    posePreview?.setArcheryDraw(value);
+    if(isBowEquipment(equipment))refreshSword();
     updateMarkers();
   }
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
@@ -320,7 +339,7 @@ export function createStudioViewport(
     pose=next;
     try{
       posePreview?.setPose(next);
-      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))
+      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||isBowEquipment(equipment))
         refreshSword();
       else sword?.update();
     }catch(error){
@@ -343,7 +362,7 @@ export function createStudioViewport(
       if(!ok)return false;
       expression=next;
       posePreview?.refresh();
-      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))refreshSword();
+      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||isBowEquipment(equipment))refreshSword();
       return true;
     }catch{
       if(current===ticket){expression=previous;
@@ -667,5 +686,5 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setExpression,setInspection,resetView,dispose};
 }
