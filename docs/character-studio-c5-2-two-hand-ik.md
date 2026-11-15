@@ -19,8 +19,8 @@ No Blender dependency, external pose art or unverified licensed asset is added.
 | Hilt/handle length | 0.28 m | n/a |
 | Blade length | 0.86 m | n/a |
 | Continuous shaft length | n/a | 1.72 m |
-| Grip locations on weapon-local +Y | +0.075 m and -0.075 m | +0.245 m and -0.245 m |
-| Separation | 0.15 m | 0.49 m |
+| Grip locations on weapon-local +Y | +0.095 m and -0.095 m | +0.245 m and -0.245 m |
+| Separation | 0.19 m | 0.49 m |
 | Guard width | 0.22 m | n/a |
 | Nominal shaft/handle radius | 0.0135 m | 0.015 m |
 
