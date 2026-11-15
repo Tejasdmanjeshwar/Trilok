@@ -96,9 +96,9 @@ function sampleSkin(model:StudioHumanModel,hand:ShieldHand,kind:"forearm"|"hand"
   const owners=new Set<number>();
   for(const joint of spike.graph.joints){
     const arm=joint.id.includes("arm["+hand+",0]");
-    const owns=arm&&(kind==="forearm"?
+    const owns=kind==="forearm"?
       ["elbow_"+hand,"wrist_"+hand].includes(joint.role):
-      joint.role==="palm_"+hand||joint.role.startsWith("finger_"));
+      joint.role==="palm_"+hand||arm&&joint.role.startsWith("finger_");
     if(owns){
       const bone=spike.bones.get(joint.id);
       const id=bone?spike.skeleton.bones.indexOf(bone):-1;
