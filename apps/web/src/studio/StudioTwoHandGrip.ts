@@ -338,6 +338,9 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult {
   const secondary:HandSide=primary==="left"?"right":"left";
   const graph=model.human.spike.graph;
+  // A previous equip/pose must never define this weapon's source calipers or
+  // finger-spread sign. Start calibration from the pinned anatomical rest.
+  fk.apply([]);
   const state=poseMap(base);
   // Build independently dimensioned reference weapon and stance first.
   const dimensions=twoHandDimensions(model,kind);
