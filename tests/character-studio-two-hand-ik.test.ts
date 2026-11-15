@@ -62,6 +62,10 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           expect(preview.object.children.length).toBeGreaterThan(4);
           expect(preview.descriptor.primary).toBe(primary);
           expect(preview.descriptor.secondary).not.toBe(primary);
+          expect(human.spike.graph.sockets.find(x=>
+            x.id===preview.descriptor.primarySocket)?.purpose).toBe("primary_grip");
+          expect(human.spike.graph.sockets.find(x=>
+            x.id===preview.descriptor.secondarySocket)?.purpose).toBe("secondary_grip");
           const current=preview.object.matrix.clone();
           preview.update();
           expect(preview.object.matrix.elements).toEqual(current.elements);
