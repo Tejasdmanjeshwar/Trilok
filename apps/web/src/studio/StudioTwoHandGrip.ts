@@ -114,8 +114,8 @@ const STANCES:Readonly<Record<TwoHandWeapon,{
   readonly forearmRoll:number;
   readonly wristFlexion:number;
 }>>=Object.freeze({
-  longsword:{shoulderAbduction:.18,shoulderFlexion:.42,
-    shoulderRoll:1.08,elbowFlexion:1.04,forearmRoll:.12,wristFlexion:-.08},
+  longsword:{shoulderAbduction:.60,shoulderFlexion:.40,
+    shoulderRoll:1.08,elbowFlexion:1.10,forearmRoll:0,wristFlexion:-.08},
   staff:{shoulderAbduction:.16,shoulderFlexion:.34,
     shoulderRoll:1.07,elbowFlexion:.98,forearmRoll:0,wristFlexion:0},
 });
@@ -137,10 +137,10 @@ function stageReadyPose(graph:AnatomicalGraphV1,fk:AnatomicalFK,
     add(hand,"clavicle","flexion",0);
     add(hand,"shoulder","abduction",pose.shoulderAbduction);
     add(hand,"shoulder","flexion",pose.shoulderFlexion+
-      (kind==="longsword"&&!isLead?-.08:0));
+      (kind==="longsword"?(isLead?.20:-.15):0));
     add(hand,"shoulder","rotation",mirror*pose.shoulderRoll);
     add(hand,"elbow","flexion",pose.elbowFlexion+
-      (kind==="longsword"&&!isLead?.3:0));
+      (kind==="longsword"?(isLead?.05:.15):0));
     add(hand,"elbow","rotation",mirror*pose.forearmRoll);
     add(hand,"wrist","flexion",pose.wristFlexion);
     add(hand,"wrist","abduction",0);
@@ -255,98 +255,6 @@ function calibrateStaffForearms(model:StudioHumanModel,fk:AnatomicalFK,
     apply();
   }
 }
-/** Authoring-time constrained search for a lower, joint-valid sword
- * stance. A candidate is never shown if head/elbow safety fails. */
-function fitSwordGuardCandidate(model:StudioHumanModel,fk:AnatomicalFK,
-  state:Map<string,JointTarget>,primary:HandSide,gap:number):
-  {error:number;dot:number;iterations:number}{
-  const secondary:HandSide=primary==="left"?"right":"left";
-  const graph=model.human.spike.graph;
-  const dofs=[...freedomSet(graph,fk,primary),...freedomSet(graph,fk,secondary)];
-  const apply=()=>fk.apply([...state.values()]);
-  const score=()=>{
-    const lead=palmFrame(model,primary),off=palmFrame(model,secondary);
-    const target=lead.palm.clone().addScaledVector(lead.axis,-gap);
-    const error=target.distanceTo(off.palm);
-    const dot=THREE.MathUtils.clamp(-lead.axis.dot(off.axis),-1,1);
-    const head=world(jointBone(model,"head",primary));
-    const chest=world(jointBone(model,"chest",primary));
-    let penalty=0;
-    for(const hand of [primary,secondary]){
-      const elbow=world(jointBone(model,"elbow_"+hand,hand));
-      const wrist=world(jointBone(model,"wrist_"+hand,hand));
-      const palm=world(jointBone(model,"palm_"+hand,hand));
-      const shoulder=world(jointBone(model,"shoulder_"+hand,hand));
-      penalty+=Math.max(0,elbow.y-shoulder.y+.035)**2*2;
-      penalty+=Math.max(0,palm.y-chest.y-.13)**2*2;
-      for(const p of [elbow,wrist,palm])
-        penalty+=Math.max(0,.20-p.distanceTo(head))**2*7;
-    }
-    return {error,dot,cost:error*error+
-      .0015*(1-dot)**2+penalty};
-  };
-  apply();let best=score(),iterations=0;
-  for(const step of [.7,.4,.22,.12,.065]){
-    for(let sweep=0;sweep<3;sweep++){
-      iterations++;let improved=false;
-      for(const dof of dofs){
-        const old=state.get(dof.key)?.radians??0;
-        let chosen=old;
-        for(const delta of [-step,step]){
-          const val=THREE.MathUtils.clamp(old+delta,dof.min,dof.max);
-          if(val===old)continue;
-          state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:val});
-          apply();
-          const next=score();
-          if(next.cost<best.cost-1e-11){
-            best=next;chosen=val;improved=true;
-          }
-        }
-        state.set(dof.key,{jointId:dof.jointId,motion:dof.motion,radians:chosen});
-        apply();
-      }
-      if(!improved)break;
-    }
-  }
-  // Paired moves preserve the mutual contact manifold while translating
-  // both arms to a lower guard; single-joint descent cannot cross this saddle.
-  for(const step of [.28,.14,.07,.035]){
-    for(let sweep=0;sweep<4;sweep++){
-      let improved=false;
-      for(const role of ["clavicle","shoulder","elbow"] as const){
-        for(const motion of ["abduction","flexion","rotation"] as const){
-          const pair=[primary,secondary].map(hand=>{
-            const joint=scopedJoint(graph,role+"_"+hand,hand);
-            const bounds=fk.frames.get(joint.id)?.freedoms.get(motion);
-            return bounds?{jointId:joint.id,bounds,k:key(joint.id,motion)}:undefined;
-          });
-          if(pair.some(x=>!x))continue;
-          const [a,b]=pair as [NonNullable<typeof pair[number]>,NonNullable<typeof pair[number]>];
-          const oldA=state.get(a.k)?.radians??0,oldB=state.get(b.k)?.radians??0;
-          let selected:[number,number]=[oldA,oldB];
-          for(const delta of [-step,step]){
-            for(const sign of [1,-1]){
-              const va=THREE.MathUtils.clamp(oldA+delta,a.bounds.min,a.bounds.max);
-              const vb=THREE.MathUtils.clamp(oldB+delta*sign,b.bounds.min,b.bounds.max);
-              state.set(a.k,{jointId:a.jointId,motion,radians:va});
-              state.set(b.k,{jointId:b.jointId,motion,radians:vb});
-              apply();const next=score();
-              if(next.cost<best.cost-1e-12){
-                best=next;selected=[va,vb];improved=true;
-              }
-            }
-          }
-          state.set(a.k,{jointId:a.jointId,motion,radians:selected[0]});
-          state.set(b.k,{jointId:b.jointId,motion,radians:selected[1]});
-          apply();
-        }
-      }
-      if(!improved)break;
-    }
-  }
-  const result=score();
-  return {...result,iterations};
-}
 export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],primary:HandSide,
   kind:TwoHandWeapon="longsword"):TwoHandIKResult{
@@ -359,43 +267,26 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
       state.set(key(c.jointId,c.motion),c);
   }
   stageReadyPose(graph,fk,state,kind,primary);
-  if(kind==="longsword"){
-    for(const hand of [primary,secondary]){
-      const assign=(role:string,motion:AnatomicalMotion,value:number)=>{
-        const joint=scopedJoint(graph,role+"_"+hand,hand);
-        const bounds=fk.frames.get(joint.id)!.freedoms.get(motion)!;
-        state.set(key(joint.id,motion),{jointId:joint.id,motion,
-          radians:THREE.MathUtils.clamp(value,bounds.min,bounds.max)});
-      };
-      assign("shoulder","abduction",2.2);
-      assign("shoulder","flexion",-.5);
-      assign("shoulder","rotation",0);
-      assign("elbow","flexion",1.5);
-      assign("elbow","rotation",0);
-    }
-  }
   fk.apply([...state.values()]);
-  if(kind==="staff")calibrateStaffForearms(model,fk,state,primary);
+  // A long-handled, two-hand reference greatsword is deliberately used
+  // instead of a short one-hand hilt. The pinned source FK cannot move both
+  // wrists onto a compact 11 cm hilt without raising crossed elbows to the
+  // face; a measured extended hilt is the anatomically safer choice.
+  calibrateStaffForearms(model,fk,state,primary);
   const lead=palmFrame(model,primary),follower=palmFrame(model,secondary);
-  // Staff: a wide shaft passes between palms, measured from their actual
-  // ready-stance positions. Sword: compact stacked hilt near the lead hand.
-  const gap=kind==="staff"?
-    THREE.MathUtils.clamp(lead.palm.distanceTo(follower.palm),.30,.85):
-    THREE.MathUtils.clamp(lead.width*1.55,.065,.16);
-  const axis=kind==="staff"?
-    axisDirection(follower.palm,lead.palm):lead.axis.clone();
+  const gap=THREE.MathUtils.clamp(
+    lead.palm.distanceTo(follower.palm),kind==="staff"?.30:.25,
+    kind==="staff"?.85:.75);
+  const axis=axisDirection(follower.palm,lead.palm);
   const target=lead.palm.clone().addScaledVector(axis,-gap);
-  const secondaryResult=kind==="longsword"?
-    fitSwordGuardCandidate(model,fk,state,primary,gap):
-    refineOffhand(model,fk,state,kind,primary,target,axis);
+  const secondaryResult=refineOffhand(model,fk,state,kind,primary,target,axis);
   const actualLead=palmFrame(model,primary),actualOff=palmFrame(model,secondary);
-  const actualAxis=kind==="staff"?
-    axisDirection(actualOff.palm,actualLead.palm):actualLead.axis;
+  const actualAxis=axisDirection(actualOff.palm,actualLead.palm);
   const secondaryError=actualOff.palm.distanceTo(
     actualLead.palm.clone().addScaledVector(actualAxis,-gap));
   const dot=THREE.MathUtils.clamp(-actualOff.axis.dot(actualAxis),-1,1);
   const guard=anatomicalGuard(model,kind,primary);
-  const reached=guard.ok&&secondaryError<=(kind==="staff"?.035:.045)&&dot>.15;
+  const reached=guard.ok&&secondaryError<=.035&&dot>.35;
   if(!reached)fk.apply(base);
   const commands=reached?[...state.values()]:[...base];
   return Object.freeze({reachable:reached,commands:Object.freeze(commands),
@@ -423,8 +314,8 @@ export function createTwoHandDescriptor(model:StudioHumanModel,
   };
   const width=palmFrame(model,primary).width;
   const radius=THREE.MathUtils.clamp(width/5.2,.005,.018);
-  const minGap=kind==="staff"?.25:.045;
-  const maxGap=kind==="staff"?.90:.17;
+  const minGap=kind==="staff"?.25:.20;
+  const maxGap=kind==="staff"?.90:.80;
   if(!Number.isFinite(separation)||separation<minGap||separation>maxGap)
     throw new Error("Invalid "+kind+" separation");
   return Object.freeze({schemaVersion:1,kind,primary,secondary,
@@ -489,8 +380,7 @@ export class StudioTwoHandPreview {
     // Longsword/staff local +Y follows calibrated primary knuckle axis.
     // Primary and offhand contact locations are +gap/2 and -gap/2.
     const offhand=palmFrame(model,this.descriptor.secondary);
-    const y=kind==="staff"?
-      frame.palm.clone().sub(offhand.palm).normalize():frame.axis.clone();
+    const y=frame.palm.clone().sub(offhand.palm).normalize();
     // Primary-to-secondary grip points are separated in the REAL handle
     // direction. The sword preserves C5.1's orthogonal hilt orientation.
     const x=frame.forward.clone().negate()
