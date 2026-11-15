@@ -280,6 +280,9 @@ export function solveTwoHandIK(model:StudioHumanModel,fk:AnatomicalFK,
   const axis=axisDirection(follower.palm,lead.palm);
   const target=lead.palm.clone().addScaledVector(axis,-gap);
   const secondaryResult=refineOffhand(model,fk,state,kind,primary,target,axis);
+  // Resolve final forearm roll after the modest support-arm correction, so
+  // knuckles rotate onto the shared handle instead of hovering beside it.
+  calibrateStaffForearms(model,fk,state,primary);
   const actualLead=palmFrame(model,primary),actualOff=palmFrame(model,secondary);
   const actualAxis=axisDirection(actualOff.palm,actualLead.palm);
   const secondaryError=actualOff.palm.distanceTo(
