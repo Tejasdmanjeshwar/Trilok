@@ -166,3 +166,37 @@ When a two-handed sword or staff fails to equip in Studio:
 **Reproduction workflow:** Open the exact feature build (check `build.commitSha`), generate a character, select the failed equipment/pose, click **Copy grip issue details**, and paste the JSON into the engineering thread. A developer can reconstruct the same deterministic morphology using the recipe and read individual IK candidates from the same report. Console warnings are emitted on failure only, avoiding high-volume logging during successful edits.
 
 **Scope:** Diagnostics only. They do not claim every generated morphology reaches both hands or that source-skinned contact, deformation, or Cloudflare deployment has been visually accepted. PR #84 stays draft until separately approved.
+
+
+## Generated anatomy and same-thumb staff correction attempt (2026-11-15)
+
+The owner supplied a real browser reproduction for generated seed `2694905601`
+(`studio-human-v2`, neutral, `longsword-right`, `primary-unreachable`).
+The source generator must reproduce the recorded macro/native/shape values
+before interpreting any solver metrics. Internal `reachDiagnostics.seed` is
+an IK candidate number, **not** a generator seed.
+
+The diagnosed algorithmic hazard is that a weapon fitted to the initially
+displaced leading palm can remain hundreds of millimetres from the supporting
+hand although the first contact error is submillimetre. The new **failure-only**
+torso-centered attempt anchors the same dimensioned rigid sword within the
+intersection of the measured upper-body reach region, evaluates both hands
+with bounded source-FK damped refinements, and applies the original contact,
+knuckle and anatomical safety gates. It does not move the character root,
+extend the sword hilt or widen the acceptance tolerance. This is a candidate
+convergence strategy; its actual success across generated shapes requires
+the newly added positive deterministic test and rendered inspection.
+
+The staff's previous sign conventions explicitly used *opposed* knuckle axes
+for its offhand, producing mixed-direction thumbs despite successful numerical
+shaft alignment. The new orientation convention makes both knuckle axes point
+with the shared staff, biases the initial staff shaft to a more inclined
+torso-relative guard, and tests same-direction aligned contacts. This changes
+staff presentation intentionally, but it must pass left/right contact and
+source-skin collision inspection before any visual claim.
+
+**Acceptance state:** The seed-specific equip assertion and inclined,
+same-thumb staff assertions are mandatory; CI, exact deployed SHA,
+close-up skinned contacts, mobile/desktop screenshots, owner review and
+further deterministic seeds are separate gates. Retain draft PR #84; do not
+merge or begin C5.3 on the basis of the mathematical changes alone.
