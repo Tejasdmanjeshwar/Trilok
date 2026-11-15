@@ -309,14 +309,14 @@ export class StudioBowPreview {
     const handle=new THREE.Mesh(new THREE.CylinderGeometry(
       d.handleRadiusMeters,d.handleRadiusMeters,d.handleLengthMeters,12),grip);
     handle.name="BowHandle";this.object.add(handle);
-    const top=new THREE.Vector3(0,d.limbLengthMeters,-d.stringRestMeters*.9);
-    const bottom=new THREE.Vector3(0,-d.limbLengthMeters,-d.stringRestMeters*.9);
+    const top=new THREE.Vector3(0,d.limbLengthMeters,-d.stringRestMeters);
+    const bottom=new THREE.Vector3(0,-d.limbLengthMeters,-d.stringRestMeters);
     for(const sign of [-1,1]){
       const curve=new THREE.CatmullRomCurve3([
         new THREE.Vector3(0,sign*d.handleLengthMeters*.45,.012*factor),
         new THREE.Vector3(-.055*factor,sign*.21*factor,.09*factor),
         new THREE.Vector3(-.11*factor,sign*.44*factor,.075*factor),
-        new THREE.Vector3(0,sign*d.limbLengthMeters,-d.stringRestMeters*.9),
+        new THREE.Vector3(0,sign*d.limbLengthMeters,-d.stringRestMeters),
       ]);
       const limb=new THREE.Mesh(new THREE.TubeGeometry(curve,18,
         .013*factor,8,false),wood);
