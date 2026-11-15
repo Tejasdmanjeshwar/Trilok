@@ -89,6 +89,26 @@ function measureStaff(model:StudioHumanModel,hand:HandSide,
   }
   return results;
 }
+function diagnoseArmReach(model:StudioHumanModel,result:ReturnType<typeof solveTwoHandIK>){
+  const root=model.human.spike.character.root;
+  root.updateWorldMatrix(true,true);
+  const points=Object.fromEntries((["right","left"] as const).map(hand=>{
+    const at=(role:string)=>{
+      const id=model.human.spike.graph.joints.find(j=>j.role===role+"_"+hand)!.id;
+      return model.human.spike.bones.get(id)!.getWorldPosition(new THREE.Vector3());
+    };
+    const shoulder=at("shoulder"),elbow=at("elbow"),wrist=at("wrist"),palm=at("palm");
+    const reach=shoulder.distanceTo(elbow)+elbow.distanceTo(wrist)+wrist.distanceTo(palm);
+    const target=new THREE.Vector3(0,hand==="right"?
+      result.dimensions.primaryGripY:result.dimensions.secondaryGripY,0)
+      .applyMatrix4(result.weaponWorld);
+    return [hand,{shoulder:shoulder.toArray(),elbow:elbow.toArray(),
+      wrist:wrist.toArray(),palm:palm.toArray(),
+      upper:shoulder.distanceTo(elbow),lower:elbow.distanceTo(wrist),
+      reach,targetDistance:shoulder.distanceTo(target)}];
+  }));
+  return points;
+}
 describe("C5.2 staff source-skinned contact diagnostics",()=>{
   it.each([
     {seed:498155388,sex:.003517,age:.05506,height:.082736,
@@ -108,7 +128,7 @@ describe("C5.2 staff source-skinned contact diagnostics",()=>{
         for(const lead of ["right","left"] as const){
           fk.apply([]);
           const solved=solveTwoHandIK(model,fk,[],lead,"longsword");
-          expect(solved.reachable,JSON.stringify({seed,lead,reason:solved.reason,
+          expect(solved.reachable,JSON.stringify({seed,lead,arm:diagnoseArmReach(model,solved),reason:solved.reason,
             first:solved.primaryErrorMeters,second:solved.secondaryErrorMeters,
             attempts:solved.reachDiagnostics?.slice(-6)})).toBe(true);
           expect(solved.primaryErrorMeters).toBeLessThanOrEqual(.023);
