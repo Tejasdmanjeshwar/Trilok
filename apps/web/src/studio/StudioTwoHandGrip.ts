@@ -164,6 +164,24 @@ function freedomSet(graph:AnatomicalGraphV1,fk:AnatomicalFK,hand:HandSide):AxisD
   }
   return result;
 }
+/** Optional body-chain DOFs: only the failing two-hand fit may engage
+ * calibrated chest/spine freedoms, with an explicit stronger pose prior.
+ * The root transform, bone lengths, and player-selected pose remain owned by
+ * the existing FK/Studio preview. No additional skeleton or Euler hack.
+ */
+function torsoFreedomSet(graph:AnatomicalGraphV1,fk:AnatomicalFK):AxisDOF[]{
+  const result:AxisDOF[]=[];
+  for(const role of ["spine_lower","chest"]){
+    const joint=graph.joints.find(j=>j.role===role);
+    if(!joint)continue;
+    for(const motion of ["flexion","rotation","abduction"] as const){
+      const f=fk.frames.get(joint.id)?.freedoms.get(motion);
+      if(f)result.push({jointId:joint.id,motion,min:f.min,max:f.max,
+        key:key(joint.id,motion)});
+    }
+  }
+  return result;
+}
 /** Explicit, source-calibrated ready stances. These are rotation
  * channels in the existing MakeHuman rest-relative FK, not an independent rig.
  * Both elbows remain below shoulder level and the hands in front of the torso.
@@ -785,7 +803,8 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   // Neutral rest is the calibration state, never a previous failed solve.
   const state=poseMap(base);
   stageReadyPose(graph,fk,state,kind,lead,0);
-  const dofs=[...freedomSet(graph,fk,lead),...freedomSet(graph,fk,off)];
+  const torso=torsoFreedomSet(graph,fk);
+  const dofs=[...torso,...freedomSet(graph,fk,lead),...freedomSet(graph,fk,off)];
   const initial=dofs.map(d=>state.get(d.key)?.radians??0);
   fk.apply([...state.values()]);
   const anchors=calibrateStaffAnchors(model,dimensions);
@@ -848,7 +867,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
       Math.max(0,-.055*guard.scale-guard.forwardClearance)*5];
     // A soft authored-reference prior preserves familiar sword/staff pose.
     for(let i=0;i<jointCount;i++)
-      residual.push((values[i]!-initial[i]!)*.0015);
+      residual.push((values[i]!-initial[i]!)*(i<torso.length?.07:.0015));
     for(let i=jointCount;i<values.length;i++)
       residual.push(values[i]!*.008);
     return residual;
