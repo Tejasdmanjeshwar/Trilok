@@ -873,7 +873,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
        (frameB.axis.z-axis.z)*.008]:
       [Math.max(0,axisMin-frameA.axis.dot(axis))*.40,0,0,
        Math.max(0,axisMin-frameB.axis.dot(axis))*.40,0,0];
-    const contactWeight=stage==="position"?4:stage==="polish"?7:3.5;
+    const contactWeight=stage==="position"?4:stage==="polish"?12:3.5;
     // Soft safety barriers expose gradients to optimization instead of
     // declaring a near-contact result safe after it has converged.
     const head=Math.max(0,.195*guard.scale-guard.headClearance);
@@ -901,7 +901,7 @@ function fitWeaponCentric(model:StudioHumanModel,fk:AnatomicalFK,
   // Constraint polishing minimizes both socket residuals while retaining a
   // safety margin above the source-calibrated knuckle-axis acceptance gate.
   const finalFit=fitConstrainedIK(refined.values,limits,
-    values=>sample(values,"polish"),40);
+    values=>sample(values,"polish"),68);
   const commands=[...state.values()];
   const weapon=worldFrame(finalFit.values);
   const axis=weaponAxis(weapon);
