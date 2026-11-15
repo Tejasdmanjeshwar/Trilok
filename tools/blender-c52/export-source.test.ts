@@ -44,7 +44,13 @@ test("export pinned source skin, original bone identities and neutral bind geome
     for(const joint of human.spike.graph.joints){
       const bone=human.spike.bones.get(joint.id);
       const index=bone&&ids.get(bone);
-      if(index!==undefined)semantic[joint.role]=index;
+      if(index!==undefined){
+        semantic[joint.role]=index;
+        if(joint.role.startsWith("finger_")){
+          const side=joint.id.includes("arm[left,0]")?"left":"right";
+          semantic[joint.role+"_"+side]=index;
+        }
+      }
     }
     for(const role of ["chest","head","shoulder_left","shoulder_right",
       "elbow_left","elbow_right","wrist_left","wrist_right",
