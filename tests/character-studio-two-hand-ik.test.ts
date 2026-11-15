@@ -205,7 +205,11 @@ describe("C5.2 two-hand source-anatomical reach",()=>{
           .transformDirection(outcomes[0]!.weaponWorld);
         const staffAxis=new THREE.Vector3(0,1,0)
           .transformDirection(outcomes[1]!.weaponWorld);
-        expect(swordAxis.y).toBeGreaterThan(staffAxis.y+.20);
+        // Staff is now deliberately an inclined two-hand guard rather than
+        // the old near-horizontal presentation. Keep both guards anatomically
+        // below the head while requiring a visible upward staff inclination.
+        expect(swordAxis.y).toBeGreaterThan(.45);
+        expect(staffAxis.y).toBeGreaterThan(.60);
         expect(outcomes[1]!.separationMeters)
           .toBeGreaterThan(outcomes[0]!.separationMeters*2);
       }finally{human.dispose();}
