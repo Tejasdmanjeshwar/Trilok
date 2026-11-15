@@ -105,6 +105,13 @@ function sampleSkin(model:StudioHumanModel,hand:ShieldHand,kind:"forearm"|"hand"
       if(id>=0)owners.add(id);
     }
   }
+  if(kind==="forearm"){
+    // MakeHuman's proximal forearm deformation is carried by a separate
+    // source-preserving skin helper, not the semantic wrist/elbow alone.
+    const helper=spike.forearmSkinBones?.get(hand);
+    const index=helper?spike.skeleton.bones.indexOf(helper):-1;
+    if(index>=0)owners.add(index);
+  }
   if(!owners.size)throw new Error("Missing shield source skin weights");
   const indices=mesh.geometry.getAttribute("skinIndex");
   const weights=mesh.geometry.getAttribute("skinWeight");
