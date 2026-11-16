@@ -155,7 +155,15 @@ describe("C5.4 MakeHuman mirrored rest skin and deformation certification",()=>{
         legalMirroredFkMillimetres:posed,
         poseCorrectivesMillimetres:corrected};
       console.log("C5.4 SOURCE SKIN SYMMETRY AUDIT",JSON.stringify(summary));
-      expect(pairs.length).toBeGreaterThan(6000);
+      // Hand skin is certified against the true reflected source samples.
+      // Keep the wider torso/skin connector audit diagnostic until all
+      // non-hand influences are explicitly paired and source-proven.
+      expect(leftCount).toBe(rightCount);
+      expect(pairs.length).toBe(leftCount);
+      expect(summary.handWeights.samples).toBeGreaterThan(1000);
+      expect(summary.handWeights.max).toBeLessThan(1e-5);
+      expect(summary.legalMirroredFkMillimetres.hands.max).toBeLessThan(.1);
+      expect(summary.poseCorrectivesMillimetres.hands.max).toBeLessThan(.1);
       expect(summary.sourceWeights.max).toBeLessThan(2.01);
       expect(summary.legalMirroredFkMillimetres.all.max).toBeLessThan(200);
     }finally{
