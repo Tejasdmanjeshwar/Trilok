@@ -160,7 +160,7 @@ def main() -> int:
             with urlopen(Request(rig_url,headers={"User-Agent":"Trilok-Reference-Audit/1.0"}),timeout=45) as response:
                 raw_rig=response.read(117791)
             expected="b02cbecae00143856410d7561adf006d83bf9b3e"
-            actual=hashlib.sha1(b"blob "+str(len(raw_rig)).encode()+b"\\x00"+raw_rig).hexdigest()
+            actual=hashlib.sha1(b"blob "+str(len(raw_rig)).encode()+b"\x00"+raw_rig).hexdigest()
             if len(raw_rig)!=117790 or actual!=expected:
                 raise RuntimeError("Pinned MakeHuman source rig checksum mismatch")
             pinned.parent.mkdir(parents=True,exist_ok=True)
