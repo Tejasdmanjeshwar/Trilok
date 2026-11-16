@@ -217,6 +217,7 @@ export interface ArcheryPoseResult {
   readonly bowHandErrorMeters:number;
   readonly bowSkinContact:readonly SourceCylinderRegion[];
   readonly drawHandErrorMeters:number;
+  readonly drawingSkinGapsMeters?:Readonly<Record<"index"|"middle"|"ring",number>>;
   readonly bodyClearanceMeters:number;
   readonly drawMeters:number;
   readonly actualDrawFraction:number;
@@ -295,6 +296,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   }
   let completed:readonly JointTarget[]=staged;
   let drawError=0,drawClearance=Infinity,drawIterations=0,drawAttempts=0;
+  let drawSkinGaps:Readonly<Record<"index"|"middle"|"ring",number>>|undefined;
   let contact=target.clone();
   let solvedWorld=world.clone();
   const bowOffset=model.human.spike.character.socketWorld(socket.id)
@@ -335,7 +337,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       const lower=new THREE.Vector3(0,-descriptor.limbLengthMeters,
         -descriptor.stringRestMeters).applyMatrix4(actualBow);
       return measureSourceStringContact(model,skinnedHook,
-        goal,upper,lower,.0018*scale,.10*scale);
+        goal,upper,lower,.0018*scale,.055*scale);
     };
     const stagedMap=new Map(staged.map(v=>[v.jointId+"/"+v.motion,v.radians]));
     const initial=freedoms.map(f=>stagedMap.get(f.jointId+"/"+f.motion)??0);
@@ -352,7 +354,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       .multiply(bowOffset);
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
-      iterations:number}|undefined;
+      skin:Readonly<Record<"index"|"middle"|"ring",number>>;
+      valid:boolean;iterations:number}|undefined;
     for(const angles of drawSeeds){
       const seed=clampContactSeed([
         ...initial.slice(0,9),...angles,...initial.slice(18)],freedoms);
@@ -402,9 +405,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         (skin.index+skin.middle)*1.5;
       drawAttempts++;
       drawIterations=Math.max(drawIterations,fit.iterations);
-      if(!best||cost<best.cost)best={
+      const valid=error<.03*scale&&clearance>-.025*scale;
+      // Physical arm reach is a hard feasibility gate. A lower fingertip
+      // distance must never select an otherwise unreachable draw candidate.
+      if(!best||(valid&&!best.valid)||
+          (valid===best.valid&&cost<best.cost))best={
         commands:candidate,world:actualBow,contact:finger,
-        error,clearance,cost,iterations:fit.iterations,
+        error,clearance,cost,skin,valid,iterations:fit.iterations,
       };
       if(error<.008*scale&&clearance>0&&
         skin.index<.004*scale&&skin.middle<.004*scale)break;
@@ -416,6 +423,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     target=localNock.clone().applyMatrix4(solvedWorld);
     contact=drawingFingerContactWorld(model,drawSide);
     drawError=contact.distanceTo(target);
+    drawSkinGaps=best.skin;
     drawClearance=best.clearance;
     drawIterations=best.iterations;
   }
@@ -443,6 +451,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
     iterations:held.iterations+drawIterations,solverAttempts:held.attempts+drawAttempts,
     bowHandErrorMeters:bowError,bowSkinContact:handFit.samples,drawHandErrorMeters:drawError,
+    drawingSkinGapsMeters:drawSkinGaps,
     bodyClearanceMeters:Math.min(held.clearance,drawClearance,
       collisions.clearance(nock)),drawMeters:Math.max(0,
       -contactLocal.z-descriptor.stringRestMeters),
