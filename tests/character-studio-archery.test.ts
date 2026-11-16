@@ -55,6 +55,31 @@ describe("MakeHuman bow handle frame diagnosis",()=>{
         }
         sweep.sort((a,b)=>
           a.pen+a.gripGap*1.5-b.pen-b.gripGap*1.5);
+        const tilted=[] as Array<{rx:number;rz:number;pen:number;gap:number;
+          thumb:number;palm:number;little:number;index:number;middle:number}>;
+        for(const rx of [-.4,-.2,0,.2,.4]){
+          for(const rz of [-.6,-.3,0,.3,.6]){
+            const pivot=new THREE.Matrix4().makeRotationFromEuler(
+              new THREE.Euler(rx,0,rz,"XYZ"));
+            const aligned=result.bowWorld.clone().multiply(pivot);
+            aligned.setPosition(center.clone()
+              .addScaledVector(x,hand==="left"?.03:-.03)
+              .addScaledVector(z,.015));
+            const sample=measureStaff(model,hand,aligned,
+              result.descriptor.handleRadiusMeters*.55,0);
+            const get=(role:string)=>sample.find(v=>v.digit===role)!;
+            tilted.push({rx,rz,pen:Math.max(...sample.map(v=>v.deepestPenetration)),
+              gap:Math.max(...["thumb","index","middle","ring","little"]
+                .map(role=>get(role).closestGap)),
+              thumb:get("thumb").deepestPenetration,
+              palm:get("palm").deepestPenetration,
+              little:get("little").deepestPenetration,
+              index:get("index").closestGap,middle:get("middle").closestGap});
+          }
+        }
+        tilted.sort((a,b)=>(a.pen+a.gap*1.5)-(b.pen+b.gap*1.5));
+        console.log("C5.4 bow tilt sweep",JSON.stringify({hand,
+          best:tilted.slice(0,12)}));
         console.log("C5.4 handle geometry sweep",JSON.stringify({hand,
           best:sweep.slice(0,12),penetrationFirst:[...sweep]
             .sort((a,b)=>a.pen-b.pen).slice(0,5)}));
