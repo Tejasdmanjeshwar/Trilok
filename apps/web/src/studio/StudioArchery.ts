@@ -8,6 +8,7 @@ import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
 import {fitBowHandContact} from "./StudioBowContact";
+import {retargetSourceArcherPose} from "./StudioMakeHumanArcherRetarget";
 import {measureSourceStringContact,sourceHandSamples,
   sourceFingerPadVertices,sourcePadWorld,
   type SourceCylinderRegion} from "./StudioSourceContact";
@@ -82,8 +83,22 @@ function digitCommands(model:StudioHumanModel,fk:AnatomicalFK,side:HandSide,
   drawing:boolean):readonly JointTarget[]{
   const h=model.human.spike;
   const spreads=calibrateGripSpreads(h.graph,h.bones,fk.frames,side);
-  return handContactTargets(h.graph,side,
+  // Actual source BVH finger rotations are the *starting pose*. Contact IK
+  // remains authoritative and may adjust these legal channels when the
+  // skinned fingers do not land on the handle/string for this morphology.
+  // Keep the established C5 fallback profile available for diagnostic
+  // comparisons; never modify sword/staff/shield grip paths.
+  const reference=retargetSourceArcherPose(h.graph,fk,side,
+    drawing?"string-drawing":"bow-holding","square");
+  const source=new Map(reference.commands.map(c=>[c.jointId+"/"+c.motion,c]));
+  const fallback=handContactTargets(h.graph,side,
     drawing?"string-two-finger":"bow-handle",spreads);
+  const commands=[...fallback.map(c=>source.get(c.jointId+"/"+c.motion)??c)];
+  // Some source MakeHuman hands explicitly articulate MCP spread even when
+  // the previous contact profile did not. Those source freedoms are legal.
+  for(const c of reference.commands)if(!fallback.some(f=>k(f)===k(c)))
+    commands.push(c);
+  return Object.freeze(commands);
 }
 /** The string hook is the crease between the source index and middle fingers,
  * not the C5.2 cylindrical-grip palm proxy. These are real posed MakeHuman
@@ -118,12 +133,18 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
   // A draw arm approaching the face from the contralateral shoulder needs
   // alternative, anatomically legal elbow folds. Reuse the same bounded DLS
   // solver, selecting the lowest measured source-contact residual.
+  const reference=retargetSourceArcherPose(model.human.spike.graph,fk,side,
+    drawHand?"string-drawing":"bow-holding","square",true);
+  const referenceMap=new Map(reference.commands.map(c=>[k(c),c.radians]));
+  const referenceArm=axes.map(a=>referenceMap.get(a.jointId+"/"+a.motion)??0);
   const seedAngles=drawHand?[
+    referenceArm,
     [0,0,.48,.29,.86*sign,1.40,0,-.06,0],
     [0,0,.16,.88,-.80*sign,1.58,0,-.12,0],
     [0,0,-.12,.62,-1.45*sign,1.95,0,-.20,0],
     [0,0,.62,.48,-1.10*sign,1.24,0,.16,0],
   ]:[
+    referenceArm,
     [0,0,.55,.40,.85*sign,.65,0,-.08,0],
   ];
   const stage=(values:readonly number[])=>merge(base,axes.map((a,i)=>({
@@ -347,7 +368,12 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const stagedMap=new Map(staged.map(v=>[v.jointId+"/"+v.motion,v.radians]));
     const initial=freedoms.map(f=>stagedMap.get(f.jointId+"/"+f.motion)??0);
     const signed=drawSide==="right"?1:-1;
+    const sourceDraw=retargetSourceArcherPose(
+      model.human.spike.graph,fk,drawSide,"string-drawing","square",true);
+    const sourceDrawMap=new Map(sourceDraw.commands.map(c=>[k(c),c.radians]));
+    const drawFreedoms=freedoms.slice(9,18);
     const drawSeeds=[
+      drawFreedoms.map(c=>sourceDrawMap.get(k(c))??0),
       [0,0,.48,.29,.86*signed,1.40,0,-.06,0],
       [0,0,.16,.88,-.80*signed,1.58,0,-.12,0],
       [0,0,-.12,.62,-1.45*signed,1.95,0,-.20,0],
