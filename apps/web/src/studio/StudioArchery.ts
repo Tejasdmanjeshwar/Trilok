@@ -362,7 +362,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
       skin:Readonly<Record<"index"|"middle"|"ring",number>>;
-      nockY:number;valid:boolean;iterations:number}|undefined;
+      nockY:number;valid:boolean;skinValid:boolean;
+      iterations:number}|undefined;
     for(const angles of drawSeeds){
       const jointSeed=clampContactSeed([
         ...initial.slice(0,9),...angles,...initial.slice(18)],freedoms);
@@ -384,7 +385,11 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           finger.x-goal.x,finger.y-goal.y,finger.z-goal.z,
           // Actual skinned index + middle pads contact the moving string,
           // instead of satisfying only their shared bone-crease midpoint.
-          skin.index*2,skin.middle*2,
+          skin.index*2.8,skin.middle*2.5,
+          // A hinge objective keeps each skinned hook contact safely below
+          // its 8-mm acceptance gate instead of relying on an average.
+          Math.max(0,skin.index-.006*scale)*4,
+          Math.max(0,skin.middle-.006*scale)*4,
           Math.max(0,.006*scale-skin.ring)*.3,
           ...upright.toArray().map(v=>v*.08*scale),
           // Keep the holding arm close to the authored reachable stance.
@@ -416,12 +421,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       drawAttempts++;
       drawIterations=Math.max(drawIterations,fit.iterations);
       const valid=error<.03*scale&&clearance>-.025*scale;
-      // Physical arm reach is a hard feasibility gate. A lower fingertip
-      // distance must never select an otherwise unreachable draw candidate.
+      const skinValid=skin.index<.008*scale&&skin.middle<.008*scale;
+      // Feasible true-skin contacts take precedence over proxy crease cost.
+      // A lowered hook gap is not accepted if it makes the arm unreachable.
       if(!best||(valid&&!best.valid)||
-          (valid===best.valid&&cost<best.cost))best={
+          (valid===best.valid&&skinValid&&!best.skinValid)||
+          (valid===best.valid&&skinValid===best.skinValid&&cost<best.cost))best={
         commands:candidate,world:actualBow,contact:finger,
-        error,clearance,cost,skin,valid,
+        error,clearance,cost,skin,valid,skinValid,
         nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
       };
       if(error<.008*scale&&clearance>0&&
