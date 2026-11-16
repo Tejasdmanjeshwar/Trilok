@@ -133,3 +133,21 @@ The Cloudflare build that checked out `85200f577a61cb7bb517e0b632211bf86bccc98f`
 Cloudflare's log showed `tests/character-studio-bow-morphology.test.ts` took 90.619 seconds and `tests/character-studio-two-hand-ik.test.ts` took 60.777 seconds. Vitest 3.x fork RPC has an approximately 60-second `onTaskUpdate` timeout independent of test timeout values (see [upstream issue #8164](https://github.com/vitest-dev/vitest/issues/8164) and [discussion #6511](https://github.com/vitest-dev/vitest/discussions/6511)). **Fix:** retain every original test case/assertion/tolerance but extract one shared C5.4 morphology assertion and distribute the five variants over three shorter test files (2/2/1), and move the expensive C5.2 two-hand native hand proportion test into its own file using the existing identical shared `make` fixture. Keep `pnpm test` running the complete `tests/` tree, including full combat replay. No skip, timeout extension, omitted weapon, or test gate relaxation was used. These changes target the failure mechanism without altering gameplay code or Cloudflare build configuration.
 
 Final Cloudflare build, resulting preview SHA and fresh browser screenshots must still be checked independently before user visual review and C5.4 acceptance.
+
+### CI browser policy correction — 2026-11-16
+
+The temporary automatic `studio-c54-render-review.yml` workflow successfully
+built and verified commit `92d6abba90b63e189fcce15dd9db9438635f9730`,
+executed the left/right five-state desktop/touch Chromium archery test, and
+uploaded screenshots as [run 43835228620](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43835228620)
+artifact `c54-archery-92d6abba90b63e189fcce15dd9db9438635f9730`
+(artifact ID 14210682649, 14-day retention). The same commit's Verify suite
+failed one **CI policy** test: `tests/ci-phase-gating.test.ts` deliberately
+prohibits automatic Playwright/Chromium on PR pushes and reserves it for
+manually dispatched `phase-acceptance.yml`. Revert the temporary
+automatic browser workflow, without modifying or weakening the existing
+CI policy test. The successful screenshot artifact remains available
+from the completed run for independent visual inspection. For later
+candidate revisions, request the existing manual phase-level acceptance
+workflow rather than automatically running browsers on every push.
+The Cloudflare feature preview still needs independent SHA verification.
