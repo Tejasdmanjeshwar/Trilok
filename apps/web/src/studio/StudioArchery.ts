@@ -398,7 +398,12 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     // Every selected candidate is checked against *all* original vertices.
     const coarseHook=sourceHandSamples(model,drawSide,32);
     const fullHook=sourceHandSamples(model,drawSide);
-    const padSurface=sourceHandSamples(model,drawSide,120);
+    // Choose anatomical pad anchors from the complete source skin.
+    // Native OBJ vertex-index quantiles are not reflected homologues:
+    // downsampling here can pick different physical pads for mirrored hands.
+    // This pass runs only once per solve; subsequent numerical IK evaluations
+    // still use the same four fixed pad vertices per digit.
+    const padSurface=fullHook;
     const padVertices={
       index:sourceFingerPadVertices(model,drawSide,"index",padSurface),
       middle:sourceFingerPadVertices(model,drawSide,"middle",padSurface),
