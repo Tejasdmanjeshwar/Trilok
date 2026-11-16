@@ -36,7 +36,12 @@ export class StudioPosePreview {
   }
   get twoHandResult():TwoHandIKResult|undefined{return this.result;}
   setGrip(hand:EquipmentChoice):void{this.grip=hand;this.refresh();}
-  constructor(private readonly model:StudioHumanModel){
+  constructor(private readonly model:StudioHumanModel,
+    archery?:Readonly<{state:ArcheryState;draw:number}>){
+    if(archery){
+      this.archeryState=archery.state;
+      this.archeryDraw=archery.draw;
+    }
     const h=model.human;
     this.fk=new AnatomicalFK(h.spike.graph,h.spike.bones,{
       jawTipWorldRest:h.jawTipWorldRest,
