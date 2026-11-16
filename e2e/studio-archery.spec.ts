@@ -27,12 +27,12 @@ test("mirrored bow nock, partial draw, aim and release remain Studio-only",async
       await page.waitForTimeout(650);
       await page.screenshot({path:"test-results/studio/"+test.info().project.name+
         "-bow-"+side+"-"+position+"-full.png",fullPage:true});
-      if(position==="aim"){
-        await page.locator("#studio-sword-focus").click();
-        await page.waitForTimeout(650);
-        await page.screenshot({path:"test-results/studio/"+test.info().project.name+
-          "-bow-"+side+"-hand.png",fullPage:true});
-      }
+      // Repeat at the hand-focus camera for every state, not only aim.
+      // These are actual canvas screenshots, not numerical pose projections.
+      await page.locator("#studio-sword-focus").click();
+      await page.waitForTimeout(650);
+      await page.screenshot({path:"test-results/studio/"+test.info().project.name+
+        "-bow-"+side+"-"+position+"-hand-close.png",fullPage:true});
     }
   }
   await choice.selectOption("sword-shield-right");
