@@ -79,7 +79,7 @@ function digitCommands(model:StudioHumanModel,fk:AnatomicalFK,side:HandSide,
   const h=model.human.spike;
   const spreads=calibrateGripSpreads(h.graph,h.bones,fk.frames,side);
   return handContactTargets(h.graph,side,
-    drawing?"string-mediterranean":"bow-handle",spreads);
+    drawing?"string-two-finger":"bow-handle",spreads);
 }
 /** The string hook is the crease between the source index and middle fingers,
  * not the C5.2 cylindrical-grip palm proxy. These are real posed MakeHuman
@@ -181,7 +181,7 @@ function bowFrame(model:StudioHumanModel,hand:HandSide,
     throw new Error("Degenerate calibrated bow-hand frame");
   // +Y follows the actual source knuckle line, never an invented socket Euler.
   const center=fitHandleCenter(model,hand,twoHandGripContactWorld(model,hand),
-    x,y,z,radius,length,{avoidPalmPenetration:true});
+    x,y,z,radius,length);
   return new THREE.Matrix4().makeBasis(x,y,z).setPosition(center);
 }
 export interface ArcheryPoseResult {
@@ -367,9 +367,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const resolved=solvedWorld.clone().invert();
   const contactLocal=contact.clone().applyMatrix4(resolved);
   return Object.freeze({
-    reachable,reason:bowError>=.12*scale?"bow-unreachable":
-      drawError>=.085*scale?"draw-unreachable":
-      unsafe?"body-intersection":"ok",
+    reachable,reason:bowError>=.10*scale?"bow-unreachable":
+      state!=="rest"&&drawError>=.03*scale?"draw-unreachable":
+      unsafe||held.clearance<=-.027*scale||
+      state!=="rest"&&drawClearance<=-.025*scale?"body-intersection":"ok",
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
     iterations:held.iterations+drawIterations,solverAttempts:held.attempts+drawAttempts,
     bowHandErrorMeters:bowError,drawHandErrorMeters:drawError,
