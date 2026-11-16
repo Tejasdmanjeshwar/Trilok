@@ -64,8 +64,7 @@ export function contactArmFreedoms(graph:AnatomicalGraphV1,fk:AnatomicalFK,
       const limit=fk.frames.get(joint.id)?.freedoms.get(motion);
       if(!limit)throw new Error("Uncalibrated contact arm freedom "+part+"/"+motion);
       result.push(Object.freeze({jointId:joint.id,motion,
-        min:limit.min,max:limit.max,
-        differenceSign:mirrorContactDifferenceSign(graph,fk,joint.id,motion,side)}));
+        min:limit.min,max:limit.max}));
     }
   }
   return Object.freeze(result);
