@@ -108,8 +108,9 @@ describe("Studio bow and visual nock contract",()=>{
         try{
           validateBowReference(reference.descriptor,human.spike.graph);
           expect(reference.object.getObjectByName("BowHandle")).toBeDefined();
-          expect(reference.object.getObjectByName("UpperBowLimb")).toBeDefined();
-          expect(reference.object.getObjectByName("LowerBowLimb")).toBeDefined();
+          expect(reference.object.getObjectByName("BowStave")).toBeDefined();
+          expect(reference.object.getObjectByName("UpperBowNock")).toBeDefined();
+          expect(reference.object.getObjectByName("LowerBowNock")).toBeDefined();
           expect(reference.object.children.filter(n=>n.name==="BowString")).toHaveLength(2);
           const first=reference.object.matrix.clone();
           reference.update();
