@@ -82,6 +82,25 @@ function quantiles(numbers:readonly number[]){
     max:sorted.at(-1)??0};
 }
 describe("C5.4 MakeHuman mirrored rest skin and deformation certification",()=>{
+  it("pairs mirrored contact Jacobian skin probes across all six regions",()=>{
+    const {human,model}=make();
+    try{
+      const pos=human.mesh.geometry.getAttribute("position");
+      const left=sourceHandSamples(model,"left",80);
+      const right=sourceHandSamples(model,"right",80);
+      for(const region of ["palm","thumb","index","middle","ring","little"] as const){
+        const l=left.get(region)!,r=right.get(region)!;
+        expect(r).toHaveLength(l.length);
+        let maximum=0;
+        for(let i=0;i<l.length;i++){
+          const a=l[i]!,b=r[i]!;
+          maximum=Math.max(maximum,Math.hypot(pos.getX(a)+pos.getX(b),
+            pos.getY(a)-pos.getY(b),pos.getZ(a)-pos.getZ(b)));
+        }
+        expect(maximum,region+" reflected contact probes").toBeLessThan(.0001);
+      }
+    }finally{human.dispose();}
+  },120_000);
   it("measures reflected source skin influences, legal FK deformations and shoulder correctives",()=>{
     const {human,fk,model}=make();
     let correctives:HumanPoseCorrectives|undefined;
