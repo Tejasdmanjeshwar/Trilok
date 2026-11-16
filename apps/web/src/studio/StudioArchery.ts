@@ -447,7 +447,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const upright=axis.cross(up);
         return [
           // The arrow/string and the source finger hook share one goal.
-          finger.x-goal.x,finger.y-goal.y,finger.z-goal.z,
+          (finger.x-goal.x)*1.65,(finger.y-goal.y)*1.65,
+          (finger.z-goal.z)*1.65,
           // Actual skinned index + middle pads contact the moving string,
           // instead of satisfying only their shared bone-crease midpoint.
           // Fixed source-skin volar pads provide continuous 3D Jacobians.
@@ -458,10 +459,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           Math.max(0,skin.index-.006*scale)*2,
           Math.max(0,skin.middle-.006*scale)*2,
           Math.max(0,.006*scale-skin.ring)*.3,
-          ...upright.toArray().map(v=>v*.08*scale),
+          ...upright.toArray().map(v=>v*.045*scale),
           // Keep the holding arm close to the authored reachable stance.
-          (bowGrip.x-bowTarget.x)*.7,(bowGrip.y-bowTarget.y)*.7,
-          (bowGrip.z-bowTarget.z)*.7,
+          (bowGrip.x-bowTarget.x)*.45,(bowGrip.y-bowTarget.y)*.45,
+          (bowGrip.z-bowTarget.z)*.45,
           Math.max(0,.018*scale-collisions.clearance(elbowMid))*1.5,
           Math.max(0,.012*scale-collisions.clearance(finger))*1.5,
           ...values.map((v,i)=>(v-seed[i]!)*.002),
@@ -469,7 +470,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           values[freedoms.length]!/nockYBound*.003,
         ];
       };
-      const fit=fitConstrainedIK(seed,nockLimits,evaluate,32);
+      const fit=fitConstrainedIK(seed,nockLimits,evaluate,48);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
