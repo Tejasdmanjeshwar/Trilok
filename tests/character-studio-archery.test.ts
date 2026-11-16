@@ -5,6 +5,7 @@ import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
 import {handContactTargets} from "../apps/web/src/studio/StudioWeaponGrip";
 import {contactArmFreedoms,composeContactPose} from "../apps/web/src/studio/StudioContactIK";
 import {StudioBowPreview,archeryDrawFraction,validateBowReference,
+  measureStringFingerSkin,
   type ArcheryState} from "../apps/web/src/studio/StudioArchery";
 import {aimBallisticAt,sampleTrajectory} from "../packages/combat/src/projectile-motion";
 
@@ -91,6 +92,15 @@ describe("Studio bow and visual nock contract",()=>{
         expect(report.commands.every(c=>Number.isFinite(c.radians))).toBe(true);
         expect(root.elements).toEqual(human.spike.character.root.matrixWorld.elements);
         if(report.reachable){
+          if(state!=="release"){
+            const stringSkin=measureStringFingerSkin(model,
+              hand==="left"?"right":"left",report);
+            console.log("C5.4 actual posed string-skin gaps",
+              JSON.stringify({hand,state,stringSkin}));
+            expect(stringSkin.every(sample=>
+              sample.skinVertices>0&&Number.isFinite(sample.nearestGapMeters)))
+              .toBe(true);
+          }
           const bow=new StudioBowPreview(model,report);
           try{
             if(state!=="release"){
