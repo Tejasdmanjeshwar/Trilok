@@ -9,7 +9,7 @@ import {fitConstrainedIK} from "./ConstrainedIK";
 import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
-import {fitBowHandContact} from "./StudioBowContact";
+import {fitBowHandContact,fitMorphologyAwareBowRadius} from "./StudioBowContact";
 import {retargetSourceArcherPose} from "./StudioMakeHumanArcherRetarget";
 import {measureSourceStringContact,sourceHandSamples,
   sourceFingerPadVertices,sourcePadWorld,
@@ -288,7 +288,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const socket=model.human.spike.graph.sockets.find(s=>s.purpose==="primary_grip"&&
     s.parentJointId===scoped(model,"palm",hand)?.id);
   if(!socket)throw new Error("Missing source bow-hand grip socket");
-  const descriptor:BowReferenceV1=Object.freeze({
+  let descriptor:BowReferenceV1=Object.freeze({
     schemaVersion:1,id:"bow/"+hand,kind:"bow",hand,socketId:socket.id,
     limbLengthMeters:.64*scale,
     handleRadiusMeters:THREE.MathUtils.clamp(width/8,.003,.014),
@@ -309,7 +309,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     fk.apply(commands);
     const frame=bowFrame(model,hand,descriptor.handleRadiusMeters,
       descriptor.handleLengthMeters);
-    const fit=fitBowHandContact(model,fk,commands,hand,frame,
+    const initialFit=fitBowHandContact(model,fk,commands,hand,frame,
+      descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
+    const {fit,radius}=fitMorphologyAwareBowRadius(model,fk,hand,initialFit,
       descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
     // Contact pressure and sampled finite-cylinder coverage are evaluated
     // on ALL source vertices after FK. Reward a real palm/four-finger grasp,
@@ -318,11 +320,15 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       sum+part.maximumPenetrationMeters*5+
       part.nearestGapMeters*1.4+
       Math.max(0,.60-part.axialVertices/part.sampledVertices)*.012,0);
-    return {fit,index,cost};
+    return {fit,index,cost,radius};
   });
   candidates.sort((a,b)=>Number(b.fit.accepted)-Number(a.fit.accepted)||
     a.cost-b.cost||a.index-b.index);
   const handFit=candidates[0]!.fit;
+  // The visible cylinder, contact evaluator and authoritative socket must
+  // all share the SAME selected morphology-specific handle dimensions.
+  descriptor=Object.freeze({...descriptor,
+    handleRadiusMeters:candidates[0]!.radius});
   staged=handFit.commands;
   fk.apply(staged);
   const world=handFit.bowWorld;
