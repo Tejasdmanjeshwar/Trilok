@@ -412,14 +412,23 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       new THREE.Vector3(0,y,localNock.z).applyMatrix4(bow);
     const dynamicBow=()=>model.human.spike.character.socketWorld(socket.id)
       .multiply(bowOffset);
+    const calibratedHook=handContactTargets(model.human.spike.graph,
+      drawSide,"string-two-finger",calibrateGripSpreads(
+        model.human.spike.graph,model.human.spike.bones,fk.frames,drawSide));
+    const calibratedHookMap=new Map(calibratedHook.map(c=>[k(c),c.radians]));
+    const digitSeeds=[
+      initial.slice(18),
+      drawDigitFreedoms.map((c,i)=>calibratedHookMap.get(k(c))??
+        initial[18+i]!),
+    ];
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
       skin:Readonly<Record<"index"|"middle"|"ring",number>>;
       nockY:number;valid:boolean;skinValid:boolean;
       iterations:number}|undefined;
-    for(const angles of drawSeeds){
+    for(const angles of drawSeeds)for(const fingerSeed of digitSeeds){
       const jointSeed=clampContactSeed([
-        ...initial.slice(0,9),...angles,...initial.slice(18)],freedoms);
+        ...initial.slice(0,9),...angles,...fingerSeed],freedoms);
       const seed=[...jointSeed,0];
       const commands=(values:readonly number[])=>
         composeContactPose(staged,freedoms,values.slice(0,freedoms.length));
