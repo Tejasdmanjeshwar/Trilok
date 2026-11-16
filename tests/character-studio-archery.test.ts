@@ -15,6 +15,8 @@ describe("Shared anatomical weapon contacts",()=>{
   it("evaluates finite cylinder caps and signed interior, not an infinite axis",()=>{
     expect(signedFiniteCylinderDistance(0,0,0,.01,.1)).toBeCloseTo(-.01);
     expect(signedFiniteCylinderDistance(.013,0,0,.01,.1)).toBeCloseTo(.003);
+    expect(signedFiniteCylinderDistance(0,.049,0,.01,.1))
+      .toBeCloseTo(-.001);
     expect(signedFiniteCylinderDistance(0,.055,0,.01,.1)).toBeCloseTo(.005);
     expect(signedFiniteCylinderDistance(.013,.054,0,.01,.1))
       .toBeCloseTo(.005);
