@@ -24,9 +24,8 @@ jobs:
           src="test-results/c54-makehuman-reference/poses02"
           test -f "$src/callharvey3d_archer_hero.bvh"
           test -f "$src/callharvey3d_archer_square_stance.bvh"
-          printf '%s  %s\\n' \\
-            a6750c2d3a1eb27eedd09d04312e55db59f267f9d60b3262392b9c76a65777cc "$src/callharvey3d_archer_hero.bvh" \\
-            cbd91e39bad431d684a30893cd0651947a3dda4bb149bb33439dfb597b1b83a7 "$src/callharvey3d_archer_square_stance.bvh" | sha256sum --check
+          echo "a6750c2d3a1eb27eedd09d04312e55db59f267f9d60b3262392b9c76a65777cc  $src/callharvey3d_archer_hero.bvh" | sha256sum -c
+          echo "cbd91e39bad431d684a30893cd0651947a3dda4bb149bb33439dfb597b1b83a7  $src/callharvey3d_archer_square_stance.bvh" | sha256sum -c
           dst="assets/reference/makehuman/c54-archery"
           mkdir -p "$dst"
           cp "$src"/*.bvh "$src"/*.meta "$dst/"
