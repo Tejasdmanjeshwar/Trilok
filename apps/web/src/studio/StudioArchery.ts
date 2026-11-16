@@ -8,6 +8,7 @@ import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
 import {fitBowHandContact} from "./StudioBowContact";
+import {fitConstrainedIK} from "./ConstrainedIK";
 import {measureSourceStringContact,sourceHandSamples,
   type SourceCylinderRegion} from "./StudioSourceContact";
 import {contactArmFreedoms,composeContactPose,clampContactSeed,
@@ -350,21 +351,29 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     ];
     const elbow=bone(model,"elbow_"+drawSide,drawSide);
     const wrist=bone(model,"wrist_"+drawSide,drawSide);
+    // A real nocked arrow rests slightly above/below the grip midpoint
+    // depending on the source hand. Give the nock a bounded, shared bow-local
+    // longitudinal variable instead of forcing every anatomy onto local Y=0.
+    const nockYBound=Math.min(.035*scale,descriptor.handleLengthMeters*.25);
+    const nockLimits=[...freedoms,{min:-nockYBound,max:nockYBound}];
+    const nockWorldFor=(bow:THREE.Matrix4,y:number)=>
+      new THREE.Vector3(0,y,localNock.z).applyMatrix4(bow);
     const dynamicBow=()=>model.human.spike.character.socketWorld(socket.id)
       .multiply(bowOffset);
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
       skin:Readonly<Record<"index"|"middle"|"ring",number>>;
-      valid:boolean;iterations:number}|undefined;
+      nockY:number;valid:boolean;iterations:number}|undefined;
     for(const angles of drawSeeds){
-      const seed=clampContactSeed([
+      const jointSeed=clampContactSeed([
         ...initial.slice(0,9),...angles,...initial.slice(18)],freedoms);
+      const seed=[...jointSeed,0];
       const commands=(values:readonly number[])=>
-        composeContactPose(staged,freedoms,values);
+        composeContactPose(staged,freedoms,values.slice(0,freedoms.length));
       const evaluate=(values:readonly number[])=>{
         fk.apply(commands(values));
         const actualBow=dynamicBow();
-        const goal=localNock.clone().applyMatrix4(actualBow);
+        const goal=nockWorldFor(actualBow,values[freedoms.length]!);
         const finger=drawingFingerContactWorld(model,drawSide);
         const bowGrip=twoHandGripContactWorld(model,hand);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
@@ -385,14 +394,16 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           Math.max(0,.018*scale-collisions.clearance(elbowMid))*1.5,
           Math.max(0,.012*scale-collisions.clearance(finger))*1.5,
           ...values.map((v,i)=>(v-seed[i]!)*.002),
+          // Keep the arrow rest near the bow grip's source-calibrated center.
+          values[freedoms.length]!/nockYBound*.003,
         ];
       };
-      const fit=solveContactConstraints(seed,freedoms,evaluate,32);
+      const fit=fitConstrainedIK(seed,nockLimits,evaluate,32);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
       const finger=drawingFingerContactWorld(model,drawSide);
-      const goal=localNock.clone().applyMatrix4(actualBow);
+      const goal=nockWorldFor(actualBow,fit.values[freedoms.length]!);
       const error=finger.distanceTo(goal);
       const skin=fingerSkin(actualBow,goal);
       const clearance=Math.min(
@@ -411,7 +422,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       if(!best||(valid&&!best.valid)||
           (valid===best.valid&&cost<best.cost))best={
         commands:candidate,world:actualBow,contact:finger,
-        error,clearance,cost,skin,valid,iterations:fit.iterations,
+        error,clearance,cost,skin,valid,
+        nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
       };
       if(error<.008*scale&&clearance>0&&
         skin.index<.004*scale&&skin.middle<.004*scale)break;
@@ -422,6 +434,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     solvedWorld=dynamicBow();
     target=localNock.clone().applyMatrix4(solvedWorld);
     contact=drawingFingerContactWorld(model,drawSide);
+    localNock.y=best.nockY;
+    target=nockWorldFor(best.world,best.nockY);
     drawError=contact.distanceTo(target);
     drawSkinGaps=best.skin;
     drawClearance=best.clearance;
