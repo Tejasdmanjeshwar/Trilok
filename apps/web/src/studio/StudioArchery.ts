@@ -515,13 +515,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         error,clearance,cost,skin,valid,skinValid,
         nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
       };
-      // Deterministic feasible-first exit at a safety margin inside the
-      // original 30-mm reach / 8-mm source-skin gates. Evaluating all other
-      // expensive morph-skinned seeds after a robust contact is wasted work
-      // and can starve the browser/worker event loop. No test gate is relaxed.
-      if(error<.0225*scale&&clearance>0&&
-        bowDisplacement<.075*scale&&
-        skin.index<.006*scale&&skin.middle<.006*scale){
+      // Deterministic feasible-first exit at a bounded margin inside the
+      // original 30-mm reach / 8-mm source-skin and 100-mm bow gates. A
+      // solution with acceptable complete source-skin geometry does not
+      // require 14 more expensive exploratory candidates; the hard
+      // acceptance assertions remain unchanged.
+      if(error<.029*scale&&clearance>0&&
+        bowDisplacement<.09*scale&&
+        skin.index<.0075*scale&&skin.middle<.0075*scale){
         best={commands:candidate,world:actualBow,contact:finger,
           error,clearance,cost,skin,valid:true,skinValid:true,
           nockY:fit.values[freedoms.length]!,iterations:fit.iterations};
