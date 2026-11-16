@@ -6,6 +6,8 @@
 export interface IKFreedom {
   readonly min:number;
   readonly max:number;
+  /** Use mirrored parameter probes for a DOF whose axial direction reverses. */
+  readonly differenceSign?:1|-1;
 }
 export interface IKFit {
   readonly values:readonly number[];
@@ -68,7 +70,13 @@ export function fitConstrainedIK(start:readonly number[],
     const jacobian=Array.from({length:count},()=>Array<number>(start.length).fill(0));
     for(let j=0;j<start.length;j++){
       const bound=limits[j]!,h=.006;
-      const step=parameters[j]!+h<=bound.max?h:-h;
+      // Corresponding reflected joints can have opposite signed local axes.
+      // Probe their legal parameters in equivalent physical directions, not
+      // universally toward increasing numerical angles. Keep one shared DLS.
+      const direction=bound.differenceSign??1;
+      const preferred=direction*h;
+      const step=parameters[j]!+preferred<=bound.max&&
+        parameters[j]!+preferred>=bound.min?preferred:-preferred;
       const moved=Math.max(bound.min,Math.min(bound.max,parameters[j]!+step));
       const delta=moved-parameters[j]!;
       if(Math.abs(delta)<1e-10)continue;
