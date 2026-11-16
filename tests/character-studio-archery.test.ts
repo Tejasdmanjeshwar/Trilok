@@ -31,6 +31,33 @@ describe("MakeHuman bow handle frame diagnosis",()=>{
             indexGap:get("index").closestGap,
             middleGap:get("middle").closestGap,littleGap:get("little").closestGap});
         }
+        const x=new THREE.Vector3().setFromMatrixColumn(result.bowWorld,0).normalize();
+        const z=new THREE.Vector3().setFromMatrixColumn(result.bowWorld,2).normalize();
+        const sweep=[] as Array<{radius:number;dx:number;dz:number;pen:number;
+          gripGap:number;palmPen:number;thumbPen:number;littlePen:number}>;
+        for(const factor of [1,.75,.55]){
+          const radius=result.descriptor.handleRadiusMeters*factor;
+          for(const dx of [-.03,-.015,0,.015,.03]){
+            for(const dz of [-.03,-.015,0,.015,.03]){
+              const moved=center.clone().addScaledVector(x,dx).addScaledVector(z,dz);
+              const world=result.bowWorld.clone().setPosition(moved);
+              const measured=measureStaff(model,hand,world,radius,0);
+              const get=(role:string)=>measured.find(v=>v.digit===role)!;
+              const pen=Math.max(...measured.map(v=>v.deepestPenetration));
+              const gripGap=Math.max(...["thumb","index","middle","ring","little"]
+                .map(role=>get(role).closestGap));
+              sweep.push({radius,dx,dz,pen,gripGap,
+                palmPen:get("palm").deepestPenetration,
+                thumbPen:get("thumb").deepestPenetration,
+                littlePen:get("little").deepestPenetration});
+            }
+          }
+        }
+        sweep.sort((a,b)=>
+          a.pen+a.gripGap*1.5-b.pen-b.gripGap*1.5);
+        console.log("C5.4 handle geometry sweep",JSON.stringify({hand,
+          best:sweep.slice(0,12),penetrationFirst:[...sweep]
+            .sort((a,b)=>a.pen-b.pen).slice(0,5)}));
         console.log("C5.4 palm normal calibration",JSON.stringify({hand,
           normal:normal.toArray(),forward:reference.toArray(),probes}));
         expect(probes.every(p=>Number.isFinite(p.maxPen))).toBe(true);
