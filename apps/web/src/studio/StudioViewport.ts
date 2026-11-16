@@ -380,7 +380,7 @@ export function createStudioViewport(
       else sword?.update();
     }catch(error){
       clearSword();
-      reportGripFailure(undefined,error);
+      reportGripFailure(error);
       onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
     // The existing overlays follow posed bones without reallocating GPU buffers.
@@ -628,7 +628,7 @@ export function createStudioViewport(
         return true;
       }catch(error){
         if(valid()){
-          reportGripFailure(undefined,error);
+          reportGripFailure(error);
           onEditError("This adjustment could not be applied. Your previous character remains available.");
         }
         return false;
