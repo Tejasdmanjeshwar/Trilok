@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type {StudioHumanModel} from "./StudioHumanModel";
 import type {HandSide} from "./StudioTwoHandGrip";
+import {sourceHandVolarWorld} from "./StudioWeaponGrip";
 
 /** Source-vertex contact is measured on the POST-FK MakeHuman skin, in the
  * actual finite handle frame. The pose and weapon must be applied first.
@@ -150,4 +151,58 @@ export function measureSourceStringContact(model:StudioHumanModel,
     output[digit]=Math.max(0,output[digit]-stringRadiusMeters);
   }
   return output;
+}
+
+/** Select stable distal VOLAR pad source vertices from the posed MakeHuman
+ * skin. This avoids the nondifferentiable minimum-over-a-whole-digit residual
+ * which can switch to unrelated knuckle/back-of-hand vertices mid-solve.
+ * Measured distal phalanx length determines the sample interval; no named
+ * bone coordinates or world-space hand offsets are assumed.
+ */
+export function sourceFingerPadVertices(model:StudioHumanModel,
+  hand:HandSide,digit:"index"|"middle",sampled:SourceHandSamples,
+  count=4):readonly number[]{
+  const {spike,mesh}=model.human;
+  const joint=(index:number)=>{
+    const semantic=spike.graph.joints.find(j=>
+      j.role==="finger_"+digit+"_"+index&&
+      j.id.includes("arm["+hand+",0]"));
+    const bone=semantic&&spike.bones.get(semantic.id);
+    if(!bone)throw new Error("Missing MakeHuman distal pad bone "+digit);
+    return bone;
+  };
+  spike.character.root.updateWorldMatrix(true,true);
+  mesh.updateWorldMatrix(true,false);
+  const proximal=joint(1).getWorldPosition(new THREE.Vector3());
+  const distal=joint(2).getWorldPosition(new THREE.Vector3());
+  const direction=distal.clone().sub(proximal);
+  const length=direction.length();
+  if(length<=1e-5)throw new Error("Degenerate source distal finger "+digit);
+  direction.multiplyScalar(1/length);
+  const volar=sourceHandVolarWorld(model,hand);
+  const candidate:{id:number;along:number;volar:number}[]=[];
+  const point=new THREE.Vector3();
+  for(const id of sampled.get(digit)??[]){
+    mesh.getVertexPosition(id,point).applyMatrix4(mesh.matrixWorld);
+    const local=point.sub(distal);
+    candidate.push({id,along:local.dot(direction),volar:local.dot(volar)});
+  }
+  if(candidate.length<count)throw new Error("Missing distal source finger pads");
+  const furthest=Math.max(...candidate.map(v=>v.along));
+  // Only the distal-most half-phalange is eligible for a physical pad.
+  const distalSurface=candidate.filter(v=>v.along>=furthest-length*.5);
+  if(distalSurface.length<count)
+    throw new Error("Insufficient exposed source finger-pad vertices");
+  distalSurface.sort((a,b)=>b.volar-a.volar||b.along-a.along||a.id-b.id);
+  return Object.freeze(distalSurface.slice(0,count).map(v=>v.id));
+}
+export function sourcePadWorld(model:StudioHumanModel,
+  vertices:readonly number[]):THREE.Vector3{
+  const mesh=model.human.mesh;
+  mesh.updateWorldMatrix(true,false);
+  const point=new THREE.Vector3(),average=new THREE.Vector3();
+  if(vertices.length===0)throw new Error("Missing physical pad vertices");
+  for(const id of vertices)
+    average.add(mesh.getVertexPosition(id,point).applyMatrix4(mesh.matrixWorld));
+  return average.multiplyScalar(1/vertices.length);
 }
