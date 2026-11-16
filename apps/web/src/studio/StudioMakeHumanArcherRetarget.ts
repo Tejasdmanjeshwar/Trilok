@@ -143,7 +143,7 @@ export function retargetSourceArcherPose(graph:AnatomicalGraphV1,
     const total=digit==="thumb"?2:3;
     for(let index=0;index<total;index++){
       const motions:AnatomicalMotion[]=digit==="thumb"&&index===0?
-        ["flexion","opposition"]:index===0&&digit!=="thumb"?
+        ["flexion","opposition"]:index===0&&(digit==="index"||digit==="little")?
         ["flexion","abduction"]:["flexion"];
       apply("finger_"+digit+"_"+index,
         "finger"+(d+1)+"-"+(index+1)+"."+canonicalSuffix,motions);
