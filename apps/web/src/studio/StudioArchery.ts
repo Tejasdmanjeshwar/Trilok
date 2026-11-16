@@ -181,7 +181,7 @@ function bowFrame(model:StudioHumanModel,hand:HandSide,
     throw new Error("Degenerate calibrated bow-hand frame");
   // +Y follows the actual source knuckle line, never an invented socket Euler.
   const center=fitHandleCenter(model,hand,twoHandGripContactWorld(model,hand),
-    x,y,z,radius,length);
+    x,y,z,radius,length,{avoidPalmPenetration:true});
   return new THREE.Matrix4().makeBasis(x,y,z).setPosition(center);
 }
 export interface ArcheryPoseResult {
