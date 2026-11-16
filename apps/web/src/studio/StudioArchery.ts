@@ -5,7 +5,7 @@ import type {AnatomicalGraphV1} from "@trilok/character-core";
 import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
   from "../characters/geometry/AnatomicalFK";
 import type {StudioHumanModel} from "./StudioHumanModel";
-import {fitConstrainedIK} from "./ConstrainedIK";
+import {fitCanonicalIK} from "./ConstrainedIK";
 import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
@@ -198,7 +198,8 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
         ...values.map((angle,i)=>(angle-initial[i]!)*.003),
       ];
     };
-    const fit=fitConstrainedIK(initial,axes,evaluate,24);
+    const fit=fitCanonicalIK(initial,axes,
+      axes.map(axis=>axis.differenceSign??1),evaluate,24);
     const commands=stage(fit.values);
     fk.apply(commands);
     const error=twoHandGripContactWorld(model,side).distanceTo(target);
@@ -391,6 +392,12 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       ...contactArmFreedoms(model.human.spike.graph,fk,drawSide),
       ...drawDigitFreedoms,
     ];
+    // The holding arm, drawing arm and hooked index/middle digits use the
+    // same reflected parameter orientation. Derive signs from source rest
+    // axes, not by guessing from Euler names or left/right alone.
+    const canonicalSigns=freedoms.map((f,i)=>
+      mirrorContactDifferenceSign(model.human.spike.graph,fk,
+        f.jointId,f.motion,i<9?hand:drawSide));
     // Separate a deterministic Jacobian sampling budget from FINAL
     // acceptance. Source-skin evaluation on every finite-difference probe
     // was monopolizing Vitest worker RPC and browser input response.
@@ -512,7 +519,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       // A larger bounded trust region reaches a verified source-pose target
       // within the original iteration budget; the shared solver still
       // line-searches all proposals and clamps every legal joint freedom.
-      const fit=fitConstrainedIK(seed,nockLimits,evaluate,32,.55);
+      const fit=fitCanonicalIK(seed,nockLimits,
+        [...canonicalSigns,1],evaluate,32,.55);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
