@@ -2,7 +2,8 @@ import * as THREE from "three";
 import type {JointTarget,AnatomicalFK,AnatomicalMotion} from "../characters/geometry/AnatomicalFK";
 import type {StudioHumanModel} from "./StudioHumanModel";
 import type {HandSide} from "./StudioTwoHandGrip";
-import {fitConstrainedIK} from "./ConstrainedIK";
+import {fitConstrainedIK,fitCanonicalIK} from "./ConstrainedIK";
+import {mirrorContactDifferenceSign} from "./StudioContactIK";
 import {HAND_SURFACE_REGIONS,measureSourceCylinder,sourceHandSamples,
   type SourceCylinderRegion} from "./StudioSourceContact";
 
@@ -112,6 +113,8 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],side:HandSide,startingWorld:THREE.Matrix4,
   radius:number,length:number,fullThumb=false):BowContactFit{
   const channels=freedoms(model,fk,side);
+  const canonicalSigns=channels.map(ch=>mirrorContactDifferenceSign(
+    model.human.spike.graph,fk,ch.jointId,ch.motion,side));
   const starting=new Map(base.map(c=>[c.jointId+"/"+c.motion,c.radians]));
   const initial=channels.map(ch=>THREE.MathUtils.clamp(
     starting.get(ch.jointId+"/"+ch.motion)??0,ch.min,ch.max));
@@ -175,7 +178,7 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
       values=>fitness(angles,values),20);
     offsets.splice(0,3,...offsetFit.values);iterations+=offsetFit.iterations;
     record();
-    const fingerFit=fitConstrainedIK(angles,channels,
+    const fingerFit=fitCanonicalIK(angles,channels,canonicalSigns,
       values=>fitness(values,offsets),20);
     angles.splice(0,angles.length,...fingerFit.values);
     iterations+=fingerFit.iterations;
