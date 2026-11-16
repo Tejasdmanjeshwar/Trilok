@@ -2,7 +2,6 @@ import * as THREE from "three";
 import type {StudioHumanModel} from "./StudioHumanModel";
 import type {HandSide} from "./StudioTwoHandGrip";
 import {sourceHandVolarWorld} from "./StudioWeaponGrip";
-import {mirrorStableSampleIndices} from "./StudioMirrorSampling";
 
 /** Source-vertex contact is measured on the POST-FK MakeHuman skin, in the
  * actual finite handle frame. The pose and weapon must be applied first.
@@ -57,8 +56,8 @@ export function sourceHandSamples(model:StudioHumanModel,hand:HandSide,
     if(list.length<8)throw new Error("Missing source skin samples: "+hand+"/"+region);
     if(Number.isFinite(maximumPerRegion)&&list.length>maximumPerRegion){
       const count=Math.max(8,Math.floor(maximumPerRegion));
-      lists.set(region,[...mirrorStableSampleIndices(list,
-        mesh.geometry.getAttribute("position"),hand,count)]);
+      lists.set(region,Array.from({length:count},(_,j)=>
+        list[Math.floor((j+.5)*list.length/count)]!));
     }
   }
   return lists;
