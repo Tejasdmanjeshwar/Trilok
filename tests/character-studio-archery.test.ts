@@ -2,12 +2,42 @@ import {describe,expect,it} from "vitest";
 import * as THREE from "three";
 import {make,measureStaff} from "./helpers/studio-two-hand-fixtures";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
-import {handContactTargets} from "../apps/web/src/studio/StudioWeaponGrip";
+import {handContactTargets,sourceHandVolarWorld} from "../apps/web/src/studio/StudioWeaponGrip";
 import {contactArmFreedoms,composeContactPose} from "../apps/web/src/studio/StudioContactIK";
 import {StudioBowPreview,archeryDrawFraction,validateBowReference,
   measureStringFingerSkin,
   type ArcheryState} from "../apps/web/src/studio/StudioArchery";
 import {aimBallisticAt,sampleTrajectory} from "../packages/combat/src/projectile-motion";
+
+describe("MakeHuman bow handle frame diagnosis",()=>{
+  it("measures actual source palm and digit penetration across signed volar offsets",()=>{
+    const {human,model}=make();
+    const pose=new StudioPosePreview(model);
+    try{
+      for(const hand of ["left","right"] as const){
+        pose.setGrip(hand==="left"?"bow-left":"bow-right");
+        const result=pose.bowPoseResult!;
+        const normal=sourceHandVolarWorld(model,hand);
+        const center=new THREE.Vector3().setFromMatrixPosition(result.bowWorld);
+        const reference=new THREE.Vector3(0,0,1).transformDirection(result.bowWorld);
+        const probes=[] as Array<{shift:number;maxPen:number;palmPen:number;thumbPen:number;indexGap:number;middleGap:number;littleGap:number}>;
+        for(const shift of [-.03,-.02,-.01,0,.01,.02,.03,.04]){
+          const w=result.bowWorld.clone().setPosition(center.clone().addScaledVector(normal,shift));
+          const measured=measureStaff(model,hand,w,result.descriptor.handleRadiusMeters,0);
+          const get=(digit:string)=>measured.find(v=>v.digit===digit)!;
+          probes.push({shift,maxPen:Math.max(...measured.map(v=>v.deepestPenetration)),
+            palmPen:get("palm").deepestPenetration,
+            thumbPen:get("thumb").deepestPenetration,
+            indexGap:get("index").closestGap,
+            middleGap:get("middle").closestGap,littleGap:get("little").closestGap});
+        }
+        console.log("C5.4 palm normal calibration",JSON.stringify({hand,
+          normal:normal.toArray(),forward:reference.toArray(),probes}));
+        expect(probes.every(p=>Number.isFinite(p.maxPen))).toBe(true);
+      }
+    }finally{pose.dispose();human.dispose();}
+  },120_000);
+});
 
 describe("Shared anatomical weapon contacts",()=>{
   it("separates bow cylinder pressure from the three-finger string hook",()=>{
