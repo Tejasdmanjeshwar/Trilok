@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import {createBowStaveGeometry,defaultBowStaveOptions,
+import {bowNockLocal,createBowStaveGeometry,defaultBowStaveOptions,
   type BowProfile} from "./StudioBowGeometry";
 import type {AnatomicalGraphV1} from "@trilok/character-core";
 import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
@@ -389,10 +389,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     };
     const fingerSkin=(actualBow:THREE.Matrix4,goal:THREE.Vector3,
       samples=coarseHook)=>{
-      const upper=new THREE.Vector3(0,descriptor.limbLengthMeters,
-        -descriptor.stringRestMeters).applyMatrix4(actualBow);
-      const lower=new THREE.Vector3(0,-descriptor.limbLengthMeters,
-        -descriptor.stringRestMeters).applyMatrix4(actualBow);
+      const upper=bowNockLocal(descriptor,1).applyMatrix4(actualBow);
+      const lower=bowNockLocal(descriptor,-1).applyMatrix4(actualBow);
       return measureSourceStringContact(model,samples,
         goal,upper,lower,.0018*scale,.055*scale);
     };
@@ -455,10 +453,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const skin=fingerSkin(actualBow,goal);
         const indexPad=sourcePadWorld(model,padVertices.index);
         const middlePad=sourcePadWorld(model,padVertices.middle);
-        const upperTip=new THREE.Vector3(0,descriptor.limbLengthMeters,
-          -descriptor.stringRestMeters).applyMatrix4(actualBow);
-        const lowerTip=new THREE.Vector3(0,-descriptor.limbLengthMeters,
-          -descriptor.stringRestMeters).applyMatrix4(actualBow);
+        const upperTip=bowNockLocal(descriptor,1).applyMatrix4(actualBow);
+        const lowerTip=bowNockLocal(descriptor,-1).applyMatrix4(actualBow);
         const indexTarget=new THREE.Line3(goal,upperTip)
           .closestPointToPoint(indexPad,true,new THREE.Vector3());
         const middleTarget=new THREE.Line3(goal,lowerTip)
@@ -607,8 +603,7 @@ export function measureStringFingerSkin(model:StudioHumanModel,
   const scale=result.descriptor.limbLengthMeters/.64;
   const start=result.nockWorld;
   const tips=[-1,1].map(sign=>
-    new THREE.Vector3(0,sign*result.descriptor.limbLengthMeters,
-      -result.descriptor.stringRestMeters).applyMatrix4(result.bowWorld));
+    bowNockLocal(result.descriptor,sign===1?1:-1).applyMatrix4(result.bowWorld));
   const lines=tips.map(tip=>new THREE.Line3(start,tip));
   const indices=new Map((["index","middle","ring"] as const).map(digit=>[
     digit,new Set(spike.graph.joints.filter(j=>j.role.startsWith("finger_"+digit+"_")&&
