@@ -103,10 +103,23 @@ def main() -> int:
                     path=ROOT/pack/(name+".bvh")
                     path.parent.mkdir(parents=True,exist_ok=True)
                     path.write_bytes(raw)
-                    report[pack]["selected"].append({
+                    record={
                         "archivePath":None,"alternateSourceUrl":origin,"relativePath":str(path),
                         "sha256":hashlib.sha256(raw).hexdigest(),"bytes":len(raw),
-                        "bvh":analyze_bvh(raw)})
+                        "bvh":analyze_bvh(raw)}
+                    try:
+                        metaurl=origin[:-4]+".meta"
+                        with urlopen(Request(metaurl,headers={"User-Agent":"Trilok-Reference-Audit/1.0"}), timeout=20) as response:
+                            meta=response.read(512*1024)
+                        if len(meta)<512*1024:
+                            metapath=ROOT/pack/(name+".meta")
+                            metapath.write_bytes(meta)
+                            record["metaSourceUrl"]=metaurl
+                            record["metaText"]=meta.decode("utf-8",errors="replace")[:4000]
+                            print("METADATA",name,record["metaText"][:500],flush=True)
+                    except Exception as meta_error:
+                        print("METADATA NOT FOUND",name,str(meta_error),flush=True)
+                    report[pack]["selected"].append(record)
                 except Exception as alt_error:
                     print("NO VERIFIED SOURCE FOR",name,str(alt_error),flush=True)
             continue
