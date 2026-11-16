@@ -45,6 +45,39 @@ function normalStep(jacobian:readonly (readonly number[])[],
   const step=system.map(row=>row[n]!);
   return step.every(Number.isFinite)?step:undefined;
 }
+/** Solve reflected kinematic chains in a common parameter orientation.
+ * Canonical parameters are s*q, s in {-1,+1} from the calibrated rest-frame
+ * axial reflection. Limits and seeds transform together; evaluation still
+ * uses each character's REAL anatomical FK, bounds and contact geometry.
+ * This is not a second solver, pose copying or an additional solve: the
+ * existing bounded DLS performs the same number of objective evaluations.
+ *
+ * Unlike changing the finite-difference direction alone, transforming the
+ * full parameterization also canonicalizes the trust region and line search.
+ * Non-mirror anatomies remain independent: their own bounds and residuals
+ * determine their own legal results.
+ */
+export function fitCanonicalIK(start:readonly number[],
+  limits:readonly IKFreedom[],signs:readonly (1|-1)[],
+  evaluate:(values:readonly number[])=>readonly number[],
+  maxIterations=52,maxParameterStep=.35):IKFit{
+  if(signs.length!==start.length||limits.length!==start.length||
+    signs.some(s=>s!==1&&s!==-1))
+    throw new Error("Invalid canonical IK reflection map");
+  const canonical=signs.map((sign,i)=>start[i]!*sign);
+  const canonicalLimits=limits.map((limit,i)=>{
+    const a=limit.min*signs[i]!,b=limit.max*signs[i]!;
+    return {min:Math.min(a,b),max:Math.max(a,b)};
+  });
+  const physical=(values:readonly number[])=>
+    values.map((value,i)=>value*signs[i]!);
+  const result=fitConstrainedIK(canonical,canonicalLimits,
+    values=>evaluate(physical(values)),maxIterations,maxParameterStep);
+  const values=Object.freeze(physical(result.values));
+  // fitConstrainedIK re-applies the final canonical pose before returning.
+  return Object.freeze({values,cost:result.cost,iterations:result.iterations});
+}
+
 const squared=(v:readonly number[])=>v.reduce((sum,x)=>sum+x*x,0);
 /** Use one numerical objective for all limb chains and a shared weapon.
  * Differentiation samples only legal angles and poses. Every accepted
