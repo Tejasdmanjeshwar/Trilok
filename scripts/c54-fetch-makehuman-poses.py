@@ -150,6 +150,24 @@ def main() -> int:
                 if not any(Path(i.filename).name.lower()==f"{name}.bvh" for i in matching):
                     raise RuntimeError(f"Required pose BVH missing: {name}")
     pinned = Path("apps/web/public/anatomy/makehuman-default.mhskel")
+    # The pinned source rig is normally fetched by pnpm test; this audit
+    # independently fetches ONLY its exact Git blob to avoid installing tools.
+    if not pinned.exists():
+        try:
+            manifest=json.loads(Path("assets/makehuman-core.json").read_text())
+            rig_url=("https://raw.githubusercontent.com/makehumancommunity/makehuman/"
+                     +manifest["revision"]+"/makehuman/data/rigs/default.mhskel")
+            with urlopen(Request(rig_url,headers={"User-Agent":"Trilok-Reference-Audit/1.0"}),timeout=45) as response:
+                raw_rig=response.read(117791)
+            expected="b02cbecae00143856410d7561adf006d83bf9b3e"
+            actual=hashlib.sha1(b"blob "+str(len(raw_rig)).encode()+b"\\x00"+raw_rig).hexdigest()
+            if len(raw_rig)!=117790 or actual!=expected:
+                raise RuntimeError("Pinned MakeHuman source rig checksum mismatch")
+            pinned.parent.mkdir(parents=True,exist_ok=True)
+            pinned.write_bytes(raw_rig)
+            print("OFFICIAL PINNED RIG VERIFIED",rig_url,len(raw_rig),expected,flush=True)
+        except Exception as rig_error:
+            print("PINNED RIG FETCH FAILED",type(rig_error).__name__,str(rig_error),flush=True)
     # The deployed source rig may be assembled at install time rather than
     # checked into Git. Never assume name parity without inspecting it.
     for pack in report:
