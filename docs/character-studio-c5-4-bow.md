@@ -74,3 +74,24 @@ A feature-scoped `c54-bow-visual.yml` workflow now captures desktop/touch Chromi
 MakeHuman `poses02` and `poses05` packs are available from the official CC0 pack catalog, but the ZIP/BVH payloads could not be fetched from this execution environment, so the hierarchy/finger channels and rig compatibility remain unverified. No uninspected BVH is imported. A separate automated seeded morphology and extreme-proportion bow-contact matrix remains outstanding.
 
 The original owner acceptance remains reserved for phase C5. PR #87 stays draft/open and unmerged. This subsection records the verified `55a15db` checkpoint; later workflow or screenshot-only commits require their own checks before being described as passing.
+
+## 2026-11-16 — Original MakeHuman archer BVH recovery (source evidence)
+
+This supersedes earlier statements that no actual BVH was inspected. An isolated source-audit workflow ([run 43822666387](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43822666387)) fetched two **actual single-frame source BVH files** from the public `lsmpp/omni-refiner-video` dataset at immutable revision `5917810cd4983e9fd757fc44efd39b3dd7648ee0`. The official `files2.makehumancommunity.org` and `files.makehumancommunity.org` ZIP mirrors failed DNS resolution in GitHub Actions; the audit records both failures rather than substituting thumbnails.
+
+| File | Size (bytes) | SHA-256 |
+| --- | ---: | --- |
+| `callharvey3d_archer_hero.bvh` | 44,169 | `a6750c2d3a1eb27eedd09d04312e55db59f267f9d60b3262392b9c76a65777cc` |
+| `callharvey3d_archer_square_stance.bvh` | 44,160 | `cbd91e39bad431d684a30893cd0651947a3dda4bb149bb33439dfb597b1b83a7` |
+
+Source URLs:
+- https://huggingface.co/datasets/lsmpp/omni-refiner-video/resolve/5917810cd4983e9fd757fc44efd39b3dd7648ee0/synthesis_data/mpfb/poses/callharvey3d_archer_hero/callharvey3d_archer_hero.bvh
+- https://huggingface.co/datasets/lsmpp/omni-refiner-video/resolve/5917810cd4983e9fd757fc44efd39b3dd7648ee0/synthesis_data/mpfb/poses/callharvey3d_archer_square_stance/callharvey3d_archer_square_stance.bvh
+
+The inspected files each contain `HIERARCHY`, a `root`, **163 named joints**, 978 total channels, one `MOTION` frame and `Frame Time: 0.041667`. Every joint advertises X/Y/Z position and X/Y/Z Euler rotation channels. Both contain all thirty `finger1-1.L` through `finger5-3.R` segments, and 27/30 have substantial (>1°) nonzero rotations. There are *real digit rotations*, not just pose catalog entries. The two source poses' finger Euler rotations match within 0.0001 degree, while some wrist/body channels differ: they provide a shared starting grip, **not** independent five-state bow/string dynamics. The BVH rotation composition must be retargeted into `AnatomicalFK` using source rest orientations, not copied as Euler-angle FK commands.
+
+`OfficialHumanRig.sourceBoneForRole` confirms the expected source naming for fingers and wrists. Crucially, the existing MakeHuman adapter intentionally maps `.L` bones to Trilok's **right** semantic side and `.R` to **left**; blindly assigning BVH hands by their suffix would mirror the pose incorrectly. Full bind-transform and geometry compatibility still needs a source-skinned replay against the pinned MakeHuman default skeleton; matching names alone does not certify it.
+
+`callharvey3d_archer_leap.bvh` (poses05) remains **unavailable**: both official ZIP hosts failed DNS resolution and the pinned Hugging Face mirror returned HTTP 404. No leap data has been fabricated. The MakeHuman catalog marks all three names as CC0; redistribution copy hash and upstream archive identity cannot be independently compared until an official archive responds. The audit's actual source BVHs, full channel listing and SHA-256 evidence are preserved in the artifact [c54-makehuman-original-source](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43822666387#artifacts).
+
+**Engineering gate:** No more manual finger-angle guesses; use these inspected source rotations only after checking correct world-to-local rotation order, rest bone orientation, per-hand semantic reversal, and rendered source-skin/handle contact. These source files have not yet been imported as an active runtime pose; earlier unverified IK variants and visual defects remain unresolved.
