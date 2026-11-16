@@ -120,6 +120,20 @@ describe("Studio bow and visual nock contract",()=>{
       for(const state of ["nock","partial","aim","release"] as ArcheryState[]){
         pose.setArcheryState(state);
         const report=pose.bowPoseResult!;
+        const aimAxis=report.arrowDirectionWorld.clone().normalize();
+        const avatarForward=new THREE.Vector3(0,0,1).transformDirection(
+          human.spike.character.root.matrixWorld);
+        const avatarUp=new THREE.Vector3(0,1,0).transformDirection(
+          human.spike.character.root.matrixWorld);
+        const avatarRight=new THREE.Vector3(1,0,0).transformDirection(
+          human.spike.character.root.matrixWorld);
+        console.log("C5.4 bow shaft direction",JSON.stringify({hand,state,
+          pitchDegrees:THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(
+            aimAxis.dot(avatarUp),-1,1))),
+          yawDegrees:THREE.MathUtils.radToDeg(Math.atan2(aimAxis.dot(avatarRight),
+            aimAxis.dot(avatarForward))),
+          forwardDegrees:THREE.MathUtils.radToDeg(aimAxis.angleTo(avatarForward)),
+        }));
         console.log("C5.4 coupled string fit status",JSON.stringify({hand,state,
           reachable:report.reachable,reason:report.reason,
           drawError:report.drawHandErrorMeters,bowError:report.bowHandErrorMeters,
