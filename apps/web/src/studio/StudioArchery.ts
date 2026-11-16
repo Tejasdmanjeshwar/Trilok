@@ -334,9 +334,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     ...digitCommands(model,fk,oppositeHand(hand),true),
   ]);
   fk.apply(fingers);
-  const bowShoulder=at(bone(model,"shoulder_"+hand,hand));
-  const initialElbow=at(bone(model,"elbow_"+hand,hand));
-  const initialWrist=at(bone(model,"wrist_"+hand,hand));
+  // Reuse source-rig bone references across every Jacobian probe rather
+  // than scanning the semantic graph for the same joints thousands of times.
+  const bowShoulderBone=bone(model,"shoulder_"+hand,hand);
+  const bowElbowBone=bone(model,"elbow_"+hand,hand);
+  const bowWristBone=bone(model,"wrist_"+hand,hand);
+  const bowShoulder=at(bowShoulderBone);
+  const initialElbow=at(bowElbowBone);
+  const initialWrist=at(bowWristBone);
   const initialPalm=at(bone(model,"palm_"+hand,hand));
   const armReach=bowShoulder.distanceTo(initialElbow)+
     initialElbow.distanceTo(initialWrist);
@@ -565,9 +570,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const goal=nockWorldFor(actualBow,values[freedoms.length]!);
         const finger=drawingFingerContactWorld(model,drawSide);
         const bowGrip=twoHandGripContactWorld(model,hand);
-        const bowArm=measureArmAlignment(at(bone(model,"shoulder_"+hand,hand)),
-          at(bone(model,"elbow_"+hand,hand)),
-          at(bone(model,"wrist_"+hand,hand)));
+        const bowArm=measureArmAlignment(at(bowShoulderBone),at(bowElbowBone),
+          at(bowWristBone));
         const pull=measurePullLineAlignment(bowGrip,goal,at(elbow));
         const pullWeight=THREE.MathUtils.clamp(fraction*2,0,1);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
@@ -727,14 +731,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const resolved=solvedWorld.clone().invert();
   const contactLocal=contact.clone().applyMatrix4(resolved);
   const stanceAlignment=reachable?(()=>{
-    const bowArm=measureArmAlignment(at(bone(model,"shoulder_"+hand,hand)),
-      at(bone(model,"elbow_"+hand,hand)),at(bone(model,"wrist_"+hand,hand)));
+    const bowArm=measureArmAlignment(at(bowShoulderBone),at(bowElbowBone),
+      at(bowWristBone));
     const grip=twoHandGripContactWorld(model,hand);
     const line=measurePullLineAlignment(grip,nock,
       at(bone(model,"elbow_"+drawSide,drawSide)));
     return Object.freeze({bowElbowInteriorRadians:bowArm.elbowInteriorRadians,
       bowElbowExtensionDeficitMeters:bowArm.extensionDeficitMeters,
-      bowShoulderLeadMeters:at(bone(model,"shoulder_"+hand,hand)).sub(
+      bowShoulderLeadMeters:at(bowShoulderBone).sub(
         at(bone(model,"shoulder_"+drawSide,drawSide))).dot(forward),
       drawElbowBehindHookMeters:line.behindHookMeters,
       drawElbowOffAxisMeters:line.perpendicularMeters});
