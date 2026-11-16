@@ -4,6 +4,7 @@ import {createStudioViewport} from "./StudioViewport";
 import {serializeStudioGripFailure,type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import {primaryHand,type EquipmentChoice} from "./StudioTwoHandGrip";
 import {isBowEquipment,ARCHERY_STATES,type ArcheryState} from "./StudioArchery";
+import {BOW_PROFILES,type BowProfile} from "./StudioBowGeometry";
 import {isSwordShieldEquipment,shieldHand,type ShieldStance} from "./StudioShieldGrip";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {createStudioGeneratorPanel,type StudioGeneratorPanel} from "./StudioGeneratorPanel";
@@ -133,6 +134,11 @@ host.innerHTML=String.raw`
             </optgroup>
           </select>
           <div id="studio-archery-pose" hidden>
+            <label class="studio-field-label" for="studio-bow-profile">Bow shape</label>
+            <select id="studio-bow-profile" aria-label="Bow shape">
+              <option value="recurve">Recurve bow</option>
+              <option value="simple">Traditional bow</option>
+            </select>
             <label class="studio-field-label" for="studio-archery-state">Archery position</label>
             <select id="studio-archery-state" aria-label="Archery position">
               <option value="rest">Bow held</option>
@@ -252,6 +258,11 @@ const shieldPose=element<HTMLElement>("#studio-shield-pose");
 const archeryPose=element<HTMLElement>("#studio-archery-pose");
 const archeryState=element<HTMLSelectElement>("#studio-archery-state");
 const archeryDraw=element<HTMLInputElement>("#studio-archery-draw");
+const bowProfile=element<HTMLSelectElement>("#studio-bow-profile");
+bowProfile.addEventListener("change",()=>{
+  if(Object.hasOwn(BOW_PROFILES,bowProfile.value))
+    viewport.setBowProfile(bowProfile.value as BowProfile);
+});
 archeryState.addEventListener("change",()=>{
   if(Object.hasOwn(ARCHERY_STATES,archeryState.value))
     viewport.setArcheryState(archeryState.value as ArcheryState);
