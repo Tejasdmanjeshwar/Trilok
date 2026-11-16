@@ -281,7 +281,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   let solvedWorld=world.clone();
   const bowOffset=model.human.spike.character.socketWorld(socket.id)
     .invert().multiply(world);
-  if(state!=="rest"){
+  if(state!=="rest"&&state!=="release"){
     // One shared optimization moves BOTH arm chains against one moving bow
     // frame. The primary handle stays socket-anchored; its motion changes the
     // actual secondary string goal. Independent arm solutions could never
@@ -364,7 +364,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const unsafe=collisions.clearance(contact)<-.015*scale;
   const bowError=twoHandGripContactWorld(model,hand).distanceTo(bowTarget);
   const reachable=bowError<.10*scale&&held.clearance>-.027*scale&&
-    (state==="rest"||drawError<.03*scale&&drawClearance>-.025*scale)&&!unsafe;
+    ((state==="rest"||state==="release")||
+      drawError<.03*scale&&drawClearance>-.025*scale)&&!unsafe;
   // Restoring the original source pose on failure avoids broken IK, facial
   // clipping, and a weapon hovering on a disconnected hand.
   if(!reachable)fk.apply(base);
@@ -378,9 +379,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const contactLocal=contact.clone().applyMatrix4(resolved);
   return Object.freeze({
     reachable,reason:bowError>=.10*scale?"bow-unreachable":
-      state!=="rest"&&drawError>=.03*scale?"draw-unreachable":
+      state!=="rest"&&state!=="release"&&drawError>=.03*scale?"draw-unreachable":
       unsafe||held.clearance<=-.027*scale||
-      state!=="rest"&&drawClearance<=-.025*scale?"body-intersection":"ok",
+      state!=="rest"&&state!=="release"&&drawClearance<=-.025*scale?"body-intersection":"ok",
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
     iterations:held.iterations+drawIterations,solverAttempts:held.attempts+drawAttempts,
     bowHandErrorMeters:bowError,drawHandErrorMeters:drawError,
