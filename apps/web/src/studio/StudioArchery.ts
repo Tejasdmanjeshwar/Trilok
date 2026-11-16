@@ -5,7 +5,7 @@ import type {AnatomicalGraphV1} from "@trilok/character-core";
 import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
   from "../characters/geometry/AnatomicalFK";
 import type {StudioHumanModel} from "./StudioHumanModel";
-import {fitConstrainedIK,fitCanonicalIK} from "./ConstrainedIK";
+import {fitCanonicalIK} from "./ConstrainedIK";
 import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
@@ -513,7 +513,20 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       // A larger bounded trust region reaches a verified source-pose target
       // within the original iteration budget; the shared solver still
       // line-searches all proposals and clamps every legal joint freedom.
-      const fit=fitConstrainedIK(seed,nockLimits,evaluate,32,.55);
+      // Use one canonical parameter orientation for both reflected chains.
+      // The final nock-Y offset is a polar bow-local coordinate, unchanged
+      // by sagittal reflection; each joint sign comes from rest FK axes.
+      // Transforming limits, seeds and trust-region steps together avoids
+      // hand-dependent finite-difference and line-search basins.
+      const canonicalSigns:readonly (1|-1)[]=[
+        ...freedoms.map(f=>mirrorContactDifferenceSign(
+          model.human.spike.graph,fk,f.jointId,f.motion,
+          f.jointId.includes("arm[right,0]")||
+          model.human.spike.graph.joints.find(j=>j.id===f.jointId)
+            ?.role.endsWith("_right")?"right":"left")),
+        1,
+      ];
+      const fit=fitCanonicalIK(seed,nockLimits,canonicalSigns,evaluate,32,.55);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
