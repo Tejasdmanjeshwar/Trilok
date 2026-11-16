@@ -116,11 +116,11 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
   const initial=channels.map(ch=>THREE.MathUtils.clamp(
     starting.get(ch.jointId+"/"+ch.motion)??0,ch.min,ch.max));
   const complete=sourceHandSamples(model,side);
-  const sampled=sourceHandSamples(model,side,80);
+  const sampled=new Map(sourceHandSamples(model,side,80));
   // The user's deep source-thumb penetration was absent in the 80-vertex
   // Jacobian sample. Only the bounded recovery pays to include every thumb
   // vertex in its derivatives; final acceptance always includes all vertices.
-  if(fullThumb)(sampled as Map<string,readonly number[]>).set(
+  if(fullThumb)sampled.set(
     "thumb",complete.get("thumb")!);
   const bounds=Math.max(radius*2,.005);
   const offsets=[0,0,0];
