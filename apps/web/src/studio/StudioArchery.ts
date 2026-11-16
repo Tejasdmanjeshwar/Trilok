@@ -343,16 +343,23 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // The old chest+fixed-Z target let flexed elbows reach the bow while
   // the shoulder line was correct. Use real limb lengths from source FK,
   // with a higher, longer target in the bow-side shooting plane.
-  const reachFraction=state==="nock"?.76:state==="partial"?.76+.06*draw:.84;
-  const bowTarget=state==="rest"?chest.clone()
+  const tension=archeryDrawFraction(state,draw);
+  const preparedTarget=chest.clone()
     .addScaledVector(right,(hand==="right"?1:-1)*.12*scale)
-    .addScaledVector(forward,.56*scale).addScaledVector(up,.06*scale):
-    bowShoulder.clone().addScaledVector(forward,armReach*reachFraction+
+    .addScaledVector(forward,.56*scale).addScaledVector(up,.06*scale);
+  const extendedTarget=bowShoulder.clone()
+    .addScaledVector(forward,armReach*.90+
       initialWrist.distanceTo(initialPalm)*.28)
-      .addScaledVector(right,(hand==="right"?1:-1)*.014*scale)
-      .addScaledVector(up,.015*scale);
-  const desiredBend=state==="rest"?undefined:THREE.MathUtils.degToRad(
-    state==="nock"?22:state==="partial"?20-8*draw:12);
+    .addScaledVector(right,(hand==="right"?1:-1)*.014*scale)
+    .addScaledVector(up,.015*scale);
+  // Set up compact enough to nock; extend against resistance as the string
+  // comes back. Extending at zero draw puts the nock beyond the other hand's
+  // legal reach even though the bow hand itself can grip it.
+  const extensionBlend=state==="rest"?0:state==="release"?.75:
+    Math.min(.92,.10+.82*tension);
+  const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
+  const desiredBend=tension<.15?undefined:THREE.MathUtils.degToRad(
+    20-8*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
@@ -408,7 +415,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   staged=handFit.commands;
   fk.apply(staged);
   const world=handFit.bowWorld;
-  const fraction=archeryDrawFraction(state,draw);
+  const fraction=tension;
   // Pull travels along the bow's own forward axis. Bound its world target
   // by occupied torso space before any arm IK, never by moving the avatar.
   const collisions=new StudioBodyCollision(model);
@@ -601,7 +608,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // Keep a soft-extended bow elbow and rearward draw elbow without
           // moving either grip/string independently of the source rig.
           ...(desiredBend===undefined?[]:[
-            bowArmExtensionResidual(bowArm,desiredBend)*.30]),
+            bowArmExtensionResidual(bowArm,desiredBend)*.30*
+              Math.min(1,fraction/.45)]),
           Math.max(0,.075*scale-pull.behindHookMeters)*.45*pullWeight,
           Math.max(0,pull.perpendicularMeters-.12*scale)*.3*pullWeight,
           // Keep the bow arm near its measured source-length target.
