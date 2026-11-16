@@ -399,7 +399,12 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     // Every selected candidate is checked against *all* original vertices.
     const coarseHook=sourceHandSamples(model,drawSide,32);
     const fullHook=sourceHandSamples(model,drawSide);
-    const padSurface=sourceHandSamples(model,drawSide,120);
+    // Stable pad landmarks are selected once, outside the Jacobian loop.
+    // Use every eligible source-skin vertex for the four distal volar pads:
+    // reduced OBJ-order probes on opposing hands are not homologous and may
+    // steer a reflected IK chain toward different fingertip contact targets.
+    // The inexpensive coarse hook remains reserved for per-probe residuals.
+    const padSurface=fullHook;
     const padVertices={
       index:sourceFingerPadVertices(model,drawSide,"index",padSurface),
       middle:sourceFingerPadVertices(model,drawSide,"middle",padSurface),
