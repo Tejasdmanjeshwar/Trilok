@@ -9,6 +9,7 @@ import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
 import {fitBowHandContact} from "./StudioBowContact";
 import {measureSourceStringContact,sourceHandSamples,
+  sourceFingerPadVertices,sourcePadWorld,
   type SourceCylinderRegion} from "./StudioSourceContact";
 import {contactArmFreedoms,composeContactPose,clampContactSeed}
   from "./StudioContactIK";
@@ -331,6 +332,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       ...drawDigitFreedoms,
     ];
     const skinnedHook=sourceHandSamples(model,drawSide,120);
+    const padVertices={
+      index:sourceFingerPadVertices(model,drawSide,"index",skinnedHook),
+      middle:sourceFingerPadVertices(model,drawSide,"middle",skinnedHook),
+    };
     const fingerSkin=(actualBow:THREE.Matrix4,goal:THREE.Vector3)=>{
       const upper=new THREE.Vector3(0,descriptor.limbLengthMeters,
         -descriptor.stringRestMeters).applyMatrix4(actualBow);
@@ -378,6 +383,18 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const bowGrip=twoHandGripContactWorld(model,hand);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
         const skin=fingerSkin(actualBow,goal);
+        const indexPad=sourcePadWorld(model,padVertices.index);
+        const middlePad=sourcePadWorld(model,padVertices.middle);
+        const upperTip=new THREE.Vector3(0,descriptor.limbLengthMeters,
+          -descriptor.stringRestMeters).applyMatrix4(actualBow);
+        const lowerTip=new THREE.Vector3(0,-descriptor.limbLengthMeters,
+          -descriptor.stringRestMeters).applyMatrix4(actualBow);
+        const indexTarget=new THREE.Line3(goal,upperTip)
+          .closestPointToPoint(indexPad,true,new THREE.Vector3());
+        const middleTarget=new THREE.Line3(goal,lowerTip)
+          .closestPointToPoint(middlePad,true,new THREE.Vector3());
+        const indexPadResidual=indexPad.sub(indexTarget);
+        const middlePadResidual=middlePad.sub(middleTarget);
         const axis=new THREE.Vector3(0,1,0).transformDirection(actualBow);
         const upright=axis.cross(up);
         return [
@@ -385,11 +402,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           finger.x-goal.x,finger.y-goal.y,finger.z-goal.z,
           // Actual skinned index + middle pads contact the moving string,
           // instead of satisfying only their shared bone-crease midpoint.
-          skin.index*2.8,skin.middle*2.5,
-          // A hinge objective keeps each skinned hook contact safely below
-          // its 8-mm acceptance gate instead of relying on an average.
-          Math.max(0,skin.index-.006*scale)*4,
-          Math.max(0,skin.middle-.006*scale)*4,
+          // Fixed source-skin volar pads provide continuous 3D Jacobians.
+          // A nearest-any-digit-vertex distance alone is discontinuous and
+          // may snap contact to a knuckle or a third finger.
+          ...indexPadResidual.toArray(),
+          ...middlePadResidual.toArray(),
+          Math.max(0,skin.index-.006*scale)*2,
+          Math.max(0,skin.middle-.006*scale)*2,
           Math.max(0,.006*scale-skin.ring)*.3,
           ...upright.toArray().map(v=>v*.08*scale),
           // Keep the holding arm close to the authored reachable stance.
