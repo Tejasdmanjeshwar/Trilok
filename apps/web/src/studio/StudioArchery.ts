@@ -374,17 +374,24 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       ...contactArmFreedoms(model.human.spike.graph,fk,drawSide),
       ...drawDigitFreedoms,
     ];
-    const skinnedHook=sourceHandSamples(model,drawSide,120);
+    // Separate a deterministic Jacobian sampling budget from FINAL
+    // acceptance. Source-skin evaluation on every finite-difference probe
+    // was monopolizing Vitest worker RPC and browser input response.
+    // Every selected candidate is checked against *all* original vertices.
+    const coarseHook=sourceHandSamples(model,drawSide,32);
+    const fullHook=sourceHandSamples(model,drawSide);
+    const padSurface=sourceHandSamples(model,drawSide,120);
     const padVertices={
-      index:sourceFingerPadVertices(model,drawSide,"index",skinnedHook),
-      middle:sourceFingerPadVertices(model,drawSide,"middle",skinnedHook),
+      index:sourceFingerPadVertices(model,drawSide,"index",padSurface),
+      middle:sourceFingerPadVertices(model,drawSide,"middle",padSurface),
     };
-    const fingerSkin=(actualBow:THREE.Matrix4,goal:THREE.Vector3)=>{
+    const fingerSkin=(actualBow:THREE.Matrix4,goal:THREE.Vector3,
+      samples=coarseHook)=>{
       const upper=new THREE.Vector3(0,descriptor.limbLengthMeters,
         -descriptor.stringRestMeters).applyMatrix4(actualBow);
       const lower=new THREE.Vector3(0,-descriptor.limbLengthMeters,
         -descriptor.stringRestMeters).applyMatrix4(actualBow);
-      return measureSourceStringContact(model,skinnedHook,
+      return measureSourceStringContact(model,samples,
         goal,upper,lower,.0018*scale,.055*scale);
     };
     const stagedMap=new Map(staged.map(v=>[v.jointId+"/"+v.motion,v.radians]));
@@ -493,7 +500,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       const finger=drawingFingerContactWorld(model,drawSide);
       const goal=nockWorldFor(actualBow,fit.values[freedoms.length]!);
       const error=finger.distanceTo(goal);
-      const skin=fingerSkin(actualBow,goal);
+      const skin=fingerSkin(actualBow,goal,fullHook);
       const clearance=Math.min(
         collisions.clearance(at(elbow).lerp(at(wrist),.5)),
         collisions.clearance(finger));
@@ -546,7 +553,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const bowError=twoHandGripContactWorld(model,hand).distanceTo(bowTarget);
   const reachable=handFit.accepted&&bowError<.10*scale&&held.clearance>-.027*scale&&
     ((state==="rest"||state==="release")||
-      drawError<.03*scale&&drawClearance>-.025*scale)&&!unsafe;
+      drawError<.03*scale&&drawClearance>-.025*scale&&
+      drawSkinGaps!==undefined&&drawSkinGaps.index<.008*scale&&
+      drawSkinGaps.middle<.008*scale)&&!unsafe;
   // Restoring the original source pose on failure avoids broken IK, facial
   // clipping, and a weapon hovering on a disconnected hand.
   if(!reachable)fk.apply(base);
