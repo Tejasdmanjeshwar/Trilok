@@ -8,7 +8,8 @@ import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
 import {fitBowHandContact} from "./StudioBowContact";
-import type {SourceCylinderRegion} from "./StudioSourceContact";
+import {measureSourceStringContact,sourceHandSamples,
+  type SourceCylinderRegion} from "./StudioSourceContact";
 import {contactArmFreedoms,composeContactPose,clampContactSeed,
   solveContactConstraints} from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
@@ -303,10 +304,38 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     // frame. The primary handle stays socket-anchored; its motion changes the
     // actual secondary string goal. Independent arm solutions could never
     // close the historical 166mm discrepancy at the physical string.
+    // The drawing-hook MCP/PIP and spread are part of the SAME constrained
+    // fit as both arms. A midpoint between finger bones is not skin contact.
+    const drawDigitFreedoms:Freedom[]=[];
+    for(const digit of ["index","middle"] as const){
+      for(let index=0;index<3;index++){
+        const joint=model.human.spike.graph.joints.find(j=>
+          j.role==="finger_"+digit+"_"+index&&
+          j.id.includes("arm["+drawSide+",0]"));
+        if(!joint)throw new Error("Missing drawing source finger joint");
+        for(const motion of (index===0?["flexion","abduction"]:["flexion"])
+          as AnatomicalMotion[]){
+          const range=fk.frames.get(joint.id)?.freedoms.get(motion);
+          if(!range)throw new Error("Missing legal drawing finger freedom");
+          drawDigitFreedoms.push({jointId:joint.id,motion,
+            min:range.min,max:range.max});
+        }
+      }
+    }
     const freedoms=[
       ...contactArmFreedoms(model.human.spike.graph,fk,hand),
       ...contactArmFreedoms(model.human.spike.graph,fk,drawSide),
+      ...drawDigitFreedoms,
     ];
+    const skinnedHook=sourceHandSamples(model,drawSide,120);
+    const fingerSkin=(actualBow:THREE.Matrix4,goal:THREE.Vector3)=>{
+      const upper=new THREE.Vector3(0,descriptor.limbLengthMeters,
+        -descriptor.stringRestMeters).applyMatrix4(actualBow);
+      const lower=new THREE.Vector3(0,-descriptor.limbLengthMeters,
+        -descriptor.stringRestMeters).applyMatrix4(actualBow);
+      return measureSourceStringContact(model,skinnedHook,
+        goal,upper,lower,.0018*scale,.10*scale);
+    };
     const stagedMap=new Map(staged.map(v=>[v.jointId+"/"+v.motion,v.radians]));
     const initial=freedoms.map(f=>stagedMap.get(f.jointId+"/"+f.motion)??0);
     const signed=drawSide==="right"?1:-1;
@@ -325,7 +354,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       iterations:number}|undefined;
     for(const angles of drawSeeds){
       const seed=clampContactSeed([
-        ...initial.slice(0,9),...angles],freedoms);
+        ...initial.slice(0,9),...angles,...initial.slice(18)],freedoms);
       const commands=(values:readonly number[])=>
         composeContactPose(staged,freedoms,values);
       const evaluate=(values:readonly number[])=>{
@@ -335,9 +364,17 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const finger=drawingFingerContactWorld(model,drawSide);
         const bowGrip=twoHandGripContactWorld(model,hand);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
+        const skin=fingerSkin(actualBow,goal);
+        const axis=new THREE.Vector3(0,1,0).transformDirection(actualBow);
+        const upright=axis.cross(up);
         return [
           // The arrow/string and the source finger hook share one goal.
           finger.x-goal.x,finger.y-goal.y,finger.z-goal.z,
+          // Actual skinned index + middle pads contact the moving string,
+          // instead of satisfying only their shared bone-crease midpoint.
+          skin.index*2,skin.middle*2,
+          Math.max(0,.006*scale-skin.ring)*.3,
+          ...upright.toArray().map(v=>v*.08*scale),
           // Keep the holding arm close to the authored reachable stance.
           (bowGrip.x-bowTarget.x)*.7,(bowGrip.y-bowTarget.y)*.7,
           (bowGrip.z-bowTarget.z)*.7,
@@ -353,20 +390,23 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       const finger=drawingFingerContactWorld(model,drawSide);
       const goal=localNock.clone().applyMatrix4(actualBow);
       const error=finger.distanceTo(goal);
+      const skin=fingerSkin(actualBow,goal);
       const clearance=Math.min(
         collisions.clearance(at(elbow).lerp(at(wrist),.5)),
         collisions.clearance(finger));
       const bowDisplacement=twoHandGripContactWorld(model,hand)
         .distanceTo(bowTarget);
       const cost=error+Math.max(0,.01*scale-clearance)*2+
-        Math.max(0,bowDisplacement-.06*scale)*.5;
+        Math.max(0,bowDisplacement-.06*scale)*.5+
+        (skin.index+skin.middle)*1.5;
       drawAttempts++;
       drawIterations=Math.max(drawIterations,fit.iterations);
       if(!best||cost<best.cost)best={
         commands:candidate,world:actualBow,contact:finger,
         error,clearance,cost,iterations:fit.iterations,
       };
-      if(error<.008*scale&&clearance>0)break;
+      if(error<.008*scale&&clearance>0&&
+        skin.index<.004*scale&&skin.middle<.004*scale)break;
     }
     if(!best)throw new Error("Missing legal coupled archery candidate");
     completed=best.commands;
