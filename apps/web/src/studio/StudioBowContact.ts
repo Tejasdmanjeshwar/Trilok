@@ -54,7 +54,7 @@ function overlay(base:readonly JointTarget[],channels:readonly Channel[],
   });
   return [...result.values()];
 }
-function criteria(samples:readonly SourceCylinderRegion[]):boolean{
+export function isAcceptableBowContact(samples:readonly SourceCylinderRegion[]):boolean{
   return samples.every(s=>s.axialVertices>=3&&s.contactVertices>=2&&
     s.maximumPenetrationMeters<.003&&
     s.nearestGapMeters<(s.region==="palm"?.004:.005));
@@ -108,7 +108,7 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
   const record=()=>{
     const residual=fitness(angles,offsets);
     const score=residual.reduce((s,x)=>s+x*x,0);
-    const accepted=criteria(measureSourceCylinder(
+    const accepted=isAcceptableBowContact(measureSourceCylinder(
       model,complete,contactWorld(offsets),radius,length));
     if((accepted&&!bestAccepted)||(accepted===bestAccepted&&score<best)){
       best=score;bestAccepted=accepted;
@@ -130,13 +130,13 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
     angles.splice(0,angles.length,...fingerFit.values);
     iterations+=fingerFit.iterations;
     record();
-    if(criteria(evaluate(angles,offsets)))break;
+    if(isAcceptableBowContact(evaluate(angles,offsets)))break;
   }
   const commands=overlay(base,channels,bestAngles);
   fk.apply(commands);
   const bowWorld=contactWorld(bestOffsets);
   const inspected=measureSourceCylinder(model,complete,bowWorld,radius,length);
   return Object.freeze({commands:Object.freeze(commands),
-    bowWorld,samples:inspected,accepted:criteria(inspected),
+    bowWorld,samples:inspected,accepted:isAcceptableBowContact(inspected),
     iterations,residual:Math.sqrt(best)});
 }
