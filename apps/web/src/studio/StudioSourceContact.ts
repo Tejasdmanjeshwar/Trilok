@@ -70,9 +70,11 @@ export function signedFiniteCylinderDistance(x:number,y:number,z:number,
   if(!(radius>0&&length>0))throw new Error("Invalid finite contact cylinder");
   const radial=Math.hypot(x,z)-radius;
   const axial=Math.abs(y)-length/2;
-  if(axial<=0)return radial;
-  if(radial<=0)return axial;
-  return Math.hypot(radial,axial);
+  // Exact capped-cylinder SDF: the cap is the nearest *interior*
+  // surface when a sample is inside the radius but near a handle end.
+  // A radial-only interior distance overstates cap penetration.
+  return Math.hypot(Math.max(radial,0),Math.max(axial,0))+
+    Math.min(Math.max(radial,axial),0);
 }
 
 /** Sampling happens after all FK, morph and wrist transforms. A single lucky
