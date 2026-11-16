@@ -78,6 +78,46 @@ describe("MakeHuman bow handle frame diagnosis",()=>{
           }
         }
         tilted.sort((a,b)=>(a.pen+a.gap*1.5)-(b.pen+b.gap*1.5));
+        const actualY=new THREE.Vector3().setFromMatrixColumn(result.bowWorld,1).normalize();
+        const volar=normal.clone().addScaledVector(actualY,-normal.dot(actualY)).normalize();
+        const width=result.descriptor.handleRadiusMeters*8;
+        const rawCenter=center.clone().addScaledVector(volar,-width*.42)
+          .addScaledVector(z,-width*.21);
+        const balanced=[] as Array<{volar:number;front:number;rx:number;
+          score:number;maxPen:number;palmPen:number;palmGap:number;
+          thumbPen:number;thumbGap:number;indexPen:number;indexGap:number;
+          middlePen:number;middleGap:number;ringPen:number;littlePen:number}>;
+        for(const shift of [0,.01,.015,.02,.025,.03]){
+          for(const forwardShift of [0,.01,.015,.02]){
+            for(const rx of [0,-.2]){
+              const w=result.bowWorld.clone()
+                .multiply(new THREE.Matrix4().makeRotationX(rx))
+                .setPosition(rawCenter.clone().addScaledVector(volar,shift)
+                  .addScaledVector(z,forwardShift));
+              const samples=measureStaff(model,hand,w,
+                result.descriptor.handleRadiusMeters,0);
+              const get=(digit:string)=>samples.find(s=>s.digit===digit)!;
+              const maxPen=Math.max(...samples.map(s=>s.deepestPenetration));
+              const palmGap=get("palm").closestGap;
+              const thumbGap=get("thumb").closestGap;
+              const indexGap=get("index").closestGap;
+              const middleGap=get("middle").closestGap;
+              const score=maxPen*3+Math.max(0,palmGap-.005)*2+
+                Math.max(0,thumbGap-.006)+Math.max(0,indexGap-.006)+
+                Math.max(0,middleGap-.006);
+              balanced.push({volar:shift,front:forwardShift,rx,score,maxPen,
+                palmPen:get("palm").deepestPenetration,palmGap,
+                thumbPen:get("thumb").deepestPenetration,thumbGap,
+                indexPen:get("index").deepestPenetration,indexGap,
+                middlePen:get("middle").deepestPenetration,middleGap,
+                ringPen:get("ring").deepestPenetration,
+                littlePen:get("little").deepestPenetration});
+            }
+          }
+        }
+        balanced.sort((a,b)=>a.score-b.score);
+        console.log("C5.4 anatomically balanced handle sweep",JSON.stringify({hand,
+          best:balanced.slice(0,14)}));
         console.log("C5.4 bow tilt sweep",JSON.stringify({hand,
           best:tilted.slice(0,12)}));
         console.log("C5.4 handle geometry sweep",JSON.stringify({hand,
