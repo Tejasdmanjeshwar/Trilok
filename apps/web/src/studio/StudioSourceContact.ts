@@ -28,13 +28,13 @@ export function sourceHandSamples(model:StudioHumanModel,hand:HandSide,
   const {mesh,spike,template}=model.human;
   const indices=mesh.geometry.getAttribute("skinIndex");
   const weights=mesh.geometry.getAttribute("skinWeight");
-  const bones=new Map(HAND_SURFACE_REGIONS.map(region=>[region,
+  const bones=new Map<HandSurfaceRegion,Set<number>>(HAND_SURFACE_REGIONS.map(region=>[region,
     new Set(spike.graph.joints.filter(j=>region==="palm"?
       j.role==="palm_"+hand:
       j.role.startsWith("finger_"+region+"_")&&
       j.id.includes("arm["+hand+",0]"))
-      .map(j=>spike.skeleton.bones.indexOf(spike.bones.get(j.id)!)))]));
-  const lists=new Map(HAND_SURFACE_REGIONS.map(region=>[region,[] as number[]]));
+      .map(j=>spike.skeleton.bones.indexOf(spike.bones.get(j.id)!)))] as const));
+  const lists=new Map<HandSurfaceRegion,number[]>(HAND_SURFACE_REGIONS.map(region=>[region,[] as number[]] as const));
   const seen=new Set<number>();
   for(let i=0;i<indices.count;i++){
     const source=template.sourceVertexIds[i]??i;
