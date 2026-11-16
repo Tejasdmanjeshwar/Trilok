@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import {bowNockLocal,createBowStaveGeometry,defaultBowStaveOptions,
+import {createBowStaveGeometry,defaultBowStaveOptions,
   type BowProfile} from "./StudioBowGeometry";
 import type {AnatomicalGraphV1} from "@trilok/character-core";
 import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
