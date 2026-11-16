@@ -151,3 +151,16 @@ from the completed run for independent visual inspection. For later
 candidate revisions, request the existing manual phase-level acceptance
 workflow rather than automatically running browsers on every push.
 The Cloudflare feature preview still needs independent SHA verification.
+
+
+## 2026-11-16 — canonical mirrored stave geometry correction (review candidate)
+
+User feedback identified a visually crooked and irregular wooden stave. The root cause in source was the prior four-point Catmull–Rom limb loft: local X points moved to -0.055 / -0.11 metres independently of the string-plane (+Y/+Z), creating an unintended sideways sweep. A constant-radius \`TubeGeometry\` generated a rounded tube instead of tapered wooden limbs. Although the control points used a ±Y sign, that alone could not produce an intentional bow silhouette.
+
+\`StudioBowGeometry.ts\` replaces both individual tubes with a single closed, analytically sampled, lofted stave. Canonical metres: +Y is upper tip, +Z is arrow travel and stave belly, +X is width; the bowstring and stave centerlines occupy the YZ plane, with the unchanged source-grip cylinder at local origin. A single upper half defines the rest shape; the lower half is reflected exactly through Y=0. Fixed ring orientation uses the X width axis and analytic YZ tangent/normal; there are no Frenet frame flips. A smooth square-sine camber with optional localized fourth-order recurve controls the depth silhouette, while taper shapes the elliptical stave sections. Cap geometry has explicit outward winding and deterministic UVs. The default is **recurve**, and the Studio equipment panel also exposes **traditional**.
+
+The bow remains rigid during string movement, and the renderer takes physical upper/lower nocks from the generated geometry's shared \`bowNockLocal\` coordinates; the drawing solver retains its established local nock and contact frame. This change intentionally leaves \`StudioWeaponGrip\`, \`StudioContactIK\`, \`AnatomicalFK\`, sword/staff/shield systems, and authoritative combat untouched. Grip cylinder radius/length and its socket transform are not visually offset. Profile changes rebuild only the disposable preview geometry/materials, leaving IK/contact pose unchanged.
+
+Tests added in \`tests/character-studio-bow-geometry.test.ts\` exercise profile smoothness, exact mirrored half-section metrics/positions, monotonicity, finite mesh attributes, nondegenerate triangles, indices, UVs, deterministic replay of generated vertices, geometry disposal, nocks, and multiple dimension variations. Existing nominal source-skin bow contact and all-five-state tests remain active; the Playwright Studio test captures both profiles for both handedness configurations.
+
+**Acceptance still gated:** This source commit is not proof of successful CI, physically perfect silhouette, or deployment. Fresh exact-SHA Chromium desktop/touch screenshots must be inspected; Cloudflare deployment identity and the final numeric CI results must be recorded separately. PR #87 remains draft/unmerged.
