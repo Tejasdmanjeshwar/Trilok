@@ -73,7 +73,7 @@ const scoped=(model:StudioHumanModel,role:string,side:HandSide)=>
   model.human.spike.graph.joints.find(j=>j.role===role+"_"+side&&
     j.id.includes("arm["+side+",0]")) ??
   model.human.spike.graph.joints.find(j=>j.role===role+"_"+side);
-const k=(item:JointTarget)=>item.jointId+"/"+item.motion;
+const k=(item:Pick<JointTarget,"jointId"|"motion">)=>item.jointId+"/"+item.motion;
 const merge=(base:readonly JointTarget[],overrides:readonly JointTarget[]):JointTarget[]=>{
   const state=new Map(base.map(c=>[k(c),c]));
   for(const command of overrides)state.set(k(command),command);
