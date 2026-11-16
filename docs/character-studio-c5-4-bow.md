@@ -282,3 +282,12 @@ Follow-up changes on the same draft PR:
 
 **Verification still required:** Compare the next CI test logs against all 13 baseline state/draw cases; preserve the reachability, string gap, 30 mm nock-contact and morphology gates. Add actual tight mirrored-pose assertions only when end-to-end deviations are reduced to source-appropriate tolerances. If metrics remain large, inspect handedness of the moving bow socket's local frame, bow-hand grip seed/candidate selection and coupled feasible-first tie-breaking. Also inspect the source mesh under Chromium and run desktop/touch screenshots. Do not claim bilateral parity, visual acceptance or deployment on the strength of this numerical change alone.
 
+
+
+### Investigation outcome — safeguard against experimental regression
+
+The exploratory mirror-normalized vertex subset and canonicalized coupled DLS were evaluated by [Verify #43891331361](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43891331361). **They did not fix pose mirror invariance**. The changed solver produced up to 143.582 mm bow-tip difference in the 13 sampled cases and 51.546 mm neutral rest finger-landmark error. More importantly, the tall/muscular source nock pose exceeded the required 30 mm drawing-hand contact gate (32.250 mm): 464 tests passed and one failed. The experimental runtime changes were therefore reverted to the previous green FK/contact behavior, and the unused prototype utility/test removed. **No claim of an IK symmetry fix is justified.**
+
+The independently verified audit tests have been retained and strengthened: neutral source hand-skin deformation is bounded to 0.1 mm against the measured exact-mirror fixture, and the reflected BVH-derived legal seed projection is bounded to 0.05°. These are useful guardrails but **not a substitute** for tight end-to-end 5-state / progressive-draw landmark, bow, string and arrow mirror assertions.
+
+Before retrying a runtime correction, the next investigation must isolate the large existing discrepancies at the bow-hand finite-cylinder candidate selection and full moving-socket IK objective; ordinary parameter reflection and different contact sample ordering do not, alone, enforce the same contact basin. Preserve all morphology and thumb recovery gates. This C5.4 PR remains draft/open, and the bilateral full-pose acceptance gate remains **unmet**.
