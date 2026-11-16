@@ -592,11 +592,15 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const contactLocal=contact.clone().applyMatrix4(resolved);
   return Object.freeze({
     reachable,reason:!handFit.accepted||bowError>=.10*scale?"bow-unreachable":
-      state!=="rest"&&state!=="release"&&drawError>=.03*scale?"draw-unreachable":
+      unsafe||held.clearance<=-.027*scale||
+        state!=="rest"&&state!=="release"&&drawClearance<=-.025*scale?
+        "body-intersection":
       state!=="rest"&&state!=="release"&&
         arrowAimDeviation>MAX_ARCHERY_AIM_DEVIATION_RADIANS?"aim-unreachable":
-      unsafe||held.clearance<=-.027*scale||
-      state!=="rest"&&state!=="release"&&drawClearance<=-.025*scale?"body-intersection":"ok",
+      state!=="rest"&&state!=="release"&&
+        (drawError>=.03*scale||!drawSkinGaps||
+          drawSkinGaps.index>=.008*scale||drawSkinGaps.middle>=.008*scale)?
+        "draw-unreachable":"ok",
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
     iterations:held.iterations+drawIterations,solverAttempts:held.attempts+drawAttempts,
     bowHandErrorMeters:bowError,bowSkinContact:handFit.samples,drawHandErrorMeters:drawError,
