@@ -374,9 +374,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     handleRadiusMeters:THREE.MathUtils.clamp(width/8,.003,.014),
     handleLengthMeters:THREE.MathUtils.clamp(width*1.45,.038,.18),
     arrowLengthMeters:.70*scale,stringRestMeters:.07*scale,
-    // Source-limb proportion adapts draw travel without a rigid fixed
-    // 28 cm cap that leaves the hook far ahead of the facial anchor.
-    maximumDrawMeters:THREE.MathUtils.clamp(armReach*.65,.25*scale,.52*scale),
+    // Preserve the independently verified full C5.4 string length.
+    // Longer draw travel requires separate source-skin/collision tuning:
+    // posture objectives must not silently change the physical hook goal.
+    maximumDrawMeters:.28*scale,
   });
   validateBowReference(descriptor,model.human.spike.graph);
   // The BVH is a source-authored pose *candidate*, not permission to force
