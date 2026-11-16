@@ -184,3 +184,22 @@ The initial radius-only fallback retained unsafe thumb contact or lost other sou
 **Verified on exact generated source anatomy, `bow-left/rest`:** `radius=7.408176 mm` (original `8.231307 mm`), thumb maximum penetration **0.695998 mm**; palm **0.128746 mm**, index **0.458261 mm**, middle **0.533909 mm**, ring **1.732466 mm**, little finger **0.524167 mm**. Contact vertex counts respectively **9/3/18/9/8/15**, with each region passing the minimum two pressure-vertex gate. The source rest pose is reachable and deterministic across refresh. The one new regression file `tests/character-studio-bow-user-seed.test.ts` reconstructs the *actual* versioned generator output and checks source skin, dimensions and repeated pose determinism, rather than asserting on a fabricated solver report.
 
 [Verify #43850054797](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43850054797) passed 444/444 Vitest tests across 82 suites, TypeScript, production build and compiled build identity on candidate `6d8adca0937c657851955a82b9047ea3b5e2ffd1`. **The final documentation commit must be independently verified**; existing manually gated Chromium phase-acceptance and fresh Cloudflare preview SHA verification remain outstanding. The selected thumb pressure patch is only three source vertices, so numerical contact alone is not sufficient for final visual signoff. PR #87 remains draft/open and unmerged.
+
+## C5.4 direction-consistent archery alignment (review candidate)
+
+A full-draw contact residual alone does not prove that an arrow points where the
+avatar faces. The earlier coupled solver penalized bow uprightness but allowed
+rotation about that upright axis, and it never measured forward-arrow angular
+misalignment. Studio now uses the existing FK and coupled contact solver to
+minimize the *socket-derived* arrow +Z direction against the avatar's forward
+axis, with an explicit 15-degree support envelope for nock, partial and full
+aim. The world-space bow, string and arrow all remain under the same contact
+frame; there is no cosmetic post-solve arrow or bow rotation. A candidate
+outside the orientation gate returns `aim-unreachable` with the numeric angle
+in the reproducible failure report, and reverts to the safe source pose.
+
+The desktop/touch visual gate and real morphology coverage remain independent
+of numerical tests. The 15-degree bound is a preview aiming constraint, *not*
+a combat ballistic elevation rule. This change does not modify combat launch,
+damage or projectile timing. Measure exact before/after values in GitHub Verify
+and inspect newly generated browser screenshots before visual acceptance.

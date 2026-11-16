@@ -8,7 +8,8 @@ import {signedFiniteCylinderDistance,sourceHandSamples,measureSourceCylinder}
 import {contactArmFreedoms,composeContactPose} from "../apps/web/src/studio/StudioContactIK";
 import {StudioBowPreview,archeryDrawFraction,validateBowReference,
   measureStringFingerSkin,
-  type ArcheryState} from "../apps/web/src/studio/StudioArchery";
+  type ArcheryState,MAX_ARCHERY_AIM_DEVIATION_RADIANS}
+  from "../apps/web/src/studio/StudioArchery";
 import {aimBallisticAt,sampleTrajectory} from "../packages/combat/src/projectile-motion";
 
 describe("Shared anatomical weapon contacts",()=>{
@@ -140,6 +141,12 @@ describe("Studio bow and visual nock contract",()=>{
           body:report.bodyClearanceMeters,skin:report.drawingSkinGapsMeters,
           attempts:report.solverAttempts}));
         expect(report.reachable,hand+"/"+state+" safe pose").toBe(true);
+        expect(report.arrowAimDeviationRadians,
+          hand+"/"+state+" arrow deviates from avatar-facing aim; "+
+          THREE.MathUtils.radToDeg(report.arrowAimDeviationRadians).toFixed(2)+" deg")
+          .toBeLessThanOrEqual(MAX_ARCHERY_AIM_DEVIATION_RADIANS+1e-8);
+        expect(aimAxis.angleTo(avatarForward))
+          .toBeCloseTo(report.arrowAimDeviationRadians,7);
         expect(report.iterations).toBeLessThanOrEqual(56);
         console.log("C5.4 archery reach",JSON.stringify({hand,state,
           reachable:report.reachable,bowError:report.bowHandErrorMeters,

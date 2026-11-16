@@ -24,6 +24,9 @@ export type BowEquipment="bow-left"|"bow-right";
 export const isBowEquipment=(value:string):value is BowEquipment=>
   value==="bow-left"||value==="bow-right";
 export const oppositeHand=(side:HandSide):HandSide=>side==="left"?"right":"left";
+/** Studio preview aim is the avatar-facing +Z line, not an independently
+ * rotated arrow model. Unreachable alignment must reject the source pose. */
+export const MAX_ARCHERY_AIM_DEVIATION_RADIANS=THREE.MathUtils.degToRad(15);
 export const ARCHERY_STATES:Readonly<Record<ArcheryState,string>>=Object.freeze({
   rest:"Bow held",nock:"Nocking arrow",partial:"Partial draw",
   aim:"Full draw / aim",release:"Release / follow-through",
@@ -232,7 +235,8 @@ function bowFrame(model:StudioHumanModel,hand:HandSide,
 }
 export interface ArcheryPoseResult {
   readonly reachable:boolean;
-  readonly reason:"ok"|"bow-unreachable"|"draw-unreachable"|"body-intersection";
+  readonly reason:"ok"|"bow-unreachable"|"draw-unreachable"|
+    "aim-unreachable"|"body-intersection";
   readonly hand:HandSide;
   readonly state:ArcheryState;
   readonly commands:readonly JointTarget[];
@@ -249,6 +253,7 @@ export interface ArcheryPoseResult {
   readonly nockWorld:THREE.Vector3;
   readonly drawContactWorld:THREE.Vector3;
   readonly arrowDirectionWorld:THREE.Vector3;
+  readonly arrowAimDeviationRadians:number;
   readonly descriptor:BowReferenceV1;
 }
 export function archeryDrawFraction(state:ArcheryState,value:number):number{
@@ -469,6 +474,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const middlePadResidual=middlePad.sub(middleTarget);
         const axis=new THREE.Vector3(0,1,0).transformDirection(actualBow);
         const upright=axis.cross(up);
+        const shaft=new THREE.Vector3(0,0,1).transformDirection(actualBow);
         return [
           // The arrow/string and the source finger hook share one goal.
           (finger.x-goal.x)*1.65,(finger.y-goal.y)*1.65,
@@ -484,6 +490,11 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           Math.max(0,skin.middle-.006*scale)*2,
           Math.max(0,.006*scale-skin.ring)*.3,
           ...upright.toArray().map(v=>v*.045*scale),
+          // This is the ACTUAL arrow launch axis carried by the bow socket.
+          // A vertical bow can still roll/yaw around Y while pointing the
+          // arrow 45 degrees away from the gaze: constrain both orientation
+          // axes through legal holding/drawing shoulder, elbow and wrist FK.
+          ...shaft.sub(forward).toArray().map(v=>v*.115*scale),
           // Keep the holding arm close to the authored reachable stance.
           (bowGrip.x-bowTarget.x)*.45,(bowGrip.y-bowTarget.y)*.45,
           (bowGrip.z-bowTarget.z)*.45,
@@ -510,12 +521,16 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         collisions.clearance(finger));
       const bowDisplacement=twoHandGripContactWorld(model,hand)
         .distanceTo(bowTarget);
+      const arrowAimDeviation=new THREE.Vector3(0,0,1)
+        .transformDirection(actualBow).angleTo(forward);
       const cost=error+Math.max(0,.01*scale-clearance)*2+
         Math.max(0,bowDisplacement-.06*scale)*.5+
-        (skin.index+skin.middle)*1.5;
+        (skin.index+skin.middle)*1.5+
+        arrowAimDeviation*.115*scale;
       drawAttempts++;
       drawIterations=Math.max(drawIterations,fit.iterations);
-      const valid=error<.03*scale&&clearance>-.025*scale;
+      const valid=error<.03*scale&&clearance>-.025*scale&&
+        arrowAimDeviation<=MAX_ARCHERY_AIM_DEVIATION_RADIANS;
       const skinValid=skin.index<.008*scale&&skin.middle<.008*scale;
       // Feasible true-skin contacts take precedence over proxy crease cost.
       // A lowered hook gap is not accepted if it makes the arm unreachable.
@@ -533,7 +548,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       // acceptance assertions remain unchanged.
       if(error<.029*scale&&clearance>0&&
         bowDisplacement<.09*scale&&
-        skin.index<.0075*scale&&skin.middle<.0075*scale){
+        skin.index<.0075*scale&&skin.middle<.0075*scale&&
+        arrowAimDeviation<=MAX_ARCHERY_AIM_DEVIATION_RADIANS){
         best={commands:candidate,world:actualBow,contact:finger,
           error,clearance,cost,skin,valid:true,skinValid:true,
           nockY:fit.values[freedoms.length]!,iterations:fit.iterations};
@@ -554,12 +570,15 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     drawIterations=best.iterations;
   }
   const unsafe=collisions.clearance(contact)<-.015*scale;
+  const arrowAimDeviation=new THREE.Vector3(0,0,1)
+    .transformDirection(solvedWorld).angleTo(forward);
   const bowError=twoHandGripContactWorld(model,hand).distanceTo(bowTarget);
   const reachable=handFit.accepted&&bowError<.10*scale&&held.clearance>-.027*scale&&
     ((state==="rest"||state==="release")||
       drawError<.03*scale&&drawClearance>-.025*scale&&
       drawSkinGaps!==undefined&&drawSkinGaps.index<.008*scale&&
-      drawSkinGaps.middle<.008*scale)&&!unsafe;
+      drawSkinGaps.middle<.008*scale&&
+      arrowAimDeviation<=MAX_ARCHERY_AIM_DEVIATION_RADIANS)&&!unsafe;
   // Restoring the original source pose on failure avoids broken IK, facial
   // clipping, and a weapon hovering on a disconnected hand.
   if(!reachable)fk.apply(base);
@@ -574,6 +593,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   return Object.freeze({
     reachable,reason:!handFit.accepted||bowError>=.10*scale?"bow-unreachable":
       state!=="rest"&&state!=="release"&&drawError>=.03*scale?"draw-unreachable":
+      state!=="rest"&&state!=="release"&&
+        arrowAimDeviation>MAX_ARCHERY_AIM_DEVIATION_RADIANS?"aim-unreachable":
       unsafe||held.clearance<=-.027*scale||
       state!=="rest"&&state!=="release"&&drawClearance<=-.025*scale?"body-intersection":"ok",
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
@@ -586,7 +607,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     actualDrawFraction:Math.max(0,Math.min(1,
       (-contactLocal.z-descriptor.stringRestMeters)/descriptor.maximumDrawMeters)),
     bowWorld:solvedWorld,nockWorld:nock,drawContactWorld:contact,
-    arrowDirectionWorld:z,descriptor,
+    arrowDirectionWorld:z,arrowAimDeviationRadians:arrowAimDeviation,descriptor,
   });
 }
 /** Independent final inspection against the posed source-skinned fingers.

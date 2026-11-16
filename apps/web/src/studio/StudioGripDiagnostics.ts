@@ -67,6 +67,7 @@ export interface StudioBowGripFailureReport {
         bodyClearanceMeters:number;
         drawMeters:number;
         actualDrawFraction:number;
+        arrowAimDeviationRadians:number;
         bowSkinContact:ArcheryPoseResult["bowSkinContact"];
         descriptor:ArcheryPoseResult["descriptor"];
         nockWorldMeters:readonly number[];
@@ -118,6 +119,7 @@ export function createStudioBowFailureReport(
       bodyClearanceMeters:result.bodyClearanceMeters,
       drawMeters:result.drawMeters,
       actualDrawFraction:result.actualDrawFraction,
+      arrowAimDeviationRadians:result.arrowAimDeviationRadians,
       bowSkinContact:result.bowSkinContact.map(region=>({...region})),
       descriptor:{...result.descriptor},
       nockWorldMeters:result.nockWorld.toArray(),

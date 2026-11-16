@@ -85,6 +85,7 @@ describe("C5.4 bow failures share the exact copyable Studio diagnostic path",()=
       bowHandErrorMeters:.012,drawHandErrorMeters:.041,
       drawingSkinGapsMeters:{index:.009,middle:.002,ring:.022},
       bodyClearanceMeters:-.003,drawMeters:.21,actualDrawFraction:.75,
+      arrowAimDeviationRadians:.4,
       bowSkinContact:[{region:"palm",sampledVertices:120,axialVertices:95,
         contactVertices:2,nearestGapMeters:.002,thirdNearestGapMeters:.003,
         maximumPenetrationMeters:.001}],
@@ -110,6 +111,7 @@ describe("C5.4 bow failures share the exact copyable Studio diagnostic path",()=
     expect(data.failure.type).toBe("unreachable");
     expect(data.failure.reason).toBe("draw-unreachable");
     expect(data.failure.drawHandErrorMeters).toBe(.041);
+    expect(data.failure.arrowAimDeviationRadians).toBe(.4);
     expect(data.failure.bowSkinContact[0].maximumPenetrationMeters).toBe(.001);
     expect(data.failure.drawingSkinGapsMeters.index).toBe(.009);
     expect(data.failure.nockWorldMeters).toEqual([1,2,3]);
