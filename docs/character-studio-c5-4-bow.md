@@ -228,3 +228,33 @@ The initial audit-only CI run had 445 passing tests and **one test-author assert
 **Correction under verification:** `StudioSourceContact.sourceHandSamples` formerly chose reduced finite-difference samples by OBJ source-vertex index, which is not a bilateral mapping. The new reduced-sample path orders eligible vertices by actual source Y, Z and absolute X before selecting quantiles, so reflected source hands evaluate equivalent spatial points. Every final skin-cylinder and string contact still uses the complete original source vertices, unchanged physical dimensions and unchanged contact limits. This is a shared source-contact sampling correction, not a copied right/left pose or display-only rotation. It must be remeasured in CI; it does **not** by itself establish mirror invariance.
 
 **Outstanding before acceptance:** compare post-fix landmarks/bow/string/shaft across all five preview states and progressive draw; isolate remaining source retarget projection and feasible-first IK selection; certify skinning weights and procedural correction symmetry; add tight enforceable mirror bounds and repeatability tests; run all Vitest, replay, typecheck/build, Chromium visual evidence, and exact Cloudflare SHA verification. Preserve C5.4 thumb/handle and index/middle hook gates, avoid altering combat, do not begin C5.5 or merge PR #87.
+
+## 2026-11-16 — Canonical parameter-space optimization (follow-up to bilateral audit)
+
+The shared bounded damped-least-squares core remains the only numerical IK
+solver. `fitCanonicalIK` maps each source-calibrated anatomical axis into a
+canonical mirrored parameter orientation by a signed, invertible transform,
+including its joint limits, seed, Jacobian probes and line search. The fit
+maps the winning parameters back to the actual native FK channels. Both
+sides continue to obey their **own** morphology and joint limits; it is not
+a solved-pose copy or a blanket requirement that asymmetric characters be
+bilaterally identical.
+
+The archery holding-arm fit and coupled two-arm/string fit now use that
+canonical parameterization, with axial signs derived from the MakeHuman rest
+world quaternions and semantic counterpart axes. The extra nock-local-Y
+parameter keeps its existing sign and constraints. The change adds no
+degrees of freedom, optimization passes or companion mirror solve. Generic
+unit tests exercise exact reflected objective and evaluation-count parity,
+plus independently constrained asymmetric targets.
+
+**Verification is required before acceptance.** The earlier bilateral
+measurements are diagnostic only; canonicalizing parameters does *not*
+establish reflection equivalence of source-skin sampling, anatomical
+contact residuals, arm-seed choices or feasible-first candidate selection.
+The existing 13-state neutral pose diagnostic must be remeasured from CI
+before tightening the mirror invariants. The previous full-draw 27.4 mm
+bow-grip and 3.095-degree arrow mismatch are known failures, not accepted
+limits. Do not merge or claim visually accepted symmetry on the strength
+of a green unit suite alone. Verify real CI, Cloudflare feature-preview
+identity and Chromium visual samples separately.
