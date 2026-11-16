@@ -129,7 +129,7 @@ const ARM_CHANNELS:readonly (readonly [string,readonly AnatomicalMotion[]])[]=[
 ];
 function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget[],
   side:HandSide,target:THREE.Vector3,drawHand:boolean,scale:number,
-  desiredBowBendRadians=THREE.MathUtils.degToRad(18)){
+  desiredBowBendRadians?:number){
   const axes:Freedom[]=[];
   for(const [role,motions] of ARM_CHANNELS){
     const joint=scoped(model,role,side);
@@ -202,8 +202,9 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
           .map(x=>x*.08*scale)),
         // A contacting hand alone is not enough: the bow arm must form a
         // supported, nearly straight shoulder-elbow-wrist chain.
-        ...(drawHand?[]:[bowArmExtensionResidual(measureArmAlignment(
-          at(shoulder),elbowWorld,wristWorld),desiredBowBendRadians)]),
+        ...(drawHand||desiredBowBendRadians===undefined?[]:[
+          bowArmExtensionResidual(measureArmAlignment(
+            at(shoulder),elbowWorld,wristWorld),desiredBowBendRadians)*.22]),
         ...values.map((angle,i)=>(angle-initial[i]!)*.003),
       ];
     };
@@ -215,8 +216,9 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
     const clearance=collision.clearance(at(elbow).lerp(at(wrist),.5));
     const inclination=drawHand?0:
       sourceGripAxis().clone().cross(worldUp).length();
-    const extensionPenalty=drawHand?0:bowArmExtensionResidual(
-      measureArmAlignment(at(shoulder),at(elbow),at(wrist)),desiredBowBendRadians);
+    const extensionPenalty=drawHand||desiredBowBendRadians===undefined?0:
+      bowArmExtensionResidual(measureArmAlignment(
+        at(shoulder),at(elbow),at(wrist)),desiredBowBendRadians)*.22;
     const score=error+Math.max(0,.01*scale-clearance)*2+
       inclination*.08*scale+extensionPenalty;
     if(!best||score<best.score){
@@ -341,7 +343,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // The old chest+fixed-Z target let flexed elbows reach the bow while
   // the shoulder line was correct. Use real limb lengths from source FK,
   // with a higher, longer target in the bow-side shooting plane.
-  const reachFraction=state==="nock"?.84:state==="partial"?.84+.08*draw:.93;
+  const reachFraction=state==="nock"?.76:state==="partial"?.76+.06*draw:.84;
   const bowTarget=state==="rest"?chest.clone()
     .addScaledVector(right,(hand==="right"?1:-1)*.12*scale)
     .addScaledVector(forward,.56*scale).addScaledVector(up,.06*scale):
@@ -349,8 +351,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       initialWrist.distanceTo(initialPalm)*.28)
       .addScaledVector(right,(hand==="right"?1:-1)*.014*scale)
       .addScaledVector(up,.015*scale);
-  const desiredBend=THREE.MathUtils.degToRad(
-    state==="rest"?30:state==="nock"?22:state==="partial"?20-8*draw:12);
+  const desiredBend=state==="rest"?undefined:THREE.MathUtils.degToRad(
+    state==="nock"?22:state==="partial"?20-8*draw:12);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
@@ -598,7 +600,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // Contact alone cannot make a shooting-line silhouette.
           // Keep a soft-extended bow elbow and rearward draw elbow without
           // moving either grip/string independently of the source rig.
-          bowArmExtensionResidual(bowArm,desiredBend),
+          ...(desiredBend===undefined?[]:[
+            bowArmExtensionResidual(bowArm,desiredBend)*.30]),
           Math.max(0,.075*scale-pull.behindHookMeters)*.45*pullWeight,
           Math.max(0,pull.perpendicularMeters-.12*scale)*.3*pullWeight,
           // Keep the bow arm near its measured source-length target.
