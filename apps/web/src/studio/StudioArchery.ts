@@ -260,6 +260,12 @@ export interface ArcheryPoseResult {
   readonly arrowDirectionWorld:THREE.Vector3;
   readonly arrowAimDeviationRadians:number;
   readonly descriptor:BowReferenceV1;
+  /** Read-only candidate-selection evidence, not part of authoritative play. */
+  readonly symmetryTrace:Readonly<{
+    holdingArmAttempts:number;holdingArmScore:number;
+    bowContactCandidate:number;bowContactScore:number;
+    drawArmSeed:number;drawFingerSeed:number;drawScore:number;
+  }>;
 }
 export function archeryDrawFraction(state:ArcheryState,value:number):number{
   if(!Number.isFinite(value)||value<0||value>1)throw new Error("Invalid archery draw");
@@ -335,6 +341,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   candidates.sort((a,b)=>Number(b.fit.accepted)-Number(a.fit.accepted)||
     a.cost-b.cost||a.index-b.index);
   const handFit=candidates[0]!.fit;
+  const chosenHandCandidate=candidates[0]!;
   // The visible cylinder, contact evaluator and authoritative socket must
   // all share the SAME selected morphology-specific handle dimensions.
   descriptor=Object.freeze({...descriptor,
@@ -357,6 +364,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     }
   }
   let completed:readonly JointTarget[]=staged;
+  let selectedDrawTrace={arm:-1,finger:-1,score:0};
   let drawError=0,drawClearance=Infinity,drawIterations=0,drawAttempts=0;
   let drawSkinGaps:Readonly<Record<"index"|"middle"|"ring",number>>|undefined;
   let contact=target.clone();
@@ -452,8 +460,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
       skin:Readonly<Record<"index"|"middle"|"ring",number>>;
       nockY:number;valid:boolean;skinValid:boolean;
-      iterations:number}|undefined;
-    candidateSearch:for(const angles of drawSeeds)for(const fingerSeed of digitSeeds){
+      iterations:number;armSeed:number;fingerSeed:number}|undefined;
+    candidateSearch:for(let armSeed=0;armSeed<drawSeeds.length;armSeed++)
+      for(let fingerSeedIndex=0;fingerSeedIndex<digitSeeds.length;fingerSeedIndex++){
+      const angles=drawSeeds[armSeed]!,fingerSeed=digitSeeds[fingerSeedIndex]!;
       const jointSeed=clampContactSeed([
         ...initial.slice(0,9),...angles,...fingerSeed],freedoms);
       const seed=[...jointSeed,0];
@@ -545,6 +555,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         commands:candidate,world:actualBow,contact:finger,
         error,clearance,cost,skin,valid,skinValid,
         nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
+        armSeed,fingerSeed:fingerSeedIndex,
       };
       // Deterministic feasible-first exit at a bounded margin inside the
       // original 30-mm reach / 8-mm source-skin and 100-mm bow gates. A
@@ -557,11 +568,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         arrowAimDeviation<=MAX_ARCHERY_AIM_DEVIATION_RADIANS){
         best={commands:candidate,world:actualBow,contact:finger,
           error,clearance,cost,skin,valid:true,skinValid:true,
-          nockY:fit.values[freedoms.length]!,iterations:fit.iterations};
+          nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
+          armSeed,fingerSeed:fingerSeedIndex};
         break candidateSearch;
       }
     }
     if(!best)throw new Error("Missing legal coupled archery candidate");
+    selectedDrawTrace={arm:best.armSeed,finger:best.fingerSeed,
+      score:best.cost};
     completed=best.commands;
     fk.apply(completed);
     solvedWorld=dynamicBow();
@@ -617,6 +631,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       (-contactLocal.z-descriptor.stringRestMeters)/descriptor.maximumDrawMeters)),
     bowWorld:solvedWorld,nockWorld:nock,drawContactWorld:contact,
     arrowDirectionWorld:z,arrowAimDeviationRadians:arrowAimDeviation,descriptor,
+    symmetryTrace:Object.freeze({
+      holdingArmAttempts:held.attempts,holdingArmScore:held.score,
+      bowContactCandidate:chosenHandCandidate.index,
+      bowContactScore:chosenHandCandidate.cost,
+      drawArmSeed:selectedDrawTrace.arm,
+      drawFingerSeed:selectedDrawTrace.finger,drawScore:selectedDrawTrace.score,
+    }),
   });
 }
 /** Independent final inspection against the posed source-skinned fingers.
