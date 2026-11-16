@@ -23,6 +23,56 @@ export interface SourceCylinderRegion {
 }
 export type SourceHandSamples=ReadonlyMap<HandSurfaceRegion,readonly number[]>;
 
+/** A source OBJ may enumerate symmetric hands in unrelated vertex orders.
+ * Preserve the established left contact-probe distribution, and pair the
+ * right-hand probes by mirrored *bind geometry*, not by unrelated indices.
+ * This affects only finite-difference sampling: full source-skin acceptance
+ * still uses all original vertices on each (potentially asymmetric) hand.
+ *
+ * If a morphology has no mirror counterpart inside the same anatomical skin
+ * region, use the ordinary real-side sampling. Never create synthetic skin,
+ * force a joint or change a tolerance to manufacture bilateral equality.
+ */
+function mirroredRightProbes(left:readonly number[],right:readonly number[],
+  position:THREE.BufferAttribute|THREE.InterleavedBufferAttribute,
+  count:number):number[]|undefined{
+  if(left.length<count||right.length<count)return undefined;
+  const selectedLeft=Array.from({length:count},(_,j)=>
+    left[Math.floor((j+.5)*left.length/count)]!);
+  const key=(x:number,y:number,z:number)=>[
+    Math.round(x*100000),Math.round(y*100000),Math.round(z*100000),
+  ].join("/");
+  const indexed=new Map<string,number[]>();
+  for(const index of right){
+    const k=key(position.getX(index),position.getY(index),position.getZ(index));
+    const entries=indexed.get(k)??[];
+    entries.push(index);
+    indexed.set(k,entries);
+  }
+  const used=new Set<number>(),matched:number[]=[];
+  for(const index of selectedLeft){
+    const x=-position.getX(index),y=position.getY(index),
+      z=position.getZ(index);
+    // A rounded float32 bind vertex can land in the neighboring bucket.
+    const ix=Math.round(x*100000),iy=Math.round(y*100000),
+      iz=Math.round(z*100000);
+    let best=-1,distance=.0001;
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)
+      for(let dz=-1;dz<=1;dz++){
+        const candidates=indexed.get([ix+dx,iy+dy,iz+dz].join("/"))??[];
+        for(const candidate of candidates){
+          if(used.has(candidate))continue;
+          const error=Math.hypot(x-position.getX(candidate),
+            y-position.getY(candidate),z-position.getZ(candidate));
+          if(error<distance){distance=error;best=candidate;}
+        }
+      }
+    if(best<0)return undefined;
+    used.add(best);matched.push(best);
+  }
+  return matched;
+}
+
 /** Select distinct original MakeHuman vertices. Deterministic downsampling
  * is for solver evaluation only; a complete pass remains available at final
  * acceptance. A region with no source vertices is a hard diagnostic failure. */
@@ -38,17 +88,30 @@ export function sourceHandSamples(model:StudioHumanModel,hand:HandSide,
       j.id.includes("arm["+hand+",0]"))
       .map(j=>spike.skeleton.bones.indexOf(spike.bones.get(j.id)!)))] as const));
   const lists=new Map<HandSurfaceRegion,number[]>(HAND_SURFACE_REGIONS.map(region=>[region,[] as number[]] as const));
+  // Only bounded right-hand probes need mirrored left lookup. All accepted
+  // final contacts still originate solely from this hand's own source skin.
+  const mirrorFromLeft=hand==="right"&&Number.isFinite(maximumPerRegion);
+  const counterpart=mirrorFromLeft?new Map<HandSurfaceRegion,number[]>(
+    HAND_SURFACE_REGIONS.map(region=>[region,[]] as const)):undefined;
+  const otherBones=mirrorFromLeft?new Map<HandSurfaceRegion,Set<number>>(
+    HAND_SURFACE_REGIONS.map(region=>[region,new Set(spike.graph.joints.filter(j=>
+      region==="palm"?j.role==="palm_left":
+      j.role.startsWith("finger_"+region+"_")&&j.id.includes("arm[left,0]"))
+      .map(j=>spike.skeleton.bones.indexOf(spike.bones.get(j.id)!)))] as const)):undefined;
   const seen=new Set<number>();
   for(let i=0;i<indices.count;i++){
     const source=template.sourceVertexIds[i]??i;
     if(seen.has(source))continue;
     seen.add(source);
     for(const region of HAND_SURFACE_REGIONS){
-      let influence=0;
-      for(let j=0;j<4;j++)
-        if(bones.get(region)!.has(indices.getComponent(i,j)))
-          influence+=weights.getComponent(i,j);
+      let influence=0,leftInfluence=0;
+      for(let j=0;j<4;j++){
+        const idx=indices.getComponent(i,j),weight=weights.getComponent(i,j);
+        if(bones.get(region)!.has(idx))influence+=weight;
+        if(otherBones?.get(region)?.has(idx))leftInfluence+=weight;
+      }
       if(influence>=.6)lists.get(region)!.push(i);
+      if(counterpart&&leftInfluence>=.6)counterpart.get(region)!.push(i);
     }
   }
   for(const region of HAND_SURFACE_REGIONS){
@@ -56,7 +119,10 @@ export function sourceHandSamples(model:StudioHumanModel,hand:HandSide,
     if(list.length<8)throw new Error("Missing source skin samples: "+hand+"/"+region);
     if(Number.isFinite(maximumPerRegion)&&list.length>maximumPerRegion){
       const count=Math.max(8,Math.floor(maximumPerRegion));
-      lists.set(region,Array.from({length:count},(_,j)=>
+      const paired=counterpart&&mirroredRightProbes(
+        counterpart.get(region)!,list,
+        mesh.geometry.getAttribute("position"),count);
+      lists.set(region,paired??Array.from({length:count},(_,j)=>
         list[Math.floor((j+.5)*list.length/count)]!));
     }
   }
