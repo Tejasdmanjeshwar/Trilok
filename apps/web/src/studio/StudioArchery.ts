@@ -456,13 +456,36 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       sourceDigitSeed.map((angle,i)=>(angle+calibratedDigitSeed[i]!)*.5),
       sourceDigitSeed,calibratedDigitSeed,
     ];
+    // Compare the SAME legal seed pairs in actual source FK before the
+    // nonlinear solve. The old lexicographic feasible-first pass could select
+    // unrelated elbow basins on reflected hands even for exact mirrored
+    // neutral anatomy. The score is a symmetric physical distance and angle;
+    // no opposing hand pose is copied, and asymmetric bodies still get their
+    // own independent ranking. This costs only 15 FK/landmark probes, not an
+    // additional DLS solve or a new per-frame iteration.
+    const orderedSeeds=drawSeeds.flatMap((angles,armSeed)=>
+      digitSeeds.map((digits,fingerSeedIndex)=>{
+        const joints=clampContactSeed([
+          ...initial.slice(0,9),...angles,...digits],freedoms);
+        fk.apply(composeContactPose(staged,freedoms,joints));
+        const bow=dynamicBow();
+        const goal=nockWorldFor(bow,0);
+        const hook=drawingFingerContactWorld(model,drawSide);
+        const pointing=new THREE.Vector3(0,0,1)
+          .transformDirection(bow).angleTo(forward);
+        const clearance=collisions.clearance(hook);
+        return {armSeed,fingerSeedIndex,
+          priority:hook.distanceTo(goal)+
+            pointing*.115*scale+Math.max(0,.012*scale-clearance)*1.5};
+      }));
+    orderedSeeds.sort((a,b)=>a.priority-b.priority||
+      a.armSeed-b.armSeed||a.fingerSeedIndex-b.fingerSeedIndex);
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
       skin:Readonly<Record<"index"|"middle"|"ring",number>>;
       nockY:number;valid:boolean;skinValid:boolean;
       iterations:number;armSeed:number;fingerSeed:number}|undefined;
-    candidateSearch:for(let armSeed=0;armSeed<drawSeeds.length;armSeed++)
-      for(let fingerSeedIndex=0;fingerSeedIndex<digitSeeds.length;fingerSeedIndex++){
+    candidateSearch:for(const {armSeed,fingerSeedIndex} of orderedSeeds){
       const angles=drawSeeds[armSeed]!,fingerSeed=digitSeeds[fingerSeedIndex]!;
       const jointSeed=clampContactSeed([
         ...initial.slice(0,9),...angles,...fingerSeed],freedoms);
