@@ -45,3 +45,32 @@ These are *pre-refactor baseline measurements from CI*. Follow-up `Verify` runs 
 The measured source-skinned grip still has **unacceptable local penetration**. For the nominal body, the initial published handle fit penetrated the thumb by 11.335/11.326 mm and palm by 12.060/12.074 mm (left/right). A temporary palm-augmented source fitter reduced palm penetration to ~4 mm but increased thumb penetration to 14.009/15.055 mm and left the index finger 17–20 mm away. CI run 43803557546 tested six additional thumb/index poses and reported a trade-off: even a relaxed thumb could not reliably keep all the palm, index and thumb close to one cylindrical handle. Consequently that experimental fitter was **reverted** rather than introducing a visible grip regression or simply tolerating clipping. The retained C5.1 source-fitted handle and separate C5.4 bow-finger profile need further geometric pose calibration. Unacceptable hand/handle intersections remain a blocker to C5.4 acceptance; nominal green full-draw IK tests do not resolve them.
 
 After refactoring, the selected string-release style uses **index and middle only** (ring intentionally relaxed, not a contact point). Regression tests enforce <=8 mm measured skinned index/middle-to-string gap for nock, partial and aim in the nominal left/right configurations, separately from the <=30 mm bone-contact goal. The signed skin-cylinder penetration and aim morphology matrix are **not yet certified**. The CI workflow runs TypeScript, 424+ Vitest tests (including the 1,000-seed replay), production build and build-identity checks, but does not run Chromium/Playwright or generate screenshots on draft PRs. Desktop/mobile visual inspection and a preview deploy SHA were not verified in this session.
+
+## November 16 recovery: finite source-skin contact and feature preview
+
+The previous angular hand profile and handle center were fitted independently. The C5.1 `fitHandleCenter` score sampled individual digits only, used an infinite-radius surrogate in a heuristic axial interval, and did not require multiple pressure-bearing vertices or palm contact. The last offset shifted the contact frame *after* fitting and could recreate penetration. C5.4 now uses:
+
+- `StudioSourceContact`: source-vertex anatomical region sets (palm, thumb, four fingers); deterministic capped finite-cylinder signed-distance evaluations in the actual posed, world-to-handle coordinate frame; per-region axial and multi-vertex contact coverage; nearest and third-nearest surface gaps; maximum signed penetration. The source handles and source skin share a frame; end-cap contacts are not treated as infinite-shaft hits.
+- `StudioBowContact`: an alternating bounded optimization of the existing FK finger MCP/PIP and thumb channels with rigid handle-local translation. It uses the existing C5.2 bounded `fitConstrainedIK`, keeps the entire source skeleton/skin and socket attachment, and preserves C5.1–C5.3 sword/staff/shield profiles. Continuous third-nearest contact distance prevents a one-vertex false success and helps mirrored right-palm support. Final acceptance uses *all* sampled original source vertices, not just optimization samples.
+- `StudioArchery` now retains a socket-local bow frame from the coupled fit, exposes per-region source-skin diagnostics, and refuses to report a reachable bow when contact criteria fail. Drawing-arm IK remains the shared coupled socket-to-string solver.
+
+**Verified candidate `55a15dbfcc8aea9b3aadbb468a784ad3acf77588`:** [Verify #43816349686](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43816349686) passed typecheck, 425 Vitest tests (75 suites, including the 1,000-seed combat replay), production build, and built-revision identity. Both hands passed source-skinned contact acceptance and all five nominal states; full draw hook-to-nock errors were 16.068 mm left / 16.359 mm right. Actual full-draw string skin gap: index 4.30 mm left / 4.12 mm right, middle 0 mm, and ring is intentionally not a contact digit.
+
+| Region | Left surface gap (mm) | Right gap (mm) | Left deepest penetration (mm) | Right penetration (mm) |
+| --- | ---: | ---: | ---: | ---: |
+| Palm | 1.312 | 2.031 | 0 | 0 |
+| Thumb | 0.475 | 0.364 | 0.547 | 0.586 |
+| Index | 0.188 | 0.001 | 2.687 | 1.119 |
+| Middle | 0.040 | 0.194 | 0.040 | 0.416 |
+| Ring | 0.097 | 0.137 | 0.097 | 0.137 |
+| Little | 0.047 | 0.740 | 1.184 | 0 |
+
+Source right palm has only two vertices inside the 3 mm pressure band, so visual acceptance remains necessary even with numerically valid support. The current tests do not certify contact patch area, triangle swept collision, dynamic transition smoothness or all extreme morphology combinations.
+
+**Cloudflare:** Workers preview build `476803db-2235-46a1-be97-d97486070b4f` and deployment `bd00679e-4be6-4af5-9c21-a2d62944049d` were reported successful for `55a15db`. Branch preview: https://feat-c5-4-anatomical-bow-draw-trilok.tejasdmjr996.workers.dev/studio/ ; immutable deployment URL: https://bd00679e-trilok.tejasdmjr996.workers.dev/studio/ . The Cloudflare deployment comment confirms the SHA; independent browser page retrieval is unavailable from the connected execution environment.
+
+A feature-scoped `c54-bow-visual.yml` workflow now captures desktop/touch Chromium full-view and hand-focused screenshots for both hands and all five states, uploading evidence to Actions without treating the slice as phase-C5 acceptance. **These screenshots must actually complete and be visually inspected before requesting signoff.**
+
+MakeHuman `poses02` and `poses05` packs are available from the official CC0 pack catalog, but the ZIP/BVH payloads could not be fetched from this execution environment, so the hierarchy/finger channels and rig compatibility remain unverified. No uninspected BVH is imported. A separate automated seeded morphology and extreme-proportion bow-contact matrix remains outstanding.
+
+The original owner acceptance remains reserved for phase C5. PR #87 stays draft/open and unmerged. This subsection records the verified `55a15db` checkpoint; later workflow or screenshot-only commits require their own checks before being described as passing.
