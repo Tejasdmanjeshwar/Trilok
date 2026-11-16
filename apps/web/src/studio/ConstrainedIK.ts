@@ -51,8 +51,9 @@ const squared=(v:readonly number[])=>v.reduce((sum,x)=>sum+x*x,0);
 export function fitConstrainedIK(start:readonly number[],
   limits:readonly IKFreedom[],
   evaluate:(values:readonly number[])=>readonly number[],
-  maxIterations=52):IKFit{
-  if(start.length!==limits.length||!start.every(Number.isFinite)||
+  maxIterations=52,maxParameterStep=.35):IKFit{
+  if(!Number.isFinite(maxParameterStep)||maxParameterStep<=0||
+      maxParameterStep>1||start.length!==limits.length||!start.every(Number.isFinite)||
       limits.some((b,i)=>!Number.isFinite(b.min)||!Number.isFinite(b.max)||
         b.min>b.max||start[i]!<b.min-1e-8||start[i]!>b.max+1e-8))
     throw new Error("Invalid constrained IK parameter bounds");
@@ -84,7 +85,8 @@ export function fitConstrainedIK(start:readonly number[],
     for(const factor of [1,.5,.25,.125]){
       const trial=parameters.map((value,j)=>
         Math.max(limits[j]!.min,Math.min(limits[j]!.max,
-          value+Math.max(-.35,Math.min(.35,step[j]!*factor)))));
+          value+Math.max(-maxParameterStep,
+          Math.min(maxParameterStep,step[j]!*factor)))));
       const sampled=[...evaluate(trial)];
       const nextCost=squared(sampled);
       if(Number.isFinite(nextCost)&&nextCost<cost-1e-12){
