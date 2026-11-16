@@ -172,15 +172,9 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
   // Explicit block-coordinate constrained optimization: the contact
   // geometry is recomputed after each block, never separately 'tuned'.
   for(let cycle=0;cycle<5;cycle++){
-    // bowFrame's lateral +X is an AXIAL cross product Y×Z. Under the
-    // character-local sagittal reflection M=diag(-1,1,1), the mirrored bow
-    // basis transforms as (-M*x,M*y,M*z). Therefore bow-local X offsets
-    // reverse sign; Y and Z offsets do not. Canonicalize the actual bounded
-    // handle translation rather than only canonicalizing finger joint angles.
-    const offsetFit=fitCanonicalIK(offsets,
+    const offsetFit=fitConstrainedIK(offsets,
       [{min:-bounds,max:bounds},{min:-length*.30,max:length*.30},
         {min:-bounds,max:bounds}],
-      side==="right"?[-1,1,1]:[1,1,1],
       values=>fitness(angles,values),20);
     offsets.splice(0,3,...offsetFit.values);iterations+=offsetFit.iterations;
     record();
