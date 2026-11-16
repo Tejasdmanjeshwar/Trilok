@@ -115,3 +115,37 @@ export function measureSourceCylinder(model:StudioHumanModel,
   }
   return Object.freeze(results);
 }
+
+/** Fast source-skinned contact residual for the existing shared constrained IK.
+ * The bow's posed nock and real two finite string segments are supplied by
+ * the caller; no independent drawing-hand target or combat authority exists.
+ * A missing nearby source vertex produces a positive miss, never fake contact.
+ */
+export function measureSourceStringContact(model:StudioHumanModel,
+  samples:SourceHandSamples,nockWorld:THREE.Vector3,
+  upperWorld:THREE.Vector3,lowerWorld:THREE.Vector3,
+  stringRadiusMeters:number,maxNockDistanceMeters:number):
+  Readonly<Record<"index"|"middle"|"ring",number>>{
+  const mesh=model.human.mesh;
+  mesh.updateWorldMatrix(true,false);
+  const lines=[
+    new THREE.Line3(nockWorld,upperWorld),
+    new THREE.Line3(nockWorld,lowerWorld),
+  ];
+  const point=new THREE.Vector3(),nearest=new THREE.Vector3();
+  const output={index:Infinity,middle:Infinity,ring:Infinity};
+  for(const digit of ["index","middle","ring"] as const){
+    for(const vertex of samples.get(digit)??[]){
+      mesh.getVertexPosition(vertex,point).applyMatrix4(mesh.matrixWorld);
+      if(point.distanceTo(nockWorld)>maxNockDistanceMeters)continue;
+      for(const line of lines){
+        line.closestPointToPoint(point,true,nearest);
+        output[digit]=Math.min(output[digit],point.distanceTo(nearest));
+      }
+    }
+    if(!Number.isFinite(output[digit]))
+      output[digit]=maxNockDistanceMeters;
+    output[digit]=Math.max(0,output[digit]-stringRadiusMeters);
+  }
+  return output;
+}
