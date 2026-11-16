@@ -346,3 +346,61 @@ commit. The targeted new test `tests/character-studio-archery-stance.test.ts`
 checks yaw progression, legal FK, foot/root stability, gaze, shoulder order
 and bilateral command sign, but it **cannot** substitute for actual rendered
 archery inspection. Do not merge PR #87 without owner approval.
+
+
+## Further bow-arm and shooting-line correction — 2026-11-17 (validation pending)
+
+**Owner feedback:** the first torso-yaw correction made the pose somewhat better,
+but partial/full draw still lacked an extended, braced bow arm and coordinated
+rearward draw elbow. Merely passing arrow heading and skinned finger/string
+contact does not prove the archer has a convincing shooting-line silhouette.
+
+- Added reusable pure skeletal geometry in
+  `StudioAnatomicalAlignment.ts`: shoulder/elbow/wrist interior angle,
+  source-segment reach deficit, and drawing elbow projection along the real
+  bow-grip → string-hook axis. These measures use existing calibrated bones
+  and support reflected rigs; the bow/arrow are not visually reoriented.
+- The bow-arm target is now prepared and extended in proportion to the
+  existing **authoritative preview draw fraction** and actual source humerus/
+  forearm lengths, rather than independently moving the bow at every draw
+  state. The holding arm uses a joint-limit-aware soft near-straight objective,
+  and the coupled solver includes a soft drawing-elbow pull-line objective.
+  Bow elbow must be softly extended, **not hyperextended or rigidly locked**.
+- Shooting-plane torso yaw increases during setup then refines under draw;
+  existing lower-spine/chest and head/neck FK controls, root/foot invariance,
+  and source skin corrective ownership are unchanged.
+- A proposed larger draw-travel adjustment was **reverted** after CI confirmed
+  it destabilized low/intermediate draw contact. The previously proven 28 cm
+  per reference-scale maximum draw and original hard contact/aim/seed
+  thresholds remain intact. Also removed the overstrong initial extension
+  penalty that made the verified original rest pose unreachable.
+- Added repeated source bone caching for the new alignment terms to avoid
+  semantic graph scans in each coupled-IK finite-difference evaluation.
+- New tests audit exact upright shooting-plane progression, reflection-safe
+  elbow extension and drawing-line geometry, and measured full-draw bow-arm
+  extension. Existing C5.4 contact, seeded recovery, bilateral mirror and
+  combat assertions remain enabled and unchanged.
+
+**Current verification status:** superseded experimental runs
+[43940538262](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43940538262),
+[43941409560](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43941409560)
+and [43942934540](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43942934540)
+failed precisely because new preview posture/draw targets prevented previously
+reachable grips and two-finger string hooks in some states; do **not** claim
+these trials passed. Verify the final later commit independently, including
+all morphologies, every mirrored draw fraction and the measured 150-degree
+full-draw bow-elbow target. Prior green
+[43936023714](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43936023714)
+belongs to the earlier torso-only correction, not this follow-up.
+
+Source references: World Archery Level 1 coaching manual, section 6.4 Bow
+Hand and Elbow (straight but not locked bow elbow); Level 2 manual on line
+of force, back muscle activation and release follow-through; original
+MakeHuman single-frame square/hero BVHs. Static Studio IK is not a soft-body
+muscle simulation or proof of independent scapular retraction. **No new
+combat release authority, parent rig, mesh, runtime solver, or root rotation.**
+
+**Remaining mandatory gates:** green full CI, clear all original source-skin
+and bilateral reachability checks, full 0–100% draw kinematic measurements,
+measured before/after solver cost/allocations, multi-angle rendered review and
+Cloudflare preview SHA verification. Do not merge PR #87 without owner signoff.
