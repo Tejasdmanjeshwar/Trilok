@@ -157,28 +157,28 @@ describe("C5.4 sagittal source and archery symmetry audit",()=>{
       expect(paired).toBeGreaterThan(left.length*.8);
     }finally{human.dispose();}
   },120_000);
-  it("measures reflected solved anatomy and bow/string/arrow across five states and progressive draw",()=>{
+  const cases:ReadonlyArray<readonly [ArcheryState,number]>=[
+    ["rest",0],["nock",1],["partial",0],["partial",.25],
+    ["partial",.5],["partial",.75],["partial",1],
+    ["aim",0],["aim",.25],["aim",.5],["aim",.75],["aim",1],
+    ["release",1],
+  ];
+  // Each solve is a separate Vitest task. Avoid a multi-minute synchronous
+  // test body that starves the Vitest worker's RPC heartbeat.
+  it.each(cases)("measures mirror error at %s draw %s",(state,draw)=>{
     const {human,model}=make();
     const preview=new StudioPosePreview(model);
     try{
-      const cases:Array<readonly [ArcheryState,number]>=[
-        ["rest",0],["nock",1],["partial",0],["partial",.25],
-        ["partial",.5],["partial",.75],["partial",1],
-        ["aim",0],["aim",.25],["aim",.5],["aim",.75],["aim",1],
-        ["release",1],
-      ];
-      for(const [state,draw] of cases){
-        preview.setArcheryState(state);
-        preview.setArcheryDraw(draw);
-        preview.setGrip("bow-left");
-        const left=capture(model,preview,"left");
-        preview.setGrip("bow-right");
-        const right=capture(model,preview,"right");
-        const metrics=compare(left,right);
-        console.log("C5.4 BILATERAL BASELINE",JSON.stringify({state,draw,...metrics}));
-        expect([left.reachable,right.reachable].every(Boolean)).toBe(true);
-        expect(metrics.equipment.arrowAxisDegrees).toBeLessThan(90);
-      }
+      preview.setArcheryState(state);
+      preview.setArcheryDraw(draw);
+      preview.setGrip("bow-left");
+      const left=capture(model,preview,"left");
+      preview.setGrip("bow-right");
+      const right=capture(model,preview,"right");
+      const metrics=compare(left,right);
+      console.log("C5.4 BILATERAL BASELINE",JSON.stringify({state,draw,...metrics}));
+      expect([left.reachable,right.reachable].every(Boolean)).toBe(true);
+      expect(metrics.equipment.arrowAxisDegrees).toBeLessThan(90);
     }finally{preview.dispose();human.dispose();}
-  },600_000);
+  },120_000);
 });
