@@ -133,6 +133,32 @@ export function swordGripTargets(graph:AnatomicalGraphV1,
   return handContactTargets(graph,hand,"sword-handle",spreads);
 }
 
+/** Source-skinned MakeHuman palm-facing direction from the CURRENT anatomical
+ * knuckle plane, disambiguated by the thumb's volar side. Shared by equipment
+ * contact diagnostics: never guess that world +Z is a palm normal.
+ * A missing or coplanar thumb is not a legal contact frame. */
+export function sourceHandVolarWorld(model:StudioHumanModel,
+  hand:"left"|"right"):THREE.Vector3{
+  const {spike}=model.human;
+  const at=(role:string)=>{
+    const joint=spike.graph.joints.find(j=>j.role===role&&
+      (role.startsWith("finger_")?j.id.includes("arm["+hand+",0]"):true));
+    const bone=joint&&spike.bones.get(joint.id);
+    if(!bone)throw new Error("Missing source palm plane "+role);
+    return bone.getWorldPosition(new THREE.Vector3());
+  };
+  const wrist=at("wrist_"+hand);
+  const index=at("finger_index_0");
+  const little=at("finger_little_0");
+  const middle=at("finger_middle_0");
+  const thumb=at("finger_thumb_1");
+  const normal=index.sub(little).cross(middle.sub(wrist)).normalize();
+  if(normal.lengthSq()<.9)throw new Error("Degenerate MakeHuman palm plane");
+  const thumbOffset=thumb.sub(wrist).dot(normal);
+  if(Math.abs(thumbOffset)<.00001)throw new Error("Ambiguous thumb-side palm normal");
+  if(thumbOffset<0)normal.negate();
+  return normal;
+}
 const vec=(object:THREE.Object3D)=>object.getWorldPosition(new THREE.Vector3());
 function boneFor(model:StudioHumanModel,role:string,hand:"left"|"right"):THREE.Bone {
   const joint=model.human.spike.graph.joints.find(j=>j.role===role&&
