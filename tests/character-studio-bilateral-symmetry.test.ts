@@ -19,6 +19,7 @@ type PoseSnapshot={
   arrow:THREE.Vector3;pitch:number;yaw:number;
   draw:number;fraction:number;error:number;bowError:number;
   skin:ArcheryPoseResult["drawingSkinGapsMeters"];reachable:boolean;
+  trace:ArcheryPoseResult["symmetryTrace"];
 };
 const roleIds=(side:Side)=>[
   ...PARTS.map(part=>part+"_"+side),
@@ -55,7 +56,7 @@ function capture(model:ReturnType<typeof make>["model"],pose:StudioPosePreview,
     yaw:Math.atan2(arrow.x,arrow.z),draw:result.drawMeters,
     fraction:result.actualDrawFraction,error:result.drawHandErrorMeters,
     bowError:result.bowHandErrorMeters,skin:result.drawingSkinGapsMeters,
-    reachable:result.reachable};
+    reachable:result.reachable,trace:result.symmetryTrace};
 }
 function compare(left:PoseSnapshot,right:PoseSnapshot){
   const perJoint=Object.fromEntries([...left.joints].map(([role,a])=>{
@@ -82,7 +83,8 @@ function compare(left:PoseSnapshot,right:PoseSnapshot){
     equipment:distances,pitchDegrees:[deg(left.pitch),deg(right.pitch)],
     yawDegrees:[deg(left.yaw),deg(right.yaw)],
     drawFractions:[left.fraction,right.fraction],
-    skin:[left.skin,right.skin],reachable:[left.reachable,right.reachable]};
+    skin:[left.skin,right.skin],reachable:[left.reachable,right.reachable],
+    candidateTraces:[left.trace,right.trace]};
 }
 describe("C5.4 sagittal source and archery symmetry audit",()=>{
   it("measures original source-mesh pairs, semantic landmarks and FK frames in local X reflection",()=>{
