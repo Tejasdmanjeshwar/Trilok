@@ -470,7 +470,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           values[freedoms.length]!/nockYBound*.003,
         ];
       };
-      const fit=fitConstrainedIK(seed,nockLimits,evaluate,48);
+      const fit=fitConstrainedIK(seed,nockLimits,evaluate,32);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
