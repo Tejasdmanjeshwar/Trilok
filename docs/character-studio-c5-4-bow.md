@@ -364,7 +364,10 @@ contact does not prove the archer has a convincing shooting-line silhouette.
   existing **authoritative preview draw fraction** and actual source humerus/
   forearm lengths, rather than independently moving the bow at every draw
   state. The holding arm uses a joint-limit-aware soft near-straight objective,
-  and the coupled solver includes a soft drawing-elbow pull-line objective.
+  while the coupled draw solver retains the previously verified
+  source-skinned finger/string and arrow objectives. Drawing-elbow alignment
+  is recorded as a diagnostic until it can be enforced without losing
+  contact at intermediate draw values.
   Bow elbow must be softly extended, **not hyperextended or rigidly locked**.
 - Shooting-plane torso yaw increases during setup then refines under draw;
   existing lower-spine/chest and head/neck FK controls, root/foot invariance,
