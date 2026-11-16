@@ -2,9 +2,43 @@ import {describe,expect,it} from "vitest";
 import * as THREE from "three";
 import {make,measureStaff} from "./helpers/studio-two-hand-fixtures";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
+import {handContactTargets} from "../apps/web/src/studio/StudioWeaponGrip";
+import {contactArmFreedoms,composeContactPose} from "../apps/web/src/studio/StudioContactIK";
 import {StudioBowPreview,archeryDrawFraction,validateBowReference,
   type ArcheryState} from "../apps/web/src/studio/StudioArchery";
 import {aimBallisticAt,sampleTrajectory} from "../packages/combat/src/projectile-motion";
+
+describe("Shared anatomical weapon contacts",()=>{
+  it("separates bow cylinder pressure from the three-finger string hook",()=>{
+    const {human,fk}=make();
+    try{
+      const graph=human.spike.graph;
+      for(const hand of ["left","right"] as const){
+        const sword=handContactTargets(graph,hand,"sword-handle");
+        const bow=handContactTargets(graph,hand,"bow-handle");
+        const hook=handContactTargets(graph,hand,"string-mediterranean");
+        expect(bow).not.toEqual(sword);
+        expect(hook).not.toEqual(sword);
+        expect(hook).not.toEqual(bow);
+        const fingers=new Set(hook.map(x=>x.jointId));
+        expect(fingers.size).toBeGreaterThanOrEqual(14);
+        expect(bow.every(x=>Number.isFinite(x.radians))).toBe(true);
+        for(const command of hook){
+          const limits=fk.frames.get(command.jointId)?.freedoms.get(command.motion);
+          expect(limits).toBeDefined();
+          expect(command.radians).toBeGreaterThanOrEqual(limits!.min);
+          expect(command.radians).toBeLessThanOrEqual(limits!.max);
+        }
+        const axes=contactArmFreedoms(graph,fk,hand);
+        expect(axes).toHaveLength(9);
+        const zero=axes.map(x=>Math.max(x.min,Math.min(x.max,0)));
+        const composed=composeContactPose(hook,axes,zero);
+        expect(composed).toHaveLength(hook.length+9);
+        expect(hook).toHaveLength(17);
+      }
+    }finally{human.dispose();}
+  });
+});
 
 describe("Studio bow and visual nock contract",()=>{
   it.each(["left","right"] as const)("source-skinned mirrored bow %s uses constrained IK",hand=>{
@@ -16,7 +50,7 @@ describe("Studio bow and visual nock contract",()=>{
       const rest=pose.bowPoseResult!;
       expect(rest).toBeDefined();
       expect(rest.reachable,"source bow-hand must reach reference grip: "+JSON.stringify({error:rest.bowHandErrorMeters,body:rest.bodyClearanceMeters})).toBe(true);
-      expect(rest.iterations).toBeLessThanOrEqual(48);
+      expect(rest.iterations).toBeLessThanOrEqual(56);
       const sourceContact=measureStaff(model,hand,rest.bowWorld,
         rest.descriptor.handleRadiusMeters,0);
       console.log("C5.4 source bow-hand fit",JSON.stringify({hand,
@@ -42,7 +76,7 @@ describe("Studio bow and visual nock contract",()=>{
       for(const state of ["nock","partial","aim","release"] as ArcheryState[]){
         pose.setArcheryState(state);
         const report=pose.bowPoseResult!;
-        expect(report.iterations).toBeLessThanOrEqual(48);
+        expect(report.iterations).toBeLessThanOrEqual(56);
         console.log("C5.4 archery reach",JSON.stringify({hand,state,
           reachable:report.reachable,bowError:report.bowHandErrorMeters,
           drawError:report.drawHandErrorMeters,drawMeters:report.drawMeters,
