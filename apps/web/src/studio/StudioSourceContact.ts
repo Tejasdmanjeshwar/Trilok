@@ -55,20 +55,9 @@ export function sourceHandSamples(model:StudioHumanModel,hand:HandSide,
     const list=lists.get(region)!;
     if(list.length<8)throw new Error("Missing source skin samples: "+hand+"/"+region);
     if(Number.isFinite(maximumPerRegion)&&list.length>maximumPerRegion){
-      // Original OBJ vertex IDs are not bilateral correspondences. Sorting
-      // reduced Jacobian samples by reflected source position gives mirrored
-      // hands equivalent spatial coverage without replacing any source skin.
-      // This affects ONLY reduced solver probes; final contacts use all skin.
-      const position=mesh.geometry.getAttribute("position");
-      const sorted=[...list].sort((a,b)=>{
-        const ay=position.getY(a),by=position.getY(b);
-        const az=position.getZ(a),bz=position.getZ(b);
-        const ax=Math.abs(position.getX(a)),bx=Math.abs(position.getX(b));
-        return ay-by||az-bz||ax-bx||a-b;
-      });
       const count=Math.max(8,Math.floor(maximumPerRegion));
       lists.set(region,Array.from({length:count},(_,j)=>
-        sorted[Math.floor((j+.5)*sorted.length/count)]!));
+        list[Math.floor((j+.5)*list.length/count)]!));
     }
   }
   return lists;
