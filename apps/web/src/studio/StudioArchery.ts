@@ -5,8 +5,10 @@ import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
 import type {StudioHumanModel} from "./StudioHumanModel";
 import {fitConstrainedIK} from "./ConstrainedIK";
 import {StudioBodyCollision} from "./StudioBodyCollision";
-import {calibrateGripSpreads,swordGripTargets,fitHandleCenter}
+import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
+import {contactArmFreedoms,composeContactPose,clampContactSeed,
+  solveContactConstraints} from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
 
 /** Studio-only visual states. A release preview never dispatches a combat event. */
@@ -76,18 +78,19 @@ function digitCommands(model:StudioHumanModel,fk:AnatomicalFK,side:HandSide,
   drawing:boolean):readonly JointTarget[]{
   const h=model.human.spike;
   const spreads=calibrateGripSpreads(h.graph,h.bones,fk.frames,side);
-  const targets=swordGripTargets(h.graph,side,spreads);
-  if(!drawing)return targets;
-  return targets.map(command=>{
-    const joint=h.graph.joints.find(j=>j.id===command.jointId);
-    const digit=joint?.role??"";
-    const factor=digit.startsWith("finger_index_")?.62:
-      digit.startsWith("finger_middle_")?.72:
-      digit.startsWith("finger_ring_")?.55:
-      digit.startsWith("finger_little_")?.43:1;
-    return {...command,radians:command.radians*factor};
-  });
+  return handContactTargets(h.graph,side,
+    drawing?"string-mediterranean":"bow-handle",spreads);
 }
+/** The string hook is the crease between the source index and middle fingers,
+ * not the C5.2 cylindrical-grip palm proxy. These are real posed MakeHuman
+ * finger bones: the solver cannot claim contact by shifting a visual target. */
+export function drawingFingerContactWorld(model:StudioHumanModel,
+  side:HandSide):THREE.Vector3{
+  const index=at(bone(model,"finger_index_1",side));
+  const middle=at(bone(model,"finger_middle_1",side));
+  return index.add(middle).multiplyScalar(.5);
+}
+
 type Freedom={jointId:string;motion:AnatomicalMotion;min:number;max:number};
 const ARM_CHANNELS:readonly (readonly [string,readonly AnatomicalMotion[]])[]=[
   ["clavicle",["abduction","flexion"]],
@@ -262,29 +265,106 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       target=localNock.clone().applyMatrix4(world);
     }
   }
-  let completed=staged;
+  let completed:readonly JointTarget[]=staged;
   let drawError=0,drawClearance=Infinity,drawIterations=0,drawAttempts=0;
   let contact=target.clone();
+  let solvedWorld=world.clone();
+  const bowOffset=model.human.spike.character.socketWorld(socket.id)
+    .invert().multiply(world);
   if(state!=="rest"){
-    const fit=fitArm(model,fk,staged,drawSide,target,true,scale);
-    completed=fit.commands;
-    drawError=fit.error;drawClearance=fit.clearance;drawIterations=fit.iterations;drawAttempts=fit.attempts;
-    contact=twoHandGripContactWorld(model,drawSide);
+    // One shared optimization moves BOTH arm chains against one moving bow
+    // frame. The primary handle stays socket-anchored; its motion changes the
+    // actual secondary string goal. Independent arm solutions could never
+    // close the historical 166mm discrepancy at the physical string.
+    const freedoms=[
+      ...contactArmFreedoms(model.human.spike.graph,fk,hand),
+      ...contactArmFreedoms(model.human.spike.graph,fk,drawSide),
+    ];
+    const stagedMap=new Map(staged.map(v=>[v.jointId+"/"+v.motion,v.radians]));
+    const initial=freedoms.map(f=>stagedMap.get(f.jointId+"/"+f.motion)??0);
+    const signed=drawSide==="right"?1:-1;
+    const drawSeeds=[
+      [0,0,.48,.29,.86*signed,1.40,0,-.06,0],
+      [0,0,.16,.88,-.80*signed,1.58,0,-.12,0],
+      [0,0,-.12,.62,-1.45*signed,1.95,0,-.20,0],
+      [0,0,.62,.48,-1.10*signed,1.24,0,.16,0],
+    ];
+    const elbow=bone(model,"elbow_"+drawSide,drawSide);
+    const wrist=bone(model,"wrist_"+drawSide,drawSide);
+    const dynamicBow=()=>model.human.spike.character.socketWorld(socket.id)
+      .multiply(bowOffset);
+    let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
+      contact:THREE.Vector3;error:number;clearance:number;cost:number;
+      iterations:number}|undefined;
+    for(const angles of drawSeeds){
+      const seed=clampContactSeed([
+        ...initial.slice(0,9),...angles],freedoms);
+      const commands=(values:readonly number[])=>
+        composeContactPose(staged,freedoms,values);
+      const evaluate=(values:readonly number[])=>{
+        fk.apply(commands(values));
+        const actualBow=dynamicBow();
+        const goal=localNock.clone().applyMatrix4(actualBow);
+        const finger=drawingFingerContactWorld(model,drawSide);
+        const bowGrip=twoHandGripContactWorld(model,hand);
+        const elbowMid=at(elbow).lerp(at(wrist),.5);
+        return [
+          // The arrow/string and the source finger hook share one goal.
+          finger.x-goal.x,finger.y-goal.y,finger.z-goal.z,
+          // Keep the holding arm close to the authored reachable stance.
+          (bowGrip.x-bowTarget.x)*.7,(bowGrip.y-bowTarget.y)*.7,
+          (bowGrip.z-bowTarget.z)*.7,
+          Math.max(0,.018*scale-collisions.clearance(elbowMid))*1.5,
+          Math.max(0,.012*scale-collisions.clearance(finger))*1.5,
+          ...values.map((v,i)=>(v-seed[i]!)*.002),
+        ];
+      };
+      const fit=solveContactConstraints(seed,freedoms,evaluate,32);
+      const candidate=commands(fit.values);
+      fk.apply(candidate);
+      const actualBow=dynamicBow();
+      const finger=drawingFingerContactWorld(model,drawSide);
+      const goal=localNock.clone().applyMatrix4(actualBow);
+      const error=finger.distanceTo(goal);
+      const clearance=Math.min(
+        collisions.clearance(at(elbow).lerp(at(wrist),.5)),
+        collisions.clearance(finger));
+      const bowDisplacement=twoHandGripContactWorld(model,hand)
+        .distanceTo(bowTarget);
+      const cost=error+Math.max(0,.01*scale-clearance)*2+
+        Math.max(0,bowDisplacement-.06*scale)*.5;
+      drawAttempts++;
+      drawIterations=Math.max(drawIterations,fit.iterations);
+      if(!best||cost<best.cost)best={
+        commands:candidate,world:actualBow,contact:finger,
+        error,clearance,cost,iterations:fit.iterations,
+      };
+      if(error<.008*scale&&clearance>0)break;
+    }
+    if(!best)throw new Error("Missing legal coupled archery candidate");
+    completed=best.commands;
+    fk.apply(completed);
+    solvedWorld=dynamicBow();
+    target=localNock.clone().applyMatrix4(solvedWorld);
+    contact=drawingFingerContactWorld(model,drawSide);
+    drawError=contact.distanceTo(target);
+    drawClearance=best.clearance;
+    drawIterations=best.iterations;
   }
   const unsafe=collisions.clearance(contact)<-.015*scale;
-  const bowError=held.error;
-  const reachable=bowError<.12*scale&&held.clearance>-.027*scale&&
-    (state==="rest"||drawError<.085*scale&&drawClearance>-.025*scale)&&!unsafe;
+  const bowError=twoHandGripContactWorld(model,hand).distanceTo(bowTarget);
+  const reachable=bowError<.10*scale&&held.clearance>-.027*scale&&
+    (state==="rest"||drawError<.03*scale&&drawClearance>-.025*scale)&&!unsafe;
   // Restoring the original source pose on failure avoids broken IK, facial
   // clipping, and a weapon hovering on a disconnected hand.
   if(!reachable)fk.apply(base);
   if(!root.matrixWorld.equals(rootMatrix))
     throw new Error("Archery IK must not move character root");
   const nock=(state==="rest"||state==="release"?
-    new THREE.Vector3(0,0,-descriptor.stringRestMeters).applyMatrix4(world):
+    new THREE.Vector3(0,0,-descriptor.stringRestMeters).applyMatrix4(solvedWorld):
     target.clone());
-  const z=new THREE.Vector3(0,0,1).transformDirection(world);
-  const resolved=world.clone().invert();
+  const z=new THREE.Vector3(0,0,1).transformDirection(solvedWorld);
+  const resolved=solvedWorld.clone().invert();
   const contactLocal=contact.clone().applyMatrix4(resolved);
   return Object.freeze({
     reachable,reason:bowError>=.12*scale?"bow-unreachable":
@@ -298,7 +378,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       -contactLocal.z-descriptor.stringRestMeters),
     actualDrawFraction:Math.max(0,Math.min(1,
       (-contactLocal.z-descriptor.stringRestMeters)/descriptor.maximumDrawMeters)),
-    bowWorld:world,nockWorld:nock,drawContactWorld:contact,
+    bowWorld:solvedWorld,nockWorld:nock,drawContactWorld:contact,
     arrowDirectionWorld:z,descriptor,
   });
 }
