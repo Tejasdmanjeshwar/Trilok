@@ -141,6 +141,26 @@ describe("Studio bow and visual nock contract",()=>{
           body:report.bodyClearanceMeters,skin:report.drawingSkinGapsMeters,
           attempts:report.solverAttempts}));
         expect(report.reachable,hand+"/"+state+" safe pose").toBe(true);
+        if(report.reachable){
+          const line=report.stanceAlignment;
+          expect(line,"measured source skeletal shooting-line").toBeDefined();
+          console.log("C5.4 anatomical shooting-line",JSON.stringify({
+            hand,state,alignment:line,
+            bowElbowDegrees:THREE.MathUtils.radToDeg(line!.bowElbowInteriorRadians),
+          }));
+          expect(line!.bowElbowInteriorRadians).toBeGreaterThan(2.45);
+          expect(line!.bowElbowExtensionDeficitMeters).toBeGreaterThanOrEqual(0);
+          expect(Number.isFinite(line!.drawElbowBehindHookMeters)).toBe(true);
+          expect(Number.isFinite(line!.drawElbowOffAxisMeters)).toBe(true);
+          if(state==="aim"){
+            // Final draw should have a long, supported bow arm, rather than
+            // only a hand that reaches a perfectly accurate bow socket.
+            expect(line!.bowElbowInteriorRadians).toBeGreaterThan(
+              THREE.MathUtils.degToRad(150));
+            expect(line!.bowShoulderLeadMeters).toBeGreaterThan(.1);
+            expect(line!.drawElbowBehindHookMeters).toBeGreaterThan(0);
+          }
+        }
         expect(report.arrowAimDeviationRadians,
           hand+"/"+state+" arrow deviates from avatar-facing aim; "+
           THREE.MathUtils.radToDeg(report.arrowAimDeviationRadians).toFixed(2)+" deg")
