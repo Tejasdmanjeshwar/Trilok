@@ -26,8 +26,7 @@ export function validateWeaponGrip(grip:WeaponGripV1,graph:AnatomicalGraphV1):vo
   if(!socket||socket.purpose!=="primary_grip"||
     palm?.role!=="palm_"+grip.hand||
     !socket.id.includes("arm["+grip.hand+","))throw new Error("Grip socket does not belong to hand");
-  for(const digit of ["thumb","index","middle","ring","little",
-    ...(options.avoidPalmPenetration?["palm"]:[])]){
+  for(const digit of ["thumb","index","middle","ring","little"]){
     if(!graph.joints.some(j=>j.role==="finger_"+digit+"_0"&&
       j.id.includes("arm["+grip.hand+",")))throw new Error("Missing grip finger "+digit);
   }
@@ -192,7 +191,8 @@ export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
   const samples:number[][][]=[];
   const position=new THREE.Vector3();
   const relative=new THREE.Vector3();
-  for(const digit of ["thumb","index","middle","ring","little"]){
+  for(const digit of ["thumb","index","middle","ring","little",
+    ...(options.avoidPalmPenetration?["palm"]:[])]){
     const fingerBones=new Set(spike.graph.joints.filter(j=>
       digit==="palm"?j.role==="palm_"+hand&&j.id.includes("arm["+hand+",0]"):
       j.role.startsWith("finger_"+digit+"_")&&
@@ -228,8 +228,8 @@ export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
       if(near===0)return Infinity;
       const clipping=Math.max(0,deepest-.0015);
       const palm=group===5;
-      cost+=(palm?.45:1)*(closest/.004)**2+
-        (palm?12:3)*(clipping/.003)**2;
+      cost+=(palm ? .45 : 1)*(closest/.004)**2+
+        (palm ? 12 : 3)*(clipping/.003)**2;
     }
     return cost;
   };
