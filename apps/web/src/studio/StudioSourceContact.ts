@@ -15,6 +15,8 @@ export interface SourceCylinderRegion {
   readonly contactVertices:number;
   /** Unsigned surface distance to the actual finite cylinder, including caps. */
   readonly nearestGapMeters:number;
+  /** Third closest source vertex: stable multi-point surface support. */
+  readonly thirdNearestGapMeters:number;
   /** Positive signed intrusion (zero outside); never an unsigned distance. */
   readonly maximumPenetrationMeters:number;
 }
@@ -88,13 +90,18 @@ export function measureSourceCylinder(model:StudioHumanModel,
   const results:SourceCylinderRegion[]=[];
   for(const region of HAND_SURFACE_REGIONS){
     let axialVertices=0,contactVertices=0,nearest=Infinity,penetration=0;
+    const nearestThree=[Infinity,Infinity,Infinity];
     const indices=samples.get(region)??[];
     for(const i of indices){
       mesh.getVertexPosition(i,world)
         .applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse);
       const distance=signedFiniteCylinderDistance(
         world.x,world.y,world.z,radius,length);
-      nearest=Math.min(nearest,Math.abs(distance));
+      const gap=Math.abs(distance);
+      nearest=Math.min(nearest,gap);
+      if(gap<nearestThree[2]!){
+        nearestThree[2]=gap;nearestThree.sort((a,b)=>a-b);
+      }
       penetration=Math.max(penetration,-distance);
       if(Math.abs(world.y)<=length/2){
         axialVertices++;
@@ -103,6 +110,7 @@ export function measureSourceCylinder(model:StudioHumanModel,
     }
     results.push(Object.freeze({region,sampledVertices:indices.length,
       axialVertices,contactVertices,nearestGapMeters:nearest,
+      thirdNearestGapMeters:nearestThree[2]!,
       maximumPenetrationMeters:penetration}));
   }
   return Object.freeze(results);
