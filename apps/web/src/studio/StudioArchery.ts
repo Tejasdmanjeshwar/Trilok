@@ -313,8 +313,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           j.role==="finger_"+digit+"_"+index&&
           j.id.includes("arm["+drawSide+",0]"));
         if(!joint)throw new Error("Missing drawing source finger joint");
-        for(const motion of (index===0?["flexion","abduction"]:["flexion"])
-          as AnatomicalMotion[]){
+        const motions:AnatomicalMotion[]=index===0?
+          ["flexion","abduction"]:["flexion"];
+        for(const motion of motions){
           const range=fk.frames.get(joint.id)?.freedoms.get(motion);
           if(!range)throw new Error("Missing legal drawing finger freedom");
           drawDigitFreedoms.push({jointId:joint.id,motion,
