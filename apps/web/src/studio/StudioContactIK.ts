@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import type {AnatomicalGraphV1} from "@trilok/character-core";
 import type {AnatomicalFK,AnatomicalMotion,JointTarget}
   from "../characters/geometry/AnatomicalFK";
@@ -11,6 +12,37 @@ export interface ContactFreedom extends IKFreedom {
   readonly motion:AnatomicalMotion;
 }
 export type ContactArmSide="left"|"right";
+
+/** Reflection is defined in avatar-local X, not raw Euler angles. A rotation
+ * axis is an axial vector: (x,y,z) -> (x,-y,-z). The signed parameter probe
+ * direction must reverse where the source-calibrated right axis is anti-
+ * parallel to the reflected left axis. Morphological lengths are irrelevant;
+ * both arms still solve their own independently bounded DOFs.
+ */
+export function mirrorContactDifferenceSign(graph:AnatomicalGraphV1,
+  fk:AnatomicalFK,jointId:string,motion:AnatomicalMotion,
+  side:ContactArmSide):1|-1{
+  if(side==="left")return 1;
+  const joint=graph.joints.find(j=>j.id===jointId);
+  if(!joint)throw new Error("Missing anatomical mirrored joint "+jointId);
+  const counterpartRole=joint.role.endsWith("_right")?
+    joint.role.slice(0,-6)+"_left":joint.role;
+  const opposite=graph.joints.find(j=>j.role===counterpartRole&&
+    (joint.role.startsWith("finger_")?j.id.includes("arm[left,0]"):true));
+  const a=opposite&&fk.frames.get(opposite.id)?.freedoms.get(motion);
+  const b=fk.frames.get(jointId)?.freedoms.get(motion);
+  const qa=opposite&&fk.restWorldQuaternions.get(opposite.id);
+  const qb=fk.restWorldQuaternions.get(jointId);
+  if(!a||!b||!qa||!qb)
+    throw new Error("Missing mirrored FK axial frames "+jointId+"/"+motion);
+  const left=a.axis.clone().applyQuaternion(qa);
+  const right=b.axis.clone().applyQuaternion(qb);
+  const reflected=new THREE.Vector3(left.x,-left.y,-left.z);
+  if(Math.abs(reflected.dot(right))<.25)
+    throw new Error("Incompatible mirrored FK axes "+jointId+"/"+motion);
+  return reflected.dot(right)<0?-1:1;
+}
+
 export const ARM_CONTACT_CHANNELS:readonly (readonly [string,readonly AnatomicalMotion[]])[]=[
   ["clavicle",["abduction","flexion"]],
   ["shoulder",["abduction","flexion","rotation"]],
@@ -32,7 +64,8 @@ export function contactArmFreedoms(graph:AnatomicalGraphV1,fk:AnatomicalFK,
       const limit=fk.frames.get(joint.id)?.freedoms.get(motion);
       if(!limit)throw new Error("Uncalibrated contact arm freedom "+part+"/"+motion);
       result.push(Object.freeze({jointId:joint.id,motion,
-        min:limit.min,max:limit.max}));
+        min:limit.min,max:limit.max,
+        differenceSign:mirrorContactDifferenceSign(graph,fk,joint.id,motion,side)}));
     }
   }
   return Object.freeze(result);
