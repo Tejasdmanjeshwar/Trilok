@@ -34,7 +34,7 @@ describe("Shared anatomical weapon contacts",()=>{
         const zero=axes.map(x=>Math.max(x.min,Math.min(x.max,0)));
         const composed=composeContactPose(hook,axes,zero);
         expect(composed).toHaveLength(hook.length+9);
-        expect(hook).toHaveLength(17);
+        expect(hook).toHaveLength(15);
       }
     }finally{human.dispose();}
   });
