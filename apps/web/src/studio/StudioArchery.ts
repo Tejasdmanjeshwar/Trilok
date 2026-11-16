@@ -131,6 +131,17 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
   const wrist=bone(model,"wrist_"+side,side);
   const head=bone(model,"head",side);
   const collision=new StudioBodyCollision(model);
+  const rootQuaternion=model.human.spike.character.root
+    .getWorldQuaternion(new THREE.Quaternion());
+  const worldUp=new THREE.Vector3(0,1,0).applyQuaternion(rootQuaternion);
+  const sourceGripAxis=()=>{
+    const wristPoint=at(bone(model,"wrist_"+side,side));
+    const middlePoint=at(bone(model,"finger_middle_0",side));
+    const direction=middlePoint.sub(wristPoint).normalize();
+    const across=at(bone(model,"finger_index_0",side))
+      .sub(at(bone(model,"finger_little_0",side)));
+    return across.addScaledVector(direction,-across.dot(direction)).normalize();
+  };
   let best:{commands:JointTarget[];error:number;clearance:number;
     iterations:number;score:number}|undefined;
   let attempts=0;
@@ -147,6 +158,11 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
         contact.x-target.x,contact.y-target.y,contact.z-target.z,
         Math.max(0,.026*scale-body)*1.2,
         Math.max(0,.11*scale-contact.distanceTo(headWorld)),
+        // The physically held bow should be approximately upright.
+        // Calibrate the source knuckle axis by legal shoulder/elbow/wrist FK,
+        // never visually rotate the weapon independently of the hand socket.
+        ...(drawHand?[]:[...sourceGripAxis().clone().cross(worldUp).toArray()]
+          .map(x=>x*.08*scale)),
         ...values.map((angle,i)=>(angle-initial[i]!)*.003),
       ];
     };
@@ -155,7 +171,10 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
     fk.apply(commands);
     const error=twoHandGripContactWorld(model,side).distanceTo(target);
     const clearance=collision.clearance(at(elbow).lerp(at(wrist),.5));
-    const score=error+Math.max(0,.01*scale-clearance)*2;
+    const inclination=drawHand?0:
+      sourceGripAxis().clone().cross(worldUp).length();
+    const score=error+Math.max(0,.01*scale-clearance)*2+
+      inclination*.08*scale;
     if(!best||score<best.score){
       best={commands,error,clearance,iterations:fit.iterations,score};
     }
