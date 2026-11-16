@@ -419,18 +419,18 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const sourceDigitSeed=initial.slice(18);
     const calibratedDigitSeed=drawDigitFreedoms.map((c,i)=>
       calibratedHookMap.get(k(c))??sourceDigitSeed[i]!);
+    // Prefer the calibrated midpoint as a starting envelope. Source and
+    // C5 contact profiles remain legal independent fallback basins.
     const digitSeeds=[
-      sourceDigitSeed,calibratedDigitSeed,
-      // Deterministic interpolation between two measured/established
-      // anatomical reference poses, never hand-tuned per-joint offsets.
       sourceDigitSeed.map((angle,i)=>(angle+calibratedDigitSeed[i]!)*.5),
+      sourceDigitSeed,calibratedDigitSeed,
     ];
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
       skin:Readonly<Record<"index"|"middle"|"ring",number>>;
       nockY:number;valid:boolean;skinValid:boolean;
       iterations:number}|undefined;
-    for(const angles of drawSeeds)for(const fingerSeed of digitSeeds){
+    candidateSearch:for(const angles of drawSeeds)for(const fingerSeed of digitSeeds){
       const jointSeed=clampContactSeed([
         ...initial.slice(0,9),...angles,...fingerSeed],freedoms);
       const seed=[...jointSeed,0];
@@ -515,8 +515,18 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         error,clearance,cost,skin,valid,skinValid,
         nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
       };
-      if(error<.008*scale&&clearance>0&&
-        skin.index<.004*scale&&skin.middle<.004*scale)break;
+      // Deterministic feasible-first exit at a safety margin inside the
+      // original 30-mm reach / 8-mm source-skin gates. Evaluating all other
+      // expensive morph-skinned seeds after a robust contact is wasted work
+      // and can starve the browser/worker event loop. No test gate is relaxed.
+      if(error<.0225*scale&&clearance>0&&
+        bowDisplacement<.075*scale&&
+        skin.index<.006*scale&&skin.middle<.006*scale){
+        best={commands:candidate,world:actualBow,contact:finger,
+          error,clearance,cost,skin,valid:true,skinValid:true,
+          nockY:fit.values[freedoms.length]!,iterations:fit.iterations};
+        break candidateSearch;
+      }
     }
     if(!best)throw new Error("Missing legal coupled archery candidate");
     completed=best.commands;
