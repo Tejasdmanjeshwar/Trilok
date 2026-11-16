@@ -15,6 +15,7 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
 import {StudioPosePreview} from "./StudioPosePreview";
 import {StudioSwordPreview} from "./StudioWeaponGrip";
 import {StudioBowPreview,isBowEquipment,type ArcheryState} from "./StudioArchery";
+import {type BowProfile} from "./StudioBowGeometry";
 import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
   from "./StudioShieldGrip";
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
@@ -37,6 +38,7 @@ export interface StudioViewport {
   setShieldStance(stance:ShieldStance):void;
   setArcheryState(state:ArcheryState):void;
   setArcheryDraw(value:number):void;
+  setBowProfile(profile:BowProfile):void;
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
@@ -102,6 +104,7 @@ export function createStudioViewport(
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
   let equipment:EquipmentChoice="none";
+  let bowProfile:BowProfile="recurve";
   let currentRecipe:StudioRecipeV1=initialStudioRecipe();
   let sword:StudioSwordPreview|StudioTwoHandPreview|StudioBowPreview|undefined;
   let shield:StudioShieldPreview|undefined;
@@ -126,7 +129,7 @@ export function createStudioViewport(
       if(isBowEquipment(equipment)){
         const result=posePreview?.bowPoseResult;
         if(!result?.reachable)throw new Error("Bow draw is unreachable");
-        const next=new StudioBowPreview(active,result);
+        const next=new StudioBowPreview(active,result,bowProfile);
         scene.add(next.object);sword=next;
       }else if(isTwoHandEquipment(equipment)){
         const solved=posePreview?.twoHandResult;
@@ -188,6 +191,11 @@ export function createStudioViewport(
     posePreview?.setArcheryDraw(value);
     if(isBowEquipment(equipment))refreshSword();
     updateMarkers();
+  }
+  function setBowProfile(profile:BowProfile):void{
+    if(profile!=="simple"&&profile!=="recurve")throw new Error("Unknown bow profile");
+    bowProfile=profile;
+    if(isBowEquipment(equipment))refreshSword();
   }
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
   let skeleton:THREE.SkeletonHelper|undefined;
@@ -686,5 +694,5 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
 }
