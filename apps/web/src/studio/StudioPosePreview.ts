@@ -70,6 +70,11 @@ export class StudioPosePreview {
         j.id===c.jointId&&/^(shoulder|hip)_/.test(j.role))))){
       this.correctives=new HumanPoseCorrectives(human);
     }
+    // C3 presentation morphs must not change source geometry while C5
+    // re-solves authoritative anatomical FK/contact. A preceding aim state
+    // otherwise leaves shoulder-corrective influences active and makes the
+    // next refresh depend on the previously viewed state.
+    this.correctives?.apply([]);
     this.result=undefined;
     this.shieldResult=undefined;
     this.archeryResult=undefined;
