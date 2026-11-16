@@ -18,6 +18,7 @@ import {contactArmFreedoms,composeContactPose,clampContactSeed,
   mirrorContactDifferenceSign}
   from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
+import {coordinateTorsoAndGaze} from "./StudioUpperBodyCoordination";
 
 /** Studio-only visual states. A release preview never dispatches a combat event. */
 export type ArcheryState="rest"|"nock"|"partial"|"aim"|"release";
@@ -272,6 +273,16 @@ export function archeryDrawFraction(state:ArcheryState,value:number):number{
   return state==="rest"||state==="release"?0:
     state==="nock"?.08:state==="partial"?value*.65:value;
 }
+/** A progressive, foot-planted shooting plane. Both stances are solved by the
+ * same legal FK and contact IK; this is NOT a root or weapon rotation. */
+export function archeryShootingPlaneYaw(state:ArcheryState,draw:number,
+  hand:HandSide):number{
+  if(!Object.hasOwn(ARCHERY_STATES,state)||!Number.isFinite(draw)||draw<0||draw>1)
+    throw new Error("Invalid shooting-plane state");
+  const angle=state==="rest"?0:state==="nock"?.15:
+    state==="release"?.46:.15+.45*draw;
+  return (hand==="left"?1:-1)*angle;
+}
 export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],hand:HandSide,state:ArcheryState,
   draw=1):ArcheryPoseResult{
@@ -280,7 +291,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const root=model.human.spike.character.root;
   root.updateWorldMatrix(true,true);
   const rootMatrix=root.matrixWorld.clone();
-  fk.apply(base);
+  // The source square-stance BVH preserves a mostly frontal spine. Compose
+  // a foot-planted shooting plane BEFORE arm optimization, so both arms,
+  // true-skin contacts and the arrow aim solve in the resulting anatomy.
+  // Never turn the root, bow prop or projectile axis as a visual workaround.
+  const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
+    archeryShootingPlaneYaw(state,draw,hand));
+  fk.apply(stance);
   const head=at(bone(model,"head",hand));
   const ankle=at(bone(model,"ankle_left","left"));
   const scale=THREE.MathUtils.clamp((head.y-ankle.y+.13)/1.75,.4,1.2);
@@ -289,7 +306,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const right=new THREE.Vector3(1,0,0).applyQuaternion(orientation);
   const forward=new THREE.Vector3(0,0,1).applyQuaternion(orientation);
   const up=new THREE.Vector3(0,1,0).applyQuaternion(orientation);
-  const fingers=merge(base,[
+  const fingers=merge(stance,[
     ...digitCommands(model,fk,hand,false),
     ...digitCommands(model,fk,oppositeHand(hand),true),
   ]);
