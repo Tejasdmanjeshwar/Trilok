@@ -149,6 +149,31 @@ def main() -> int:
             for name in names:
                 if not any(Path(i.filename).name.lower()==f"{name}.bvh" for i in matching):
                     raise RuntimeError(f"Required pose BVH missing: {name}")
+    pinned = Path("apps/web/public/anatomy/makehuman-default.mhskel")
+    # The deployed source rig may be assembled at install time rather than
+    # checked into Git. Never assume name parity without inspecting it.
+    for pack in report:
+        for item in report[pack]["selected"]:
+            if "bvh" not in item: continue
+            joints=set(item["bvh"]["joints"])
+            if pinned.exists():
+                rig_data=json.loads(pinned.read_text())
+                keys=set(rig_data.get("bones",{}))
+                item["pinnedRigComparison"]={
+                    "rigPath":str(pinned),"rigBoneCount":len(keys),
+                    "bvhBoneCount":len(joints),
+                    "exactBoneNamesMatched":len(keys & joints),
+                    "missingFromPinnedRig":sorted(joints-keys),
+                    "extraPinnedRigBones":sorted(keys-joints),
+                }
+            else:
+                item["pinnedRigComparison"]={
+                    "rigPath":str(pinned),
+                    "availableInSourceAuditCheckout":False,
+                    "reason":"Source rig not in audit checkout; requires installed asset pipeline",
+                }
+            print("PINNED_RIG_COMPAT",item["relativePath"],
+                json.dumps(item["pinnedRigComparison"]),flush=True)
     (ROOT/"source-report.json").write_text(json.dumps(report,indent=2))
     for pack in report:
         print("ARCHIVE",pack,"FILES",report[pack]["archiveFiles"])
