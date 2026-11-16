@@ -29,7 +29,7 @@ describe("C5.4 source-skinned bow morphology and fallback",()=>{
     const pose=new StudioPosePreview(model);
     try{
       for(const side of ["left","right"] as const){
-        pose.setGrip("bow-"+side);
+        pose.setGrip(side==="left"?"bow-left":"bow-right");
         for(const state of ["rest","nock","partial","aim","release"] as const){
           pose.setArcheryState(state);
           const result=pose.bowPoseResult!;
