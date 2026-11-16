@@ -26,7 +26,8 @@ export function validateWeaponGrip(grip:WeaponGripV1,graph:AnatomicalGraphV1):vo
   if(!socket||socket.purpose!=="primary_grip"||
     palm?.role!=="palm_"+grip.hand||
     !socket.id.includes("arm["+grip.hand+","))throw new Error("Grip socket does not belong to hand");
-  for(const digit of ["thumb","index","middle","ring","little"]){
+  for(const digit of ["thumb","index","middle","ring","little",
+    ...(options.avoidPalmPenetration?["palm"]:[])]){
     if(!graph.joints.some(j=>j.role==="finger_"+digit+"_0"&&
       j.id.includes("arm["+grip.hand+",")))throw new Error("Missing grip finger "+digit);
   }
@@ -182,7 +183,8 @@ function swordMesh(handleRadius:number,handleLength:number):THREE.Group{
  * selecting/rebuilding the preview, never in render or authoritative combat. */
 export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
   center:THREE.Vector3,lateral:THREE.Vector3,along:THREE.Vector3,
-  normal:THREE.Vector3,radius:number,length:number):THREE.Vector3 {
+  normal:THREE.Vector3,radius:number,length:number,
+  options:Readonly<{avoidPalmPenetration?:boolean}>={}):THREE.Vector3 {
   const {mesh,spike}=model.human;
   spike.character.root.updateWorldMatrix(true,true);
   const indices=mesh.geometry.getAttribute("skinIndex");
@@ -192,6 +194,7 @@ export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
   const relative=new THREE.Vector3();
   for(const digit of ["thumb","index","middle","ring","little"]){
     const fingerBones=new Set(spike.graph.joints.filter(j=>
+      digit==="palm"?j.role==="palm_"+hand&&j.id.includes("arm["+hand+",0]"):
       j.role.startsWith("finger_"+digit+"_")&&
       j.id.includes("arm["+hand+",0]")).map(j=>
       spike.skeleton.bones.indexOf(spike.bones.get(j.id)!)));
@@ -212,7 +215,8 @@ export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
   }
   const score=(x:number,y:number,z:number):number=>{
     let cost=.2*(x*x+y*y+z*z)/(.01*.01);
-    for(const finger of samples){
+    for(let group=0;group<samples.length;group++){
+      const finger=samples[group]!;
       let closest=Infinity,deepest=0,near=0;
       for(const sample of finger){
         if(Math.abs(sample[1]!-y)>length*.5+.012)continue;
@@ -223,7 +227,9 @@ export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
       }
       if(near===0)return Infinity;
       const clipping=Math.max(0,deepest-.0015);
-      cost+=(closest/.004)**2+3*(clipping/.003)**2;
+      const palm=group===5;
+      cost+=(palm?.45:1)*(closest/.004)**2+
+        (palm?12:3)*(clipping/.003)**2;
     }
     return cost;
   };
