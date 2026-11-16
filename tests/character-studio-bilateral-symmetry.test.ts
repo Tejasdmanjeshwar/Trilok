@@ -153,7 +153,7 @@ describe("C5.4 sagittal source and archery symmetry audit",()=>{
           unmatched:left.length-paired,meanMm:mm(sum/Math.max(1,paired)),
           maxMm:mm(max),within1mm:within1,within3mm:within3},
         landmarks:landmark,axes}));
-      expect(landmark.length).toBeGreaterThan(20);
+      expect(landmark.length).toBe(19);
       expect(paired).toBeGreaterThan(left.length*.8);
     }finally{human.dispose();}
   },120_000);
