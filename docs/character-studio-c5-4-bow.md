@@ -240,11 +240,14 @@ sides continue to obey their **own** morphology and joint limits; it is not
 a solved-pose copy or a blanket requirement that asymmetric characters be
 bilaterally identical.
 
-The archery holding-arm fit and coupled two-arm/string fit now use that
-canonical parameterization, with axial signs derived from the MakeHuman rest
-world quaternions and semantic counterpart axes. The extra nock-local-Y
-parameter keeps its existing sign and constraints. The change adds no
-degrees of freedom, optimization passes or companion mirror solve. Generic
+The holding-arm fit now uses canonical parameterization, with axial signs
+derived from the MakeHuman rest world quaternions and semantic counterpart
+axes. **The initial experiment applying this to the coupled two-arm/string
+fit was reverted**: Verify #43878953017 failed two regressions (left-hand
+nock became unreachable) and still showed non-mirrored intermediate states.
+The coupled draw solver therefore retains its previous working direct DLS
+path. The shared canonical utility adds no degrees of freedom, passes or
+companion mirrored solve where it is used. Generic
 unit tests exercise exact reflected objective and evaluation-count parity,
 plus independently constrained asymmetric targets.
 
