@@ -9,46 +9,6 @@ import {StudioBowPreview,archeryDrawFraction,validateBowReference,
   type ArcheryState} from "../apps/web/src/studio/StudioArchery";
 import {aimBallisticAt,sampleTrajectory} from "../packages/combat/src/projectile-motion";
 
-describe("Bow anatomical finger-curl calibration",()=>{
-  it("measures index, middle and ring flexion candidates on actual posed skin",()=>{
-    const {human,model,fk}=make();
-    const preview=new StudioPosePreview(model);
-    try{
-      for(const hand of ["left","right"] as const){
-        preview.setGrip(hand==="left"?"bow-left":"bow-right");
-        const rest=preview.bowPoseResult!;
-        const graph=human.spike.graph;
-        for(const digit of ["index","middle","ring"] as const){
-          const ids=new Set(graph.joints.filter(j=>
-            j.role.startsWith("finger_"+digit+"_")&&
-            j.id.includes("arm["+hand+",0]")).map(j=>j.id));
-          const variants=[] as Array<{factor:number;gap:number;pen:number;
-            palmGap:number;palmPen:number;thumbGap:number;thumbPen:number;
-            allMaxPen:number}>;
-          for(const factor of [.65,.80,.90,1,1.1,1.20,1.35]){
-            const adjusted=rest.commands.map(command=>{
-              if(command.motion!=="flexion"||!ids.has(command.jointId))return command;
-              const bound=fk.frames.get(command.jointId)!.freedoms.get(command.motion)!;
-              return {...command,radians:Math.max(bound.min,
-                Math.min(bound.max,command.radians*factor))};
-            });
-            fk.apply(adjusted);
-            const samples=measureStaff(model,hand,rest.bowWorld,
-              rest.descriptor.handleRadiusMeters,0);
-            const get=(id:string)=>samples.find(s=>s.digit===id)!;
-            variants.push({factor,gap:get(digit).closestGap,
-              pen:get(digit).deepestPenetration,
-              palmGap:get("palm").closestGap,palmPen:get("palm").deepestPenetration,
-              thumbGap:get("thumb").closestGap,thumbPen:get("thumb").deepestPenetration,
-              allMaxPen:Math.max(...samples.map(s=>s.deepestPenetration))});
-          }
-          console.log("C5.4 source curl calibration",JSON.stringify({hand,digit,variants}));
-        }
-      }
-    }finally{preview.dispose();human.dispose();}
-  },120_000);
-});
-
 describe("Shared anatomical weapon contacts",()=>{
   it("separates bow cylinder pressure from the two-finger string hook",()=>{
     const {human,fk}=make();
@@ -101,13 +61,13 @@ describe("Studio bow and visual nock contract",()=>{
       expect(sourceContact.every(x=>x.axialNear>0)).toBe(true);
       // True source-skinned surface fit: do not let a small arm residual
       // disguise a cylinder passing through palm or individual digits.
-      // 4mm is a strict coarse-source-triangle provisional clearance gate;
-      // final C5 visual review still decides whether it is convincing.
+      // Provisional coarse-source skin gates in meters; browser close-ups
+      // still decide whether the contact looks anatomically credible.
       for(const sample of sourceContact){
         expect(sample.deepestPenetration,hand+"/"+sample.digit+" penetrates handle")
-          .toBeLessThan(.004);
+          .toBeLessThan(.003);
         expect(sample.closestGap,hand+"/"+sample.digit+" floats off handle")
-          .toBeLessThan(sample.digit==="palm"?.005:.008);
+          .toBeLessThan(sample.digit==="palm"?.004:.005);
       }
       expect(rest.bowHandErrorMeters).toBeLessThan(.12);
       expect(root.elements).toEqual(human.spike.character.root.matrixWorld.elements);
