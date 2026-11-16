@@ -1,6 +1,8 @@
 name: C5.4 MakeHuman Source Pose Audit
 
 on:
+  push:
+    branches: [feat/c5-4-anatomical-bow-draw]
   workflow_dispatch:
 
 permissions:
