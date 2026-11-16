@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import {bowNockLocal,createBowStaveGeometry,defaultBowStaveOptions,
+  type BowProfile} from "./StudioBowGeometry";
 import type {AnatomicalGraphV1} from "@trilok/character-core";
 import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
   from "../characters/geometry/AnatomicalFK";
@@ -666,7 +668,8 @@ export class StudioBowPreview {
   readonly nockLocal:THREE.Vector3;
   readonly tipLocal:THREE.Vector3;
   private readonly socketOffset:THREE.Matrix4;
-  constructor(private readonly model:StudioHumanModel,readonly result:ArcheryPoseResult){
+  constructor(private readonly model:StudioHumanModel,readonly result:ArcheryPoseResult,
+    readonly profile:BowProfile="recurve"){
     if(!result.reachable)throw new Error("Unreachable source-skinned bow pose");
     this.descriptor=result.descriptor;
     const d=result.descriptor;
@@ -682,22 +685,23 @@ export class StudioBowPreview {
     const handle=new THREE.Mesh(new THREE.CylinderGeometry(
       d.handleRadiusMeters,d.handleRadiusMeters,d.handleLengthMeters,12),grip);
     handle.name="BowHandle";this.object.add(handle);
-    const top=new THREE.Vector3(0,d.limbLengthMeters,-d.stringRestMeters);
-    const bottom=new THREE.Vector3(0,-d.limbLengthMeters,-d.stringRestMeters);
-    for(const sign of [-1,1]){
-      const curve=new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0,sign*d.handleLengthMeters*.45,.012*factor),
-        new THREE.Vector3(-.055*factor,sign*.21*factor,.09*factor),
-        new THREE.Vector3(-.11*factor,sign*.44*factor,.075*factor),
-        new THREE.Vector3(0,sign*d.limbLengthMeters,-d.stringRestMeters),
-      ]);
-      const limb=new THREE.Mesh(new THREE.TubeGeometry(curve,18,
-        .013*factor,8,false),wood);
-      limb.name=sign===1?"UpperBowLimb":"LowerBowLimb";
-      this.object.add(limb);
-      const cap=new THREE.Mesh(new THREE.SphereGeometry(.019*factor,10,8),gold);
-      cap.position.copy(sign===1?top:bottom);
-      this.object.add(cap);
+    // Manufactured geometry is one exact mirror-symmetric YZ stave loft.
+    // The cylinder remains the contact-authoritative hand-pressure surface;
+    // profile changes never displace it or the socket-aligned bow frame.
+    const stave=createBowStaveGeometry(defaultBowStaveOptions(d,profile));
+    const limb=new THREE.Mesh(stave.geometry,wood);
+    limb.name="BowStave";
+    limb.castShadow=true;
+    this.object.add(limb);
+    // Named subparts intentionally reference the same parent stave object:
+    // no independently positioned limb meshes or asymmetrical caps.
+    const top=stave.upperNock,bottom=stave.lowerNock;
+    for(const nock of [top,bottom]){
+      const ferrule=new THREE.Mesh(
+        new THREE.SphereGeometry(.006*factor,12,8),gold);
+      ferrule.name=nock.y>0?"UpperBowNock":"LowerBowNock";
+      ferrule.position.copy(nock);
+      this.object.add(ferrule);
     }
     const local=result.nockWorld.clone().applyMatrix4(result.bowWorld.clone().invert());
     // Clamp the string center to a stable axis at supported contact tolerance;
