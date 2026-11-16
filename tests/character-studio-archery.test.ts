@@ -59,6 +59,8 @@ describe("Studio bow and visual nock contract",()=>{
       pose.setGrip(hand==="left"?"bow-left":"bow-right");
       const rest=pose.bowPoseResult!;
       expect(rest).toBeDefined();
+      console.log("C5.4 source contact acceptance",JSON.stringify({hand,
+        reachable:rest.reachable,regions:rest.bowSkinContact}));
       expect(rest.reachable,"source bow-hand must reach reference grip: "+JSON.stringify({error:rest.bowHandErrorMeters,body:rest.bodyClearanceMeters})).toBe(true);
       expect(rest.iterations).toBeLessThanOrEqual(56);
       const sampledSource=measureSourceCylinder(model,sourceHandSamples(model,hand),
