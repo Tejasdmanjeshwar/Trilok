@@ -60,6 +60,9 @@ function fingerId(graph: AnatomicalGraphV1, side: "left" | "right",
 
 export class AnatomicalFK {
   readonly frames: ReadonlyMap<string, JointFrame>;
+  /** Immutable bind-pose orientation reference for coordinate-safe bilateral
+   * axial-vector reflection. Calculated once before any pose is applied. */
+  readonly restWorldQuaternions: ReadonlyMap<string, THREE.Quaternion>;
   /** Measured volar-facing normals of the two resting hands, in world space. */
   readonly palmarNormals: ReadonlyMap<"left" | "right", THREE.Vector3>;
   private readonly graph: AnatomicalGraphV1;
@@ -146,6 +149,7 @@ export class AnatomicalFK {
       palmNormals.set(side, palmar);
     }
     this.palmarNormals = palmNormals;
+    this.restWorldQuaternions = worldQuaternions;
 
     const frames = new Map<string, JointFrame>();
     for (const joint of graph.joints) {
