@@ -116,7 +116,7 @@ describe("C5.4 bow failures share the exact copyable Studio diagnostic path",()=
     expect(json).not.toContain("matrixWorld");
     expect(json).not.toContain("userAgent");
     expect(json).not.toContain("elements");
-    (result.bowSkinContact as {contactVertices:number}[])[0]!.contactVertices=99;
+    (result.bowSkinContact as unknown as {contactVertices:number}[])[0]!.contactVertices=99;
     expect(data.failure.bowSkinContact[0].contactVertices).toBe(2);
   });
   it("reports thrown pose exceptions and missing results for the right bow",()=>{
