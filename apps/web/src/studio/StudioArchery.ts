@@ -14,7 +14,8 @@ import {retargetSourceArcherPose} from "./StudioMakeHumanArcherRetarget";
 import {measureSourceStringContact,sourceHandSamples,
   sourceFingerPadVertices,sourcePadWorld,
   type SourceCylinderRegion} from "./StudioSourceContact";
-import {contactArmFreedoms,composeContactPose,clampContactSeed}
+import {contactArmFreedoms,composeContactPose,clampContactSeed,
+  mirrorContactDifferenceSign}
   from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
 
@@ -115,7 +116,8 @@ export function drawingFingerContactWorld(model:StudioHumanModel,
   return index.add(middle).multiplyScalar(.5);
 }
 
-type Freedom={jointId:string;motion:AnatomicalMotion;min:number;max:number};
+type Freedom={jointId:string;motion:AnatomicalMotion;min:number;max:number;
+  differenceSign?:1|-1};
 const ARM_CHANNELS:readonly (readonly [string,readonly AnatomicalMotion[]])[]=[
   ["clavicle",["abduction","flexion"]],
   ["shoulder",["abduction","flexion","rotation"]],
@@ -131,7 +133,9 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
     for(const motion of motions){
       const f=fk.frames.get(joint.id)?.freedoms.get(motion);
       if(!f)throw new Error("Uncalibrated bow arm freedom");
-      axes.push({jointId:joint.id,motion,min:f.min,max:f.max});
+      axes.push({jointId:joint.id,motion,min:f.min,max:f.max,
+          differenceSign:mirrorContactDifferenceSign(
+            model.human.spike.graph,fk,joint.id,motion,side)});
     }
   }
   const sign=side==="right"?1:-1;
@@ -378,7 +382,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           const range=fk.frames.get(joint.id)?.freedoms.get(motion);
           if(!range)throw new Error("Missing legal drawing finger freedom");
           drawDigitFreedoms.push({jointId:joint.id,motion,
-            min:range.min,max:range.max});
+            min:range.min,max:range.max,
+            differenceSign:mirrorContactDifferenceSign(
+              model.human.spike.graph,fk,joint.id,motion,drawSide)});
         }
       }
     }
