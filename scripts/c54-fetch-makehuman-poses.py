@@ -66,10 +66,50 @@ def analyze_bvh(data: bytes) -> dict:
             "frameTime":float(time_match.group(1)) if time_match else None,
             "motionFirstLines":motion.splitlines()[:5]}
 
+def alternate(name: str) -> tuple[bytes,str]:
+    # Exact known redistribution: original MakeHuman BVH from a public
+    # synthesis_data/mpfb/poses directory. Verify SHA, hierarchy and metadata
+    # before treating it as compatible with Trilok.
+    revision="5917810cd4983e9fd757fc44efd39b3dd7648ee0"
+    urls=[
+        f"https://huggingface.co/datasets/lsmpp/omni-refiner-video/resolve/{revision}/synthesis_data/mpfb/poses/{name}/{name}.bvh",
+        f"https://huggingface.co/datasets/lsmpp/omni-refiner-video/resolve/main/synthesis_data/mpfb/poses/{name}/{name}.bvh",
+    ]
+    errors=[]
+    for url in urls:
+        try:
+            with urlopen(Request(url,headers={"User-Agent":"Trilok-Reference-Audit/1.0"}),timeout=30) as response:
+                payload=response.read(2*1024*1024)
+            if b"HIERARCHY" not in payload[:100]:
+                raise ValueError("Not a BVH hierarchy")
+            print("ALTERNATE BVH",name,url,"bytes",len(payload),flush=True)
+            return payload,url
+        except Exception as e:
+            print("ALTERNATE FETCH FAILED",name,url,str(e),flush=True)
+            errors.append(str(e))
+    raise RuntimeError(f"BVH {name} unavailable from redistribution: {errors}")
+
 def main() -> int:
     report={}
     for pack,names in PACKS.items():
-        data,url=download(pack)
+        try:
+            data,url=download(pack)
+        except Exception as e:
+            print("OFFICIAL PACK UNAVAILABLE",pack,str(e),flush=True)
+            report[pack]={"sourceUrl":None,"archiveSha256":None,"archiveFiles":0,"selected":[],"officialDownloadError":str(e)}
+            for name in names:
+                try:
+                    raw,origin=alternate(name)
+                    path=ROOT/pack/(name+".bvh")
+                    path.parent.mkdir(parents=True,exist_ok=True)
+                    path.write_bytes(raw)
+                    report[pack]["selected"].append({
+                        "archivePath":None,"alternateSourceUrl":origin,"relativePath":str(path),
+                        "sha256":hashlib.sha256(raw).hexdigest(),"bytes":len(raw),
+                        "bvh":analyze_bvh(raw)})
+                except Exception as alt_error:
+                    print("NO VERIFIED SOURCE FOR",name,str(alt_error),flush=True)
+            continue
         with ZipFile(io.BytesIO(data)) as archive:
             matching=[]
             for entry in archive.infolist():
@@ -105,7 +145,7 @@ def main() -> int:
                   "root",desc.get("root"),"jointCount",desc.get("jointCount"),
                   "digits",desc.get("digitJoints"),"rotations",desc.get("rotationOrders"),flush=True)
     print("SOURCE_REPORT_PATH", ROOT/"source-report.json",flush=True)
-    return 0
+    return 0 if all(any(item.get("bvh") for item in report[p]["selected"]) for p in PACKS) else 1
 
 if __name__=="__main__":
     sys.exit(main())
