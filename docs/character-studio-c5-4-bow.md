@@ -303,3 +303,46 @@ The follow-up runs investigated two previously underconstrained inputs to contac
 The baseline is not solved by mirrored sampling, canonical joint-angle signs or canonical handle-offset probes **in isolation**. The current strongest hypothesis is a non-equivariant combination of candidate selection, finite-cylinder grip fitting, and coupled moving-bow string constraints. These experiments do not establish that the underlying deterministic solver is incapable of mirror invariance. They show that its current *composite objective and candidate search* need a coherent bilateral canonicalization rather than independently adjusting one parameter block.
 
 The next correction needs stage-level instrumentation of the chosen holding-arm seed, hand profile, sampled contact score, candidate exit and coupled draw seed for each side; compare mirrored residual vector components and candidate rankings at the same anatomical input **before** another production change. Strict complete-pose mirror assertions must remain pending until measured source-appropriate tolerances are achievable. Do not weaken nock, skin-gap, joint-limit, collision or asymmetric morphology gates. Previous mirrored pose audit values remain the last retained production baseline after the explicit reverts.
+
+
+## C5.4 shooting-plane stance correction — 2026-11-17 (verification pending)
+
+The previous bow solve treated the source `callharvey3d_archer_square_stance`
+as a hand/arm reference while optimizing only arm and digit FK freedoms. Its
+retained source spine yaw channels are effectively neutral, so the two arm
+chains could meet source-skinned contact and arrow-direction numerical gates
+with a visually frontal shoulder girdle. Merely turning the weapon or actor
+root would break the FK/socket/contact contract.
+
+**Implementation:** `StudioUpperBodyCoordination.ts` is a shared,
+rig-independent joint-command overlay that distributes upright yaw across the
+existing calibrated `spine_lower` and `chest` rotation freedoms and
+counter-rotates `neck` and `head` to maintain gaze. `StudioArchery.ts`
+selects mirrored, progressively blended shooting-plane yaw (rest 0, nock
+0.15 rad, partial/full draw up to 0.60 rad, follow-through 0.46 rad) **before**
+running the original source-skinned arm, bow and string IK; all contact solvers
+and strict acceptance thresholds remain intact. Root and weapon transformations
+are not overridden. The pelvis stays neutral because its existing source-rig
+joint parents the legs; pelvis yaw without a planted-foot solver would move
+the feet. This is an intentionally limited **foot-planted upper-body**
+coordination, not a claim of complete square/open stance lower-body animation
+or independent anatomical scapula deformation. Clavicle and shoulder DOFs
+remain under existing calibrated contact IK; no unsupported scapular bone
+has been introduced.
+
+**Reference:** World Archery recurve coaching guidance on upright alignment,
+low bow shoulder, stable head, draw elbow and back-tension sequencing;
+pinned `callharvey3d_archer_hero` and `callharvey3d_archer_square_stance`
+BVHs. The retained square-stance BVH is not itself a source of substantial
+spine rotation. The new yaw controls are rig-calibrated presentation targets,
+not unconverted BVH Euler channels.
+
+**Verification gates still required:** fresh CI TypeScript/full Vitest/
+deterministic replay/build results; full-draw and all-state contact/aim
+numerics on both hands, neutral/extreme morphologies, seed 2929832126 and 9813;
+per-state shoulder/elbow/nock measurements; browser multi-view screenshots and
+Cloudflare build identity; performance profiling versus the previous exact
+commit. The targeted new test `tests/character-studio-archery-stance.test.ts`
+checks yaw progression, legal FK, foot/root stability, gaze, shoulder order
+and bilateral command sign, but it **cannot** substitute for actual rendered
+archery inspection. Do not merge PR #87 without owner approval.
