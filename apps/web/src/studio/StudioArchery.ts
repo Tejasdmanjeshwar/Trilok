@@ -382,6 +382,71 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     arrowDirectionWorld:z,descriptor,
   });
 }
+/** Independent final inspection against the posed source-skinned fingers.
+ * The bounded IK residual uses anatomical joint landmarks for performance;
+ * only this final diagnostic evaluates actual MakeHuman source skin. The
+ * string is the two real segments in the bow descriptor (not a free target).
+ * An empty candidate set is invalid rather than silently reporting contact. */
+export interface StringSkinGap {
+  readonly digit:"index"|"middle"|"ring";
+  readonly skinVertices:number;
+  readonly nearestGapMeters:number;
+}
+export function measureStringFingerSkin(model:StudioHumanModel,
+  hand:HandSide,result:ArcheryPoseResult):readonly StringSkinGap[]{
+  const {mesh,spike,template}=model.human;
+  spike.character.root.updateWorldMatrix(true,true);
+  mesh.updateWorldMatrix(true,false);
+  const pos=mesh.geometry.getAttribute("skinIndex");
+  const weights=mesh.geometry.getAttribute("skinWeight");
+  const scale=result.descriptor.limbLengthMeters/.64;
+  const start=result.nockWorld;
+  const tips=[-1,1].map(sign=>
+    new THREE.Vector3(0,sign*result.descriptor.limbLengthMeters,
+      -result.descriptor.stringRestMeters).applyMatrix4(result.bowWorld));
+  const lines=tips.map(tip=>new THREE.Line3(start,tip));
+  const indices=new Map((["index","middle","ring"] as const).map(digit=>[
+    digit,new Set(spike.graph.joints.filter(j=>j.role.startsWith("finger_"+digit+"_")&&
+      j.id.includes("arm["+hand+",0]")).map(j=>
+      spike.skeleton.bones.indexOf(spike.bones.get(j.id)!))),
+  ]));
+  const found=new Map<"index"|"middle"|"ring",
+    {count:number;gap:number}>();
+  for(const digit of indices.keys())found.set(digit,{count:0,gap:Infinity});
+  const unique=new Set<number>();
+  const world=new THREE.Vector3(),near=new THREE.Vector3();
+  for(let i=0;i<pos.count;i++){
+    const source=template.sourceVertexIds[i]??i;
+    if(unique.has(source))continue;
+    unique.add(source);
+    const eligible=(["index","middle","ring"] as const).filter(digit=>{
+      let influence=0;
+      for(let k=0;k<4;k++)
+        if(indices.get(digit)!.has(pos.getComponent(i,k)))
+          influence+=weights.getComponent(i,k);
+      return influence>=.6;
+    });
+    if(!eligible.length)continue;
+    mesh.getVertexPosition(i,world).applyMatrix4(mesh.matrixWorld);
+    if(world.distanceTo(start)>.10*scale)continue;
+    let nearest=Infinity;
+    for(const line of lines){
+      line.closestPointToPoint(world,true,near);
+      nearest=Math.min(nearest,world.distanceTo(near));
+    }
+    const gap=Math.max(0,nearest-.0018*scale);
+    for(const digit of eligible){
+      const record=found.get(digit)!;
+      record.count++;
+      record.gap=Math.min(record.gap,gap);
+    }
+  }
+  return Object.freeze((["index","middle","ring"] as const).map(digit=>{
+    const sample=found.get(digit)!;
+    return Object.freeze({digit,skinVertices:sample.count,
+      nearestGapMeters:sample.gap});
+  }));
+}
 function segment(a:THREE.Vector3,b:THREE.Vector3,r:number,mat:THREE.Material){
   const d=b.clone().sub(a);
   const obj=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),8),mat);
