@@ -5,7 +5,8 @@ import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
 import type {StudioHumanModel} from "./StudioHumanModel";
 import {fitConstrainedIK} from "./ConstrainedIK";
 import {StudioBodyCollision} from "./StudioBodyCollision";
-import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
+import {calibrateGripSpreads,handContactTargets,fitHandleCenter,
+  sourceHandVolarWorld}
   from "./StudioWeaponGrip";
 import {contactArmFreedoms,composeContactPose,clampContactSeed,
   solveContactConstraints} from "./StudioContactIK";
@@ -182,6 +183,15 @@ function bowFrame(model:StudioHumanModel,hand:HandSide,
   // +Y follows the actual source knuckle line, never an invented socket Euler.
   const center=fitHandleCenter(model,hand,twoHandGripContactWorld(model,hand),
     x,y,z,radius,length);
+  // Bow archery has a pressure-bearing thenar grip, not a sword's closed fist.
+  // Seat the handle outside the true MakeHuman volar surface rather than at
+  // the palm-joint cylinder proxy. All offsets follow measured hand width;
+  // mirrored character hands use their own source-derived volar normals.
+  const span=index.distanceTo(little);
+  const palmFacing=sourceHandVolarWorld(model,hand)
+    .addScaledVector(y,-sourceHandVolarWorld(model,hand).dot(y)).normalize();
+  center.addScaledVector(palmFacing,span*.42)
+    .addScaledVector(z,span*.21);
   return new THREE.Matrix4().makeBasis(x,y,z).setPosition(center);
 }
 export interface ArcheryPoseResult {
@@ -243,7 +253,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const descriptor:BowReferenceV1=Object.freeze({
     schemaVersion:1,id:"bow/"+hand,kind:"bow",hand,socketId:socket.id,
     limbLengthMeters:.64*scale,
-    handleRadiusMeters:THREE.MathUtils.clamp(width/4.4,.003,.02),
+    handleRadiusMeters:THREE.MathUtils.clamp(width/8,.003,.014),
     handleLengthMeters:THREE.MathUtils.clamp(width*1.45,.038,.18),
     arrowLengthMeters:.70*scale,stringRestMeters:.07*scale,
     maximumDrawMeters:.28*scale,
