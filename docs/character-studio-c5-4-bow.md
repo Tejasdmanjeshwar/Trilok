@@ -261,3 +261,24 @@ bow-grip and 3.095-degree arrow mismatch are known failures, not accepted
 limits. Do not merge or claim visually accepted symmetry on the strength
 of a green unit suite alone. Verify real CI, Cloudflare feature-preview
 identity and Chromium visual samples separately.
+
+
+## 2026-11-16 — bilateral source audit and reflection-aware numerical probes
+
+Source audit from the feature-branch [Verify #43882583681](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/43882583681) on `fb5e662f7c1eda193ce28aece6d261d421c048b7`:
+
+- Neutral MakeHuman rest source: 6,216 vertices on each X half, 6,216 mirrored matches with zero measured geometric discrepancy; all 19 audited rest-joint landmarks match at the measurement precision.
+- Mirrored skin influences: 1,480 sampled hand vertex pairs have zero reported summed-weight discrepancy; across 6,216 sampled body pairs, mean mapped influence L1 error 0.000526, worst 0.886. This means perfect global skin symmetry cannot be claimed.
+- Source-mirrored legal FK: hand vertex errors zero in the audited exercise; whole-body max 6.2806 mm, including corrective pass. The broad body deformation test is diagnostic, not an overall guarantee of exact mirrored skinning.
+- BVH retarget source-seed parity: max 0.01872° (bow-holding) and 0.00145° (drawing). Artistic pose identity is not the main observed discrepancy in retargeted seed commands.
+- Existing coupled preview still has large mirror mismatch despite individually acceptable aiming: among 13 state/draw samples, bow-tip difference reaches 148.272 mm, anatomical landmark difference 99.894 mm; `aim` at draw=1: left/right pitch +1.477°/+3.891°, yaw -3.060°/+1.120°. These figures are *before* the latest reflection-aware numerical-probe correction.
+
+The baseline tests in `tests/character-studio-bilateral-symmetry.test.ts` are measurement-only and intentionally have not been relabeled as strict acceptance. They assert reachability but not millimetre pose mirroring. This is **not** bilateral symmetry acceptance.
+
+Follow-up changes on the same draft PR:
+- `StudioMirrorSampling` selects bounded source-skin Jacobian probes by a deterministic mirrored character-local bind-space spatial key instead of file vertex order. The full original source skin remains the final contact authority.
+- The coupled bow/string solve now uses existing `fitCanonicalIK` to reflect arm and individual finger parameter signs, limits and seeds together in the same DLS iteration budget. It keeps the real bilateral FK, independent morphology, contact and collision residuals. This deliberately avoids a second IK rig or a pose-copying shortcut.
+- `character-studio-mirror-sampling.test.ts` verifies spatial probe invariance on shuffled reflected vertex arrays.
+
+**Verification still required:** Compare the next CI test logs against all 13 baseline state/draw cases; preserve the reachability, string gap, 30 mm nock-contact and morphology gates. Add actual tight mirrored-pose assertions only when end-to-end deviations are reduced to source-appropriate tolerances. If metrics remain large, inspect handedness of the moving bow socket's local frame, bow-hand grip seed/candidate selection and coupled feasible-first tie-breaking. Also inspect the source mesh under Chromium and run desktop/touch screenshots. Do not claim bilateral parity, visual acceptance or deployment on the strength of this numerical change alone.
+
