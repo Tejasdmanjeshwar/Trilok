@@ -48,6 +48,43 @@ describe("C5.4 original MakeHuman archer source rotation retargeting",()=>{
     expect(mirrored.length()).toBeCloseTo(1,9);
     expect(q.angleTo(new THREE.Quaternion())).toBeGreaterThan(.1);
   });
+  it.each(["bow-holding","string-drawing"] as const)(
+    "audits mirrored source-pose projection parity for %s",kind=>{
+      const {human,fk}=make();
+      try{
+        const graph=human.spike.graph;
+        const left=retargetSourceArcherPose(graph,fk,"left",kind,"square",true);
+        const right=retargetSourceArcherPose(graph,fk,"right",kind,"square",true);
+        const paired=new Map(right.commands.map(c=>{
+          const joint=graph.joints.find(j=>j.id===c.jointId)!;
+          return [joint.role+"/"+c.motion,c.radians];
+        }));
+        const reports=left.commands.map(c=>{
+          const joint=graph.joints.find(j=>j.id===c.jointId)!;
+          const role=joint.role;
+          const other=role.replace("_left","_right");
+          const matching=graph.joints.find(j=>j.role===other&&
+            (role.startsWith("finger_")?j.id.includes("arm[right,0]"):true));
+          const a=human.spike.bones.get(joint.id)!;
+          const b=matching&&human.spike.bones.get(matching.id);
+          const fa=fk.frames.get(joint.id)!.freedoms.get(c.motion)!;
+          const fb=matching&&fk.frames.get(matching.id)?.freedoms.get(c.motion);
+          if(!b||!fb)throw new Error("Missing paired FK channel "+role);
+          const av=fa.axis.clone().applyQuaternion(a.getWorldQuaternion(new THREE.Quaternion()));
+          const bv=fb.axis.clone().applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()));
+          const mirrored=new THREE.Vector3(av.x,-av.y,-av.z);
+          const sign=mirrored.dot(bv)>=0?1:-1;
+          const rhs=paired.get(other+"/"+c.motion);
+          if(rhs===undefined)throw new Error("Missing projected mirrored target "+other);
+          return {role,motion:c.motion,sign,
+            mismatchDegrees:THREE.MathUtils.radToDeg(Math.abs(c.radians*sign-rhs))};
+        });
+        console.log("C5.4 BVH RETARGET MIRROR PARITY",
+          JSON.stringify({kind,reports,
+            maxDegrees:Math.max(...reports.map(r=>r.mismatchDegrees))}));
+        expect(reports).toHaveLength(26);
+      }finally{human.dispose();}
+    },120_000);
   it.each(["left","right"] as const)(
     "produces deterministic legal hand and arm targets on %s",side=>{
       const {human,fk}=make();
