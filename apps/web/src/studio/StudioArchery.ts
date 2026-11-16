@@ -570,10 +570,6 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const goal=nockWorldFor(actualBow,values[freedoms.length]!);
         const finger=drawingFingerContactWorld(model,drawSide);
         const bowGrip=twoHandGripContactWorld(model,hand);
-        const bowArm=measureArmAlignment(at(bowShoulderBone),at(bowElbowBone),
-          at(bowWristBone));
-        const pull=measurePullLineAlignment(bowGrip,goal,at(elbow));
-        const pullWeight=THREE.MathUtils.clamp(fraction*2,0,1);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
         const skin=fingerSkin(actualBow,goal);
         const indexPad=sourcePadWorld(model,padVertices.index);
@@ -609,14 +605,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // arrow 45 degrees away from the gaze: constrain both orientation
           // axes through legal holding/drawing shoulder, elbow and wrist FK.
           ...shaft.sub(forward).toArray().map(v=>v*.115*scale),
-          // Contact alone cannot make a shooting-line silhouette.
-          // Keep a soft-extended bow elbow and rearward draw elbow without
-          // moving either grip/string independently of the source rig.
-          ...(desiredBend===undefined?[]:[
-            bowArmExtensionResidual(bowArm,desiredBend)*.30*
-              Math.min(1,fraction/.45)]),
-          Math.max(0,.075*scale-pull.behindHookMeters)*.45*pullWeight,
-          Math.max(0,pull.perpendicularMeters-.12*scale)*.3*pullWeight,
+          // This coupled solve owns genuine two-finger skin contact and
+          // arrow axis. The preceding holding-arm fit owns extension. Do not
+          // let a competing aesthetic elbow residual override the string.
           // Keep the bow arm near its measured source-length target.
           (bowGrip.x-bowTarget.x)*.45,(bowGrip.y-bowTarget.y)*.45,
           (bowGrip.z-bowTarget.z)*.45,
