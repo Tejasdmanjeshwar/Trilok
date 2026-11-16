@@ -261,7 +261,7 @@ export interface ArcheryPoseResult {
   readonly arrowAimDeviationRadians:number;
   readonly descriptor:BowReferenceV1;
   /** Read-only candidate-selection evidence, not part of authoritative play. */
-  readonly symmetryTrace:Readonly<{
+  readonly symmetryTrace?:Readonly<{
     holdingArmAttempts:number;holdingArmScore:number;
     bowContactCandidate:number;bowContactScore:number;
     drawArmSeed:number;drawFingerSeed:number;drawScore:number;
