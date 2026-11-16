@@ -50,6 +50,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: c54-bow-desktop-touch-${{ github.sha }}
-          path: test-results/studio/**/*.png
+          path: test-results/studio/
           if-no-files-found: warn
           retention-days: 14
