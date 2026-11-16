@@ -90,8 +90,9 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
       residual.push(Math.max(0,part.nearestGapMeters-.0015)*1.5);
       residual.push(Math.max(0,part.maximumPenetrationMeters-.0005)*3);
       residual.push(part.axialVertices<3?.012:0);
-      residual.push(part.contactVertices<2?
-        Math.min(.006,part.nearestGapMeters)*.6:0);
+      // Smooth third-nearest residual makes a real palm/finger contact patch
+      // optimizable; boolean vertex counts have zero useful derivative.
+      residual.push(Math.max(0,part.thirdNearestGapMeters-.002)*1.8);
     }
     // Physical morphology provides bounds; this merely breaks ties for
     // equivalent near-contact poses and avoids implausible extreme curls.
