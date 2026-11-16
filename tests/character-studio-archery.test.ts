@@ -119,6 +119,10 @@ describe("Studio bow and visual nock contract",()=>{
       for(const state of ["nock","partial","aim","release"] as ArcheryState[]){
         pose.setArcheryState(state);
         const report=pose.bowPoseResult!;
+        console.log("C5.4 coupled string fit status",JSON.stringify({hand,state,
+          reachable:report.reachable,reason:report.reason,
+          drawError:report.drawHandErrorMeters,bowError:report.bowHandErrorMeters,
+          body:report.bodyClearanceMeters,attempts:report.solverAttempts}));
         expect(report.reachable,hand+"/"+state+" safe pose").toBe(true);
         expect(report.iterations).toBeLessThanOrEqual(56);
         console.log("C5.4 archery reach",JSON.stringify({hand,state,
