@@ -5,6 +5,8 @@ import {coordinateTorsoAndGaze} from
   "../apps/web/src/studio/StudioUpperBodyCoordination";
 import {archeryShootingPlaneYaw,type ArcheryState} from
   "../apps/web/src/studio/StudioArchery";
+import {measureArmAlignment,bowArmExtensionResidual,measurePullLineAlignment}
+  from "../apps/web/src/studio/StudioAnatomicalAlignment";
 
 /** These tests exercise the shared legal rig, not a stylized bow/root offset.
  * Rendered multi-view acceptance and the existing true-skin string tests
@@ -21,8 +23,9 @@ describe("C5.4 upright, foot-planted shooting-plane coordination",()=>{
     expect(left[0]).toBe(0);
     expect(left[1]).toBeCloseTo(left[2]!);
     expect(left.slice(1).every((v,i,a)=>i===0||v>=a[i-1]!-1e-10)).toBe(true);
-    expect(left.at(-1)).toBeCloseTo(.6);
-    expect(archeryShootingPlaneYaw("release",1,"left")).toBeGreaterThan(.4);
+    expect(left.at(-1)).toBeCloseTo(.85);
+    expect(left[1]).toBeGreaterThan(.5);
+    expect(archeryShootingPlaneYaw("release",1,"left")).toBeGreaterThan(.7);
     for(const state of ["rest","nock","partial","aim","release"] as ArcheryState[])
       for(const draw of [0,.25,.5,.75,1])
         expect(archeryShootingPlaneYaw(state,draw,"right"))
@@ -90,5 +93,36 @@ describe("C5.4 upright, foot-planted shooting-plane coordination",()=>{
       expect(same).toEqual(result);
       fk.apply(result);
     }finally{human.dispose();}
+  });
+});
+
+describe("Reusable source-skeleton bow-arm and drawing-line geometry",()=>{
+  it("favors a nearly straight elbow but does not require locked joints",()=>{
+    const shoulder=new THREE.Vector3(0,0,0);
+    const elbow=new THREE.Vector3(0,0,.30);
+    const wrist=new THREE.Vector3(0,0,.60);
+    const straight=measureArmAlignment(shoulder,elbow,wrist);
+    expect(straight.elbowInteriorRadians).toBeCloseTo(Math.PI,8);
+    expect(straight.extensionDeficitMeters).toBeCloseTo(0,8);
+    expect(bowArmExtensionResidual(straight,THREE.MathUtils.degToRad(12)))
+      .toBe(0);
+    const bent=measureArmAlignment(shoulder,elbow,
+      new THREE.Vector3(.20,0,.45));
+    expect(bent.elbowInteriorRadians).toBeLessThan(Math.PI);
+    expect(bent.extensionDeficitMeters).toBeGreaterThan(0);
+    expect(bowArmExtensionResidual(bent,THREE.MathUtils.degToRad(12)))
+      .toBeGreaterThan(0);
+  });
+  it("measures an elbow drawn behind the hook independently of sagittal reflection",()=>{
+    const grip=new THREE.Vector3(0,1.4,.65);
+    const hook=new THREE.Vector3(0,1.4,.18);
+    const elbow=new THREE.Vector3(.07,1.4,-.16);
+    const line=measurePullLineAlignment(grip,hook,elbow);
+    expect(line.behindHookMeters).toBeCloseTo(.34);
+    expect(line.perpendicularMeters).toBeCloseTo(.07);
+    const mirrored=measurePullLineAlignment(
+      grip.clone().setX(-grip.x),hook.clone().setX(-hook.x),
+      elbow.clone().setX(-elbow.x));
+    expect(mirrored).toEqual(line);
   });
 });
