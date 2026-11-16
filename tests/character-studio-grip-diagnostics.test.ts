@@ -1,5 +1,8 @@
 import {describe,expect,it} from "vitest";
-import {createStudioGripFailureReport,serializeStudioGripFailure} from
+import * as THREE from "three";
+import type {ArcheryPoseResult} from "../apps/web/src/studio/StudioArchery";
+import {createStudioGripFailureReport,createStudioBowFailureReport,
+  serializeStudioGripFailure} from
   "../apps/web/src/studio/StudioGripDiagnostics";
 import {initialStudioRecipe,reduceStudioRecipe} from
   "../apps/web/src/studio/StudioRecipe";
@@ -68,5 +71,68 @@ describe("C5.2 reproducible browser failure reports",()=>{
       type:"exception",name:"MissingSolverResult",
       message:"The grip preview did not produce an IK result."});
     expect(missing.recipe.seed).toBe(1);
+  });
+});
+
+describe("C5.4 bow failures share the exact copyable Studio diagnostic path",()=>{
+  it("reports a failed generated left-bow full draw with source skin, nock and morphology",()=>{
+    const recipe=reduceStudioRecipe(reduceStudioRecipe(initialStudioRecipe(),
+      {type:"generate",seed:9813}),
+      {type:"adjust",id:"body:macro/height",value:.15});
+    const result:ArcheryPoseResult={
+      reachable:false,reason:"draw-unreachable",hand:"left",state:"aim",
+      commands:[],iterations:44,solverAttempts:6,
+      bowHandErrorMeters:.012,drawHandErrorMeters:.041,
+      drawingSkinGapsMeters:{index:.009,middle:.002,ring:.022},
+      bodyClearanceMeters:-.003,drawMeters:.21,actualDrawFraction:.75,
+      bowSkinContact:[{region:"palm",sampledVertices:120,axialVertices:95,
+        contactVertices:2,nearestGapMeters:.002,thirdNearestGapMeters:.003,
+        maximumPenetrationMeters:.001}],
+      descriptor:{schemaVersion:1,id:"bow/left",kind:"bow",hand:"left",
+        socketId:"grip-left",limbLengthMeters:.64,handleRadiusMeters:.01,
+        handleLengthMeters:.09,arrowLengthMeters:.7,
+        stringRestMeters:.07,maximumDrawMeters:.28},
+      bowWorld:new THREE.Matrix4(),
+      nockWorld:new THREE.Vector3(1,2,3),
+      drawContactWorld:new THREE.Vector3(1.03,2.01,3),
+      arrowDirectionWorld:new THREE.Vector3(0,0,1),
+    };
+    const report=createStudioBowFailureReport(recipe,"neutral","bow-left",
+      build,"aim",.75,"recurve",result);
+    const json=serializeStudioGripFailure(report);
+    const data=JSON.parse(json);
+    expect(data.event).toBe("trilok.studio.bow_equip_failure");
+    expect(data.build).toEqual(build);
+    expect(data.recipe.seed).toBe(9813);
+    expect(data.recipe.morphology.body["macro/height"]).toBe(.15);
+    expect(data.equipment).toBe("bow-left");
+    expect(data.archery).toEqual({state:"aim",drawControl:.75,profile:"recurve"});
+    expect(data.failure.type).toBe("unreachable");
+    expect(data.failure.reason).toBe("draw-unreachable");
+    expect(data.failure.drawHandErrorMeters).toBe(.041);
+    expect(data.failure.bowSkinContact[0].maximumPenetrationMeters).toBe(.001);
+    expect(data.failure.drawingSkinGapsMeters.index).toBe(.009);
+    expect(data.failure.nockWorldMeters).toEqual([1,2,3]);
+    expect(json).not.toContain("matrixWorld");
+    expect(json).not.toContain("userAgent");
+    expect(json).not.toContain("elements");
+    (result.bowSkinContact as {contactVertices:number}[])[0]!.contactVertices=99;
+    expect(data.failure.bowSkinContact[0].contactVertices).toBe(2);
+  });
+  it("reports thrown pose exceptions and missing results for the right bow",()=>{
+    const recipe=initialStudioRecipe();
+    const thrown=createStudioBowFailureReport(recipe,"neutral","bow-right",
+      build,"partial",.5,"simple",undefined,new Error("Source IK failed"));
+    expect(thrown.failure).toEqual({
+      type:"exception",name:"Error",message:"Source IK failed",
+    });
+    expect(thrown.archery).toEqual({
+      state:"partial",drawControl:.5,profile:"simple",
+    });
+    const missing=createStudioBowFailureReport(recipe,"neutral","bow-right",
+      build,"rest",1,"recurve");
+    expect(missing.failure.type).toBe("exception");
+    expect(missing.recipe.seed).toBe(recipe.seed);
+    expect(serializeStudioGripFailure(missing)).toContain("bow_equip_failure");
   });
 });
