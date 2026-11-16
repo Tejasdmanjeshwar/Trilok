@@ -79,23 +79,23 @@ type HandGripProfile=Readonly<{
 export const HAND_CONTACT_PROFILES:Readonly<Record<HandContactProfile,HandGripProfile>>=
   Object.freeze({
     "sword-handle":Object.freeze({
-      digits:{index:[1.06,1.32,.65],middle:[1.13,1.36,.72],
-        ring:[1.12,1.32,.70],little:[1.03,1.23,.65]},
-      thumb:[.75,.48,.72],
+      digits:{index:[1.06,1.32,.65] as const,middle:[1.13,1.36,.72] as const,
+        ring:[1.12,1.32,.70] as const,little:[1.03,1.23,.65] as const},
+      thumb:[.75,.48,.72] as const,
     }),
     "bow-handle":Object.freeze({
       // Pressure through the thenar eminence and a relaxed four-finger wrap;
       // deliberately not identical to the hilt's tightly closed fist.
-      digits:{index:[.79,1.02,.55],middle:[.98,1.22,.67],
-        ring:[1.01,1.19,.62],little:[.92,1.08,.59]},
-      thumb:[.59,.36,.56],
+      digits:{index:[.79,1.02,.55] as const,middle:[.98,1.22,.67] as const,
+        ring:[1.01,1.19,.62] as const,little:[.92,1.08,.59] as const},
+      thumb:[.59,.36,.56] as const,
     }),
     "string-mediterranean":Object.freeze({
       // Index above nock, middle/ring below: flex distal joints to hook
       // rather than enclosing a cylinder; the thumb stays alongside the palm.
-      digits:{index:[.70,1.16,.84],middle:[.83,1.25,.87],
-        ring:[.76,1.17,.78],little:[.15,.16,.10]},
-      thumb:[.15,.18,.16],
+      digits:{index:[.70,1.16,.84] as const,middle:[.83,1.25,.87] as const,
+        ring:[.76,1.17,.78] as const,little:[.15,.16,.10] as const},
+      thumb:[.15,.18,.16] as const,
     }),
   });
 export function handContactTargets(graph:AnatomicalGraphV1,
