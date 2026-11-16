@@ -203,3 +203,28 @@ of numerical tests. The 15-degree bound is a preview aiming constraint, *not*
 a combat ballistic elevation rule. This change does not modify combat launch,
 damage or projectile timing. Measure exact before/after values in GitHub Verify
 and inspect newly generated browser screenshots before visual acceptance.
+
+
+## 2026-11-16 — Bilateral source-symmetry certification and mirror-IK investigation
+
+PR #87 neutral source audit uses `tests/character-studio-bilateral-symmetry.test.ts`, the real pinned OBJ, default MakeHuman skeleton and actual calibrated source skin. All measurements use the avatar's local sagittal reflection `M = diag(-1,1,1)`, not world X or arbitrary Euler negation. A vector position reflects as `M*p`; a world rotation's axial quaternion component reflects as `(x,-y,-z)` and must be evaluated against the **rest-calibrated** right-hand bone frames.
+
+**Baseline measured in Verify #43866019640, before spatial sampling change:** 6,216 unique included body source vertices on each side farther than 15 mm from the sagittal plane. Every one found a matching reflected vertex in a 5 mm spatial bin; measured nearest-match mean/max rounded to **0.000 mm**. All 19 paired clavicle/shoulder/elbow/wrist/palm/thumb/finger joint landmarks measured **0.000 mm** local reflection mismatch. FK axes all match axial reflection within 0° or are exactly opposite (180°), with identical calibrated limits; shoulder axial rotation, elbow axial rotation and finger abduction require opposite signed joint commands. This verifies neutral *source positions and sampled axes*; complete source weight/corrective deformation symmetry and every anatomical region are not yet independently certified.
+
+The same baseline shows severe *solver* rather than bind-anatomy asymmetry:
+
+| State | Reflected bow grip (mm) | Reflected elbow (mm) | Reflected shoulder (mm) | Reflected nock (mm) | Arrow-axis disagreement |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| rest | 0.811 | 0.748 | 0 | 0.818 | 0.017° |
+| nock | 17.377 | 38.454 | 24.008 | 19.684 | 1.215° |
+| partial (100%) | 17.616 | 30.192 | 5.625 | 12.789 | 1.456° |
+| aim (100%) | 7.371 | 54.456 | 94.941 | 7.388 | 1.026° |
+| release | 0.811 | 0.748 | 0 | 0.818 | 0.017° |
+
+Full-draw baseline pitch was left +1.477°, right +2.471°; yaw left -3.060°, right +3.317°. Mirroring requires equal pitch and opposite yaw, **not merely <=15° arrow deviation**. Intermediate draw measurements were worse in some cases (aim 50% lower bow-tip mismatch 159.108 mm). This is a real blocker for mirrored pose acceptance and cannot be dismissed by contact reachability.
+
+The initial audit-only CI run had 445 passing tests and **one test-author assertion error**: the audit initially required more than 20 paired joint roles, whereas the defined complete set is exactly 19. The assertion was corrected in a subsequent commit. No existing gameplay regression failure was reported by that run; build was skipped after the failed audit check.
+
+**Correction under verification:** `StudioSourceContact.sourceHandSamples` formerly chose reduced finite-difference samples by OBJ source-vertex index, which is not a bilateral mapping. The new reduced-sample path orders eligible vertices by actual source Y, Z and absolute X before selecting quantiles, so reflected source hands evaluate equivalent spatial points. Every final skin-cylinder and string contact still uses the complete original source vertices, unchanged physical dimensions and unchanged contact limits. This is a shared source-contact sampling correction, not a copied right/left pose or display-only rotation. It must be remeasured in CI; it does **not** by itself establish mirror invariance.
+
+**Outstanding before acceptance:** compare post-fix landmarks/bow/string/shaft across all five preview states and progressive draw; isolate remaining source retarget projection and feasible-first IK selection; certify skinning weights and procedural correction symmetry; add tight enforceable mirror bounds and repeatability tests; run all Vitest, replay, typecheck/build, Chromium visual evidence, and exact Cloudflare SHA verification. Preserve C5.4 thumb/handle and index/middle hook gates, avoid altering combat, do not begin C5.5 or merge PR #87.
