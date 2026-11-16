@@ -59,6 +59,40 @@ export function isAcceptableBowContact(samples:readonly SourceCylinderRegion[]):
     s.maximumPenetrationMeters<.003&&
     s.nearestGapMeters<(s.region==="palm"?.004:.005));
 }
+
+/**
+ * Some valid source-hand morphologies press too deeply into the nominal
+ * cylinder (most often thumb). Before rejecting a legal pose, search modestly
+ * slimmer physical handles against ALL posed source vertices. No FK angle,
+ * attachment quaternion, visible-mesh-only offset or acceptance threshold
+ * is changed; the resulting radius is passed back to the single descriptor
+ * used by both source contact and the rendered handle.
+ *
+ * This fast deterministic fallback runs only for an otherwise failed fit.
+ */
+export function fitMorphologyAwareBowRadius(model:StudioHumanModel,
+  fk:AnatomicalFK,side:HandSide,fit:BowContactFit,
+  nominalRadius:number,length:number):Readonly<{
+    fit:BowContactFit;radius:number;
+  }>{
+  if(fit.accepted)return {fit,radius:nominalRadius};
+  fk.apply(fit.commands);
+  const samples=sourceHandSamples(model,side);
+  // Limit reduction to a plausible, grip-scaled 24% and preserve a physical
+  // 3 mm minimum radius; do not allow a vanishing handle to cheat contact.
+  for(const factor of [.96,.92,.88,.84,.80,.76]){
+    const radius=Math.max(.003,nominalRadius*factor);
+    if(radius>=nominalRadius)continue;
+    const inspected=measureSourceCylinder(model,samples,fit.bowWorld,radius,length);
+    if(isAcceptableBowContact(inspected)){
+      return {
+        radius,fit:Object.freeze({...fit,accepted:true,samples:inspected}),
+      };
+    }
+  }
+  return {fit,radius:nominalRadius};
+}
+
 /** Contact loss and penetration are different constraints. Clipping uses a
  * stronger penalty than floating, and every region must contribute. Position
  * and finger freedoms are alternated, with a bounded deterministic pass count
