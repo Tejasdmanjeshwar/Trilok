@@ -470,7 +470,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           values[freedoms.length]!/nockYBound*.003,
         ];
       };
-      const fit=fitConstrainedIK(seed,nockLimits,evaluate,32);
+      // A larger bounded trust region reaches a verified source-pose target
+      // within the original iteration budget; the shared solver still
+      // line-searches all proposals and clamps every legal joint freedom.
+      const fit=fitConstrainedIK(seed,nockLimits,evaluate,32,.55);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
