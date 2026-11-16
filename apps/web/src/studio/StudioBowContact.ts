@@ -90,6 +90,17 @@ export function fitMorphologyAwareBowRadius(model:StudioHumanModel,
       };
     }
   }
+  // Re-fit both finger FK and the *actual* cylinder in the new physical
+  // dimensions. A mere radius reduction can improve thumb clearance while
+  // losing the opposite digits; only all-region full-skin acceptance wins.
+  for(const factor of [.90,.82,.76]){
+    const radius=Math.max(.003,nominalRadius*factor);
+    if(radius>=nominalRadius)continue;
+    const recovered=fitBowHandContact(model,fk,fit.commands,side,fit.bowWorld,
+      radius,length,true);
+    if(recovered.accepted)return {fit:recovered,radius};
+  }
+  fk.apply(fit.commands);
   return {fit,radius:nominalRadius};
 }
 
@@ -99,13 +110,18 @@ export function fitMorphologyAwareBowRadius(model:StudioHumanModel,
  * and no arbitrary adjustment after convergence. */
 export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],side:HandSide,startingWorld:THREE.Matrix4,
-  radius:number,length:number):BowContactFit{
+  radius:number,length:number,fullThumb=false):BowContactFit{
   const channels=freedoms(model,fk,side);
   const starting=new Map(base.map(c=>[c.jointId+"/"+c.motion,c.radians]));
   const initial=channels.map(ch=>THREE.MathUtils.clamp(
     starting.get(ch.jointId+"/"+ch.motion)??0,ch.min,ch.max));
-  const sampled=sourceHandSamples(model,side,80);
   const complete=sourceHandSamples(model,side);
+  const sampled=sourceHandSamples(model,side,80);
+  // The user's deep source-thumb penetration was absent in the 80-vertex
+  // Jacobian sample. Only the bounded recovery pays to include every thumb
+  // vertex in its derivatives; final acceptance always includes all vertices.
+  if(fullThumb)(sampled as Map<string,readonly number[]>).set(
+    "thumb",complete.get("thumb")!);
   const bounds=Math.max(radius*2,.005);
   const offsets=[0,0,0];
   const angles=[...initial];
