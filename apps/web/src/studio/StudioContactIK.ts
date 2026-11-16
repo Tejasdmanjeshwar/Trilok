@@ -21,8 +21,12 @@ export function contactArmFreedoms(graph:AnatomicalGraphV1,fk:AnatomicalFK,
   side:ContactArmSide):readonly ContactFreedom[]{
   const result:ContactFreedom[]=[];
   for(const [part,motions] of ARM_CONTACT_CHANNELS){
-    const joint=graph.joints.find(j=>j.role===part+"_"+side&&
-      j.id.includes("arm["+side+",0]"));
+    // Current MakeHuman clavicle/shoulder roles are side-scoped but do not
+    // necessarily have a nested arm[side,0] graph ID. Require the semantic
+    // side, prefer the named arm branch when present, never cross sides.
+    const matching=graph.joints.filter(j=>j.role===part+"_"+side);
+    const joint=matching.find(j=>j.id.includes("arm["+side+",0]"))??
+      (matching.length===1?matching[0]:undefined);
     if(!joint)throw new Error("Missing scoped contact arm joint "+part+"/"+side);
     for(const motion of motions){
       const limit=fk.frames.get(joint.id)?.freedoms.get(motion);
