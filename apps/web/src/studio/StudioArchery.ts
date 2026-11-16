@@ -8,11 +8,10 @@ import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
 import {fitBowHandContact} from "./StudioBowContact";
-import {fitConstrainedIK} from "./ConstrainedIK";
 import {measureSourceStringContact,sourceHandSamples,
   type SourceCylinderRegion} from "./StudioSourceContact";
-import {contactArmFreedoms,composeContactPose,clampContactSeed,
-  solveContactConstraints} from "./StudioContactIK";
+import {contactArmFreedoms,composeContactPose,clampContactSeed}
+  from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
 
 /** Studio-only visual states. A release preview never dispatches a combat event. */
@@ -40,7 +39,7 @@ export interface BowReferenceV1 {
 }
 /** Local frame: grip is origin, +Y upper tip, +Z forward (arrow travel);
  * string anchor points are (0,+/- limbLength,-stringRest);
- * string center follows local (0,0,-stringRest-drawDistance).
+ * string center follows bounded source-resolved nock Y and draw distance.
  * Arrow is +Z from its nock; the model owns no physics or combat clock. */
 export function validateBowReference(d:BowReferenceV1,graph:AnatomicalGraphV1):void{
   const socket=graph.sockets.find(s=>s.id===d.socketId);
