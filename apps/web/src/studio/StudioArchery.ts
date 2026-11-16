@@ -5,9 +5,9 @@ import {AnatomicalFK,type AnatomicalMotion,type JointTarget}
 import type {StudioHumanModel} from "./StudioHumanModel";
 import {fitConstrainedIK} from "./ConstrainedIK";
 import {StudioBodyCollision} from "./StudioBodyCollision";
-import {calibrateGripSpreads,handContactTargets,fitHandleCenter,
-  sourceHandVolarWorld}
+import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
+import {fitBowHandContact} from "./StudioBowContact";
 import {contactArmFreedoms,composeContactPose,clampContactSeed,
   solveContactConstraints} from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
@@ -183,14 +183,6 @@ function bowFrame(model:StudioHumanModel,hand:HandSide,
   // +Y follows the actual source knuckle line, never an invented socket Euler.
   const center=fitHandleCenter(model,hand,twoHandGripContactWorld(model,hand),
     x,y,z,radius,length);
-  // The shared C5.1 source-skinned handle fitter already locates the
-  // actual finger envelope. C5.4's slimmer bow handle needs only a small
-  // pressure-side adjustment measured along this CURRENT MakeHuman palm.
-  // Large volar/forward shifts detach the palm and pierce the curled fingers.
-  const span=index.distanceTo(little);
-  const volar=sourceHandVolarWorld(model,hand);
-  const palmFacing=volar.addScaledVector(y,-volar.dot(y)).normalize();
-  center.addScaledVector(palmFacing,span*.07);
   return new THREE.Matrix4().makeBasis(x,y,z).setPosition(center);
 }
 export interface ArcheryPoseResult {
@@ -242,7 +234,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const bowTarget=chest.clone().addScaledVector(right,(hand==="right"?1:-1)*.12*scale)
     .addScaledVector(forward,.56*scale).addScaledVector(up,.06*scale);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale);
-  const staged=held.commands;
+  let staged:readonly JointTarget[]=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
     at(bone(model,"finger_little_0",hand)));
   const drawSide=oppositeHand(hand);
@@ -258,8 +250,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     maximumDrawMeters:.28*scale,
   });
   validateBowReference(descriptor,model.human.spike.graph);
-  const world=bowFrame(model,hand,descriptor.handleRadiusMeters,
+  const initialWorld=bowFrame(model,hand,descriptor.handleRadiusMeters,
     descriptor.handleLengthMeters);
+  const handFit=fitBowHandContact(model,fk,staged,hand,initialWorld,
+    descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
+  staged=handFit.commands;
+  fk.apply(staged);
+  const world=handFit.bowWorld;
   const fraction=archeryDrawFraction(state,draw);
   // Pull travels along the bow's own forward axis. Bound its world target
   // by occupied torso space before any arm IK, never by moving the avatar.
@@ -362,7 +359,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   }
   const unsafe=collisions.clearance(contact)<-.015*scale;
   const bowError=twoHandGripContactWorld(model,hand).distanceTo(bowTarget);
-  const reachable=bowError<.10*scale&&held.clearance>-.027*scale&&
+  const reachable=handFit.accepted&&bowError<.10*scale&&held.clearance>-.027*scale&&
     ((state==="rest"||state==="release")||
       drawError<.03*scale&&drawClearance>-.025*scale)&&!unsafe;
   // Restoring the original source pose on failure avoids broken IK, facial
@@ -377,7 +374,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const resolved=solvedWorld.clone().invert();
   const contactLocal=contact.clone().applyMatrix4(resolved);
   return Object.freeze({
-    reachable,reason:bowError>=.10*scale?"bow-unreachable":
+    reachable,reason:!handFit.accepted||bowError>=.10*scale?"bow-unreachable":
       state!=="rest"&&state!=="release"&&drawError>=.03*scale?"draw-unreachable":
       unsafe||held.clearance<=-.027*scale||
       state!=="rest"&&state!=="release"&&drawClearance<=-.025*scale?"body-intersection":"ok",
