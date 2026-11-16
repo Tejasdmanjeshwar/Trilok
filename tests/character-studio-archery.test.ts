@@ -3,6 +3,8 @@ import * as THREE from "three";
 import {make,measureStaff} from "./helpers/studio-two-hand-fixtures";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
 import {handContactTargets} from "../apps/web/src/studio/StudioWeaponGrip";
+import {signedFiniteCylinderDistance,sourceHandSamples,measureSourceCylinder}
+  from "../apps/web/src/studio/StudioSourceContact";
 import {contactArmFreedoms,composeContactPose} from "../apps/web/src/studio/StudioContactIK";
 import {StudioBowPreview,archeryDrawFraction,validateBowReference,
   measureStringFingerSkin,
@@ -10,6 +12,13 @@ import {StudioBowPreview,archeryDrawFraction,validateBowReference,
 import {aimBallisticAt,sampleTrajectory} from "../packages/combat/src/projectile-motion";
 
 describe("Shared anatomical weapon contacts",()=>{
+  it("evaluates finite cylinder caps and signed interior, not an infinite axis",()=>{
+    expect(signedFiniteCylinderDistance(0,0,0,.01,.1)).toBeCloseTo(-.01);
+    expect(signedFiniteCylinderDistance(.013,0,0,.01,.1)).toBeCloseTo(.003);
+    expect(signedFiniteCylinderDistance(0,.055,0,.01,.1)).toBeCloseTo(.005);
+    expect(signedFiniteCylinderDistance(.013,.054,0,.01,.1))
+      .toBeCloseTo(.005);
+  });
   it("separates bow cylinder pressure from the two-finger string hook",()=>{
     const {human,fk}=make();
     try{
@@ -52,6 +61,19 @@ describe("Studio bow and visual nock contract",()=>{
       expect(rest).toBeDefined();
       expect(rest.reachable,"source bow-hand must reach reference grip: "+JSON.stringify({error:rest.bowHandErrorMeters,body:rest.bodyClearanceMeters})).toBe(true);
       expect(rest.iterations).toBeLessThanOrEqual(56);
+      const sampledSource=measureSourceCylinder(model,sourceHandSamples(model,hand),
+        rest.bowWorld,rest.descriptor.handleRadiusMeters,
+        rest.descriptor.handleLengthMeters);
+      console.log("C5.4 finite source-skin bow contact",JSON.stringify({hand,
+        sampledSource}));
+      expect(sampledSource.every(s=>s.axialVertices>=3&&s.contactVertices>=2))
+        .toBe(true);
+      for(const region of sampledSource){
+        expect(region.maximumPenetrationMeters,hand+"/"+region.region+" signed clip")
+          .toBeLessThan(.003);
+        expect(region.nearestGapMeters,hand+"/"+region.region+" finite surface gap")
+          .toBeLessThan(region.region==="palm"?.004:.005);
+      }
       const sourceContact=measureStaff(model,hand,rest.bowWorld,
         rest.descriptor.handleRadiusMeters,0);
       console.log("C5.4 source bow-hand fit",JSON.stringify({hand,
