@@ -87,7 +87,7 @@ export const HAND_CONTACT_PROFILES:Readonly<Record<HandContactProfile,HandGripPr
       // Pressure through the thenar eminence and a relaxed four-finger wrap;
       // deliberately not identical to the hilt's tightly closed fist.
       digits:{index:[.79,1.02,.55] as const,middle:[.98,1.22,.67] as const,
-        ring:[1.01,1.19,.62] as const,little:[.92,1.08,.59] as const},
+        ring:[.68,.83,.40] as const,little:[.60,.74,.40] as const},
       thumb:[.59,.36,.56] as const,
     }),
     "string-two-finger":Object.freeze({
