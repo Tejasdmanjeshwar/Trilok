@@ -2,12 +2,65 @@ import {describe,expect,it} from "vitest";
 import * as THREE from "three";
 import {make,measureStaff} from "./helpers/studio-two-hand-fixtures";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
-import {handContactTargets} from "../apps/web/src/studio/StudioWeaponGrip";
+import {handContactTargets,fitHandleCenter} from "../apps/web/src/studio/StudioWeaponGrip";
 import {contactArmFreedoms,composeContactPose} from "../apps/web/src/studio/StudioContactIK";
 import {StudioBowPreview,archeryDrawFraction,validateBowReference,
   measureStringFingerSkin,
   type ArcheryState} from "../apps/web/src/studio/StudioArchery";
 import {aimBallisticAt,sampleTrajectory} from "../packages/combat/src/projectile-motion";
+
+/** Engineering-only source-skin calibration matrix. Its output documents
+ * why a pose is selected; it is not a broad acceptance tolerance. */
+describe("Bow source-hand fitting calibration",()=>{
+  it("probes anatomical thumb and index articulation against the handle",()=>{
+    const {human,model,fk}=make();
+    const pose=new StudioPosePreview(model);
+    try{
+      pose.setGrip("bow-left");
+      const baseline=pose.bowPoseResult!;
+      const axes=[0,1,2].map(index=>new THREE.Vector3()
+        .setFromMatrixColumn(baseline.bowWorld,index).normalize());
+      const center=new THREE.Vector3().setFromMatrixPosition(baseline.bowWorld);
+      const graph=human.spike.graph;
+      const thumb=(index:number)=>graph.joints.find(j=>
+        j.role==="finger_thumb_"+index&&j.id.includes("arm[left,0]"))!.id;
+      const indexJoint=(index:number)=>graph.joints.find(j=>
+        j.role==="finger_index_"+index&&j.id.includes("arm[left,0]"))!.id;
+      const options=[
+        {name:"current",thumb:[.59,.36,.56],index:[.79,1.02,.55]},
+        {name:"thumb-relaxed",thumb:[.22,.15,.30],index:[.79,1.02,.55]},
+        {name:"thumb-low",thumb:[.38,.22,.40],index:[.79,1.02,.55]},
+        {name:"thumb-opposed",thumb:[.75,.48,.72],index:[.79,1.02,.55]},
+        {name:"index-close",thumb:[.38,.22,.40],index:[1.06,1.32,.65]},
+        {name:"index-med",thumb:[.38,.22,.40],index:[.94,1.19,.60]},
+      ];
+      for(const opt of options){
+        const adjustments=[
+          {jointId:thumb(0),motion:"opposition" as const,radians:opt.thumb[0]!},
+          {jointId:thumb(0),motion:"flexion" as const,radians:opt.thumb[1]!},
+          {jointId:thumb(1),motion:"flexion" as const,radians:opt.thumb[2]!},
+          ...opt.index.map((radians,i)=>({
+            jointId:indexJoint(i),motion:"flexion" as const,radians,
+          })),
+        ];
+        const map=new Map(baseline.commands.map(x=>[x.jointId+"/"+x.motion,x]));
+        for(const command of adjustments)map.set(command.jointId+"/"+command.motion,command);
+        fk.apply([...map.values()]);
+        const fitted=fitHandleCenter(model,"left",center,...(axes as [
+          THREE.Vector3,THREE.Vector3,THREE.Vector3]),
+          baseline.descriptor.handleRadiusMeters,
+          baseline.descriptor.handleLengthMeters,{avoidPalmPenetration:true});
+        const world=new THREE.Matrix4().makeBasis(axes[0]!,axes[1]!,axes[2]!)
+          .setPosition(fitted);
+        const contacts=measureStaff(model,"left",world,
+          baseline.descriptor.handleRadiusMeters,0);
+        console.log("C5.4 alternate source grip",JSON.stringify({name:opt.name,
+          contacts:contacts.map(x=>({digit:x.digit,
+            gap:x.closestGap,penetration:x.deepestPenetration}))}));
+      }
+    }finally{pose.dispose();human.dispose();}
+  },120_000);
+});
 
 describe("Shared anatomical weapon contacts",()=>{
   it("separates bow cylinder pressure from the three-finger string hook",()=>{
