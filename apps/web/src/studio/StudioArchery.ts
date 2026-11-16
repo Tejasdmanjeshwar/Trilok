@@ -360,10 +360,15 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // Set up compact enough to nock; extend against resistance as the string
   // comes back. Extending at zero draw puts the nock beyond the other hand's
   // legal reach even though the bow hand itself can grip it.
+  // Until the drawing hand is safely on the string, the bow target
+  // remains close to the verified nock geometry. In later expansion,
+  // smoothly load the bow arm rather than snapping to a long extension.
+  const expansion=THREE.MathUtils.clamp((tension-.42)/.58,0,1);
+  const smoothExpansion=expansion*expansion*(3-2*expansion);
   const extensionBlend=state==="rest"?0:state==="release"?.75:
-    Math.min(.92,.10+.82*tension);
+    .08+.84*smoothExpansion;
   const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
-  const desiredBend=tension<.15?undefined:THREE.MathUtils.degToRad(
+  const desiredBend=tension<.55?undefined:THREE.MathUtils.degToRad(
     20-8*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
