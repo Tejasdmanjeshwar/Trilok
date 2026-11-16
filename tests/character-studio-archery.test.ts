@@ -58,6 +58,12 @@ describe("Studio bow and visual nock contract",()=>{
       const root=human.spike.character.root.matrixWorld.clone();
       pose.setGrip(hand==="left"?"bow-left":"bow-right");
       const rest=pose.bowPoseResult!;
+      const worldUp=new THREE.Vector3(0,1,0).transformDirection(
+        human.spike.character.root.matrixWorld);
+      const bowAxis=new THREE.Vector3(0,1,0).transformDirection(rest.bowWorld);
+      console.log("C5.4 bow axis alignment",JSON.stringify({
+        hand,upDot:bowAxis.dot(worldUp),tiltRadians:Math.acos(
+          Math.min(1,Math.abs(bowAxis.dot(worldUp))))}));
       expect(rest).toBeDefined();
       console.log("C5.4 source contact acceptance",JSON.stringify({hand,
         reachable:rest.reachable,regions:rest.bowSkinContact}));
