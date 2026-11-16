@@ -88,11 +88,11 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
       // A source region is not in contact if its closest skinned vertex
       // misses the finite cylinder; an empty axial interval is not success.
       residual.push(Math.max(0,part.nearestGapMeters-.0015)*1.5);
-      residual.push(Math.max(0,part.maximumPenetrationMeters-.0005)*3);
+      residual.push(Math.max(0,part.maximumPenetrationMeters-.0005)*4);
       residual.push(part.axialVertices<3?.012:0);
       // Smooth third-nearest residual makes a real palm/finger contact patch
       // optimizable; boolean vertex counts have zero useful derivative.
-      residual.push(Math.max(0,part.thirdNearestGapMeters-.002)*1.8);
+      residual.push(Math.max(0,part.thirdNearestGapMeters-.0012)*2.5);
     }
     // Physical morphology provides bounds; this merely breaks ties for
     // equivalent near-contact poses and avoids implausible extreme curls.
@@ -103,24 +103,30 @@ export function fitBowHandContact(model:StudioHumanModel,fk:AnatomicalFK,
   };
   let iterations=0;
   let best=Infinity;
+  let bestAccepted=false;
   let bestAngles=[...angles],bestOffsets=[...offsets];
   const record=()=>{
     const residual=fitness(angles,offsets);
     const score=residual.reduce((s,x)=>s+x*x,0);
-    if(score<best){best=score;bestAngles=[...angles];bestOffsets=[...offsets];}
+    const accepted=criteria(measureSourceCylinder(
+      model,complete,contactWorld(offsets),radius,length));
+    if((accepted&&!bestAccepted)||(accepted===bestAccepted&&score<best)){
+      best=score;bestAccepted=accepted;
+      bestAngles=[...angles];bestOffsets=[...offsets];
+    }
   };
   record();
   // Explicit block-coordinate constrained optimization: the contact
   // geometry is recomputed after each block, never separately 'tuned'.
-  for(let cycle=0;cycle<3;cycle++){
+  for(let cycle=0;cycle<5;cycle++){
     const offsetFit=fitConstrainedIK(offsets,
       [{min:-bounds,max:bounds},{min:-length*.30,max:length*.30},
         {min:-bounds,max:bounds}],
-      values=>fitness(angles,values),16);
+      values=>fitness(angles,values),20);
     offsets.splice(0,3,...offsetFit.values);iterations+=offsetFit.iterations;
     record();
     const fingerFit=fitConstrainedIK(angles,channels,
-      values=>fitness(values,offsets),16);
+      values=>fitness(values,offsets),20);
     angles.splice(0,angles.length,...fingerFit.values);
     iterations+=fingerFit.iterations;
     record();
