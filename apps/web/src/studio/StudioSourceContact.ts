@@ -51,13 +51,46 @@ export function sourceHandSamples(model:StudioHumanModel,hand:HandSide,
       if(influence>=.6)lists.get(region)!.push(i);
     }
   }
+  // A source OBJ's vertex order is not mirrored between hands. For reduced
+  // solver probes, sample the original left side in its verified order, then
+  // select the homologous source-surface vertices on the right. This keeps
+  // the C5.4 left-hand baseline and every full-source acceptance unchanged.
+  // The matching uses the unmorphed source template, so valid asymmetric
+  // morphs retain their own physical geometry in all subsequent evaluations.
+  const mirrorQuantization=100000; // 0.01 mm in normalized metres
+  const originalPoint=(renderIndex:number,mirror:boolean)=>{
+    const source=template.sourceVertexIds[renderIndex]!;
+    const offset=source*3,sourcePoint=template.sourcePositions;
+    const [cx,cy,cz]=template.sourceOrigin;
+    const scale=template.conversionMetersPerSourceUnit;
+    const x=(sourcePoint[offset]!-cx)*scale;
+    const y=(sourcePoint[offset+1]!-cy)*scale;
+    const z=(sourcePoint[offset+2]!-cz)*scale;
+    return [Math.round((mirror?-x:x)*mirrorQuantization),
+      Math.round(y*mirrorQuantization),Math.round(z*mirrorQuantization)].join("/");
+  };
+  const leftProbes=hand==="right"&&Number.isFinite(maximumPerRegion)?
+    sourceHandSamples(model,"left",maximumPerRegion):undefined;
   for(const region of HAND_SURFACE_REGIONS){
     const list=lists.get(region)!;
     if(list.length<8)throw new Error("Missing source skin samples: "+hand+"/"+region);
     if(Number.isFinite(maximumPerRegion)&&list.length>maximumPerRegion){
       const count=Math.max(8,Math.floor(maximumPerRegion));
-      lists.set(region,Array.from({length:count},(_,j)=>
-        list[Math.floor((j+.5)*list.length/count)]!));
+      const original=Array.from({length:count},(_,j)=>
+        list[Math.floor((j+.5)*list.length/count)]!);
+      const mirrored=leftProbes?.get(region);
+      if(!mirrored){
+        lists.set(region,original);
+        continue;
+      }
+      const mapped=new Map<string,number>();
+      for(const index of list)mapped.set(originalPoint(index,false),index);
+      const matching=mirrored.map(index=>mapped.get(originalPoint(index,true)));
+      // If the supplied template lacks homologous sampled vertices, retain
+      // source-order probes instead of fabricating mirrored anatomy or failing
+      // an otherwise valid asymmetric character.
+      lists.set(region,matching.every((index):index is number=>index!==undefined)&&
+        new Set(matching).size===matching.length?matching as number[]:original);
     }
   }
   return lists;
