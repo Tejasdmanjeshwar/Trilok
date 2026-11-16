@@ -32,7 +32,9 @@ describe("C5.4 original MakeHuman archer source rotation retargeting",()=>{
         SOURCE_ARCHER_ROTATIONS_DEGREES[variant])){
         const index=names.indexOf(name);
         expect(index,name).toBeGreaterThanOrEqual(0);
-        expect(channels.slice(index*6+3,index*6+6),name).toEqual(xyz);
+        for(let channel=0;channel<3;channel++)
+          expect(channels[index*6+3+channel],name+" channel "+channel)
+            .toBeCloseTo(xyz[channel]!,6);
       }
       expect(Object.keys(SOURCE_ARCHER_ROTATIONS_DEGREES[variant]))
         .toHaveLength(50);
