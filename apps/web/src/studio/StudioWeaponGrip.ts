@@ -70,7 +70,7 @@ export function calibrateGripSpreads(graph:AnatomicalGraphV1,
  * three-finger Mediterranean string hook require different digit commands.
  * Each uses the same source MakeHuman finger joints and calibrated FK; this
  * profile layer owns neither arm IK nor attachment/rendering resources. */
-export type HandContactProfile="sword-handle"|"bow-handle"|"string-mediterranean";
+export type HandContactProfile="sword-handle"|"bow-handle"|"string-two-finger";
 type DigitAngles=readonly [number,number,number];
 type HandGripProfile=Readonly<{
   digits:Readonly<Record<"index"|"middle"|"ring"|"little",DigitAngles>>;
@@ -90,11 +90,11 @@ export const HAND_CONTACT_PROFILES:Readonly<Record<HandContactProfile,HandGripPr
         ring:[1.01,1.19,.62] as const,little:[.92,1.08,.59] as const},
       thumb:[.59,.36,.56] as const,
     }),
-    "string-mediterranean":Object.freeze({
-      // Index above nock, middle/ring below: flex distal joints to hook
-      // rather than enclosing a cylinder; the thumb stays alongside the palm.
+    "string-two-finger":Object.freeze({
+      // Two-finger split release: index above nock and middle below. Ring
+      // remains relaxed, not falsely claimed to contact the string.
       digits:{index:[.70,1.16,.84] as const,middle:[.83,1.25,.87] as const,
-        ring:[.76,1.17,.78] as const,little:[.15,.16,.10] as const},
+        ring:[.30,.36,.22] as const,little:[.15,.16,.10] as const},
       thumb:[.15,.18,.16] as const,
     }),
   });
@@ -182,8 +182,7 @@ function swordMesh(handleRadius:number,handleLength:number):THREE.Group{
  * selecting/rebuilding the preview, never in render or authoritative combat. */
 export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
   center:THREE.Vector3,lateral:THREE.Vector3,along:THREE.Vector3,
-  normal:THREE.Vector3,radius:number,length:number,
-  options:Readonly<{avoidPalmPenetration?:boolean}>={}):THREE.Vector3 {
+  normal:THREE.Vector3,radius:number,length:number):THREE.Vector3 {
   const {mesh,spike}=model.human;
   spike.character.root.updateWorldMatrix(true,true);
   const indices=mesh.geometry.getAttribute("skinIndex");
@@ -191,10 +190,8 @@ export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
   const samples:number[][][]=[];
   const position=new THREE.Vector3();
   const relative=new THREE.Vector3();
-  for(const digit of ["thumb","index","middle","ring","little",
-    ...(options.avoidPalmPenetration?["palm"]:[])]){
+  for(const digit of ["thumb","index","middle","ring","little"]){
     const fingerBones=new Set(spike.graph.joints.filter(j=>
-      digit==="palm"?j.role==="palm_"+hand&&j.id.includes("arm["+hand+",0]"):
       j.role.startsWith("finger_"+digit+"_")&&
       j.id.includes("arm["+hand+",0]")).map(j=>
       spike.skeleton.bones.indexOf(spike.bones.get(j.id)!)));
@@ -215,8 +212,7 @@ export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
   }
   const score=(x:number,y:number,z:number):number=>{
     let cost=.2*(x*x+y*y+z*z)/(.01*.01);
-    for(let group=0;group<samples.length;group++){
-      const finger=samples[group]!;
+    for(const finger of samples){
       let closest=Infinity,deepest=0,near=0;
       for(const sample of finger){
         if(Math.abs(sample[1]!-y)>length*.5+.012)continue;
@@ -227,9 +223,7 @@ export function fitHandleCenter(model:StudioHumanModel,hand:"left"|"right",
       }
       if(near===0)return Infinity;
       const clipping=Math.max(0,deepest-.0015);
-      const palm=group===5;
-      cost+=(palm ? .45 : 1)*(closest/.004)**2+
-        (palm ? 12 : 3)*(clipping/.003)**2;
+      cost+=(closest/.004)**2+3*(clipping/.003)**2;
     }
     return cost;
   };
