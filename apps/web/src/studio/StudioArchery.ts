@@ -523,7 +523,21 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       // A larger bounded trust region reaches a verified source-pose target
       // within the original iteration budget; the shared solver still
       // line-searches all proposals and clamps every legal joint freedom.
-      const fit=fitConstrainedIK(seed,nockLimits,evaluate,32,.55);
+      // The preceding bow-hand contact is mirrored in the neutral source.
+      // Keep the joint parameterization equivariant through the subsequent
+      // coupled arm/string solve as well. Reflect axial DOFs via calibrated
+      // FK axes; the scalar bow-local nock offset remains a polar coordinate.
+      const signs:readonly (1|-1)[]=[
+        ...freedoms.map(f=>{
+          const joint=model.human.spike.graph.joints.find(j=>j.id===f.jointId);
+          if(!joint)throw new Error("Missing coupled archery FK joint");
+          const side:HandSide=joint.role.endsWith("_right")||
+            joint.id.includes("arm[right,0]")?"right":"left";
+          return mirrorContactDifferenceSign(model.human.spike.graph,fk,
+            f.jointId,f.motion,side);
+        }),1,
+      ];
+      const fit=fitCanonicalIK(seed,nockLimits,signs,evaluate,32,.55);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
