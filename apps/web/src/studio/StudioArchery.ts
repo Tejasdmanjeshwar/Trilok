@@ -555,6 +555,11 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const goal=nockWorldFor(actualBow,values[freedoms.length]!);
         const finger=drawingFingerContactWorld(model,drawSide);
         const bowGrip=twoHandGripContactWorld(model,hand);
+        const bowArm=measureArmAlignment(at(bone(model,"shoulder_"+hand,hand)),
+          at(bone(model,"elbow_"+hand,hand)),
+          at(bone(model,"wrist_"+hand,hand)));
+        const pull=measurePullLineAlignment(bowGrip,goal,at(elbow));
+        const pullWeight=THREE.MathUtils.clamp(fraction*2,0,1);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
         const skin=fingerSkin(actualBow,goal);
         const indexPad=sourcePadWorld(model,padVertices.index);
@@ -590,7 +595,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // arrow 45 degrees away from the gaze: constrain both orientation
           // axes through legal holding/drawing shoulder, elbow and wrist FK.
           ...shaft.sub(forward).toArray().map(v=>v*.115*scale),
-          // Keep the holding arm close to the authored reachable stance.
+          // Contact alone cannot make a shooting-line silhouette.
+          // Keep a soft-extended bow elbow and rearward draw elbow without
+          // moving either grip/string independently of the source rig.
+          bowArmExtensionResidual(bowArm,desiredBend),
+          Math.max(0,.075*scale-pull.behindHookMeters)*.45*pullWeight,
+          Math.max(0,pull.perpendicularMeters-.12*scale)*.3*pullWeight,
+          // Keep the bow arm near its measured source-length target.
           (bowGrip.x-bowTarget.x)*.45,(bowGrip.y-bowTarget.y)*.45,
           (bowGrip.z-bowTarget.z)*.45,
           Math.max(0,.018*scale-collisions.clearance(elbowMid))*1.5,
@@ -703,6 +714,19 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const z=new THREE.Vector3(0,0,1).transformDirection(solvedWorld);
   const resolved=solvedWorld.clone().invert();
   const contactLocal=contact.clone().applyMatrix4(resolved);
+  const stanceAlignment=reachable?(()=>{
+    const bowArm=measureArmAlignment(at(bone(model,"shoulder_"+hand,hand)),
+      at(bone(model,"elbow_"+hand,hand)),at(bone(model,"wrist_"+hand,hand)));
+    const grip=twoHandGripContactWorld(model,hand);
+    const line=measurePullLineAlignment(grip,nock,
+      at(bone(model,"elbow_"+drawSide,drawSide)));
+    return Object.freeze({bowElbowInteriorRadians:bowArm.elbowInteriorRadians,
+      bowElbowExtensionDeficitMeters:bowArm.extensionDeficitMeters,
+      bowShoulderLeadMeters:at(bone(model,"shoulder_"+hand,hand)).sub(
+        at(bone(model,"shoulder_"+drawSide,drawSide))).dot(forward),
+      drawElbowBehindHookMeters:line.behindHookMeters,
+      drawElbowOffAxisMeters:line.perpendicularMeters});
+  })():undefined;
   return Object.freeze({
     reachable,reason:!handFit.accepted||bowError>=.10*scale?"bow-unreachable":
       unsafe||held.clearance<=-.027*scale||
@@ -724,7 +748,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     actualDrawFraction:Math.max(0,Math.min(1,
       (-contactLocal.z-descriptor.stringRestMeters)/descriptor.maximumDrawMeters)),
     bowWorld:solvedWorld,nockWorld:nock,drawContactWorld:contact,
-    arrowDirectionWorld:z,arrowAimDeviationRadians:arrowAimDeviation,descriptor,
+    arrowDirectionWorld:z,arrowAimDeviationRadians:arrowAimDeviation,
+    stanceAlignment,descriptor,
     symmetryTrace:Object.freeze({
       holdingArmAttempts:held.attempts,holdingArmScore:held.score,
       bowContactCandidate:chosenHandCandidate.index,
