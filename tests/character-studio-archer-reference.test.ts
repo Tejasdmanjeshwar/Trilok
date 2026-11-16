@@ -83,6 +83,11 @@ describe("C5.4 original MakeHuman archer source rotation retargeting",()=>{
           JSON.stringify({kind,reports,
             maxDegrees:Math.max(...reports.map(r=>r.mismatchDegrees))}));
         expect(reports).toHaveLength(26);
+        // The original BVH source can carry artistic asymmetry; the
+        // reflected canonical seed MUST still project to equivalent legal
+        // calibrated FK channels for either semantic hand.
+        expect(Math.max(...reports.map(r=>r.mismatchDegrees)))
+          .toBeLessThan(.05);
       }finally{human.dispose();}
     },120_000);
   it.each(["left","right"] as const)(
