@@ -8,6 +8,7 @@ import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
 import {fitBowHandContact} from "./StudioBowContact";
+import type {SourceCylinderRegion} from "./StudioSourceContact";
 import {contactArmFreedoms,composeContactPose,clampContactSeed,
   solveContactConstraints} from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
@@ -194,6 +195,7 @@ export interface ArcheryPoseResult {
   readonly iterations:number;
   readonly solverAttempts:number;
   readonly bowHandErrorMeters:number;
+  readonly bowSkinContact:readonly SourceCylinderRegion[];
   readonly drawHandErrorMeters:number;
   readonly bodyClearanceMeters:number;
   readonly drawMeters:number;
@@ -380,7 +382,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       state!=="rest"&&state!=="release"&&drawClearance<=-.025*scale?"body-intersection":"ok",
     hand,state,commands:Object.freeze(reachable?completed:base.slice()),
     iterations:held.iterations+drawIterations,solverAttempts:held.attempts+drawAttempts,
-    bowHandErrorMeters:bowError,drawHandErrorMeters:drawError,
+    bowHandErrorMeters:bowError,bowSkinContact:handFit.samples,drawHandErrorMeters:drawError,
     bodyClearanceMeters:Math.min(held.clearance,drawClearance,
       collisions.clearance(nock)),drawMeters:Math.max(0,
       -contactLocal.z-descriptor.stringRestMeters),
