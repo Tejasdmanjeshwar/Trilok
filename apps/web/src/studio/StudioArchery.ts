@@ -416,10 +416,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       drawSide,"string-two-finger",calibrateGripSpreads(
         model.human.spike.graph,model.human.spike.bones,fk.frames,drawSide));
     const calibratedHookMap=new Map(calibratedHook.map(c=>[k(c),c.radians]));
+    const sourceDigitSeed=initial.slice(18);
+    const calibratedDigitSeed=drawDigitFreedoms.map((c,i)=>
+      calibratedHookMap.get(k(c))??sourceDigitSeed[i]!);
     const digitSeeds=[
-      initial.slice(18),
-      drawDigitFreedoms.map((c,i)=>calibratedHookMap.get(k(c))??
-        initial[18+i]!),
+      sourceDigitSeed,calibratedDigitSeed,
+      // Deterministic interpolation between two measured/established
+      // anatomical reference poses, never hand-tuned per-joint offsets.
+      sourceDigitSeed.map((angle,i)=>(angle+calibratedDigitSeed[i]!)*.5),
     ];
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
