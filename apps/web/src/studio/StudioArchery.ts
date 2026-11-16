@@ -183,15 +183,14 @@ function bowFrame(model:StudioHumanModel,hand:HandSide,
   // +Y follows the actual source knuckle line, never an invented socket Euler.
   const center=fitHandleCenter(model,hand,twoHandGripContactWorld(model,hand),
     x,y,z,radius,length);
-  // Bow archery has a pressure-bearing thenar grip, not a sword's closed fist.
-  // Seat the handle outside the true MakeHuman volar surface rather than at
-  // the palm-joint cylinder proxy. All offsets follow measured hand width;
-  // mirrored character hands use their own source-derived volar normals.
+  // The shared C5.1 source-skinned handle fitter already locates the
+  // actual finger envelope. C5.4's slimmer bow handle needs only a small
+  // pressure-side adjustment measured along this CURRENT MakeHuman palm.
+  // Large volar/forward shifts detach the palm and pierce the curled fingers.
   const span=index.distanceTo(little);
-  const palmFacing=sourceHandVolarWorld(model,hand)
-    .addScaledVector(y,-sourceHandVolarWorld(model,hand).dot(y)).normalize();
-  center.addScaledVector(palmFacing,span*.42)
-    .addScaledVector(z,span*.21);
+  const volar=sourceHandVolarWorld(model,hand);
+  const palmFacing=volar.addScaledVector(y,-volar.dot(y)).normalize();
+  center.addScaledVector(palmFacing,span*.07);
   return new THREE.Matrix4().makeBasis(x,y,z).setPosition(center);
 }
 export interface ArcheryPoseResult {
