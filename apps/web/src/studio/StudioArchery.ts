@@ -295,10 +295,32 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     maximumDrawMeters:.28*scale,
   });
   validateBowReference(descriptor,model.human.spike.graph);
-  const initialWorld=bowFrame(model,hand,descriptor.handleRadiusMeters,
-    descriptor.handleLengthMeters);
-  const handFit=fitBowHandContact(model,fk,staged,hand,initialWorld,
-    descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
+  // The BVH is a source-authored pose *candidate*, not permission to force
+  // source Euler angles into a non-contacting handle. Compare it against the
+  // proven C5 profile using the SAME bounded real source-skinned contact fit.
+  // Both candidates reuse one AnatomicalFK and one solver; no alternate rig.
+  const sourceGrip=staged;
+  const fallbackGrip=merge(staged,handContactTargets(model.human.spike.graph,
+    hand,"bow-handle",calibrateGripSpreads(model.human.spike.graph,
+      model.human.spike.bones,fk.frames,hand)));
+  const candidates=[sourceGrip,fallbackGrip].map((commands,index)=>{
+    fk.apply(commands);
+    const frame=bowFrame(model,hand,descriptor.handleRadiusMeters,
+      descriptor.handleLengthMeters);
+    const fit=fitBowHandContact(model,fk,commands,hand,frame,
+      descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
+    // Contact pressure and sampled finite-cylinder coverage are evaluated
+    // on ALL source vertices after FK. Reward a real palm/four-finger grasp,
+    // not a tiny number of lucky vertices in the finite handle region.
+    const cost=fit.samples.reduce((sum,part)=>
+      sum+part.maximumPenetrationMeters*5+
+      part.nearestGapMeters*1.4+
+      Math.max(0,.60-part.axialVertices/part.sampledVertices)*.012,0);
+    return {fit,index,cost};
+  });
+  candidates.sort((a,b)=>Number(b.fit.accepted)-Number(a.fit.accepted)||
+    a.cost-b.cost||a.index-b.index);
+  const handFit=candidates[0]!.fit;
   staged=handFit.commands;
   fk.apply(staged);
   const world=handFit.bowWorld;
