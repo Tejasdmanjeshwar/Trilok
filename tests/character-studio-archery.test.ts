@@ -143,6 +143,15 @@ describe("Studio bow and visual nock contract",()=>{
           drawError:report.drawHandErrorMeters,bowError:report.bowHandErrorMeters,
           body:report.bodyClearanceMeters,skin:report.drawingSkinGapsMeters,
           attempts:report.solverAttempts}));
+        if(!report.reachable)console.log("C5.4 ARROW UNREACHABLE",JSON.stringify({
+          hand,state,reason:report.reason,drawErrorMm:report.drawHandErrorMeters*1000,
+          nockLocal:report.nockWorld.clone().applyMatrix4(
+            report.bowWorld.clone().invert()).toArray(),
+          lateralOffsetMm:report.descriptor.arrowRest.lateralOffsetMeters*1000,
+          shaft:report.arrowShaftClearance?.map(s=>({
+            region:s.region,clearanceMm:s.nearestSurfaceClearanceMeters*1000,
+            closest:s.closestPointLocal.toArray()})),
+        }));
         expect(report.reachable,hand+"/"+state+" safe pose").toBe(true);
         if(report.reachable){
           const line=report.stanceAlignment;
