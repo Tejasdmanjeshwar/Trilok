@@ -154,6 +154,12 @@ describe("Studio bow and visual nock contract",()=>{
           expect(line!.bowElbowExtensionDeficitMeters).toBeGreaterThanOrEqual(0);
           expect(Number.isFinite(line!.drawElbowBehindHookMeters)).toBe(true);
           expect(Number.isFinite(line!.drawElbowOffAxisMeters)).toBe(true);
+          if(state==="partial"){
+            // The partial draw already carries string tension: the bow arm
+            // must visibly extend rather than folding across the chest.
+            expect(line!.bowElbowInteriorRadians).toBeGreaterThan(
+              THREE.MathUtils.degToRad(145));
+          }
           if(state==="aim"){
             const bowElbow=human.spike.graph.joints.find(j=>j.role==="elbow_"+hand)!;
             const command=report.commands.find(c=>c.jointId===bowElbow.id&&
