@@ -1,0 +1,48 @@
+name: C5.5 Browser Integration Evidence
+
+# A focused PR evidence run, not Phase Acceptance and not deployment.
+on:
+  pull_request:
+    paths:
+      - 'e2e/c55-integrated-audit.spec.ts'
+      - '.github/workflows/c55-browser-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Capture desktop and touch evidence
+        run: pnpm exec playwright test e2e/c55-integrated-audit.spec.ts
+      - name: Record exact candidate
+        if: always()
+        env:
+          TESTED_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          echo "## C5.5 Browser Integration Evidence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- PR head: \`$TESTED_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Workflow: $RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- JSON records UI command and two-rAF latency only, not true input-to-paint or GPU time." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Screenshots require manual visual inspection; no owner acceptance is implied." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload screenshots and performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c55-browser-evidence-${{ github.event.pull_request.head.sha }}
+          path: |
+            test-results/c55/
+            test-results/**/*.zip
+          if-no-files-found: warn
+          retention-days: 14
