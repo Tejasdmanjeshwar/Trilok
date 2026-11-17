@@ -147,6 +147,7 @@ describe("Studio bow and visual nock contract",()=>{
           console.log("C5.4 anatomical shooting-line",JSON.stringify({
             hand,state,alignment:line,
             bowElbowDegrees:THREE.MathUtils.radToDeg(line!.bowElbowInteriorRadians),
+            bowElbowTopDegrees:THREE.MathUtils.radToDeg(line!.bowElbowTopViewRadians),
           }));
           // Nocking is a preparation/contact pose, not an expansion
           // posture. Full-draw extension below remains an independent gate.
@@ -172,6 +173,11 @@ describe("Studio bow and visual nock contract",()=>{
             // only a hand that reaches a perfectly accurate bow socket.
             expect(line!.bowElbowInteriorRadians).toBeGreaterThan(
               THREE.MathUtils.degToRad(150));
+            // A 3D-straight elbow can still kink severely in an overhead
+            // projection. Verify the exact silhouette the user reported.
+            expect(line!.bowElbowTopViewRadians).toBeGreaterThan(
+              THREE.MathUtils.degToRad(145));
+            expect(line!.bowArmForwardReachMeters).toBeGreaterThan(.2);
             expect(line!.bowShoulderLeadMeters).toBeGreaterThan(.1);
             expect(line!.drawElbowBehindHookMeters).toBeGreaterThan(0);
           }
