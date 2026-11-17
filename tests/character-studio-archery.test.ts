@@ -55,7 +55,7 @@ describe("Shared anatomical weapon contacts",()=>{
 
 describe("Studio bow and visual nock contract",()=>{
   it.each(["left","right"] as const)("source-skinned mirrored bow %s uses constrained IK",hand=>{
-    const {human,model}=make();
+    const {human,model,fk}=make();
     const pose=new StudioPosePreview(model);
     try{
       const root=human.spike.character.root.matrixWorld.clone();
@@ -155,6 +155,13 @@ describe("Studio bow and visual nock contract",()=>{
           expect(Number.isFinite(line!.drawElbowBehindHookMeters)).toBe(true);
           expect(Number.isFinite(line!.drawElbowOffAxisMeters)).toBe(true);
           if(state==="aim"){
+            const bowElbow=human.spike.graph.joints.find(j=>j.role==="elbow_"+hand)!;
+            const command=report.commands.find(c=>c.jointId===bowElbow.id&&
+              c.motion==="flexion");
+            console.log("C5.4 actual bow elbow FK",JSON.stringify({hand,
+              commandRadians:command?.radians,
+              calibratedLimit:fk.frames.get(bowElbow.id)?.freedoms.get("flexion"),
+              measuredDegrees:THREE.MathUtils.radToDeg(line!.bowElbowInteriorRadians)}));
             // Final draw should have a long, supported bow arm, rather than
             // only a hand that reaches a perfectly accurate bow socket.
             expect(line!.bowElbowInteriorRadians).toBeGreaterThan(
