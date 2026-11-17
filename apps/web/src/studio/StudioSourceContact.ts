@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type {StudioHumanModel} from "./StudioHumanModel";
 import type {HandSide} from "./StudioTwoHandGrip";
 import {sourceHandVolarWorld} from "./StudioWeaponGrip";
+import {countStudioSolverWork} from "./StudioSolverDiagnostics";
 
 /** Source-vertex contact is measured on the POST-FK MakeHuman skin, in the
  * actual finite handle frame. The pose and weapon must be applied first.
@@ -221,6 +222,7 @@ export function measureSourceCylinder(model:StudioHumanModel,
     const nearestThree=[Infinity,Infinity,Infinity];
     const indices=samples.get(region)??[];
     for(const i of indices){
+      countStudioSolverWork("cylinderSkinVertices");
       mesh.getVertexPosition(i,world)
         .applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse);
       const distance=signedFiniteCylinderDistance(
@@ -264,6 +266,7 @@ export function measureSourceStringContact(model:StudioHumanModel,
   const output={index:Infinity,middle:Infinity,ring:Infinity};
   for(const digit of ["index","middle","ring"] as const){
     for(const vertex of samples.get(digit)??[]){
+      countStudioSolverWork("stringSkinVertices");
       mesh.getVertexPosition(vertex,point).applyMatrix4(mesh.matrixWorld);
       if(point.distanceTo(nockWorld)>maxNockDistanceMeters)continue;
       for(const line of lines){
@@ -327,7 +330,9 @@ export function sourcePadWorld(model:StudioHumanModel,
   mesh.updateWorldMatrix(true,false);
   const point=new THREE.Vector3(),average=new THREE.Vector3();
   if(vertices.length===0)throw new Error("Missing physical pad vertices");
-  for(const id of vertices)
+  for(const id of vertices){
+    countStudioSolverWork("fingerPadSkinVertices");
     average.add(mesh.getVertexPosition(id,point).applyMatrix4(mesh.matrixWorld));
+  }
   return average.multiplyScalar(1/vertices.length);
 }
