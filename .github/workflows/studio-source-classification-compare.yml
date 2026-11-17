@@ -36,21 +36,19 @@ jobs:
           STUDIO_BENCH_LABEL: optimized
           STUDIO_BENCH_SHA: ${{ github.event.pull_request.head.sha }}
         run: pnpm exec vitest run benchmarks/character-studio-source-hand.bench.test.ts --pool=threads --maxWorkers=1
-      - name: Check out exact base SHA
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: baseline
-          persist-credentials: false
-      - name: Prepare baseline (same benchmark code, different application revision)
+      - name: Prepare independent baseline worktree outside the pnpm workspace
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          mkdir -p baseline/benchmarks
-          cp benchmarks/character-studio-source-hand.bench.test.ts baseline/benchmarks/
-          cd baseline
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/trilok-source-baseline" "$BASE_SHA"
+          mkdir -p "$RUNNER_TEMP/trilok-source-baseline/benchmarks"
+          cp benchmarks/character-studio-source-hand.bench.test.ts "$RUNNER_TEMP/trilok-source-baseline/benchmarks/"
+          cd "$RUNNER_TEMP/trilok-source-baseline"
           pnpm install --no-frozen-lockfile
           node scripts/fetch-makehuman-core.mjs
       - name: Measure unmodified baseline source sampling
-        working-directory: baseline
+        working-directory: ${{ runner.temp }}/trilok-source-baseline
         env:
           STUDIO_BENCH_LABEL: baseline
           STUDIO_BENCH_SHA: ${{ github.event.pull_request.base.sha }}
@@ -61,7 +59,7 @@ jobs:
         with:
           name: studio-source-classification-${{ github.event.pull_request.head.sha }}
           path: |
-            baseline/test-results/source-hand-classification.json
+            \${{ runner.temp }}/trilok-source-baseline/test-results/source-hand-classification.json
             test-results/source-hand-classification.json
           retention-days: 14
           if-no-files-found: warn
