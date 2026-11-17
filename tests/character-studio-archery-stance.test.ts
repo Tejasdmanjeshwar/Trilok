@@ -5,8 +5,8 @@ import {coordinateTorsoAndGaze} from
   "../apps/web/src/studio/StudioUpperBodyCoordination";
 import {archeryShootingPlaneYaw,type ArcheryState} from
   "../apps/web/src/studio/StudioArchery";
-import {measureArmAlignment,bowArmExtensionResidual,measurePullLineAlignment}
-  from "../apps/web/src/studio/StudioAnatomicalAlignment";
+import {measureArmAlignment,bowArmExtensionResidual,measurePullLineAlignment,
+  feasibleBowArmExtension} from "../apps/web/src/studio/StudioAnatomicalAlignment";
 
 /** These tests exercise the shared legal rig, not a stylized bow/root offset.
  * Rendered multi-view acceptance and the existing true-skin string tests
@@ -124,5 +124,37 @@ describe("Reusable source-skeleton bow-arm and drawing-line geometry",()=>{
       grip.clone().setX(-grip.x),hook.clone().setX(-hook.x),
       elbow.clone().setX(-elbow.x));
     expect(mirrored).toEqual(line);
+  });
+});
+
+describe("Physical reach envelope of a two-arm string contact",()=>{
+  it("extends only as far as the opposing arm can reach at actual draw",()=>{
+    const bowShoulder=new THREE.Vector3(-.20,1.45,.02);
+    const drawShoulder=new THREE.Vector3(.20,1.45,-.01);
+    const forward=new THREE.Vector3(0,0,1);
+    const transverse=new THREE.Vector3(-.015,.01,0);
+    const get=(draw:number)=>feasibleBowArmExtension(
+      bowShoulder,drawShoulder,forward,.64,.59,.07+draw,
+      transverse,.045);
+    const near=get(0),part=get(.10),full=get(.28);
+    expect(near).toBeGreaterThan(0);
+    expect(near).toBeLessThan(part);
+    expect(part).toBeLessThanOrEqual(full);
+    expect(full).toBeLessThanOrEqual(.64);
+    const mirror=(v:THREE.Vector3)=>new THREE.Vector3(-v.x,v.y,v.z);
+    for(const distance of [0,.07,.14,.21,.28]){
+      expect(feasibleBowArmExtension(mirror(bowShoulder),
+        mirror(drawShoulder),forward,.64,.59,.07+distance,
+        mirror(transverse),.045)).toBeCloseTo(get(distance),10);
+    }
+  });
+  it("rejects malformed anatomical distances instead of moving the bow prop",()=>{
+    const p=new THREE.Vector3();
+    const forward=new THREE.Vector3(0,0,1);
+    expect(()=>feasibleBowArmExtension(p,p,forward,.5,.5,.1,p,.5))
+      .toThrow("Invalid anatomical reach envelope");
+    expect(()=>feasibleBowArmExtension(p,p,
+      new THREE.Vector3(0,0,2),.5,.5,.1,p,.01))
+      .toThrow("Invalid anatomical reach envelope");
   });
 });
