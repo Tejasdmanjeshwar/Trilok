@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import {getBuildIdentity} from "../build-info";
 import {initialStudioRecipe} from "./StudioRecipe";
-import {createStudioGripFailureReport,type StudioGripFailureReport} from "./StudioGripDiagnostics";
+import {createStudioGripFailureReport,createStudioBowFailureReport,
+  type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {buildStudioHuman,type StudioHumanModel} from "./StudioHumanModel";
 import {defaultStudioMorphState,type StudioMorphState} from "./StudioMorphCatalog";
@@ -14,6 +15,9 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
 import {StudioSwordPreview} from "./StudioWeaponGrip";
+import {StudioBowPreview,isBowEquipment,type ArcheryPoseResult,
+  type ArcheryState} from "./StudioArchery";
+import {type BowProfile} from "./StudioBowGeometry";
 import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
   from "./StudioShieldGrip";
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
@@ -34,6 +38,9 @@ export interface StudioViewport {
   setPose(pose:StudioPose):void;
   setEquipment(hand:EquipmentChoice):void;
   setShieldStance(stance:ShieldStance):void;
+  setArcheryState(state:ArcheryState):void;
+  setArcheryDraw(value:number):void;
+  setBowProfile(profile:BowProfile):void;
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
@@ -99,14 +106,23 @@ export function createStudioViewport(
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
   let equipment:EquipmentChoice="none";
+  let bowProfile:BowProfile="recurve";
+  let archeryState:ArcheryState="rest";
+  let archeryDraw=1;
   let currentRecipe:StudioRecipeV1=initialStudioRecipe();
-  let sword:StudioSwordPreview|StudioTwoHandPreview|undefined;
+  let sword:StudioSwordPreview|StudioTwoHandPreview|StudioBowPreview|undefined;
   let shield:StudioShieldPreview|undefined;
-  const reportGripFailure=(result?:TwoHandIKResult,error?:unknown):void=>{
-    if(!isTwoHandEquipment(equipment))return;
-    const report=createStudioGripFailureReport(currentRecipe,pose,equipment,
-      getBuildIdentity(),result,error);
-    onGripFailure?.(report);
+  const reportGripFailure=(error?:unknown,
+    attemptedRecipe:StudioRecipeV1=currentRecipe,
+    result?:TwoHandIKResult|ArcheryPoseResult):void=>{
+    if(isTwoHandEquipment(equipment)){
+      onGripFailure?.(createStudioGripFailureReport(attemptedRecipe,pose,equipment,
+        getBuildIdentity(),result&&"primaryErrorMeters" in result?result:undefined,error));
+    }else if(isBowEquipment(equipment)){
+      onGripFailure?.(createStudioBowFailureReport(attemptedRecipe,pose,equipment,
+        getBuildIdentity(),archeryState,archeryDraw,bowProfile,
+        result&&"bowSkinContact" in result?result:undefined,error));
+    }
   };
   function clearSword():void{
     sword?.dispose();sword=undefined;
@@ -120,10 +136,19 @@ export function createStudioViewport(
     }
     if(!active)return;
     try{
-      if(isTwoHandEquipment(equipment)){
+      if(isBowEquipment(equipment)){
+        const result=posePreview?.bowPoseResult;
+        if(!result?.reachable){
+          reportGripFailure(undefined,currentRecipe,result);
+          onEditError("The bow cannot reach this archery position for the current character.");
+          return;
+        }
+        const next=new StudioBowPreview(active,result,bowProfile);
+        scene.add(next.object);sword=next;
+      }else if(isTwoHandEquipment(equipment)){
         const solved=posePreview?.twoHandResult;
         if(!solved?.reachable){
-          reportGripFailure(solved);
+          reportGripFailure(undefined,currentRecipe,solved);
           onEditError("Both hands cannot comfortably reach this weapon in the selected pose.");
           return;
         }
@@ -147,20 +172,21 @@ export function createStudioViewport(
       onGripFailure?.(undefined);
       onEditError("");
     }catch(error){
-      reportGripFailure(posePreview?.twoHandResult,error);
+      reportGripFailure(error);
       onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
   }
   function setEquipment(hand:EquipmentChoice):void{
     if(!["none","left","right","longsword-left","longsword-right",
-      "staff-left","staff-right","sword-shield-left","sword-shield-right"].includes(hand))throw new Error("Unknown equipment choice");
+      "staff-left","staff-right","sword-shield-left","sword-shield-right",
+      "bow-left","bow-right"].includes(hand))throw new Error("Unknown equipment choice");
     equipment=hand;
     try{
       posePreview?.setGrip(hand);
       refreshSword();
     }catch(error){
       clearSword();
-      reportGripFailure(undefined,error);
+      reportGripFailure(error);
       onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
     updateMarkers();
@@ -169,6 +195,35 @@ export function createStudioViewport(
     posePreview?.setShieldStance(stance);
     if(isSwordShieldEquipment(equipment))refreshSword();
     updateMarkers();
+  }
+  function setArcheryState(state:ArcheryState):void{
+    archeryState=state;
+    try{
+      posePreview?.setArcheryState(state);
+      if(isBowEquipment(equipment))refreshSword();
+    }catch(error){
+      clearSword();
+      reportGripFailure(error);
+      onEditError("The bow cannot reach this archery position for the current character.");
+    }
+    updateMarkers();
+  }
+  function setArcheryDraw(value:number):void{
+    archeryDraw=value;
+    try{
+      posePreview?.setArcheryDraw(value);
+      if(isBowEquipment(equipment))refreshSword();
+    }catch(error){
+      clearSword();
+      reportGripFailure(error);
+      onEditError("The bow cannot reach this draw position for the current character.");
+    }
+    updateMarkers();
+  }
+  function setBowProfile(profile:BowProfile):void{
+    if(profile!=="simple"&&profile!=="recurve")throw new Error("Unknown bow profile");
+    bowProfile=profile;
+    if(isBowEquipment(equipment))refreshSword();
   }
   let inspection:StudioInspectionOptions=DEFAULT_INSPECTION;
   let skeleton:THREE.SkeletonHelper|undefined;
@@ -320,12 +375,12 @@ export function createStudioViewport(
     pose=next;
     try{
       posePreview?.setPose(next);
-      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))
+      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||isBowEquipment(equipment))
         refreshSword();
       else sword?.update();
     }catch(error){
       clearSword();
-      reportGripFailure(undefined,error);
+      reportGripFailure(error);
       onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
     // The existing overlays follow posed bones without reallocating GPU buffers.
@@ -343,10 +398,11 @@ export function createStudioViewport(
       if(!ok)return false;
       expression=next;
       posePreview?.refresh();
-      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))refreshSword();
+      if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||isBowEquipment(equipment))refreshSword();
       return true;
-    }catch{
+    }catch(error){
       if(current===ticket){expression=previous;
+        if(isBowEquipment(equipment))reportGripFailure(error);
         onEditError("The expression could not be previewed.");}
       return false;
     }finally{if(requestAbort===abort)requestAbort=undefined;}
@@ -565,13 +621,14 @@ export function createStudioViewport(
         currentMorphology=state;
         currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
         posePreview?.refresh();
-        if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment))refreshSword();
+        if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||
+          isBowEquipment(equipment))refreshSword();
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
         if(equipment==="none"||sword)onEditError("");
         return true;
       }catch(error){
         if(valid()){
-          reportGripFailure(undefined,error);
+          reportGripFailure(error);
           onEditError("This adjustment could not be applied. Your previous character remains available.");
         }
         return false;
@@ -588,7 +645,11 @@ export function createStudioViewport(
         const ok=await incoming.setFace(previewExpression(state.face,expression),valid);
         if(!ok||!valid()){incoming.dispose();return false;}
       }
-      const preview=new StudioPosePreview(incoming);
+      // New generated bodies must retain the selected archery state/draw;
+      // otherwise failures are reported for a hidden reset-to-rest pose.
+      const preview=new StudioPosePreview(incoming,{
+        state:archeryState,draw:archeryDraw,
+      });
       try{preview.setGrip(equipment);preview.setPose(pose);}
       catch(error){preview.dispose();throw error;}
       if(!valid()){preview.dispose();incoming.dispose();return false;}
@@ -613,10 +674,9 @@ export function createStudioViewport(
     }catch(error){
       incoming?.dispose();
       if(valid()){
-        if(isTwoHandEquipment(equipment)){
+        if(isTwoHandEquipment(equipment)||isBowEquipment(equipment)){
           const attempted=recipe??{...currentRecipe,morphology:state,appearance};
-          onGripFailure?.(createStudioGripFailureReport(attempted,pose,equipment,
-            getBuildIdentity(),undefined,error));
+          reportGripFailure(error,attempted);
         }
         if(active)onEditError("This change could not be applied. The previous character has been preserved.");
         else onFailure("The character could not be opened. Check your connection and try again.");
@@ -667,5 +727,5 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
 }

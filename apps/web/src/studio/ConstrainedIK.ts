@@ -6,6 +6,8 @@
 export interface IKFreedom {
   readonly min:number;
   readonly max:number;
+  /** Use mirrored parameter probes for a DOF whose axial direction reverses. */
+  readonly differenceSign?:1|-1;
 }
 export interface IKFit {
   readonly values:readonly number[];
@@ -43,6 +45,39 @@ function normalStep(jacobian:readonly (readonly number[])[],
   const step=system.map(row=>row[n]!);
   return step.every(Number.isFinite)?step:undefined;
 }
+/** Solve reflected kinematic chains in a common parameter orientation.
+ * Canonical parameters are s*q, s in {-1,+1} from the calibrated rest-frame
+ * axial reflection. Limits and seeds transform together; evaluation still
+ * uses each character's REAL anatomical FK, bounds and contact geometry.
+ * This is not a second solver, pose copying or an additional solve: the
+ * existing bounded DLS performs the same number of objective evaluations.
+ *
+ * Unlike changing the finite-difference direction alone, transforming the
+ * full parameterization also canonicalizes the trust region and line search.
+ * Non-mirror anatomies remain independent: their own bounds and residuals
+ * determine their own legal results.
+ */
+export function fitCanonicalIK(start:readonly number[],
+  limits:readonly IKFreedom[],signs:readonly (1|-1)[],
+  evaluate:(values:readonly number[])=>readonly number[],
+  maxIterations=52,maxParameterStep=.35):IKFit{
+  if(signs.length!==start.length||limits.length!==start.length||
+    signs.some(s=>s!==1&&s!==-1))
+    throw new Error("Invalid canonical IK reflection map");
+  const canonical=signs.map((sign,i)=>start[i]!*sign);
+  const canonicalLimits=limits.map((limit,i)=>{
+    const a=limit.min*signs[i]!,b=limit.max*signs[i]!;
+    return {min:Math.min(a,b),max:Math.max(a,b)};
+  });
+  const physical=(values:readonly number[])=>
+    values.map((value,i)=>value*signs[i]!);
+  const result=fitConstrainedIK(canonical,canonicalLimits,
+    values=>evaluate(physical(values)),maxIterations,maxParameterStep);
+  const values=Object.freeze(physical(result.values));
+  // fitConstrainedIK re-applies the final canonical pose before returning.
+  return Object.freeze({values,cost:result.cost,iterations:result.iterations});
+}
+
 const squared=(v:readonly number[])=>v.reduce((sum,x)=>sum+x*x,0);
 /** Use one numerical objective for all limb chains and a shared weapon.
  * Differentiation samples only legal angles and poses. Every accepted
@@ -51,8 +86,9 @@ const squared=(v:readonly number[])=>v.reduce((sum,x)=>sum+x*x,0);
 export function fitConstrainedIK(start:readonly number[],
   limits:readonly IKFreedom[],
   evaluate:(values:readonly number[])=>readonly number[],
-  maxIterations=52):IKFit{
-  if(start.length!==limits.length||!start.every(Number.isFinite)||
+  maxIterations=52,maxParameterStep=.35):IKFit{
+  if(!Number.isFinite(maxParameterStep)||maxParameterStep<=0||
+      maxParameterStep>1||start.length!==limits.length||!start.every(Number.isFinite)||
       limits.some((b,i)=>!Number.isFinite(b.min)||!Number.isFinite(b.max)||
         b.min>b.max||start[i]!<b.min-1e-8||start[i]!>b.max+1e-8))
     throw new Error("Invalid constrained IK parameter bounds");
@@ -67,7 +103,13 @@ export function fitConstrainedIK(start:readonly number[],
     const jacobian=Array.from({length:count},()=>Array<number>(start.length).fill(0));
     for(let j=0;j<start.length;j++){
       const bound=limits[j]!,h=.006;
-      const step=parameters[j]!+h<=bound.max?h:-h;
+      // Corresponding reflected joints can have opposite signed local axes.
+      // Probe their legal parameters in equivalent physical directions, not
+      // universally toward increasing numerical angles. Keep one shared DLS.
+      const direction=bound.differenceSign??1;
+      const preferred=direction*h;
+      const step=parameters[j]!+preferred<=bound.max&&
+        parameters[j]!+preferred>=bound.min?preferred:-preferred;
       const moved=Math.max(bound.min,Math.min(bound.max,parameters[j]!+step));
       const delta=moved-parameters[j]!;
       if(Math.abs(delta)<1e-10)continue;
@@ -84,7 +126,8 @@ export function fitConstrainedIK(start:readonly number[],
     for(const factor of [1,.5,.25,.125]){
       const trial=parameters.map((value,j)=>
         Math.max(limits[j]!.min,Math.min(limits[j]!.max,
-          value+Math.max(-.35,Math.min(.35,step[j]!*factor)))));
+          value+Math.max(-maxParameterStep,
+          Math.min(maxParameterStep,step[j]!*factor)))));
       const sampled=[...evaluate(trial)];
       const nextCost=squared(sampled);
       if(Number.isFinite(nextCost)&&nextCost<cost-1e-12){

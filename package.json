@@ -8,7 +8,7 @@
     "dev": "pnpm --filter @trilok/web dev",
     "build": "pnpm --filter @trilok/web build",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/fetch-makehuman-core.mjs && vitest run tests/ --maxWorkers=2",
+    "test": "node scripts/fetch-makehuman-core.mjs && vitest run tests/ --pool=threads --maxWorkers=1",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
@@ -20,5 +20,10 @@
     "three": "^0.180.0",
     "@types/three": "^0.180.0",
     "@playwright/test": "^1.56.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "rollup": "4.68.3"
+    }
   }
 }

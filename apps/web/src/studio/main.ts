@@ -1,8 +1,11 @@
+import {getBuildIdentity} from "../build-info";
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
 import {serializeStudioGripFailure,type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import {primaryHand,type EquipmentChoice} from "./StudioTwoHandGrip";
+import {isBowEquipment,ARCHERY_STATES,type ArcheryState} from "./StudioArchery";
+import {BOW_PROFILES,type BowProfile} from "./StudioBowGeometry";
 import {isSwordShieldEquipment,shieldHand,type ShieldStance} from "./StudioShieldGrip";
 import {createStudioMorphEditor} from "./StudioMorphEditor";
 import {createStudioGeneratorPanel,type StudioGeneratorPanel} from "./StudioGeneratorPanel";
@@ -11,6 +14,7 @@ import {STUDIO_FOCUS,STUDIO_POSES,STUDIO_EXPRESSIONS,
   type StudioFocus,type StudioPose,type StudioExpression}
   from "./StudioInspection";
 
+const studioBuild=getBuildIdentity();
 const host=document.querySelector<HTMLElement>("#studio-app");
 if(!host)throw new Error("Unable to open Character Studio");
 host.innerHTML=String.raw`
@@ -42,7 +46,12 @@ host.innerHTML=String.raw`
     <section class="studio-stage" aria-label="Character preview">
       <div class="studio-stage-top">
         <div><span class="studio-indicator" aria-hidden="true"></span> <span id="studio-scene-label">Human · Neutral pose</span></div>
-        <span class="studio-stage-note">CHARACTER PREVIEW</span>
+        <div class="studio-stage-meta">
+          <span class="studio-stage-note">CHARACTER PREVIEW</span>
+          <a class="studio-build-revision" href="/build-info.json" target="_blank"
+            rel="noopener noreferrer" aria-label="View deployed Character Studio build revision"
+            title="View exact deployed build SHA">BUILD ${studioBuild.commitSha==="unknown"?"LOCAL":studioBuild.commitSha.slice(0,8)}</a>
+        </div>
       </div>
       <div id="studio-viewport" class="studio-viewport" aria-label="Three-dimensional character stage"></div>
       <div class="studio-loading" id="studio-loading" role="status" aria-live="polite">
@@ -122,11 +131,32 @@ host.innerHTML=String.raw`
               <option value="staff-right">Right hand leads</option>
               <option value="staff-left">Left hand leads</option>
             </optgroup>
+            <optgroup label="Bow">
+              <option value="bow-left">Bow left · draw right</option>
+              <option value="bow-right">Bow right · draw left</option>
+            </optgroup>
             <optgroup label="Sword and shield">
               <option value="sword-shield-right">Sword right · shield left</option>
               <option value="sword-shield-left">Sword left · shield right</option>
             </optgroup>
           </select>
+          <div id="studio-archery-pose" hidden>
+            <label class="studio-field-label" for="studio-bow-profile">Bow shape</label>
+            <select id="studio-bow-profile" aria-label="Bow shape">
+              <option value="recurve">Recurve bow</option>
+              <option value="simple">Traditional bow</option>
+            </select>
+            <label class="studio-field-label" for="studio-archery-state">Archery position</label>
+            <select id="studio-archery-state" aria-label="Archery position">
+              <option value="rest">Bow held</option>
+              <option value="nock">Nocking arrow</option>
+              <option value="partial">Partial draw</option>
+              <option value="aim">Full draw / aim</option>
+              <option value="release">Release / follow-through</option>
+            </select>
+            <label class="studio-field-label" for="studio-archery-draw">Draw amount</label>
+            <input id="studio-archery-draw" type="range" min="0" max="100" value="100" step="5" aria-label="Draw amount" />
+          </div>
           <div id="studio-shield-pose" hidden>
             <label class="studio-field-label" for="studio-shield-stance">Shield position</label>
             <select id="studio-shield-stance" aria-label="Shield position">
@@ -232,6 +262,21 @@ const swordSelect=element<HTMLSelectElement>("#studio-sword-hand");
 const swordFocus=element<HTMLButtonElement>("#studio-sword-focus");
 const shieldFocus=element<HTMLButtonElement>("#studio-shield-focus");
 const shieldPose=element<HTMLElement>("#studio-shield-pose");
+const archeryPose=element<HTMLElement>("#studio-archery-pose");
+const archeryState=element<HTMLSelectElement>("#studio-archery-state");
+const archeryDraw=element<HTMLInputElement>("#studio-archery-draw");
+const bowProfile=element<HTMLSelectElement>("#studio-bow-profile");
+bowProfile.addEventListener("change",()=>{
+  if(Object.hasOwn(BOW_PROFILES,bowProfile.value))
+    viewport.setBowProfile(bowProfile.value as BowProfile);
+});
+archeryState.addEventListener("change",()=>{
+  if(Object.hasOwn(ARCHERY_STATES,archeryState.value))
+    viewport.setArcheryState(archeryState.value as ArcheryState);
+});
+archeryDraw.addEventListener("input",()=>{
+  viewport.setArcheryDraw(Number(archeryDraw.value)/100);
+});
 const shieldStance=element<HTMLSelectElement>("#studio-shield-stance");
 shieldStance.addEventListener("change",()=>{
   viewport.setShieldStance(shieldStance.value as ShieldStance);
@@ -240,11 +285,13 @@ swordFocus.disabled=true;
 swordSelect.addEventListener("change",()=>{
   const hand=swordSelect.value as EquipmentChoice;
   if(!["none","left","right","longsword-left","longsword-right",
-    "staff-left","staff-right","sword-shield-left","sword-shield-right"].includes(hand))return;
+    "staff-left","staff-right","sword-shield-left","sword-shield-right",
+    "bow-left","bow-right"].includes(hand))return;
   viewport.setEquipment(hand);
   swordFocus.disabled=hand==="none";
   const dual=isSwordShieldEquipment(hand);
   shieldPose.hidden=!dual;shieldFocus.hidden=!dual;
+  archeryPose.hidden=!isBowEquipment(hand);
 });
 shieldFocus.addEventListener("click",()=>{
   const mode=swordSelect.value as EquipmentChoice;

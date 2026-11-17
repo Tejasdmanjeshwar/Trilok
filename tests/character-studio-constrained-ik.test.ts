@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {fitConstrainedIK} from "../apps/web/src/studio/ConstrainedIK";
+import {fitConstrainedIK,fitCanonicalIK} from "../apps/web/src/studio/ConstrainedIK";
 
 describe("bounded coupled IK optimization",()=>{
   it("fits coupled grip constraints with one shared rigid center",()=>{
@@ -33,6 +33,38 @@ describe("bounded coupled IK optimization",()=>{
     });
     expect(applied).toEqual(fit.values);
     expect(fit.values[0]).toBeCloseTo(.4,4);
+  });
+  it("gives mirror-equivariant solutions without an extra IK solve",()=>{
+    // Right anatomy has the opposite axial sign on its first joint.
+    // A world-reflected 2D target has the same canonical residual.
+    const leftBounds=[{min:-.75,max:.75},{min:-.4,max:.4}];
+    const rightBounds=[{min:-.75,max:.75},{min:-.4,max:.4}];
+    const leftStart=[-.42,.12];
+    const rightStart=[.42,.12];
+    let leftEvaluations=0,rightEvaluations=0;
+    const left=fitCanonicalIK(leftStart,leftBounds,[1,1],q=>{
+      leftEvaluations++;
+      return [q[0]!+.21,q[1]!-.19,q[0]!+q[1]!-.02];
+    },24);
+    const right=fitCanonicalIK(rightStart,rightBounds,[-1,1],q=>{
+      rightEvaluations++;
+      return [-q[0]!+.21,q[1]!-.19,-q[0]!+q[1]!-.02];
+    },24);
+    expect(right.values[0]).toBeCloseTo(-left.values[0]!,12);
+    expect(right.values[1]).toBeCloseTo(left.values[1]!,12);
+    expect(right.cost).toBeCloseTo(left.cost,12);
+    expect(right.iterations).toBe(left.iterations);
+    expect(rightEvaluations).toBe(leftEvaluations);
+  });
+  it("keeps genuine asymmetric limits and physical contact targets independent",()=>{
+    const a=fitCanonicalIK([0],[{min:-.8,max:.8}],[1],
+      q=>[q[0]!-.6]);
+    const b=fitCanonicalIK([0],[{min:-.25,max:.4}],[-1],
+      q=>[q[0]!+.6]);
+    expect(a.values[0]).toBeCloseTo(.6,3);
+    expect(b.values[0]).toBeCloseTo(-.25,6);
+    expect(a.values[0]).not.toBeCloseTo(-b.values[0]!,2);
+    expect(()=>fitCanonicalIK([0],[{min:-1,max:1}],[],q=>q)).toThrow();
   });
   it("rejects invalid or nonfinite calibration",()=>{
     expect(()=>fitConstrainedIK([2],[{min:0,max:1}],v=>v)).toThrow();

@@ -66,22 +66,52 @@ export function calibrateGripSpreads(graph:AnatomicalGraphV1,
   };
   return {index:spread("index"),little:spread("little")};
 }
-export function swordGripTargets(graph:AnatomicalGraphV1,hand:Exclude<SwordHand,"none">,
+/** Data-only anatomical contact choices. Rigid cylindrical handles and a
+ * three-finger Mediterranean string hook require different digit commands.
+ * Each uses the same source MakeHuman finger joints and calibrated FK; this
+ * profile layer owns neither arm IK nor attachment/rendering resources. */
+export type HandContactProfile="sword-handle"|"bow-handle"|"string-two-finger";
+type DigitAngles=readonly [number,number,number];
+type HandGripProfile=Readonly<{
+  digits:Readonly<Record<"index"|"middle"|"ring"|"little",DigitAngles>>;
+  thumb:readonly [number,number,number];
+}>;
+export const HAND_CONTACT_PROFILES:Readonly<Record<HandContactProfile,HandGripProfile>>=
+  Object.freeze({
+    "sword-handle":Object.freeze({
+      digits:{index:[1.06,1.32,.65] as const,middle:[1.13,1.36,.72] as const,
+        ring:[1.12,1.32,.70] as const,little:[1.03,1.23,.65] as const},
+      thumb:[.75,.48,.72] as const,
+    }),
+    "bow-handle":Object.freeze({
+      // Pressure through the thenar eminence and a relaxed four-finger wrap;
+      // deliberately not identical to the hilt's tightly closed fist.
+      digits:{index:[.87,1.12,.61] as const,middle:[1.08,1.34,.74] as const,
+        ring:[.92,1.12,.54] as const,little:[.60,.74,.40] as const},
+      thumb:[.59,.36,.56] as const,
+    }),
+    "string-two-finger":Object.freeze({
+      // Two-finger split release: index above nock and middle below. Ring
+      // remains relaxed, not falsely claimed to contact the string.
+      digits:{index:[.70,1.16,.84] as const,middle:[.83,1.25,.87] as const,
+        ring:[.30,.36,.22] as const,little:[.15,.16,.10] as const},
+      thumb:[.15,.18,.16] as const,
+    }),
+  });
+export function handContactTargets(graph:AnatomicalGraphV1,
+  hand:Exclude<SwordHand,"none">,profile:HandContactProfile,
   spreads?:GripSpreads):readonly JointTarget[]{
-  const rows:readonly [string,number,number,number][]=[
-    ["index",1.06,1.32,.65],["middle",1.13,1.36,.72],
-    ["ring",1.12,1.32,.70],["little",1.03,1.23,.65],
-  ];
+  const config=HAND_CONTACT_PROFILES[profile];
   const commands:JointTarget[]=[];
   const add=(digit:string,index:number,motion:JointTarget["motion"],radians:number)=>{
     const joint=graph.joints.find(j=>j.role==="finger_"+digit+"_"+index&&
       j.id.includes("arm["+hand+",0]"));
-    if(!joint)throw new Error("Grip finger not found: "+digit);
+    if(!joint)throw new Error("Contact finger not found: "+digit);
     commands.push({jointId:joint.id,motion,radians});
   };
-  for(const [digit,a,b,c] of rows){
-    add(digit,0,"flexion",a);add(digit,1,"flexion",b);
-    add(digit,2,"flexion",c);
+  for(const digit of ["index","middle","ring","little"] as const){
+    const angles=config.digits[digit];
+    angles.forEach((angle,index)=>add(digit,index,"flexion",angle));
   }
   if(spreads){
     for(const digit of ["index","little"] as const){
@@ -91,10 +121,43 @@ export function swordGripTargets(graph:AnatomicalGraphV1,hand:Exclude<SwordHand,
       add(digit,0,"abduction",angle);
     }
   }
-  add("thumb",0,"opposition",.75);
-  add("thumb",0,"flexion",.48);
-  add("thumb",1,"flexion",.72);
-  return commands;
+  add("thumb",0,"opposition",config.thumb[0]);
+  add("thumb",0,"flexion",config.thumb[1]);
+  add("thumb",1,"flexion",config.thumb[2]);
+  return Object.freeze(commands);
+}
+/** Existing C5.1 contract remains exactly the same; sword/staff/shield keep
+ * the previously approved poses and can opt into new profiles explicitly. */
+export function swordGripTargets(graph:AnatomicalGraphV1,
+  hand:Exclude<SwordHand,"none">,spreads?:GripSpreads):readonly JointTarget[]{
+  return handContactTargets(graph,hand,"sword-handle",spreads);
+}
+
+/** Source-skinned MakeHuman palm-facing direction from the CURRENT anatomical
+ * knuckle plane, disambiguated by the thumb's volar side. Shared by equipment
+ * contact diagnostics: never guess that world +Z is a palm normal.
+ * A missing or coplanar thumb is not a legal contact frame. */
+export function sourceHandVolarWorld(model:StudioHumanModel,
+  hand:"left"|"right"):THREE.Vector3{
+  const {spike}=model.human;
+  const at=(role:string)=>{
+    const joint=spike.graph.joints.find(j=>j.role===role&&
+      (role.startsWith("finger_")?j.id.includes("arm["+hand+",0]"):true));
+    const bone=joint&&spike.bones.get(joint.id);
+    if(!bone)throw new Error("Missing source palm plane "+role);
+    return bone.getWorldPosition(new THREE.Vector3());
+  };
+  const wrist=at("wrist_"+hand);
+  const index=at("finger_index_0");
+  const little=at("finger_little_0");
+  const middle=at("finger_middle_0");
+  const thumb=at("finger_thumb_1");
+  const normal=index.sub(little).cross(middle.sub(wrist)).normalize();
+  if(normal.lengthSq()<.9)throw new Error("Degenerate MakeHuman palm plane");
+  const thumbOffset=thumb.sub(wrist).dot(normal);
+  if(Math.abs(thumbOffset)<.00001)throw new Error("Ambiguous thumb-side palm normal");
+  if(thumbOffset<0)normal.negate();
+  return normal;
 }
 const vec=(object:THREE.Object3D)=>object.getWorldPosition(new THREE.Vector3());
 function boneFor(model:StudioHumanModel,role:string,hand:"left"|"right"):THREE.Bone {
