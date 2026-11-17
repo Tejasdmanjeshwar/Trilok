@@ -20,8 +20,8 @@ import {contactArmFreedoms,composeContactPose,clampContactSeed,
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
 import {coordinateTorsoAndGaze} from "./StudioUpperBodyCoordination";
 import {measureArmAlignment,bowArmExtensionResidual,measurePullLineAlignment,
-  feasibleBowArmExtension,measureProjectedArmAlignment,
-  planarExtensionResidual} from "./StudioAnatomicalAlignment";
+  feasibleBowArmExtension,measureProjectedArmAlignment}
+  from "./StudioAnatomicalAlignment";
 
 /** Studio-only visual states. A release preview never dispatches a combat event. */
 export type ArcheryState="rest"|"nock"|"partial"|"aim"|"release";
@@ -281,7 +281,6 @@ export interface ArcheryPoseResult {
     bowShoulderLeadMeters:number;
     drawElbowBehindHookMeters:number;
     drawElbowOffAxisMeters:number;
-    /** Elbow straightness and shoulder/wrist path viewed from overhead. */
     bowElbowTopViewRadians:number;
     bowArmForwardReachMeters:number;
     bowArmLateralOffsetMeters:number;
@@ -381,12 +380,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // Until the drawing hand is safely on the string, the bow target
   // remains close to the verified nock geometry. In later expansion,
   // smoothly load the bow arm rather than snapping to a long extension.
-  // Once the string is nocked, expand the supported bow arm progressively
-  // rather than postponing all extension until the full-draw control.
-  // The source arm's accessible contact basins change around mid-draw.
-  // Delay expansion until the drawing hand has settled its string contact,
-  // then ramp the bow arm toward the full shooting line by partial/full draw.
-  const expansion=THREE.MathUtils.clamp((tension-.42)/.30,0,1);
+  const expansion=THREE.MathUtils.clamp((tension-.58)/.42,0,1);
   const smoothExpansion=expansion*expansion*(3-2*expansion);
   const extensionBlend=state==="rest"?0:state==="release"?.70:
     smoothExpansion;
@@ -395,7 +389,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // cosmetic change to the weapon or string. The coupled IK resolves the
   // remaining arm and finger DOFs under unchanged hard contact gates.
   const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
-  const desiredBend=tension<.58?undefined:THREE.MathUtils.degToRad(
+  const desiredBend=tension<.80?undefined:THREE.MathUtils.degToRad(
     19-7*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
@@ -550,17 +544,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     // depending on the source hand. Give the nock a bounded, shared bow-local
     // longitudinal variable instead of forcing every anatomy onto local Y=0.
     const nockYBound=Math.min(.035*scale,descriptor.handleLengthMeters*.25);
-    // The nock remains a single physical string/arrow point. Permit a small
-    // bounded draw adjustment when a rigid requested draw is unreachable
-    // for the source arms; never extend beyond maximum bow draw.
-    const drawn=descriptor.maximumDrawMeters*fraction;
-    const zMin=-Math.min(.065*scale,descriptor.maximumDrawMeters-drawn);
-    const zMax=Math.min(.035*scale,drawn);
-    const zScale=.065*scale;
-    const nockLimits=[...freedoms,
-      {min:-nockYBound,max:nockYBound},{min:zMin,max:zMax}];
-    const nockWorldFor=(bow:THREE.Matrix4,y:number,z:number)=>
-      new THREE.Vector3(0,y,localNock.z+z).applyMatrix4(bow);
+    const nockLimits=[...freedoms,{min:-nockYBound,max:nockYBound}];
+    const nockWorldFor=(bow:THREE.Matrix4,y:number)=>
+      new THREE.Vector3(0,y,localNock.z).applyMatrix4(bow);
     const dynamicBow=()=>model.human.spike.character.socketWorld(socket.id)
       .multiply(bowOffset);
     const calibratedHook=handContactTargets(model.human.spike.graph,
@@ -589,7 +575,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           ...initial.slice(0,9),...angles,...digits],freedoms);
         fk.apply(composeContactPose(staged,freedoms,joints));
         const bow=dynamicBow();
-        const goal=nockWorldFor(bow,0,0);
+        const goal=nockWorldFor(bow,0);
         const hook=drawingFingerContactWorld(model,drawSide);
         const pointing=new THREE.Vector3(0,0,1)
           .transformDirection(bow).angleTo(forward);
@@ -603,29 +589,24 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
       skin:Readonly<Record<"index"|"middle"|"ring",number>>;
-      nockY:number;nockZ:number;valid:boolean;skinValid:boolean;
+      nockY:number;valid:boolean;skinValid:boolean;
       iterations:number;armSeed:number;fingerSeed:number}|undefined;
     candidateSearch:for(const {armSeed,fingerSeedIndex} of orderedSeeds){
       const angles=drawSeeds[armSeed]!,fingerSeed=digitSeeds[fingerSeedIndex]!;
       const jointSeed=clampContactSeed([
         ...initial.slice(0,9),...angles,...fingerSeed],freedoms);
-      const seed=[...jointSeed,0,0];
+      const seed=[...jointSeed,0];
       const commands=(values:readonly number[])=>
         composeContactPose(staged,freedoms,values.slice(0,freedoms.length));
       const evaluate=(values:readonly number[])=>{
         fk.apply(commands(values));
         const actualBow=dynamicBow();
-        const goal=nockWorldFor(actualBow,values[freedoms.length]!,
-          values[freedoms.length+1]!);
+        const goal=nockWorldFor(actualBow,values[freedoms.length]!);
         const finger=drawingFingerContactWorld(model,drawSide);
         const bowGrip=twoHandGripContactWorld(model,hand);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
         const bowArm=desiredBend===undefined?undefined:measureArmAlignment(
           at(bowShoulderBone),at(bowElbowBone),at(bowWristBone));
-        const bowPlanar=desiredBend===undefined?undefined:
-          measureProjectedArmAlignment(at(bowShoulderBone),
-            at(bowElbowBone),at(bowWristBone),up,forward);
-        const planarWeight=THREE.MathUtils.smoothstep(tension,.65,.95);
         const skin=fingerSkin(actualBow,goal);
         const indexPad=sourcePadWorld(model,padVertices.index);
         const middlePad=sourcePadWorld(model,padVertices.middle);
@@ -664,14 +645,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // the fingertips perfectly on the string. Use a low-weight
           // skeletal extension residual INSIDE this shared IK, so contact
           // and elbow alignment are solved together (not post-rotated).
-          ...(bowArm&&desiredBend!==undefined&&bowPlanar?[
-            bowArmExtensionResidual(bowArm,desiredBend)*.55,
-            // Critical overhead constraint: a 3D elbow can be extended
-            // while the arm still appears kinked in top projection.
-            planarExtensionResidual(bowPlanar,THREE.MathUtils.degToRad(152))*
-              .48*planarWeight,
-            Math.max(0,bowPlanar.wristLateralOffsetMeters-.10*scale)*
-              .25*planarWeight]:[]),
+          ...(bowArm&&desiredBend!==undefined?[
+            bowArmExtensionResidual(bowArm,desiredBend)*.55]:[]),
           // Keep the bow arm near its source-reach-calibrated target.
           (bowGrip.x-bowTarget.x)*.45,(bowGrip.y-bowTarget.y)*.45,
           (bowGrip.z-bowTarget.z)*.45,
@@ -680,7 +655,6 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           ...values.map((v,i)=>(v-seed[i]!)*.002),
           // Keep the arrow rest near the bow grip's source-calibrated center.
           values[freedoms.length]!/nockYBound*.003,
-          values[freedoms.length+1]!/zScale*.008,
         ];
       };
       // A larger bounded trust region reaches a verified source-pose target
@@ -698,15 +672,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
             joint.id.includes("arm[right,0]")?"right":"left";
           return mirrorContactDifferenceSign(model.human.spike.graph,fk,
             f.jointId,f.motion,side);
-        }),1,1,
+        }),1,
       ];
       const fit=fitCanonicalIK(seed,nockLimits,signs,evaluate,32,.55);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
       const finger=drawingFingerContactWorld(model,drawSide);
-      const goal=nockWorldFor(actualBow,fit.values[freedoms.length]!,
-        fit.values[freedoms.length+1]!);
+      const goal=nockWorldFor(actualBow,fit.values[freedoms.length]!);
       const error=finger.distanceTo(goal);
       const skin=fingerSkin(actualBow,goal,fullHook);
       const clearance=Math.min(
@@ -718,22 +691,12 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         .transformDirection(actualBow).angleTo(forward);
       const bowArm=desiredBend===undefined?undefined:measureArmAlignment(
         at(bowShoulderBone),at(bowElbowBone),at(bowWristBone));
-      const bowPlanar=desiredBend===undefined?undefined:
-        measureProjectedArmAlignment(at(bowShoulderBone),
-          at(bowElbowBone),at(bowWristBone),up,forward);
-      const planarWeight=THREE.MathUtils.smoothstep(tension,.65,.95);
       const extensionCost=bowArm&&desiredBend!==undefined?
         bowArmExtensionResidual(bowArm,desiredBend)*.55:0;
-      const projectedCost=bowPlanar?
-        planarExtensionResidual(bowPlanar,THREE.MathUtils.degToRad(152))*
-          .48*planarWeight+
-        Math.max(0,bowPlanar.wristLateralOffsetMeters-.10*scale)*
-          .25*planarWeight:0;
       const cost=error+Math.max(0,.01*scale-clearance)*2+
         Math.max(0,bowDisplacement-.06*scale)*.5+
         (skin.index+skin.middle)*1.5+
-        arrowAimDeviation*.115*scale+extensionCost+projectedCost+
-        Math.abs(fit.values[freedoms.length+1]!)*.20;
+        arrowAimDeviation*.115*scale+extensionCost;
       drawAttempts++;
       drawIterations=Math.max(drawIterations,fit.iterations);
       const valid=error<.03*scale&&clearance>-.025*scale&&
@@ -746,8 +709,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           (valid===best.valid&&skinValid===best.skinValid&&cost<best.cost))best={
         commands:candidate,world:actualBow,contact:finger,
         error,clearance,cost,skin,valid,skinValid,
-        nockY:fit.values[freedoms.length]!,
-        nockZ:fit.values[freedoms.length+1]!,iterations:fit.iterations,
+        nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
         armSeed,fingerSeed:fingerSeedIndex,
       };
       // Deterministic feasible-first exit at a bounded margin inside the
@@ -766,8 +728,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           bowArm.elbowInteriorRadians>THREE.MathUtils.degToRad(148))){
         best={commands:candidate,world:actualBow,contact:finger,
           error,clearance,cost,skin,valid:true,skinValid:true,
-          nockY:fit.values[freedoms.length]!,
-        nockZ:fit.values[freedoms.length+1]!,iterations:fit.iterations,
+          nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
           armSeed,fingerSeed:fingerSeedIndex};
         break candidateSearch;
       }
@@ -780,9 +741,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     solvedWorld=dynamicBow();
     target=localNock.clone().applyMatrix4(solvedWorld);
     contact=drawingFingerContactWorld(model,drawSide);
-    target=nockWorldFor(best.world,best.nockY,best.nockZ);
     localNock.y=best.nockY;
-    localNock.z+=best.nockZ;
+    target=nockWorldFor(best.world,best.nockY);
     drawError=contact.distanceTo(target);
     drawSkinGaps=best.skin;
     drawClearance=best.clearance;
