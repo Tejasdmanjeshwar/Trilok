@@ -232,8 +232,23 @@ describe("Studio bow and visual nock contract",()=>{
               const indexSkin=sourceIndexRestLandmark(model,hand,
                 sourceHandSamples(model,hand),report.bowWorld);
               expect(local.y).toBeGreaterThanOrEqual(indexSkin.y-.003);
-              expect(local.y).toBeGreaterThanOrEqual(
-                report.descriptor.handleLengthMeters/2+rest.shaftRadiusMeters-.001);
+              expect(local.y-indexSkin.y).toBeLessThan(.015);
+              // The shaft sits on the anatomical index side of the stave,
+              // clearing the finite handle by its *radius*, not by raising
+              // it over the entire upper handle cap.
+              expect(local.x).toBeCloseTo(rest.lateralOffsetMeters,8);
+              const handleGap=signedFiniteCylinderDistance(
+                local.x,local.y,0,report.descriptor.handleRadiusMeters,
+                report.descriptor.handleLengthMeters)-rest.shaftRadiusMeters;
+              expect(handleGap).toBeGreaterThanOrEqual(-.001);
+              const tipContact=measureSourceArrowShaft(model,
+                sourceHandSamples(model,hand),report.bowWorld,
+                bow.tipLocal.clone().add(new THREE.Vector3(0,0,-.065)),
+                .065,.016*report.descriptor.limbLengthMeters/.64);
+              for(const region of tipContact)
+                expect(region.nearestSurfaceClearanceMeters,
+                  hand+"/"+state+"/"+region.region+" arrowhead penetration")
+                  .toBeGreaterThan(0);
               const previous=measureSourceArrowShaft(model,
                 sourceHandSamples(model,hand),report.bowWorld,
                 new THREE.Vector3(0,0,local.z),
