@@ -799,10 +799,15 @@ The follow-up introduces `StudioArrowRest.ts`, a version-1 validated,
 replaceable hand-supported or shelf-style rest reference. The current
 traditional hand-supported profile uses the original physical bow +Y
 index-to-little-knuckle frame for either hand. It derives a posed proximal
-index-skin landmark and a minimum centerline height over the finite handle
-cap, including the shaft radius and a configurable support gap. The shared
-string/nock IK solves the vertical rest parameter against the same
-source-skinned drawing pads; the renderer uses that solved nock for both
+index-skin surface landmark. The first vertical-only trial passed nominal
+shaft clearance but left the arrow 29-41 mm above the index support: it
+was rejected. The corrected traditional rest is instead located on the
+index-side of the grip with a morphology-derived lateral offset, keeping
+its height near the index knuckle while clearing the full finite handle
+in 3D. The shared string/nock IK solves the rest height against the same
+source-skinned drawing pads and uses the anatomical lateral placement as a
+single physical nock/string/shaft frame; the renderer uses that solved
+nock for both
 string segments, arrowhead and shaft. No unrelated pose-controller,
 combat projectile logic or visual shaft translation is permitted.
 
@@ -820,3 +825,12 @@ Existing archery shoulder, elbow and shooting-plane targets are unchanged.
 PR: https://github.com/Tejasdmanjeshwar/Trilok/pull/88
 Tracking: https://github.com/Tejasdmanjeshwar/Trilok/issues/81
 Status: **draft engineering candidate, not accepted, not merged**.
+
+The first feature CI evaluation (Verify 44069155720) passed 479/482 tests
+but failed three morphology cases because the final arrow-clearance
+reachability gate correctly rejected a pose while the diagnostics still
+reported `ok`; it also demonstrated excessive vertical rest flotation
+in the nominal inspection logs. That candidate was **not accepted**.
+The next candidate fits the shaft alongside the finite grip, and reports
+arrow-specific unreachability explicitly. Its tests and Cloudflare build
+must be independently reverified before this draft is review-ready.
