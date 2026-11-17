@@ -105,6 +105,10 @@ export class StudioPosePreview {
       this.archeryResult=solveArcheryPose(this.model,this.fk,effective,
         hand,this.archeryState,this.archeryDraw,
         this.archeryHoldingReference?.result);
+      if(this.archeryState==="aim"&&this.archeryResult.reachable)
+        this.archeryHoldingReference={
+          pose:id,hand,result:this.archeryResult,
+        };
     }else if(dual){
       const swordSide=this.grip.endsWith("right")?"right":"left";
       this.shieldResult=solveShieldPose(this.model,this.fk,effective,
