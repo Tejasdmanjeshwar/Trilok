@@ -534,6 +534,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // the provisional hand-supported rest above the physical grip cap.
   // The same nock is used by drawing IK, shaft and both string segments.
   const bowSkin=sourceHandSamples(model,hand);
+  // Small bounded source-vertex subset for candidate ranking. Full skin is
+  // reserved for the chosen final contact check, avoiding a per-seed O(mesh)
+  // scan during repeated Character Studio slider movement.
+  const coarseBowSkin=sourceHandSamples(model,hand,24);
   const indexRest=sourceIndexRestLandmark(model,hand,bowSkin,world);
   const arrowRestY=Math.max(indexRest.y,
     descriptor.handleLengthMeters/2)+descriptor.arrowRest.shaftRadiusMeters+
@@ -808,7 +812,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         at(bowShoulderBone),at(bowElbowBone),at(bowWristBone));
       const extensionCost=bowArm&&desiredBend!==undefined?
         bowArmExtensionResidual(bowArm,desiredBend)*.55:0;
-      const shaftClearance=measureSourceArrowShaft(model,bowSkin,
+      const shaftClearance=measureSourceArrowShaft(model,coarseBowSkin,
         actualBow,new THREE.Vector3(0,fit.values[freedoms.length]!,localNock.z),
         descriptor.arrowLengthMeters,descriptor.arrowRest.shaftRadiusMeters);
       const shaftValid=shaftClearance.every(s=>
