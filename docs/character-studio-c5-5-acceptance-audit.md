@@ -32,6 +32,24 @@ The current `main` exposes single-hand sword (left/right), long sword/staff (bot
 | Exact Cloudflare deployed commit and notices | Starting-main compiled identity only, direct production fetch unavailable | OPEN |
 | Final manual C5 Phase Acceptance, owner approval, issue closure | Not dispatched | OPEN |
 
+## 2026-11-17 measured performance and CI policy follow-up
+
+**Browser results (same Playwright spec, different GitHub runner moments):**
+- [First Chromium run #44105630904](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44105630904) tested pre-fix preview and reported desktop median/p95 339.8/569.8 ms and touch median/p95 353.7/575.8 ms.
+- [Merged-fix Chromium run #44106999189](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44106999189) passed desktop/touch against a candidate incorporating merged PR #90, reporting desktop median/p95 546.8/938.8 ms and touch median/p95 579.8/1023.3 ms. All 14 samples per viewport are synthetic slider input to the second requestAnimationFrame, **not actual browser paint/GPU latency**. No page errors or grip warnings were reported. GPU geometry counters returned to 3 after the equipment cycle; texture counters stabilized at 2 after the repeat cycle. No statistically controlled browser comparison or leak certification can be inferred from the two runs. The revised screenshot evidence includes settled hand focus, but continuous skin contact and owner approval are unverified.
+
+**Policy correction:** The original automatic `c55-browser-audit.yml` triggered a failure in the repository's legitimate `tests/ci-phase-gating.test.ts` (CI [#44106999290](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44106999290)). The workflow was **removed** from PR #91 without weakening the test; its `e2e/c55-integrated-audit.spec.ts` remains for the existing manually dispatched Phase Acceptance workflow. Historical successful screenshots and JSON artifacts remain attached to the earlier Actions runs.
+
+**Controlled end-to-end Node solver benchmark:** [run #44107261407](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44107261407) completed on one ubuntu-latest runner / Node v22.23.4, sampling 130 operations per revision (110 grouped scenarios), original `64ac634c` and post-fix `5114afed`. Representative before/after timings:
+- Neutral bow-left cold equip: 274.44 / 260.52 ms; neutral bow-left partial 50% rapid slider: 392.26 / 390.77 ms.
+- Asymmetric seed 2929832126 bow-left cold equip: 1201.04 / 1219.95 ms.
+- Asymmetric seed's bow-left partial 50% rapid slider: 4925.28 / 4867.03 ms, **unreachable** and repeated across other partial fractions.
+- Asymmetric seed bow-right partial 50% rapid slider: 1262.97 / 1268.17 ms.
+
+The fixed-slider branch removes needless settled-pose recomputations but does not materially improve genuine partial draw solves. Approximately 4.8–4.9 seconds blocking for each distinct unreachable partial input on the asymmetric left bow is an **active C5 acceptance blocker**. A repair must preserve reachable partial states, source-skinned validity, and deterministic fallback. These serial Node measurements are neither device FPS nor GPU times; the runner and sample count are not enough to assert broad speedups.
+
+**Phase state:** C5 remains **NOT ACCEPTED**. Exact final merged main, full phase browser matrix, independent Cloudflare served build identity, performance remediation, integrated resource/visibility/context testing, and owner visual approval remain required.
+
 ## Required closure sequence
 
 1. PR #90 merged following green CI. Verify its resulting main build and original accepted partial/full/nock visuals; fix UI regressions in a separate PR when demonstrated.
