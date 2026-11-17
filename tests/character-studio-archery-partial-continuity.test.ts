@@ -57,6 +57,15 @@ describe("C5.4 partial-draw source-kinematic progression",()=>{
       const preview=new StudioPosePreview(model);
       try{
         preview.setGrip(side==="left"?"bow-left":"bow-right");
+        preview.setArcheryState("nock");
+        const nock=preview.bowPoseResult!;
+        expect(nock.reachable).toBe(true);
+        preview.setArcheryState("aim");
+        const aim=preview.bowPoseResult!;
+        expect(aim.reachable).toBe(true);
+        const maxEndpointLateral=Math.max(
+          nock.stanceAlignment!.bowArmLateralOffsetMeters,
+          aim.stanceAlignment!.bowArmLateralOffsetMeters);
         preview.setArcheryState("partial");
         const holdingJoints=new Set(human.spike.graph.joints.filter(j=>
           ["clavicle_","shoulder_","elbow_","wrist_"].some(prefix=>
@@ -75,6 +84,10 @@ describe("C5.4 partial-draw source-kinematic progression",()=>{
           expect(result.reachable,`${side} draw ${slider}: ${result.reason}`)
             .toBe(true);
           expect(result.stanceAlignment).toBeDefined();
+          // A skinned-hand contact that parks the bow arm 300 mm sideways
+          // is NOT a coherent intermediate pose, even when it passes IK.
+          expect(result.stanceAlignment!.bowArmLateralOffsetMeters)
+            .toBeLessThan(maxEndpointLateral+.09);
           const support=new Map(result.commands.filter(c=>
             holdingJoints.has(c.jointId)).map(c=>
             [c.jointId+"/"+c.motion,c.radians]));
@@ -121,8 +134,14 @@ describe("C5.4 partial-draw source-kinematic progression",()=>{
           [...starting].map(([key,angle])=>Math.abs(
             (state.get(key)??angle)-angle)));
         expect(Math.max(...changes)).toBeGreaterThan(1e-6);
-        expect(Math.max(...changes)).toBeLessThanOrEqual(
-          THREE.MathUtils.degToRad(4)+1e-8);
+        // The old 4-degree total-motion gate enforced the wrong constant
+        // sideways support pose. Replace it with a neighboring-frame
+        // continuity limit while allowing the nock->aim pose to progress.
+        const neighbors=holdingStates.slice(1).flatMap((state,i)=>
+          [...holdingStates[i]!].map(([key,angle])=>Math.abs(
+            (state.get(key)??angle)-angle)));
+        expect(Math.max(...neighbors)).toBeLessThan(
+          THREE.MathUtils.degToRad(20));
         // Record the current trajectory without falsely accepting a bent
         // partial elbow: those target angles require owner visual approval
         // and a separate contact-preserving solver correction.
