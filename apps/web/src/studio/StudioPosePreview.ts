@@ -8,7 +8,8 @@ import {isTwoHandEquipment,primaryHand,twoHandKind,solveTwoHandIK,type Equipment
   type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
 import {solveArcheryPose,isBowEquipment,type ArcheryPoseResult,
-  type ArcheryState} from "./StudioArchery";
+  type ArcheryState,type ArcheryTransitionGuide} from "./StudioArchery";
+import {twoHandGripContactWorld} from "./StudioTwoHandGrip";
 import {isSwordShieldEquipment,shieldHand,solveShieldPose,type ShieldPoseResult,
   type ShieldStance} from "./StudioShieldGrip";
 
@@ -26,6 +27,11 @@ export class StudioPosePreview {
   private archeryState:ArcheryState="rest";
   private archeryDraw=1;
   private archeryResult?:ArcheryPoseResult;
+  /** Per-generated-character solved source endpoints. Do not recompute
+   * expensive source-skinned contact fits on every partial slider change. */
+  private archeryGuide?:Readonly<{
+    pose:StudioPose;hand:"left"|"right";value:ArcheryTransitionGuide;
+  }>;
   get bowPoseResult():ArcheryPoseResult|undefined{return this.archeryResult;}
   setArcheryState(state:ArcheryState):void{this.archeryState=state;this.refresh();}
   setArcheryDraw(value:number):void{this.archeryDraw=value;this.refresh();}
@@ -35,7 +41,10 @@ export class StudioPosePreview {
     this.shieldStance=stance;this.refresh();
   }
   get twoHandResult():TwoHandIKResult|undefined{return this.result;}
-  setGrip(hand:EquipmentChoice):void{this.grip=hand;this.refresh();}
+  setGrip(hand:EquipmentChoice):void{
+    if(hand!==this.grip)this.archeryGuide=undefined;
+    this.grip=hand;this.refresh();
+  }
   constructor(private readonly model:StudioHumanModel,
     archery?:Readonly<{state:ArcheryState;draw:number}>){
     if(archery){
@@ -84,8 +93,26 @@ export class StudioPosePreview {
     this.shieldResult=undefined;
     this.archeryResult=undefined;
     if(isBowEquipment(this.grip)){
+      const hand=this.grip.endsWith("right")?"right":"left";
+      if(this.archeryGuide?.pose!==id||this.archeryGuide.hand!==hand)
+        this.archeryGuide=undefined;
+      if(this.archeryState==="partial"&&!this.archeryGuide){
+        // Endpoints are solved with the same legal FK and strict source-skin
+        // contact gates as normal preview states. No manufactured hand pose.
+        const nock=solveArcheryPose(this.model,this.fk,effective,hand,"nock",1);
+        const nockGrip=nock.reachable?
+          twoHandGripContactWorld(this.model,hand).clone():undefined;
+        const aim=solveArcheryPose(this.model,this.fk,effective,hand,"aim",1);
+        const aimGrip=aim.reachable?
+          twoHandGripContactWorld(this.model,hand).clone():undefined;
+        if(nockGrip&&aimGrip)
+          this.archeryGuide={pose:id,hand,value:{
+            nock:{commands:nock.commands,gripWorld:nockGrip},
+            aim:{commands:aim.commands,gripWorld:aimGrip},
+          }};
+      }
       this.archeryResult=solveArcheryPose(this.model,this.fk,effective,
-        this.grip.endsWith("right")?"right":"left",this.archeryState,this.archeryDraw);
+        hand,this.archeryState,this.archeryDraw,this.archeryGuide?.value);
     }else if(dual){
       const swordSide=this.grip.endsWith("right")?"right":"left";
       this.shieldResult=solveShieldPose(this.model,this.fk,effective,
@@ -105,6 +132,7 @@ export class StudioPosePreview {
     this.result=undefined;
     this.shieldResult=undefined;
     this.archeryResult=undefined;
+    this.archeryGuide=undefined;
     this.fk.apply([]);
     this.correctives?.dispose();
   }
