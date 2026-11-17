@@ -212,8 +212,35 @@ export class AnatomicalFK {
         add("rotation", safeUnit((elbow ?? at(joint.id)!).clone().sub(at(joint.id)!),
           up), -1.35, 1.35);
       } else if (role.startsWith("elbow_") && side) {
-        add("flexion", pitch, -.07, 2.45);
+        const shoulder = byRole("shoulder_" + side);
         const wrist = byRole("wrist_" + side);
+        const elbow = at(joint.id)!;
+        // The MakeHuman neutral/source bind stance is NOT a straight elbow.
+        // The former hard -0.07 minimum left a 136-degree arm fully extended
+        // in IK, even while the optimizer was pinned against that bound.
+        // Measure the actual rest-bone interior and permit the missing legal
+        // extension toward a small positive bend, never hyperextension.
+        // Calibrate once per morphology at FK construction; this same shared
+        // freedom is used by swords, shields, staves, archery and later poses.
+        let minimumFlexion = -.07;
+        if (shoulder && wrist) {
+          const proximal = shoulder.clone().sub(elbow).normalize();
+          const distal = wrist.clone().sub(elbow).normalize();
+          const straight = proximal.clone().negate();
+          const restBend = Math.acos(THREE.MathUtils.clamp(
+            distal.dot(straight), -1, 1));
+          const extensionAxis = distal.clone().cross(straight);
+          // The source hinge is the calibrated world -X pitch. Reject
+          // projection onto an incompatible plane rather than making an
+          // arbitrary amount of new elbow freedom on unusual anatomy.
+          if (extensionAxis.lengthSq() > 1e-10 &&
+              extensionAxis.normalize().dot(pitch) < -.65) {
+            const softBend = THREE.MathUtils.degToRad(8);
+            minimumFlexion = -THREE.MathUtils.clamp(
+              restBend-softBend, .07, .90);
+          }
+        }
+        add("flexion", pitch, minimumFlexion, 2.45);
         // Pronation/supination originates at the proximal forearm, not at
         // the wrist. The measured elbow->wrist axis follows shoulder motion.
         add("rotation", safeUnit((wrist ?? at(joint.id)!).clone().sub(at(joint.id)!),
