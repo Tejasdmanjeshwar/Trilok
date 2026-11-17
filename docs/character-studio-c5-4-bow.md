@@ -463,3 +463,57 @@ retained. The current branch requires a fresh green CI before any acceptance.
 fixed.** The high-partial-draw trajectory and coordinated shoulder/back-tension
 triangle still need additional FK/IK design, rather than tuning one arbitrary
 target or weakening skin-contact gates.
+
+
+### 2026-11-17 partial-draw continuation diagnostic (unaccepted)
+
+The owner accepted **nocking and full draw only**, and reported the partial
+slider's overhead silhouette as visibly folded. The three exact owner
+reference images are persisted in the ChatGPT Library folder
+`/Trilok/Archery C5.4 References/`, including the correct shooting-plane
+overhead comparison and a screenshot of the current Character Studio result.
+
+Starting feature SHA: `2c25d10952797a28265001ac7126305510c1064b`;
+starting main: `37fa55013ea66ec1f5801e1eda650c4ee5d64628`.
+At this baseline the partial-state default (slider value 1) measures 96.02°
+source 3D elbow interior, 127.17° overhead and 361.56 mm forward reach,
+versus 162.66°, ~162.5°, ~502 mm at accepted full draw. A verified
+baseline CI run `44021766225` passed 475 tests across 85 suites.
+
+**Identified issue:** `archeryDrawFraction("partial", slider)` converts the
+slider to 0–0.65 physical tension. The holding-arm target expansion, however,
+uses `smoothstep((tension - 0.58) / 0.42)`; most partial slider values
+therefore receive essentially the nocking bow-hand target. The shared
+coupled IK has no extension guidance until tension >= 0.80, an unreachable
+condition for partial. Source-skinned string contact can consequently be
+correct while the intermediate elbow and overhead silhouette are cramped.
+The bilateral seed-selection trace also shows candidate changes near partial
+0.75, so a continuous target alone does not guarantee a continuous pose.
+
+**Unsuccessful controlled trial:** commit `38e9acde` changed only partial
+draw to a smooth-slider bow-hand extension and a soft intermediate bow-elbow
+objective. CI run `44024832873` failed 5/477 tests (472 passed), including
+both sides' partial-bow reachability and the new progression fixtures.
+The maximum partial target remained infeasible in the coupled FK/IK/contact
+problem; no hard source contact limits were relaxed. This experiment was
+**reverted in** `bd308ebab5c4e71809a9848a1c2e4071a123c598`
+to restore the previously verified pose behavior. Do not revive the trial by
+simply increasing hand reach or increasing overhead residual weights.
+
+New `tests/character-studio-archery-partial-continuity.test.ts` measures
+actual source-skinned two-finger gaps, shoulder lead, three-dimensional and
+overhead elbow angles, forward reach, wrist lateral deviation, draw-elbow
+position, arrow aim and candidate attempts at five partial slider fractions
+for both hands. Its measurements are **diagnostic**, not proof of a fixed
+silhouette. The accepted nock/full-draw paths and contact thresholds are
+unchanged. Future correction should use a coupled, continuous, physically
+feasible hand-and-elbow continuation with deterministic candidate selection,
+rather than attempting to satisfy a long bow-arm target independently of
+the drawing hook and source-knuckle bow orientation.
+
+**Outstanding:** preserve all tests green for the latest diagnostic-only
+branch, obtain visual snapshots from the actual rendered preview across all
+five slider points and both handedness settings, measure solver CPU time/
+candidate cost and Cloudflare deployed SHA, then implement and verify an
+anatomically credible partial trajectory. PR #87 remains draft/unmerged;
+no owner visual acceptance of partial draw or C5.4 is claimed.
