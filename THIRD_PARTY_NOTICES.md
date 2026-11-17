@@ -5,7 +5,7 @@ This document distinguishes the **rights reserved in original Trilok code**
 does not claim exclusive copyright over that third-party material.
 
 **Scope:** evidence-based inventory of directly declared dependencies and
-pinned original MakeHuman assets on the audited `main` branch (2026-11-14).
+pinned original MakeHuman assets on the C5.5-audited `main` branch (2026-11-17).
 It is **not a complete lockfile-level / transitive SBOM or a final commercial
 release clearance**. Source and build outputs must be audited again for every
 release and whenever dependencies or assets change.
@@ -25,16 +25,21 @@ release and whenever dependencies or assets change.
 - **Original content acquired at build time:** `makehuman/data/3dobjs/base.obj`;
   `makehuman/data/rigs/default.mhskel`;
   `makehuman/data/rigs/default_weights.mhw`; pinned facial
-  `.target` files. The exact source, bytes, and Git blob identities are
-  checked by `assets/makehuman-core.json` and
-  `assets/makehuman-facial-v1.json` and the corresponding fetch scripts.
+  `.target` files; and 846 pinned native body/macro `.target` files with their
+  official modifier metadata. The exact source, byte sizes, and Git blob
+  identities are checked by `assets/makehuman-core.json`,
+  `assets/makehuman-facial-v1.json` and
+  `assets/makehuman-body-v1.json` and their corresponding fetch scripts.
   The base mesh is identified by SHA-256
   `8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c`.
-- **Upcoming body corpus:** C3.6 branch PR #56 has a separate
-  `assets/makehuman-body-v1.json` manifest for 846 pinned body/macro targets.
-  These are **not on audited main**. Upon merge, include that corpus in the
-  release asset inventory; verify the committed source, compiled data, and
-  final bundled content independently.
+- **Bundled native body corpus:** The merged C3.6 body/macro atlas has
+  846 pinned MakeHuman targets declared in `assets/makehuman-body-v1.json`,
+  sourced from the same immutable upstream revision above. Its fetch/build
+  verifies official source metadata and content identities. Exact-main
+  GitHub Verify #44106663782 reported 846 source targets verified (cached)
+  and generated the production asset chunks. This is source identity
+  verification, **not** a full distributed-bundle SBOM, final release asset
+  inventory, or an independent Cloudflare deployment verification.
 - **Processing:** These CC0 assets are downloaded and converted to
   Three.js-compatible runtime data; source identities are checked at ingest.
 
