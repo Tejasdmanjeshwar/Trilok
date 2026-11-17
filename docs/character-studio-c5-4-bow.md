@@ -779,3 +779,105 @@ The owner inspected the newly available C5.4 feature preview and explicitly conf
 The feature-head runner correction `0e43295c671788e7d8b245e808c15c3725df6959` changes only the root test script to `vitest run tests/ --pool=threads --maxWorkers=1`. It was introduced after Cloudflare's 2-worker fork-based Vitest 3.2.7 run reported 480 passing assertions in 86 suites but two unhandled `[vitest-worker]: Timeout calling "onTaskUpdate"` errors, aborting before the production bundle. The bounded single-thread worker run retained all tests and passed GitHub [Verify #44055047838](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44055047838) (86 suites/480 assertions, TypeScript, build and build identity). Cloudflare [Workers Builds #34668ae5-26fd-49ec-88f6-3b6d8ca9c86b](https://dash.cloudflare.com/3e19634386530acbc03082b1d8889a0b/workers/services/view/trilok/production/previews/feat-c5-4-anatomical-bow-draw/builds/34668ae5-26fd-49ec-88f6-3b6d8ca9c86b) also reported **success** for that exact commit. This verifies one complete Cloudflare build, not guaranteed absence of future resource pressure.
 
 The Cloudflare check establishes successful preview build/deployment pipeline reporting, but direct `/build-info.json` verification against the served feature SHA was blocked by network access in the checking environment; do not conflate successful check and externally confirmed content revision. The owner independently verified the rendered result in the accessible preview. Cold solver-cache latency, mobile performance, source-skinned continuous triangle collision and production-art polish remain future concerns. Neither gameplay ballistics nor combat authority was changed. No C5.5 work or phase-wide acceptance was undertaken here.
+
+
+## C5.4 follow-up: anatomical arrow rest (draft PR #88)
+
+The owner accepted C5.4 bow pose presentation in PR #87, then identified
+remaining source-hand penetration by the nocked arrow. The C5.4 pose
+targets and source-hand grip remain protected.
+
+Root cause: the previous bow-local shaft was rendered from a string nock with
+a nominal Y=0 rest, adjusted by at most 25% of the finite handle length.
+The accepted shared IK enforced drawing-finger/string source contacts and
+bow-hand/handle source contacts independently, but **never measured the
+actual finite-radius shaft against the posed bow hand**. Consequently a
+source-skinned grasp could pass every C5.4 contact test while the shaft
+crossed the bow's index/middle/ring region or the physical grip.
+
+The follow-up introduces `StudioArrowRest.ts`, a version-1 validated,
+replaceable hand-supported or shelf-style rest reference. The current
+traditional hand-supported profile uses the original physical bow +Y
+index-to-little-knuckle frame for either hand. It derives a posed proximal
+index-skin surface landmark. The first vertical-only trial passed nominal
+shaft clearance but left the arrow 29-41 mm above the index support: it
+was rejected. The corrected traditional rest is instead located on the
+index-side of the grip with a morphology-derived lateral offset, keeping
+its height near the index knuckle while clearing the full finite handle
+in 3D. The shared string/nock IK solves the rest height against the same
+source-skinned drawing pads and uses the anatomical lateral placement as a
+single physical nock/string/shaft frame; the renderer uses that solved
+nock for both
+string segments, arrowhead and shaft. No unrelated pose-controller,
+combat projectile logic or visual shaft translation is permitted.
+
+The solver uses a bounded deterministic hand-vertex subset when ranking
+candidate shaft positions and the complete original posed source skin in
+its final check. Source-vertex capsule clearance is a **finite-radius
+diagnostic**, not a proof of triangle-level absence of intersections.
+A final triangle-level mesh gate, real rendered close-ups in both hands,
+source-morphology stress tests, Cloudflare preview SHA and owner acceptance
+are still required before this correction is considered ready. The
+drawing-hook/string alignment, index knuckle support, finger/palm
+separation and handle top clearance are independently reported by tests.
+Existing archery shoulder, elbow and shooting-plane targets are unchanged.
+
+PR: https://github.com/Tejasdmanjeshwar/Trilok/pull/88
+Tracking: https://github.com/Tejasdmanjeshwar/Trilok/issues/81
+Status: **draft engineering candidate, not accepted, not merged**.
+
+The first feature CI evaluation (Verify 44069155720) passed 479/482 tests
+but failed three morphology cases because the final arrow-clearance
+reachability gate correctly rejected a pose while the diagnostics still
+reported `ok`; it also demonstrated excessive vertical rest flotation
+in the nominal inspection logs. That candidate was **not accepted**.
+The next candidate fits the shaft alongside the finite grip, and reports
+arrow-specific unreachability explicitly. Its tests and Cloudflare build
+must be independently reverified before this draft is review-ready.
+
+## C5.4 arrow-rest PR #88 — measured verification, 17 November 2026
+
+The final draft candidate uses a **7 mm diameter physical shaft** and a
+configurable 5 mm hand-supported clearance, replacing the original
+overlarge 12 mm diameter. Its bow-local X rest side is selected by the
+actual **nearest posed thumb surface along the full shaft**, not the
+MCP sign or overall curled-thumb centroid. Both the drawing-hand string
+goal and rendered nock/shaft/arrowhead share the solved reference.
+The full physical shaft is measured against six distinct source-skin
+hand regions, and the finite handle is measured separately.
+
+The nominal source-skinned C5.4 probe reports (all millimeters):
+- Left nock/partial/aim: original middle finger clearance
+  -2/-3/-3, corrected +33/+32/+34; rest center above proximal
+  index support 9/8/10.
+- Right nock/partial/aim: original middle finger clearance
+  -3/-3/-3, corrected +32/+32/+33; rest above index 8/9/10.
+- Corrected left nock thumb clearance is only approximately **+1 mm**,
+  so precise triangle and close-up render inspection remain important.
+  All six nominal region tests, arrowhead, handle, string contact and
+  collinearity assertions pass.
+- The accepted guided partial arm benefits from a bounded early support
+  progression envelope and stronger support-reference regularization
+  in the coupled offset-arrow case. The late 75/100% support target
+  remains unchanged. The original 20-degree neighboring-FK continuity
+  limit and existing partial elbow reachability checks remain enforced.
+
+**Verified GitHub Actions results:** focused regression
+[run #44074947120](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44074947120):
+26/26 tests, four suites; complete PR Verify
+[run #44074956492](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44074956492):
+482/482 tests, 87 suites, TypeScript check, authoritative deterministic
+combat replay within the existing full test script, production bundle,
+and compiled build identity verification all passed.
+The reported CI artifact identity `c9299fc1-20261117T113848991Z`
+is the checkout's synthesized PR merge revision and **not proof of
+Cloudflare deployment of the actual feature branch HEAD**.
+
+This does **not** establish browser-rendered visual acceptance,
+performance measurements on real mobile devices, exhaustive
+source-triangle collision avoidance, or a verified Cloudflare
+feature-preview deployment and SHA. Extreme supported body morphologies
+retain deterministic safe fallback on an impossible contact; that does
+not certify all extreme poses playable or final-quality. The draft
+must remain unmerged until real top/front/side and mobile inspection
+and owner approval. No authoritative gameplay/combat behavior changed.
