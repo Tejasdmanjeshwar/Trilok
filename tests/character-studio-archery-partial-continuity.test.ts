@@ -138,10 +138,14 @@ describe("C5.4 partial-draw source-kinematic progression",()=>{
         // sideways support pose. Replace it with a neighboring-frame
         // continuity limit while allowing the nock->aim pose to progress.
         const neighbors=holdingStates.slice(1).flatMap((state,i)=>
-          [...holdingStates[i]!].map(([key,angle])=>Math.abs(
-            (state.get(key)??angle)-angle)));
-        expect(Math.max(...neighbors)).toBeLessThan(
-          THREE.MathUtils.degToRad(20));
+          [...holdingStates[i]!].map(([key,angle])=>({
+            joint:key,step:i,delta:Math.abs((state.get(key)??angle)-angle),
+          })));
+        const maximum=neighbors.reduce((best,row)=>
+          row.delta>best.delta?row:best,neighbors[0]!);
+        expect(maximum.delta,
+          `${side} ${maximum.joint} between slider ${maximum.step}/4 and ${maximum.step+1}/4`)
+          .toBeLessThan(THREE.MathUtils.degToRad(20));
         // Record the current trajectory without falsely accepting a bent
         // partial elbow: those target angles require owner visual approval
         // and a separate contact-preserving solver correction.
