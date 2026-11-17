@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type {StudioHumanModel} from "./StudioHumanModel";
+import {countStudioSolverWork} from "./StudioSolverDiagnostics";
 
 /**
  * A small, disposable-by-GC torso volume built from the actual morphed
@@ -141,6 +142,7 @@ export class StudioBodyCollision {
   readonly sourceVertices:number;
 
   constructor(model:StudioHumanModel){
+    countStudioSolverWork("torsoBuilds");
     const {mesh,spike,template}=model.human;
     spike.character.root.updateWorldMatrix(true,true);
     mesh.updateWorldMatrix(true,false);
@@ -171,6 +173,7 @@ export class StudioBodyCollision {
         .applyMatrix4(this.bindRootInverse);
       if(!point.toArray().every(Number.isFinite))throw new Error("Nonfinite torso skin");
       accepted++;
+      countStudioSolverWork("torsoSourceVertices");
       for(const bin of bins){
         if(Math.abs(point.y-bin.y)>halfHeight)continue;
         bin.minX=Math.min(bin.minX,point.x);
@@ -201,6 +204,7 @@ export class StudioBodyCollision {
     this.sourceVertices=accepted;
     this.torsoTriangles=topology.triangles;
     this.sourceTriangleCount=topology.triangles.length;
+    countStudioSolverWork("torsoTriangles",topology.triangles.length);
   }
 
   /**
@@ -214,6 +218,7 @@ export class StudioBodyCollision {
         .multiply(bone.matrixWorld.clone().invert()));
   }
   clearance(point:THREE.Vector3):number{
+    countStudioSolverWork("collisionClearanceChecks");
     const matrices=this.transforms();
     return this.distance(point,matrices);
   }
@@ -291,6 +296,7 @@ export class StudioBodyCollision {
     kind:BodyCollisionWeapon,dim:BodyCollisionDimensions):BodyClearance{
     const transforms=this.transforms();
     const probes=this.collectProbes(model,weapon,kind,dim);
+    countStudioSolverWork("collisionWeaponChecks",probes.length);
     const penalties:number[]=[];
     let minimum=Infinity,maximumPenetration=0;
     for(const probe of probes){

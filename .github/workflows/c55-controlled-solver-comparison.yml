@@ -5,7 +5,12 @@ on:
   pull_request:
     paths:
       - '.github/workflows/c55-controlled-solver-comparison.yml'
+      - 'apps/web/src/studio/StudioSolverDiagnostics.ts'
+      - 'apps/web/src/studio/ConstrainedIK.ts'
+      - 'apps/web/src/studio/StudioSourceContact.ts'
       - 'apps/web/src/studio/StudioBodyCollision.ts'
+      - 'benchmarks/character-studio-solver.bench.test.ts'
+      - 'tests/character-studio-solver-diagnostics.test.ts'
       - 'tests/character-studio-body-topology-cache.test.ts'
 permissions:
   contents: read

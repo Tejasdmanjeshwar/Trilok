@@ -8,14 +8,17 @@ import {make} from "../tests/helpers/studio-two-hand-fixtures";
 import {generateStudioCharacter} from "../apps/web/src/studio/StudioGenerator";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
 import {sourceHandSamples} from "../apps/web/src/studio/StudioSourceContact";
+import {captureStudioSolverCounters,type StudioSolverCounters} from
+  "../apps/web/src/studio/StudioSolverDiagnostics";
 
-type Observation={scenario:string;durationMs:number;iterations?:number;
+type Observation={scenario:string;durationMs:number;work:StudioSolverCounters;iterations?:number;
   solverAttempts?:number;reachable?:boolean;skinVertices?:number};
 const samples:Observation[]=[];
 const take=(scenario:string,action:()=>void,details?:()=>Partial<Observation>)=>{
   const begin=performance.now();
-  action();
-  const result={scenario,durationMs:performance.now()-begin,...details?.()};
+  const captured=captureStudioSolverCounters(action);
+  const result={scenario,durationMs:performance.now()-begin,
+    work:captured.counters,...details?.()};
   samples.push(result);
   return result;
 };
@@ -91,7 +94,12 @@ describe("manual Character Studio runtime solver profiling",()=>{
       groups.set(row.scenario,list);
     }
     const summary=[...groups].map(([scenario,durations])=>
-      ({scenario,...summarize(durations)}));
+      ({scenario,...summarize(durations),
+        meanIkObjectives:samples.filter(r=>r.scenario===scenario).reduce(
+          (sum,r)=>sum+r.work.ikObjectives,0)/durations.length,
+        meanSourceSkinVertices:samples.filter(r=>r.scenario===scenario).reduce(
+          (sum,r)=>sum+r.work.stringSkinVertices+r.work.cylinderSkinVertices+
+            r.work.fingerPadSkinVertices,0)/durations.length}));
     const report={context:"Node/Vitest main-thread wall time; NOT browser frame or GPU time",
       node:process.version,platform:process.platform,arch:process.arch,
       summary,observations:samples};
