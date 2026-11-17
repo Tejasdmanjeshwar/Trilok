@@ -296,7 +296,7 @@ export interface ArcheryPoseResult {
 export function archeryDrawFraction(state:ArcheryState,value:number):number{
   if(!Number.isFinite(value)||value<0||value>1)throw new Error("Invalid archery draw");
   return state==="rest"||state==="release"?0:
-    state==="nock"?.08:state==="partial"?value*.65:value;
+    state==="nock"?.08:state==="partial"?.08+.92*value:value;
 }
 /** A progressive, foot-planted shooting plane. Both stances are solved by the
  * same legal FK and contact IK; this is NOT a root or weapon rotation. */
@@ -407,7 +407,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       transverseOffset,.045*scale));
   const supportTarget=bowShoulder.clone().add(transverseOffset)
     .addScaledVector(forward,supportForward);
-  const bowTarget=partialSupport?supportTarget:
+  // Match the nocking endpoint to the accepted full-draw endpoint by
+  // continuing the *same source-space* grip target with the string. This
+  // avoids a separate sideways partial pose and retains both actual contact
+  // chains in the coupled optimizer. Ease only the initialization target:
+  // physical finger/string acceptance remains authoritative.
+  const partialBlend=draw*draw*(3-2*draw);
+  const bowTarget=partialSupport?
+    preparedTarget.lerp(supportTarget,partialBlend):
     preparedTarget.lerp(extendedTarget,extensionBlend);
   const desiredBend=partialSupport?THREE.MathUtils.degToRad(17):
     tension<.80?undefined:THREE.MathUtils.degToRad(19-7*tension);
