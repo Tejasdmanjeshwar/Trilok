@@ -69,6 +69,32 @@ export function contactArmFreedoms(graph:AnatomicalGraphV1,fk:AnatomicalFK,
   }
   return Object.freeze(result);
 }
+/** A reusable *compliant* equipment-support envelope around a solved FK pose.
+ * The arm remains in the contact optimizer (unlike removing its freedoms).
+ * Each angular search window is intersected with its calibrated joint
+ * limits, so unusual/one-sided morphology never exceeds a legal degree of
+ * freedom. Pose preference is expressed by caller-owned soft residuals;
+ * this helper does not impose a posture or alter the shared FK/IK solver.
+ */
+export function supportedContactFreedoms(
+  freedoms:readonly ContactFreedom[],reference:readonly JointTarget[],
+  maxAdjustmentRadians:number,
+):readonly ContactFreedom[]{
+  if(!Number.isFinite(maxAdjustmentRadians)||maxAdjustmentRadians<=0||
+    maxAdjustmentRadians>Math.PI/2)
+    throw new Error("Invalid compliant support envelope");
+  const angles=new Map(reference.map(c=>[c.jointId+"/"+c.motion,c.radians]));
+  const result=freedoms.map(f=>{
+    const value=angles.get(f.jointId+"/"+f.motion);
+    if(value===undefined||!Number.isFinite(value))
+      throw new Error("Missing supported FK reference "+f.jointId+"/"+f.motion);
+    const center=THREE.MathUtils.clamp(value,f.min,f.max);
+    return Object.freeze({...f,min:Math.max(f.min,center-maxAdjustmentRadians),
+      max:Math.min(f.max,center+maxAdjustmentRadians)});
+  });
+  return Object.freeze(result);
+}
+
 /** Pose composition is immutable and preserves unrelated animation channels.
  * The result is a full FK command overlay, never a mutable solver skeleton. */
 export function composeContactPose(base:readonly JointTarget[],
