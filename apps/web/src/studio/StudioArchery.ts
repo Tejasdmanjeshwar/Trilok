@@ -322,8 +322,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // a foot-planted shooting plane BEFORE arm optimization, so both arms,
   // true-skin contacts and the arrow aim solve in the resulting anatomy.
   // Never turn the root, bow prop or projectile axis as a visual workaround.
+  // The partial draw is an established shooting stance, not a progressive
+  // bend of the holding arm. Only the draw arm follows string tension.
   const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
-    archeryShootingPlaneYaw(state,draw,hand));
+    archeryShootingPlaneYaw(state==="partial"?"aim":state,draw,hand));
   fk.apply(stance);
   const head=at(bone(model,"head",hand));
   const ankle=at(bone(model,"ankle_left","left"));
@@ -388,9 +390,26 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // target on unusual anatomy. Use it as a REAL geometric limit, not a
   // cosmetic change to the weapon or string. The coupled IK resolves the
   // remaining arm and finger DOFs under unchanged hard contact gates.
-  const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
-  const desiredBend=tension<.80?undefined:THREE.MathUtils.degToRad(
-    19-7*tension);
+  // At full draw the bow elbow is already near-straight. For a supported
+  // intermediate draw, the bow hand can be diagonally across the shooting
+  // plane, rather than requiring its full-draw world-space wrist coordinate.
+  // Choose one support pose, independent of the partial slider, within the
+  // drawing arm's worst-case (unpulled string) reach envelope. The lateral
+  // component uses measured arm length, not a hand/weapon teleport.
+  const partialSupport=state==="partial";
+  const supportForward=Math.min(armReach*.70,feasibleBowArmExtension(
+    bowShoulder,drawShoulder,forward,armReach*.96,drawingReach,
+    scale*.07,transverseOffset,.045*scale));
+  const supportLateral=Math.sqrt(Math.max(0,
+    Math.pow(armReach*.94,2)-supportForward*supportForward));
+  const supportTarget=bowShoulder.clone()
+    .addScaledVector(forward,supportForward)
+    .addScaledVector(right,(hand==="left"?1:-1)*supportLateral)
+    .addScaledVector(up,.015*scale);
+  const bowTarget=partialSupport?supportTarget:
+    preparedTarget.lerp(extendedTarget,extensionBlend);
+  const desiredBend=partialSupport?THREE.MathUtils.degToRad(17):
+    tension<.80?undefined:THREE.MathUtils.degToRad(19-7*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
@@ -492,8 +511,12 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         }
       }
     }
+    // Hold the chosen partial support arm steady. Draw-side clavicle,
+    // shoulder, elbow, wrist and the index/middle hook remain legal DOFs.
+    const holdingFreedoms=partialSupport?[]:
+      contactArmFreedoms(model.human.spike.graph,fk,hand);
     const freedoms=[
-      ...contactArmFreedoms(model.human.spike.graph,fk,hand),
+      ...holdingFreedoms,
       ...contactArmFreedoms(model.human.spike.graph,fk,drawSide),
       ...drawDigitFreedoms,
     ].map(channel=>{
@@ -530,7 +553,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const sourceDraw=retargetSourceArcherPose(
       model.human.spike.graph,fk,drawSide,"string-drawing","square",true);
     const sourceDrawMap=new Map(sourceDraw.commands.map(c=>[k(c),c.radians]));
-    const drawFreedoms=freedoms.slice(9,18);
+    const drawFreedoms=freedoms.slice(holdingFreedoms.length,
+      holdingFreedoms.length+9);
     const drawSeeds=[
       drawFreedoms.map(c=>sourceDrawMap.get(k(c))??0),
       [0,0,.48,.29,.86*signed,1.40,0,-.06,0],
@@ -553,7 +577,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       drawSide,"string-two-finger",calibrateGripSpreads(
         model.human.spike.graph,model.human.spike.bones,fk.frames,drawSide));
     const calibratedHookMap=new Map(calibratedHook.map(c=>[k(c),c.radians]));
-    const sourceDigitSeed=initial.slice(18);
+    const sourceDigitSeed=initial.slice(holdingFreedoms.length+9);
     const calibratedDigitSeed=drawDigitFreedoms.map((c,i)=>
       calibratedHookMap.get(k(c))??sourceDigitSeed[i]!);
     // Prefer the calibrated midpoint as a starting envelope. Source and
@@ -572,7 +596,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const orderedSeeds=drawSeeds.flatMap((angles,armSeed)=>
       digitSeeds.map((digits,fingerSeedIndex)=>{
         const joints=clampContactSeed([
-          ...initial.slice(0,9),...angles,...digits],freedoms);
+          ...initial.slice(0,holdingFreedoms.length),...angles,...digits],freedoms);
         fk.apply(composeContactPose(staged,freedoms,joints));
         const bow=dynamicBow();
         const goal=nockWorldFor(bow,0);
@@ -594,7 +618,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     candidateSearch:for(const {armSeed,fingerSeedIndex} of orderedSeeds){
       const angles=drawSeeds[armSeed]!,fingerSeed=digitSeeds[fingerSeedIndex]!;
       const jointSeed=clampContactSeed([
-        ...initial.slice(0,9),...angles,...fingerSeed],freedoms);
+        ...initial.slice(0,holdingFreedoms.length),...angles,...fingerSeed],freedoms);
       const seed=[...jointSeed,0];
       const commands=(values:readonly number[])=>
         composeContactPose(staged,freedoms,values.slice(0,freedoms.length));
