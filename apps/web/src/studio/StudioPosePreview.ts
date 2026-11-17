@@ -201,7 +201,7 @@ export class StudioPosePreview {
         result.nockWorld.clone().applyMatrix4(result.bowWorld.clone().invert()),
         result.descriptor.arrowLengthMeters,
         result.descriptor.arrowRest.shaftRadiusMeters);
-      if(!["index","middle"].every(d=>Number.isFinite(gaps.get(d))&&
+      if(!(["index","middle"] as const).every(d=>Number.isFinite(gaps.get(d))&&
           gaps.get(d)!<.008*scale)||
         shaft.some(x=>!Number.isFinite(x.nearestSurfaceClearanceMeters)||
           x.nearestSurfaceClearanceMeters<-.001*scale))
