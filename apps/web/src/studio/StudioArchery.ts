@@ -796,7 +796,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // The posed index skin supplies the physical arrow rest.
           // This residual moves the source drawing fingers and shared nock,
           // never a render-only shaft disconnected from the string.
-          (values[freedoms.length]!-arrowRestY)*.3,
+          (values[freedoms.length]!-arrowRestY)*1.4,
         ];
       };
       // A larger bounded trust region reaches a verified source-pose target
