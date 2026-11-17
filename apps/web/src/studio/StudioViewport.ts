@@ -402,6 +402,9 @@ export function createStudioViewport(
         ()=>!disposed&&!abort.signal.aborted&&current===ticket);
       if(!ok)return false;
       expression=next;
+      // Source face/jaw geometry changed in place; discard any prior
+      // source-skinned IK endpoint calibration before re-solving.
+      posePreview?.invalidateSourceContact();
       posePreview?.refresh();
       if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||isBowEquipment(equipment))refreshSword();
       return true;
@@ -625,6 +628,7 @@ export function createStudioViewport(
         currentAppearance=appearance;
         currentMorphology=state;
         currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
+        if(!sameFace)posePreview?.invalidateSourceContact();
         posePreview?.refresh();
         if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||
           isBowEquipment(equipment))refreshSword();
