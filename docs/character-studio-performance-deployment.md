@@ -102,9 +102,35 @@ The instrumented IK `evaluations` count can separately detect changes in
 numerical work even if a noisy runner produces inconsistent wall-clock
 timings.
 
-**Before/after solver data:** pending controlled benchmark execution. A cache
-hit avoids all repeated `sourceHandSamples` source-mesh classification work
-by construction, but actual end-to-end speedup is **not yet measured**.
+**Measured source-classification microbenchmark, 2026-11-17:**
+[GitHub Actions run 44083630821](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44083630821)
+succeeded. Same runner: Node v22.23.4, Linux x64, exact base SHA
+`f60fe92fc49064143d507866c25e3463aa121d55` vs optimized SHA
+`03838f8ed73b458da27d124eeaf99e792523698c`.
+Two independently constructed humans, left/right and 32/80/full sampling,
+10 repeated warm calls per case (12 cases, 120 calls total):
+
+| Observed metric | Base | Optimized |
+| --- | --- | --- |
+| Cold skinIndex component reads per case | 321,120 | 321,120 |
+| Warm skinIndex component reads per case (10 calls) | 3,211,200 | 0 |
+| Total warm skinIndex reads (120 calls) | 38,534,400 | 0 |
+| Per-case warm-call median range | 68.06–114.31 ms | 0.000922–0.002884 ms |
+| Per-case warm-call mean range | 92.92–266.06 ms | 0.001864–0.008364 ms |
+
+These are **instrumented** timings: the `vi.spyOn` on
+`skinIndex.getComponent` adds substantial overhead to the baseline; they
+must not be presented as uninstrumented production wall-time or a full IK
+speedup. They do provide reproducible, deterministic evidence that repeated
+region classification work is eliminated. Cold timings varied (roughly
+54–178 ms optimized, 57–102 ms base), so no cold-speedup claim is made.
+All source vertex positions and full-skin collision acceptance remain
+recomputed per physical pose.
+
+**Before/after full solver data:** pending controlled full pipeline benchmark
+execution. A cache hit avoids all repeated `sourceHandSamples` source-mesh
+classification work by construction, but actual end-to-end speedup is
+**not yet measured**.
 Additional solver, collision, or slider optimizations must be justified by
 profiles, not by intuition.
 
