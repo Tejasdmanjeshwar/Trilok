@@ -201,21 +201,33 @@ export function createStudioViewport(
         const current=owner.human.spike.character.root.matrixWorld.elements;
         if(!rootWorld.every((value,i)=>value===current[i]))return;
         try{
-          if(preview.acceptWorkerPartial(draw,result)){
+          const accepted=preview.acceptWorkerPartial(draw,result);
+          if(accepted){
             refreshSword();
             onEditError("");
           }else{
             reportGripFailure(undefined,currentRecipe,result);
             onEditError("The bow cannot reach this draw position. The last valid pose remains visible.");
           }
+          // Evidence only: this is an actual completed full source solve,
+          // unlike the two-rAF input responsiveness proxy.
+          window.dispatchEvent(new CustomEvent("trilok:studio:bow-worker-result",{
+            detail:{draw,reachable:result.reachable,accepted,id:_id},
+          }));
         }catch(error){
           reportGripFailure(error);
           onEditError("The drawn bow failed source contact validation. The previous pose remains visible.");
+          window.dispatchEvent(new CustomEvent("trilok:studio:bow-worker-result",{
+            detail:{draw,reachable:false,accepted:false,id:_id,error:true},
+          }));
         }
         updateMarkers();
       },message=>{
         if(disposed||active!==owner||generation!==ticket)return;
         onEditError("The background bow solver could not complete this draw.");
+        window.dispatchEvent(new CustomEvent("trilok:studio:bow-worker-result",{
+          detail:{draw:archeryDraw,reachable:false,accepted:false,error:true},
+        }));
         console.warn("[Trilok Studio Worker IK]",message);
       });
     }catch(error){
