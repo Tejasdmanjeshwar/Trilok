@@ -355,7 +355,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // The fast support phase blends between actual accepted endpoint poses,
   // not fixed skeleton angles or invented bow offsets.
   const supportProgress=guidedPartial?
-    THREE.MathUtils.smoothstep(draw,0,.5):0;
+    Math.min(.78,THREE.MathUtils.smoothstep(draw,0,1)):0;
   const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
     archeryShootingPlaneYaw(guidedPartial?state:
       state==="partial"?"aim":state,
