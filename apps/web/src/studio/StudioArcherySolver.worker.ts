@@ -8,11 +8,15 @@ import {encodeBowWorkerResult,type BowWorkerRequest,
 let model:StudioHumanModel|undefined;
 let preview:StudioPosePreview|undefined;
 let config:BowWorkerInit|undefined;
+let previousRoot:readonly number[]|undefined;
+let previousDraw:number|undefined;
 const respond=(value:BowWorkerResponse)=>self.postMessage(value);
 const prepare=async(input:BowWorkerInit)=>{
   preview?.dispose();preview=undefined;
   model?.dispose();model=undefined;
   config=input;
+  previousRoot=undefined;
+  previousDraw=undefined;
   model=await buildStudioHuman(input.morphology);
   if(input.expression!=="neutral"){
     await model.setFace(previewExpression(input.morphology.face,input.expression),
@@ -30,16 +34,23 @@ const solve=(id:number,draw:number,rootWorld:readonly number[])=>{
   const matrix=new THREE.Matrix4().fromArray(rootWorld);
   matrix.decompose(root.position,root.quaternion,root.scale);
   root.updateWorldMatrix(true,true);
+  const rootChanged=previousRoot!==undefined&&
+    !rootWorld.every((v,i)=>v===previousRoot![i]);
   if(!preview){
     preview=new StudioPosePreview(model,{state:"partial",draw});
     // Set the unarmed preview pose before the initial expensive fit.
     preview.setPose(config.pose);
     preview.setGrip(config.equipment);
   }else {
-    // Root transforms may change even for an unchanged draw. The worker
-    // updates the source model and re-solves rather than reusing posed skin.
-    preview.setArcheryDraw(draw);
+    // In-place root transforms invalidate the posed contacts even at the
+    // same slider value, which otherwise short-circuits setArcheryDraw().
+    if(rootChanged) {
+      preview.setArcheryDraw(draw);
+      if(draw===previousDraw)preview.refresh();
+    }else preview.setArcheryDraw(draw);
   }
+  previousRoot=[...rootWorld];
+  previousDraw=draw;
   const result=preview.bowPoseResult;
   if(!result)throw new Error("No validated source-skinned bow result");
   respond({type:"solved",id,draw,rootWorld:[...rootWorld],
