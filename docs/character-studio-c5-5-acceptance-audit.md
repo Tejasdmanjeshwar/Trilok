@@ -48,7 +48,9 @@ The current `main` exposes single-hand sword (left/right), long sword/staff (bot
 
 The fixed-slider branch removes needless settled-pose recomputations but does not materially improve genuine partial draw solves. Approximately 4.8–4.9 seconds blocking for each distinct unreachable partial input on the asymmetric left bow is an **active C5 acceptance blocker**. A repair must preserve reachable partial states, source-skinned validity, and deterministic fallback. These serial Node measurements are neither device FPS nor GPU times; the runner and sample count are not enough to assert broad speedups.
 
-**Current corrective follow-up:** [PR #94](https://github.com/Tejasdmanjeshwar/Trilok/pull/94) is evaluating bounded failed endpoint-status reuse. This can eliminate redundant nock/aim solves on consecutive partial slider changes but cannot by itself guarantee interactive frame times; full benchmark and CI pending.\n\n**Phase state:** C5 remains **NOT ACCEPTED**. Exact final merged main, full phase browser matrix, independent Cloudflare served build identity, performance remediation, integrated resource/visibility/context testing, and owner visual approval remain required.
+**Current corrective follow-up:** [PR #94](https://github.com/Tejasdmanjeshwar/Trilok/pull/94) is evaluating bounded failed endpoint-status reuse. This can eliminate redundant nock/aim solves on consecutive partial slider changes but cannot by itself guarantee interactive frame times; full benchmark and CI pending.
+
+**Phase state:** C5 remains **NOT ACCEPTED**. Exact final merged main, full phase browser matrix, independent Cloudflare served build identity, performance remediation, integrated resource/visibility/context testing, and owner visual approval remain required.
 
 ## Required closure sequence
 
