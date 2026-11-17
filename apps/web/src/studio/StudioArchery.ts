@@ -9,7 +9,7 @@ import {fitConstrainedIK,fitCanonicalIK} from "./ConstrainedIK";
 import {StudioBodyCollision} from "./StudioBodyCollision";
 import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
   from "./StudioWeaponGrip";
-import {fitBowHandContact,fitMorphologyAwareBowRadius,type BowContactFit} from "./StudioBowContact";
+import {fitBowHandContact,fitMorphologyAwareBowRadius} from "./StudioBowContact";
 import {retargetSourceArcherPose} from "./StudioMakeHumanArcherRetarget";
 import {measureSourceStringContact,sourceHandSamples,
   sourceFingerPadVertices,sourcePadWorld,
@@ -312,18 +312,9 @@ export function archeryShootingPlaneYaw(state:ArcheryState,draw:number,
 }
 export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],hand:HandSide,state:ArcheryState,
-  draw=1,aimReference?:ArcheryPoseResult):ArcheryPoseResult{
+  draw=1):ArcheryPoseResult{
   if(!Object.hasOwn(ARCHERY_STATES,state)||!["left","right"].includes(hand))
     throw new Error("Unknown archery pose");
-  // During partial draw the holding arm is an already-established support
-  // column. Reuse its *real source-skinned* full-draw pose rather than
-  // shortening its hand target as the string travels. The preview caches the
-  // reference per model/pose/hand so slider changes do not repeat this solve.
-  // Direct users of this API still obtain a valid self-contained reference.
-  const reference=state==="partial"?
-    aimReference??solveArcheryPose(model,fk,base,hand,"aim",1):undefined;
-  const fixedHolding=reference?.reachable&&reference.hand===hand&&
-    reference.state==="aim"?reference:undefined;
   const root=model.human.spike.character.root;
   root.updateWorldMatrix(true,true);
   const rootMatrix=root.matrixWorld.clone();
@@ -331,8 +322,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // a foot-planted shooting plane BEFORE arm optimization, so both arms,
   // true-skin contacts and the arrow aim solve in the resulting anatomy.
   // Never turn the root, bow prop or projectile axis as a visual workaround.
-  const stance=fixedHolding?.commands??coordinateTorsoAndGaze(
-    model.human.spike.graph,fk,base,archeryShootingPlaneYaw(state,draw,hand));
+  const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
+    archeryShootingPlaneYaw(state,draw,hand));
   fk.apply(stance);
   const head=at(bone(model,"head",hand));
   const ankle=at(bone(model,"ankle_left","left"));
@@ -342,7 +333,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const right=new THREE.Vector3(1,0,0).applyQuaternion(orientation);
   const forward=new THREE.Vector3(0,0,1).applyQuaternion(orientation);
   const up=new THREE.Vector3(0,1,0).applyQuaternion(orientation);
-  const fingers=fixedHolding?.commands??merge(stance,[
+  const fingers=merge(stance,[
     ...digitCommands(model,fk,hand,false),
     ...digitCommands(model,fk,oppositeHand(hand),true),
   ]);
@@ -397,23 +388,17 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // target on unusual anatomy. Use it as a REAL geometric limit, not a
   // cosmetic change to the weapon or string. The coupled IK resolves the
   // remaining arm and finger DOFs under unchanged hard contact gates.
-  const bowTarget=fixedHolding?
-    twoHandGripContactWorld(model,hand):preparedTarget.lerp(
-      extendedTarget,extensionBlend);
+  const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
   const desiredBend=tension<.80?undefined:THREE.MathUtils.degToRad(
     19-7*tension);
-  const held=fixedHolding?{
-    commands:fixedHolding.commands,error:0,
-    clearance:fixedHolding.bodyClearanceMeters,iterations:0,
-    score:0,attempts:0,
-  }:fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
+  const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
     at(bone(model,"finger_little_0",hand)));
   const socket=model.human.spike.graph.sockets.find(s=>s.purpose==="primary_grip"&&
     s.parentJointId===scoped(model,"palm",hand)?.id);
   if(!socket)throw new Error("Missing source bow-hand grip socket");
-  let descriptor:BowReferenceV1=fixedHolding?.descriptor??Object.freeze({
+  let descriptor:BowReferenceV1=Object.freeze({
     schemaVersion:1,id:"bow/"+hand,kind:"bow",hand,socketId:socket.id,
     limbLengthMeters:.64*scale,
     handleRadiusMeters:THREE.MathUtils.clamp(width/8,.003,.014),
@@ -429,46 +414,35 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // source Euler angles into a non-contacting handle. Compare it against the
   // proven C5 profile using the SAME bounded real source-skinned contact fit.
   // Both candidates reuse one AnatomicalFK and one solver; no alternate rig.
-  // The accepted full-draw grip and its source-skin pressure samples are
-  // authoritative for a stationary partial-draw bow hand. Re-fitting this
-  // hand independently on every slider change would introduce contact drift.
-  let handFit:BowContactFit;
-  let chosenHandCandidate:{index:number;cost:number};
-  if(fixedHolding){
-    handFit={
-      commands:fixedHolding.commands,bowWorld:fixedHolding.bowWorld.clone(),
-      samples:fixedHolding.bowSkinContact,accepted:true,iterations:0,residual:0,
-    };
-    chosenHandCandidate={
-      index:fixedHolding.symmetryTrace?.bowContactCandidate??0,
-      cost:fixedHolding.symmetryTrace?.bowContactScore??0,
-    };
-  }else{
-    const sourceGrip=staged;
-    const fallbackGrip=merge(staged,handContactTargets(model.human.spike.graph,
-      hand,"bow-handle",calibrateGripSpreads(model.human.spike.graph,
-        model.human.spike.bones,fk.frames,hand)));
-    const candidates=[sourceGrip,fallbackGrip].map((commands,index)=>{
-      fk.apply(commands);
-      const frame=bowFrame(model,hand,descriptor.handleRadiusMeters,
-        descriptor.handleLengthMeters);
-      const initialFit=fitBowHandContact(model,fk,commands,hand,frame,
-        descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
-      const {fit,radius}=fitMorphologyAwareBowRadius(model,fk,hand,initialFit,
-        descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
-      const cost=fit.samples.reduce((sum,part)=>
-        sum+part.maximumPenetrationMeters*5+
-        part.nearestGapMeters*1.4+
-        Math.max(0,.60-part.axialVertices/part.sampledVertices)*.012,0);
-      return {fit,index,cost,radius};
-    });
-    candidates.sort((a,b)=>Number(b.fit.accepted)-Number(a.fit.accepted)||
-      a.cost-b.cost||a.index-b.index);
-    handFit=candidates[0]!.fit;
-    chosenHandCandidate=candidates[0]!;
-    descriptor=Object.freeze({...descriptor,
-      handleRadiusMeters:candidates[0]!.radius});
-  }
+  const sourceGrip=staged;
+  const fallbackGrip=merge(staged,handContactTargets(model.human.spike.graph,
+    hand,"bow-handle",calibrateGripSpreads(model.human.spike.graph,
+      model.human.spike.bones,fk.frames,hand)));
+  const candidates=[sourceGrip,fallbackGrip].map((commands,index)=>{
+    fk.apply(commands);
+    const frame=bowFrame(model,hand,descriptor.handleRadiusMeters,
+      descriptor.handleLengthMeters);
+    const initialFit=fitBowHandContact(model,fk,commands,hand,frame,
+      descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
+    const {fit,radius}=fitMorphologyAwareBowRadius(model,fk,hand,initialFit,
+      descriptor.handleRadiusMeters,descriptor.handleLengthMeters);
+    // Contact pressure and sampled finite-cylinder coverage are evaluated
+    // on ALL source vertices after FK. Reward a real palm/four-finger grasp,
+    // not a tiny number of lucky vertices in the finite handle region.
+    const cost=fit.samples.reduce((sum,part)=>
+      sum+part.maximumPenetrationMeters*5+
+      part.nearestGapMeters*1.4+
+      Math.max(0,.60-part.axialVertices/part.sampledVertices)*.012,0);
+    return {fit,index,cost,radius};
+  });
+  candidates.sort((a,b)=>Number(b.fit.accepted)-Number(a.fit.accepted)||
+    a.cost-b.cost||a.index-b.index);
+  const handFit=candidates[0]!.fit;
+  const chosenHandCandidate=candidates[0]!;
+  // The visible cylinder, contact evaluator and authoritative socket must
+  // all share the SAME selected morphology-specific handle dimensions.
+  descriptor=Object.freeze({...descriptor,
+    handleRadiusMeters:candidates[0]!.radius});
   staged=handFit.commands;
   fk.apply(staged);
   const world=handFit.bowWorld;
@@ -518,13 +492,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         }
       }
     }
-    // At partial draw, remove the bow-side arm from the optimizer's degrees
-    // of freedom. Only the drawing clavicle/shoulder/elbow/wrist and two hook
-    // fingers can move; the same legal IK and actual skin goals are retained.
-    const holdingFreedoms=fixedHolding?[]:
-      contactArmFreedoms(model.human.spike.graph,fk,hand);
     const freedoms=[
-      ...holdingFreedoms,
+      ...contactArmFreedoms(model.human.spike.graph,fk,hand),
       ...contactArmFreedoms(model.human.spike.graph,fk,drawSide),
       ...drawDigitFreedoms,
     ].map(channel=>{
@@ -561,14 +530,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const sourceDraw=retargetSourceArcherPose(
       model.human.spike.graph,fk,drawSide,"string-drawing","square",true);
     const sourceDrawMap=new Map(sourceDraw.commands.map(c=>[k(c),c.radians]));
-    const drawFreedoms=freedoms.slice(holdingFreedoms.length,
-      holdingFreedoms.length+9);
+    const drawFreedoms=freedoms.slice(9,18);
     const drawSeeds=[
-      // Preserve the accepted full-draw chain as a continuous initial
-      // candidate. Generic source poses alone can fall into cramped local
-      // minima when the holding arm is stationary.
-      ...(fixedHolding?[initial.slice(holdingFreedoms.length,
-        holdingFreedoms.length+9)]:[]),
       drawFreedoms.map(c=>sourceDrawMap.get(k(c))??0),
       [0,0,.48,.29,.86*signed,1.40,0,-.06,0],
       [0,0,.16,.88,-.80*signed,1.58,0,-.12,0],
@@ -590,7 +553,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       drawSide,"string-two-finger",calibrateGripSpreads(
         model.human.spike.graph,model.human.spike.bones,fk.frames,drawSide));
     const calibratedHookMap=new Map(calibratedHook.map(c=>[k(c),c.radians]));
-    const sourceDigitSeed=initial.slice(holdingFreedoms.length+9);
+    const sourceDigitSeed=initial.slice(18);
     const calibratedDigitSeed=drawDigitFreedoms.map((c,i)=>
       calibratedHookMap.get(k(c))??sourceDigitSeed[i]!);
     // Prefer the calibrated midpoint as a starting envelope. Source and
@@ -609,7 +572,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const orderedSeeds=drawSeeds.flatMap((angles,armSeed)=>
       digitSeeds.map((digits,fingerSeedIndex)=>{
         const joints=clampContactSeed([
-          ...initial.slice(0,holdingFreedoms.length),...angles,...digits],freedoms);
+          ...initial.slice(0,9),...angles,...digits],freedoms);
         fk.apply(composeContactPose(staged,freedoms,joints));
         const bow=dynamicBow();
         const goal=nockWorldFor(bow,0);
@@ -631,7 +594,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     candidateSearch:for(const {armSeed,fingerSeedIndex} of orderedSeeds){
       const angles=drawSeeds[armSeed]!,fingerSeed=digitSeeds[fingerSeedIndex]!;
       const jointSeed=clampContactSeed([
-        ...initial.slice(0,holdingFreedoms.length),...angles,...fingerSeed],freedoms);
+        ...initial.slice(0,9),...angles,...fingerSeed],freedoms);
       const seed=[...jointSeed,0];
       const commands=(values:readonly number[])=>
         composeContactPose(staged,freedoms,values.slice(0,freedoms.length));
