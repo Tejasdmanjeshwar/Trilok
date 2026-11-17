@@ -376,7 +376,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // Until the drawing hand is safely on the string, the bow target
   // remains close to the verified nock geometry. In later expansion,
   // smoothly load the bow arm rather than snapping to a long extension.
-  const expansion=THREE.MathUtils.clamp((tension-.58)/.42,0,1);
+  // Once the string is nocked, expand the supported bow arm progressively
+  // rather than postponing all extension until the full-draw control.
+  const expansion=THREE.MathUtils.clamp((tension-.08)/.92,0,1);
   const smoothExpansion=expansion*expansion*(3-2*expansion);
   const extensionBlend=state==="rest"?0:state==="release"?.70:
     smoothExpansion;
@@ -385,7 +387,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // cosmetic change to the weapon or string. The coupled IK resolves the
   // remaining arm and finger DOFs under unchanged hard contact gates.
   const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
-  const desiredBend=tension<.80?undefined:THREE.MathUtils.degToRad(
+  const desiredBend=tension<.20?undefined:THREE.MathUtils.degToRad(
     19-7*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
