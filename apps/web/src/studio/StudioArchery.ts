@@ -130,7 +130,7 @@ const ARM_CHANNELS:readonly (readonly [string,readonly AnatomicalMotion[]])[]=[
 ];
 function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget[],
   side:HandSide,target:THREE.Vector3,drawHand:boolean,scale:number,
-  desiredBowBendRadians?:number){
+  desiredBowBendRadians?:number,continuation?:readonly JointTarget[]){
   const axes:Freedom[]=[];
   for(const [role,motions] of ARM_CHANNELS){
     const joint=scoped(model,role,side);
@@ -151,6 +151,9 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
     drawHand?"string-drawing":"bow-holding","square",true);
   const referenceMap=new Map(reference.commands.map(c=>[k(c),c.radians]));
   const referenceArm=axes.map(a=>referenceMap.get(a.jointId+"/"+a.motion)??0);
+  const guide=new Map(continuation?.map(c=>[k(c),c.radians])??[]);
+  const continuationSeed=continuation?axes.map(a=>
+    guide.get(a.jointId+"/"+a.motion)??referenceMap.get(a.jointId+"/"+a.motion)??0):undefined;
   const seedAngles=drawHand?[
     referenceArm,
     [0,0,.48,.29,.86*sign,1.40,0,-.06,0],
@@ -158,6 +161,7 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
     [0,0,-.12,.62,-1.45*sign,1.95,0,-.20,0],
     [0,0,.62,.48,-1.10*sign,1.24,0,.16,0],
   ]:[
+    ...(continuationSeed?[continuationSeed]:[]),
     referenceArm,
     [0,0,.55,.40,.85*sign,.65,0,-.08,0],
   ];
@@ -293,6 +297,17 @@ export interface ArcheryPoseResult {
     drawArmSeed:number;drawFingerSeed:number;drawScore:number;
   }>;
 }
+/** Reusable source-FK endpoint guide; each endpoint was independently
+ * accepted under the same skinned string/grip contact gates. The physical
+ * bow-hand coordinates are measured from solved FK, never fabricated.
+ * StudioPosePreview caches this per actual character/pose/hand.
+ */
+export interface ArcheryTransitionGuide {
+  readonly nock:Readonly<{commands:readonly JointTarget[];
+    gripWorld:THREE.Vector3}>;
+  readonly aim:Readonly<{commands:readonly JointTarget[];
+    gripWorld:THREE.Vector3}>;
+}
 export function archeryDrawFraction(state:ArcheryState,value:number):number{
   if(!Number.isFinite(value)||value<0||value>1)throw new Error("Invalid archery draw");
   return state==="rest"||state==="release"?0:
@@ -312,7 +327,7 @@ export function archeryShootingPlaneYaw(state:ArcheryState,draw:number,
 }
 export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   base:readonly JointTarget[],hand:HandSide,state:ArcheryState,
-  draw=1):ArcheryPoseResult{
+  draw=1,guide?:ArcheryTransitionGuide):ArcheryPoseResult{
   if(!Object.hasOwn(ARCHERY_STATES,state)||!["left","right"].includes(hand))
     throw new Error("Unknown archery pose");
   const root=model.human.spike.character.root;
@@ -322,11 +337,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // a foot-planted shooting plane BEFORE arm optimization, so both arms,
   // true-skin contacts and the arrow aim solve in the resulting anatomy.
   // Never turn the root, bow prop or projectile axis as a visual workaround.
-  // The partial draw is an established shooting stance, not a progressive
-  // bend of the holding arm. Only the draw arm follows string tension.
+  // A partial draw is a continuation of accepted source-FK endpoint
+  // shooting planes, not an unrelated sideways stance. The unguided
+  // legacy path is retained only as a safe fallback for unavailable guides.
+  const guidedPartial=state==="partial"&&guide!==undefined;
   const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
-    archeryShootingPlaneYaw(state==="partial"?"aim":state,
-      state==="partial"?1:draw,hand));
+    archeryShootingPlaneYaw(guidedPartial?state:
+      state==="partial"?"aim":state,
+      state==="partial"&&!guidedPartial?1:draw,hand));
   fk.apply(stance);
   const head=at(bone(model,"head",hand));
   const ankle=at(bone(model,"ankle_left","left"));
@@ -363,6 +381,17 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // the shoulder line was correct. Use real limb lengths from source FK,
   // with a higher, longer target in the bow-side shooting plane.
   const tension=archeryDrawFraction(state,draw);
+  // Physical draw remains 0..65% in partial. This is an endpoint pose
+  // interpolation parameter, NOT a replacement for string travel.
+  const transition=THREE.MathUtils.clamp((tension-.08)/.92,0,1);
+  const guideCommands=guidedPartial?(()=>{
+    const source=new Map(guide!.nock.commands.map(c=>[k(c),c.radians]));
+    const goal=new Map(guide!.aim.commands.map(c=>[k(c),c.radians]));
+    return [...guide!.nock.commands].map(c=>({
+      jointId:c.jointId,motion:c.motion,
+      radians:THREE.MathUtils.lerp(c.radians,goal.get(k(c))??c.radians,transition),
+    })).concat(guide!.aim.commands.filter(c=>!source.has(k(c))));
+  })():undefined;
   const preparedTarget=chest.clone()
     .addScaledVector(right,(hand==="right"?1:-1)*.12*scale)
     .addScaledVector(forward,.56*scale).addScaledVector(up,.06*scale);
@@ -412,11 +441,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     .addScaledVector(forward,supportForward)
     .addScaledVector(right,(hand==="left"?1:-1)*supportLateral)
     .addScaledVector(up,.015*scale);
-  const bowTarget=partialSupport?supportTarget:
-    preparedTarget.lerp(extendedTarget,extensionBlend);
+  const bowTarget=guidedPartial?
+    guide!.nock.gripWorld.clone().lerp(guide!.aim.gripWorld,transition):
+    partialSupport?supportTarget:preparedTarget.lerp(extendedTarget,extensionBlend);
   const desiredBend=partialSupport?THREE.MathUtils.degToRad(17):
     tension<.80?undefined:THREE.MathUtils.degToRad(19-7*tension);
-  const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
+  const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,
+    desiredBend,guideCommands);
   let staged:readonly JointTarget[]=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
     at(bone(model,"finger_little_0",hand)));
@@ -566,7 +597,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const sourceDrawMap=new Map(sourceDraw.commands.map(c=>[k(c),c.radians]));
     const drawFreedoms=freedoms.slice(holdingFreedoms.length,
       holdingFreedoms.length+9);
+    const continuation=new Map(guideCommands?.map(c=>[k(c),c.radians])??[]);
     const drawSeeds=[
+      ...(guidedPartial?[drawFreedoms.map(c=>
+        continuation.get(k(c))??sourceDrawMap.get(k(c))??0)]:[]),
       drawFreedoms.map(c=>sourceDrawMap.get(k(c))??0),
       [0,0,.48,.29,.86*signed,1.40,0,-.06,0],
       [0,0,.16,.88,-.80*signed,1.58,0,-.12,0],
@@ -594,6 +628,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     // Prefer the calibrated midpoint as a starting envelope. Source and
     // C5 contact profiles remain legal independent fallback basins.
     const digitSeeds=[
+      ...(guidedPartial?[drawDigitFreedoms.map((c,i)=>
+        continuation.get(k(c))??sourceDigitSeed[i]!)]:[]),
       sourceDigitSeed.map((angle,i)=>(angle+calibratedDigitSeed[i]!)*.5),
       sourceDigitSeed,calibratedDigitSeed,
     ];
