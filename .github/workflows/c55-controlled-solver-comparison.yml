@@ -11,6 +11,7 @@ on:
       - 'apps/web/src/studio/StudioBodyCollision.ts'
       - 'benchmarks/character-studio-solver.bench.test.ts'
       - 'tests/character-studio-solver-diagnostics.test.ts'
+      - 'tests/character-studio-body-topology-cache.test.ts'
 permissions:
   contents: read
 jobs:
