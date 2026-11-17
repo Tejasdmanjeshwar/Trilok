@@ -592,6 +592,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const finger=drawingFingerContactWorld(model,drawSide);
         const bowGrip=twoHandGripContactWorld(model,hand);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
+        const bowArm=desiredBend===undefined?undefined:measureArmAlignment(
+          at(bowShoulderBone),at(bowElbowBone),at(bowWristBone));
         const skin=fingerSkin(actualBow,goal);
         const indexPad=sourcePadWorld(model,padVertices.index);
         const middlePad=sourcePadWorld(model,padVertices.middle);
@@ -626,10 +628,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // arrow 45 degrees away from the gaze: constrain both orientation
           // axes through legal holding/drawing shoulder, elbow and wrist FK.
           ...shaft.sub(forward).toArray().map(v=>v*.115*scale),
-          // This coupled solve owns genuine two-finger skin contact and
-          // arrow axis. The preceding holding-arm fit owns extension. Do not
-          // let a competing aesthetic elbow residual override the string.
-          // Keep the bow arm near its measured source-length target.
+          // The contact fit may otherwise fold the bow elbow while placing
+          // the fingertips perfectly on the string. Use a low-weight
+          // skeletal extension residual INSIDE this shared IK, so contact
+          // and elbow alignment are solved together (not post-rotated).
+          ...(bowArm&&desiredBend!==undefined?[
+            bowArmExtensionResidual(bowArm,desiredBend)*.55]:[]),
+          // Keep the bow arm near its source-reach-calibrated target.
           (bowGrip.x-bowTarget.x)*.45,(bowGrip.y-bowTarget.y)*.45,
           (bowGrip.z-bowTarget.z)*.45,
           Math.max(0,.018*scale-collisions.clearance(elbowMid))*1.5,
@@ -671,10 +676,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         .distanceTo(bowTarget);
       const arrowAimDeviation=new THREE.Vector3(0,0,1)
         .transformDirection(actualBow).angleTo(forward);
+      const bowArm=desiredBend===undefined?undefined:measureArmAlignment(
+        at(bowShoulderBone),at(bowElbowBone),at(bowWristBone));
+      const extensionCost=bowArm&&desiredBend!==undefined?
+        bowArmExtensionResidual(bowArm,desiredBend)*.55:0;
       const cost=error+Math.max(0,.01*scale-clearance)*2+
         Math.max(0,bowDisplacement-.06*scale)*.5+
         (skin.index+skin.middle)*1.5+
-        arrowAimDeviation*.115*scale;
+        arrowAimDeviation*.115*scale+extensionCost;
       drawAttempts++;
       drawIterations=Math.max(drawIterations,fit.iterations);
       const valid=error<.03*scale&&clearance>-.025*scale&&
@@ -698,7 +707,12 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       if(error<.029*scale&&clearance>0&&
         bowDisplacement<.09*scale&&
         skin.index<.0075*scale&&skin.middle<.0075*scale&&
-        arrowAimDeviation<=MAX_ARCHERY_AIM_DEVIATION_RADIANS){
+        arrowAimDeviation<=MAX_ARCHERY_AIM_DEVIATION_RADIANS&&
+        // Do not stop at the first contacting but visibly bent arm. The
+        // angular target affects selection only; strict source-skin contact
+        // and aim acceptance remain mandatory and unchanged.
+        (tension<.45||bowArm!==undefined&&
+          bowArm.elbowInteriorRadians>THREE.MathUtils.degToRad(148))){
         best={commands:candidate,world:actualBow,contact:finger,
           error,clearance,cost,skin,valid:true,skinValid:true,
           nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
