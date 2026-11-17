@@ -1,6 +1,6 @@
 # C5.4 — anatomical bow presentation (feature candidate)
 
-Status: **C5.4 visually accepted by the owner on November 17, 2026; pending PR #87 merge. Overall C5 phase acceptance is not implied.**
+Status update (2026-11-17): **C5.4 was owner-reviewed and merged through PRs #87 and #88, followed by PR #89 source-sampling instrumentation.** The section-by-section PR/preview statuses below are historical checkpoints; none constitutes integrated C5 acceptance. See [C5.5 audit ledger](character-studio-c5-5-acceptance-audit.md).
 
 ## Architecture and frames
 - Studio uses the *same* pinned source-skinned MakeHuman runtime, calibrated `AnatomicalFK`, `StudioBodyCollision`, C5.1 skin-fitted handle frame, C5.2 hand-contact landmark and `fitConstrainedIK`; no alternative skeleton or gameplay simulator. `StudioWeaponGrip.handContactTargets` now offers data-defined sword-handle, bow-handle and two-finger split-string-hook profiles. `StudioContactIK` supplies shared scoped joint freedoms, immutable pose command composition and bounded DLS entry points. Existing C5.1 sword targets are unchanged.
