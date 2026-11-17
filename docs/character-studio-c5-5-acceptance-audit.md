@@ -62,3 +62,21 @@ The fixed-slider branch removes needless settled-pose recomputations but does no
 6. Inspect desktop/touch screenshot artifacts, obtain explicit owner approval, record exact run/SHA and benchmark limitations, update issue #81 and roadmap, and close #81 **only** after all gates are met.
 
 **Boundaries:** no C6 animation architecture, C7 archetypes, C8 injuries, C9 baking/Save/Load, new IK engine, Cloudflare deploy-gate bypass, or automatic combat-renderer migration. Green CI is not source-contact proof or owner visual approval.
+
+## Rebased C5.5 endpoint cache and follow-up diagnostics — November 17, 2026
+
+The latest inspected main before further optimization remained `83fe948ec947f87529e83a8e60074a00118a358f` (merged browser evidence PR #91). Draft [PR #94](https://github.com/Tejasdmanjeshwar/Trilok/pull/94) was rebased onto that exact SHA at `1e5ae10b380873e9cf2b1a262e32896e71bb0cc3`. [Controlled same-run comparison #44148219958](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44148219958) passed on a GitHub Linux Node/Vitest runner:
+
+| CPU scenario | Main baseline (ms) | PR #94 candidate (ms) |
+| --- | ---: | ---: |
+| Asymmetric seed 2929832126, left bow partial warm | 3,855.6 | 1,917.3 |
+| Asymmetric left bow rapid slider 0% | 3,858.8 | 1,898.9 |
+| Asymmetric left bow rapid slider 50% | 3,858.2 | 1,914.0 |
+| Asymmetric longsword-right warm | 1,027.8 | 1,012.2 |
+| Neutral bow-left partial warm | 300.8 | 295.7 |
+
+The roughly 50% saved in the failing-endpoint case comes from skipping repeated *invalid endpoint fits*, not bypassing the current partial draw's full contact solver. **The remaining ~1.9-second synchronous partial solve and ~1.0-second longsword warm solve are acceptance blockers.** These single-run timings do not demonstrate browser FPS, latency-to-photon or supported mobile responsiveness. [PR #94 full Verify #44148219972](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44148219972) passed TypeScript, tests, build and compiled identity; the rebased Cloudflare check and review/merge gate remain separate. The 2026-11-17 candidate SHA replaces older PR #94 benchmark examples when discussing current branch performance, not older historical evidence.
+
+Follow-up draft [PR #95](https://github.com/Tejasdmanjeshwar/Trilok/pull/95) caches immutable source-torso ownership and triangle topology per model with geometry/attribute revision invalidation. Current posed MakeHuman skin, envelope construction and final source-surface checks remain active; it is not yet a **measured** improvement. [PR #96](https://github.com/Tejasdmanjeshwar/Trilok/pull/96) adds opt-in per-action deterministic IK objective/iteration and source-skin/collision work counters to the controlled benchmark. Their latest checks and comparisons must be reviewed before merge. Neither PR adds async/worker cancellation or proves interactive responsiveness.
+
+Cloudflare production `/build-info.json` could not be independently retrieved from this environment (cache miss). It remains **unverified**, even when GitHub compiled build identity checks are green. No exact-final-main C5 phase-acceptance run, mobile/browser responsiveness certification, full rendered source contact approval, or owner integrated visual acceptance exists at this checkpoint. Leave C5.5 unchecked and issue #81 open; do not start C6.
