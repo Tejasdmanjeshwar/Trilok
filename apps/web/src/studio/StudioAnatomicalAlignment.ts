@@ -59,3 +59,40 @@ export function bowArmExtensionResidual(alignment:ArmAlignment,
   const difference=Math.max(0,desiredInterior-alignment.elbowInteriorRadians);
   return difference*alignment.segmentLengthMeters*.45;
 }
+
+
+/** The bow hand cannot simply extend to full reach while the other hand is
+ * required to touch an almost-resting string. The nock is behind the bow
+ * grip, so derive the longest legal bow-arm target from the DRAW arm's reach
+ * envelope in the actual shooting direction, including shoulder offset.
+ *
+ * This is a deterministic initialization bound, not an arbitrary wrist/
+ * string teleport: subsequent source-skinned contact IK remains authoritative
+ * and may reject a nominally feasible target when joint limits or collisions
+ * prevent reaching it.
+ */
+export function feasibleBowArmExtension(
+  bowShoulder:THREE.Vector3,drawShoulder:THREE.Vector3,
+  aimDirection:THREE.Vector3,bowArmReachMeters:number,
+  drawArmReachMeters:number,stringBehindGripMeters:number,
+  transverseGripOffset:THREE.Vector3,drawReachReserveMeters:number,
+):number{
+  if(![bowArmReachMeters,drawArmReachMeters,stringBehindGripMeters,
+    drawReachReserveMeters].every(Number.isFinite)||
+    bowArmReachMeters<=0||drawArmReachMeters<=0||
+    stringBehindGripMeters<0||drawReachReserveMeters<0||
+    drawReachReserveMeters>=drawArmReachMeters||
+    Math.abs(aimDirection.lengthSq()-1)>1e-5)
+    throw new Error("Invalid anatomical reach envelope");
+  const relative=bowShoulder.clone().add(transverseGripOffset)
+    .sub(drawShoulder);
+  const forwardOffset=relative.dot(aimDirection);
+  const lateralSquared=Math.max(0,relative.lengthSq()-forwardOffset*forwardOffset);
+  const usableDrawReach=drawArmReachMeters-drawReachReserveMeters;
+  // No transverse intersection is reachable; let the contact IK reject
+  // the best bounded fallback instead of claiming a valid hand position.
+  const forwardReach=Math.sqrt(Math.max(0,usableDrawReach*usableDrawReach-
+    lateralSquared));
+  const longest=stringBehindGripMeters-forwardOffset+forwardReach;
+  return THREE.MathUtils.clamp(longest,0,bowArmReachMeters);
+}
