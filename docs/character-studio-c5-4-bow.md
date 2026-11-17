@@ -564,3 +564,40 @@ string travel to hide the geometric reach constraint. Add hard numerical
 elbow/continuity gates only after a reachable candidate is independently
 verified. Capture top/side/quarter/close renders before claiming visual
 quality. C5.4 remains unaccepted and PR #87 remains draft.
+
+
+### 2026-11-17 compliant holding-arm support (review candidate)
+
+The previous accepted-for-preview partial posture was implemented by
+`holdingFreedoms = partialSupport ? [] : contactArmFreedoms(...)`. This
+omitted all nine bow-arm degrees of freedom from the coupled optimizer,
+producing a stable but rigid partial-draw column. That was not a general
+anatomical stiffness model.
+
+The present review candidate retains the same morphology-derived support
+target, source-skinned bow handle, draw-side hook contacts, foot-planted
+shooting plane, and original authoritative gameplay boundary. The shared
+`StudioContactIK.supportedContactFreedoms` now intersects each calibrated
+source FK range with a narrow window about its *solved* bow-arm pose.
+The joint channels remain part of the shared canonical bounded DLS; a
+soft pose-deviation residual holds the arm near its support reference
+while still allowing small legal adjustments in reaction to the drawing
+hand. No fixed joint quaternion, avatar root motion, new per-frame
+animation controller, extra IK solver or independent weapon offset is
+added. Nocking and full-draw search ranges are unchanged.
+
+This change provides compliance, not a physics simulation of bow
+tension, scapular motion or breathing. The reference window currently
+uses two degrees per calibrated channel; this is a preview behavior
+parameter, not a global rig limit or a production-validated stiffness
+constant. A future generalized constraint profile may express stronger
+stiffness and motion amplitudes per equipment/character action without
+changing the shared FK/IK machinery.
+
+**Acceptance gates:** independent tests of legal/nonzero support DOFs,
+both hands' true source-skinned bow/string contact at 0/25/50/75/100%
+partial draw, preserved nocking and full-draw angles, morphology matrix,
+determinism, solver wall time and candidate cost, real multi-view preview
+inspection and independently confirmed Cloudflare SHA. Do not infer visual
+quality or production readiness from numerical tests. Keep PR #87 open
+until owner review.
