@@ -547,12 +547,18 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // curled thumb. Using its X sign picked a shaft path through the thumb
   // (measured -3.95 mm on nominal left nock). The semantic thumb surface
   // defines the prohibited side of this hand-supported arrow rest.
-  const thumbSurface=bowSkin.get("thumb");
-  if(!thumbSurface?.length)throw new Error("Missing source thumb-web skin");
-  const thumbLocal=sourcePadWorld(model,thumbSurface)
-    .applyMatrix4(world.clone().invert());
-  const arrowSide=-Math.sign(thumbLocal.x);
-  if(arrowSide===0)throw new Error("Degenerate source thumb-web lateral side");
+  // A curled thumb can cross the opposite side of its overall centroid.
+  // Measure the thumb surface nearest the prospective *complete* arrow
+  // path rather than averaging remote thumb tip and metacarpal vertices.
+  const probeNock=new THREE.Vector3(0,arrowRestY,
+    -descriptor.stringRestMeters-descriptor.maximumDrawMeters*tension);
+  const probe=measureSourceArrowShaft(model,bowSkin,world,
+    probeNock,descriptor.arrowLengthMeters,descriptor.arrowRest.shaftRadiusMeters);
+  const thumbNear=probe.find(s=>s.region==="thumb");
+  if(!thumbNear||!Number.isFinite(thumbNear.nearestSurfaceClearanceMeters))
+    throw new Error("Missing physical thumb-web rest sample");
+  const arrowSide=-Math.sign(thumbNear.closestPointLocal.x);
+  if(arrowSide===0)throw new Error("Degenerate source thumb-web shaft side");
   const arrowRestX=arrowSide*(descriptor.handleRadiusMeters+
     descriptor.arrowRest.shaftRadiusMeters+descriptor.arrowRest.supportGapMeters);
   const arrowRestY=indexRest.y+descriptor.arrowRest.shaftRadiusMeters+
