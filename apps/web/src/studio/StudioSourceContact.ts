@@ -73,13 +73,62 @@ function mirroredRightProbes(left:readonly number[],right:readonly number[],
   return matched;
 }
 
+/** A cache belongs to one generated human, not a global recipe or hand. Studio
+ * creates a new model when morphology/topology changes. Attribute replacement
+ * and needsUpdate revisions additionally invalidate in-place geometry edits.
+ * The bound (six regions x <=8 selections) prevents slider-chosen sample
+ * budgets from accumulating indefinitely. No posed vertices are cached. */
+interface HandSampleCache {
+  readonly geometry:THREE.BufferGeometry;
+  readonly indices:THREE.BufferAttribute|THREE.InterleavedBufferAttribute;
+  readonly weights:THREE.BufferAttribute|THREE.InterleavedBufferAttribute;
+  readonly position:THREE.BufferAttribute|THREE.InterleavedBufferAttribute;
+  readonly indexVersion:number;
+  readonly weightVersion:number;
+  readonly positionVersion:number;
+  readonly graph:unknown;
+  readonly skeleton:unknown;
+  readonly sourceIds:unknown;
+  readonly entries:Map<string,SourceHandSamples>;
+}
+const handSampleCaches=new WeakMap<StudioHumanModel,HandSampleCache>();
+function currentHandSampleCache(model:StudioHumanModel):HandSampleCache {
+  const {mesh,spike,template}=model.human;
+  const geometry=mesh.geometry;
+  const indices=geometry.getAttribute("skinIndex");
+  const weights=geometry.getAttribute("skinWeight");
+  const position=geometry.getAttribute("position");
+  const previous=handSampleCaches.get(model);
+  if(previous&&previous.geometry===geometry&&previous.indices===indices&&
+    previous.weights===weights&&previous.position===position&&
+    previous.indexVersion===indices.version&&
+    previous.weightVersion===weights.version&&
+    previous.positionVersion===position.version&&
+    previous.graph===spike.graph&&previous.skeleton===spike.skeleton&&
+    previous.sourceIds===template.sourceVertexIds)return previous;
+  const next:HandSampleCache={
+    geometry,indices,weights,position,indexVersion:indices.version,
+    weightVersion:weights.version,positionVersion:position.version,
+    graph:spike.graph,skeleton:spike.skeleton,sourceIds:template.sourceVertexIds,
+    entries:new Map(),
+  };
+  handSampleCaches.set(model,next);
+  return next;
+}
+
 /** Select distinct original MakeHuman vertices. Deterministic downsampling
  * is for solver evaluation only; a complete pass remains available at final
  * acceptance. A region with no source vertices is a hard diagnostic failure. */
 export function sourceHandSamples(model:StudioHumanModel,hand:HandSide,
   maximumPerRegion=Infinity):SourceHandSamples{
+  const cache=currentHandSampleCache(model);
+  const key=hand+"/"+String(maximumPerRegion);
+  const prior=cache.entries.get(key);
+  // Return a fresh map so a caller may change selected regions (e.g. full
+  // thumb recovery) without contaminating another equipment solver.
+  if(prior)return new Map(prior);
   const {mesh,spike,template}=model.human;
-  const indices=mesh.geometry.getAttribute("skinIndex");
+  const indices=cache.indices;
   const weights=mesh.geometry.getAttribute("skinWeight");
   const bones=new Map<HandSurfaceRegion,Set<number>>(HAND_SURFACE_REGIONS.map(region=>[region,
     new Set(spike.graph.joints.filter(j=>region==="palm"?
@@ -126,7 +175,12 @@ export function sourceHandSamples(model:StudioHumanModel,hand:HandSide,
         list[Math.floor((j+.5)*list.length/count)]!));
     }
   }
-  return lists;
+  // The index lists are immutable once collected; real source-skin positions
+  // and contact checks remain evaluated afresh on every IK objective call.
+  for(const list of lists.values())Object.freeze(list);
+  if(cache.entries.size>=8)cache.entries.clear();
+  cache.entries.set(key,lists);
+  return new Map(lists);
 }
 
 /** Exact signed distance to a *capped*, finite radius cylinder aligned to Y.
