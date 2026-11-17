@@ -185,7 +185,7 @@ export function createStudioViewport(
    * model, recipe, pose, state, and root are ever admitted to the scene.
    * Heavy calculations cannot block the camera/slider animation loop. */
   function startBowWorker():void{
-    if(disposed||!active||!posePreview||!isBowEquipment(equipment)||
+    if(disposed||document.hidden||contextLost||!active||!posePreview||!isBowEquipment(equipment)||
       archeryState!=="partial"||bowWorker)return;
     const owner=active,preview=posePreview,generation=ticket;
     try{
