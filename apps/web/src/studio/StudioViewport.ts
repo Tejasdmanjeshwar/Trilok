@@ -242,6 +242,9 @@ export function createStudioViewport(
   function queueBowDraw():void{
     startBowWorker();
     if(!bowWorker||!active)return;
+    // An expensive but legal source solve may take seconds; make the pending
+    // state visible while leaving the last accepted rendered pose intact.
+    onEditError("Adjusting bow draw…");
     active.human.spike.character.root.updateWorldMatrix(true,true);
     try{
       bowWorker.request(archeryDraw,
