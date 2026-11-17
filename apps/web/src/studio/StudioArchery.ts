@@ -296,7 +296,7 @@ export interface ArcheryPoseResult {
 export function archeryDrawFraction(state:ArcheryState,value:number):number{
   if(!Number.isFinite(value)||value<0||value>1)throw new Error("Invalid archery draw");
   return state==="rest"||state==="release"?0:
-    state==="nock"?.08:state==="partial"?.08+.92*value:value;
+    state==="nock"?.08:state==="partial"?value*.65:value;
 }
 /** A progressive, foot-planted shooting plane. Both stances are solved by the
  * same legal FK and contact IK; this is NOT a root or weapon rotation. */
@@ -322,12 +322,11 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // a foot-planted shooting plane BEFORE arm optimization, so both arms,
   // true-skin contacts and the arrow aim solve in the resulting anatomy.
   // Never turn the root, bow prop or projectile axis as a visual workaround.
-  // Coordinate the same shooting plane across nock -> partial -> aim.
-  // Holding the torso at the *final* aim yaw for every partial value forced
-  // the coupled hands toward an unrelated sideways support pose.
-  // The target state, not a root transform, now progresses continuously.
+  // The partial draw is an established shooting stance, not a progressive
+  // bend of the holding arm. Only the draw arm follows string tension.
   const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
-    archeryShootingPlaneYaw(state,draw,hand));
+    archeryShootingPlaneYaw(state==="partial"?"aim":state,
+      state==="partial"?1:draw,hand));
   fk.apply(stance);
   const head=at(bone(model,"head",hand));
   const ankle=at(bone(model,"ankle_left","left"));
@@ -392,29 +391,28 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // target on unusual anatomy. Use it as a REAL geometric limit, not a
   // cosmetic change to the weapon or string. The coupled IK resolves the
   // remaining arm and finger DOFs under unchanged hard contact gates.
-  // Partial draw belongs to the nock->aim shooting plane, not a separate
-  // sideways stance. A previous constant support pose projected the wrist
-  // ~300 mm across the shoulder, although the two accepted endpoints remain
-  // nearly aligned with the arrow. Fit the bow-hand reference in the SAME
-  // forward reach envelope as full draw, with reach limited by the actual
-  // drawing shoulder and current physical string travel.
-  // The grip is solved by source FK/IK; no wrist translation is applied.
+  // At full draw the bow elbow is already near-straight. For a supported
+  // intermediate draw, the bow hand can be diagonally across the shooting
+  // plane, rather than requiring its full-draw world-space wrist coordinate.
+  // Choose one support pose, independent of the partial slider, within the
+  // drawing arm's worst-case (unpulled string) reach envelope. The lateral
+  // component uses measured arm length, not a hand/weapon teleport.
   const partialSupport=state==="partial";
-  const supportForward=Math.min(
-    armReach*.92+initialWrist.distanceTo(initialPalm)*.28,
-    feasibleBowArmExtension(bowShoulder,drawShoulder,forward,
-      armReach*.96,drawingReach,scale*(.07+.28*tension),
-      transverseOffset,.045*scale));
-  const supportTarget=bowShoulder.clone().add(transverseOffset)
-    .addScaledVector(forward,supportForward);
-  // Match the nocking endpoint to the accepted full-draw endpoint by
-  // continuing the *same source-space* grip target with the string. This
-  // avoids a separate sideways partial pose and retains both actual contact
-  // chains in the coupled optimizer. Ease only the initialization target:
-  // physical finger/string acceptance remains authoritative.
-  const partialBlend=draw*draw*(3-2*draw);
-  const bowTarget=partialSupport?
-    preparedTarget.lerp(supportTarget,partialBlend):
+  const supportForward=Math.min(armReach*.70,feasibleBowArmExtension(
+    bowShoulder,drawShoulder,forward,armReach*.96,drawingReach,
+    scale*.07,transverseOffset,.045*scale));
+  // A contact target lies beyond the source wrist, not at the end of its
+  // forearm. Include the measured wrist-to-palm span to avoid shortening
+  // the supported elbow simply to bring a hand grip near the string.
+  const supportReach=armReach*.97+
+    initialWrist.distanceTo(initialPalm)*.45;
+  const supportLateral=Math.sqrt(Math.max(0,
+    supportReach*supportReach-supportForward*supportForward));
+  const supportTarget=bowShoulder.clone()
+    .addScaledVector(forward,supportForward)
+    .addScaledVector(right,(hand==="left"?1:-1)*supportLateral)
+    .addScaledVector(up,.015*scale);
+  const bowTarget=partialSupport?supportTarget:
     preparedTarget.lerp(extendedTarget,extensionBlend);
   const desiredBend=partialSupport?THREE.MathUtils.degToRad(17):
     tension<.80?undefined:THREE.MathUtils.degToRad(19-7*tension);
