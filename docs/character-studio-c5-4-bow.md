@@ -1,6 +1,6 @@
 # C5.4 — anatomical bow presentation (feature candidate)
 
-Status: **feature branch under review; not owner accepted, not merged.**
+Status: **C5.4 visually accepted by the owner on November 17, 2026; pending PR #87 merge. Overall C5 phase acceptance is not implied.**
 
 ## Architecture and frames
 - Studio uses the *same* pinned source-skinned MakeHuman runtime, calibrated `AnatomicalFK`, `StudioBodyCollision`, C5.1 skin-fitted handle frame, C5.2 hand-contact landmark and `fitConstrainedIK`; no alternative skeleton or gameplay simulator. `StudioWeaponGrip.handContactTargets` now offers data-defined sword-handle, bow-handle and two-finger split-string-hook profiles. `StudioContactIK` supplies shared scoped joint freedoms, immutable pose command composition and bounded DLS entry points. Existing C5.1 sword targets are unchanged.
@@ -771,3 +771,11 @@ verification is not a replacement for real rendered top/side/quarter
 inspection or owner acceptance. The Cloudflare preview deployed SHA,
 cold-entry cache cost and mobile solve performance have **not** been
 independently verified; PR #87 remains draft and unmerged.
+
+## November 17 owner visual acceptance and Cloudflare runner recovery
+
+The owner inspected the newly available C5.4 feature preview and explicitly confirmed that the formerly defective **partial draw now looks great**, authorizing merge of PR #87. This acceptance covers the C5.4 archery presentation candidate (including the previously accepted nocking/full-draw states), **not** an independent acceptance of the entire C5 phase or a release-grade animation/performance certification.
+
+The feature-head runner correction `0e43295c671788e7d8b245e808c15c3725df6959` changes only the root test script to `vitest run tests/ --pool=threads --maxWorkers=1`. It was introduced after Cloudflare's 2-worker fork-based Vitest 3.2.7 run reported 480 passing assertions in 86 suites but two unhandled `[vitest-worker]: Timeout calling "onTaskUpdate"` errors, aborting before the production bundle. The bounded single-thread worker run retained all tests and passed GitHub [Verify #44055047838](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44055047838) (86 suites/480 assertions, TypeScript, build and build identity). Cloudflare [Workers Builds #34668ae5-26fd-49ec-88f6-3b6d8ca9c86b](https://dash.cloudflare.com/3e19634386530acbc03082b1d8889a0b/workers/services/view/trilok/production/previews/feat-c5-4-anatomical-bow-draw/builds/34668ae5-26fd-49ec-88f6-3b6d8ca9c86b) also reported **success** for that exact commit. This verifies one complete Cloudflare build, not guaranteed absence of future resource pressure.
+
+The Cloudflare check establishes successful preview build/deployment pipeline reporting, but direct `/build-info.json` verification against the served feature SHA was blocked by network access in the checking environment; do not conflate successful check and externally confirmed content revision. The owner independently verified the rendered result in the accessible preview. Cold solver-cache latency, mobile performance, source-skinned continuous triangle collision and production-art polish remain future concerns. Neither gameplay ballistics nor combat authority was changed. No C5.5 work or phase-wide acceptance was undertaken here.
