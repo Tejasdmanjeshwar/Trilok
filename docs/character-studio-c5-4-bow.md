@@ -449,3 +449,17 @@ top-view arm straightness and draw-elbow triangle in both hands, actual
 browser screenshots compared side-by-side with owner overhead and side
 references, deployment SHA verification and measured solver cost. The release
 follow-through remains a separate choreography/artistic-quality item.
+
+
+**Verification update (overhead follow-up):** Attempts to enforce an overhead
+elbow residual throughout the draw and to co-optimize string Z travel produced
+repeatable partial-draw reachability regressions (latest experiment CI
+44021313586: 471/475 passed). Both experimental optimizations were rolled
+back from `StudioArchery.ts`. The proven full-draw source elbow calibration
+and true-skin coupled contact solver have been restored; overhead diagnostic
+measurements and an independent full-draw top-view integration assertion are
+retained. The current branch requires a fresh green CI before any acceptance.
+**No claim is made that the owner's crooked overhead silhouette is visually
+fixed.** The high-partial-draw trajectory and coordinated shoulder/back-tension
+triangle still need additional FK/IK design, rather than tuning one arbitrary
+target or weakening skin-contact gates.
