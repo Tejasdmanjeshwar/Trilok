@@ -361,8 +361,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // independent, deterministic progressions; neither is a global FK lock.
   // The fast support phase blends between actual accepted endpoint poses,
   // not fixed skeleton angles or invented bow offsets.
+  // Preserve the accepted late-partial support while avoiding the initial
+  // smoothstep's slow 25% progression followed by a sharp 25%-to-50%
+  // clavicle jump under the new physically offset arrow/string contact.
+  // The straight-line lower envelope affects only early partial support;
+  // the 75%/100% arm target and actual string draw are unchanged.
   const supportProgress=guidedPartial?
-    Math.min(.78,THREE.MathUtils.smoothstep(draw,0,1)):0;
+    Math.min(.78,Math.max(draw,THREE.MathUtils.smoothstep(draw,0,1))):0;
   const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
     archeryShootingPlaneYaw(guidedPartial?state:
       state==="partial"?"aim":state,
