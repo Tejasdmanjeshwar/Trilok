@@ -491,8 +491,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     // posture objectives must not silently change the physical hook goal.
     maximumDrawMeters:.28*scale,
     arrowRest:Object.freeze({schemaVersion:1,kind:"hand-supported",
-      support:"index-knuckle",shaftRadiusMeters:.006*scale,
-      supportGapMeters:.002*scale,lateralOffsetMeters:0}),
+      support:"index-knuckle",shaftRadiusMeters:.0035*scale,
+      supportGapMeters:.005*scale,lateralOffsetMeters:0}),
   });
   validateBowReference(descriptor,model.human.spike.graph);
   // The BVH is a source-authored pose *candidate*, not permission to force
