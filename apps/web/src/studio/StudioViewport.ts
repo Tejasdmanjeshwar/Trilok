@@ -14,6 +14,7 @@ import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   type StudioFocus,type StudioExpression,type StudioPose,type StudioInspectionOptions}
   from "./StudioInspection";
 import {StudioPosePreview} from "./StudioPosePreview";
+import {StudioArcheryWorkerClient} from "./StudioArcheryWorkerClient";
 import {StudioSwordPreview} from "./StudioWeaponGrip";
 import {StudioBowPreview,isBowEquipment,type ArcheryPoseResult,
   type ArcheryState} from "./StudioArchery";
@@ -109,6 +110,7 @@ export function createStudioViewport(
   let bowProfile:BowProfile="recurve";
   let archeryState:ArcheryState="rest";
   let archeryDraw=1;
+  let bowWorker:StudioArcheryWorkerClient|undefined;
   let currentRecipe:StudioRecipeV1=initialStudioRecipe();
   let sword:StudioSwordPreview|StudioTwoHandPreview|StudioBowPreview|undefined;
   let shield:StudioShieldPreview|undefined;
@@ -176,10 +178,64 @@ export function createStudioViewport(
       onEditError("The selected weapon cannot be held comfortably in this pose.");
     }
   }
+  function cancelBowWorker():void{
+    bowWorker?.dispose();bowWorker=undefined;
+  }
+  /** A worker owns a separate CPU source human. Only results from this exact
+   * model, recipe, pose, state, and root are ever admitted to the scene.
+   * Heavy calculations cannot block the camera/slider animation loop. */
+  function startBowWorker():void{
+    if(disposed||!active||!posePreview||!isBowEquipment(equipment)||
+      archeryState!=="partial"||bowWorker)return;
+    const owner=active,preview=posePreview,generation=ticket;
+    try{
+      bowWorker=new StudioArcheryWorkerClient({
+        type:"init",morphology:currentMorphology,expression,
+        pose,equipment,
+      },(_id,draw,rootWorld,result)=>{
+        if(disposed||active!==owner||posePreview!==preview||
+          generation!==ticket||!isBowEquipment(equipment)||
+          result.hand!==(equipment.endsWith("right")?"right":"left")||
+          archeryState!=="partial"||archeryDraw!==draw)return;
+        owner.human.spike.character.root.updateWorldMatrix(true,true);
+        const current=owner.human.spike.character.root.matrixWorld.elements;
+        if(!rootWorld.every((value,i)=>value===current[i]))return;
+        try{
+          if(preview.acceptWorkerPartial(draw,result)){
+            refreshSword();
+            onEditError("");
+          }else{
+            reportGripFailure(undefined,currentRecipe,result);
+            onEditError("The bow cannot reach this draw position. The last valid pose remains visible.");
+          }
+        }catch(error){
+          reportGripFailure(error);
+          onEditError("The drawn bow failed source contact validation. The previous pose remains visible.");
+        }
+        updateMarkers();
+      },message=>{
+        if(disposed||active!==owner||generation!==ticket)return;
+        onEditError("The background bow solver could not complete this draw.");
+        console.warn("[Trilok Studio Worker IK]",message);
+      });
+    }catch(error){
+      cancelBowWorker();
+      onEditError("Background bow solving is not available.");
+      console.warn("[Trilok Studio Worker IK]",error);
+    }
+  }
+  function queueBowDraw():void{
+    startBowWorker();
+    if(!bowWorker||!active)return;
+    active.human.spike.character.root.updateWorldMatrix(true,true);
+    bowWorker.request(archeryDraw,
+      [...active.human.spike.character.root.matrixWorld.elements]);
+  }
   function setEquipment(hand:EquipmentChoice):void{
     if(!["none","left","right","longsword-left","longsword-right",
       "staff-left","staff-right","sword-shield-left","sword-shield-right",
       "bow-left","bow-right"].includes(hand))throw new Error("Unknown equipment choice");
+    cancelBowWorker();
     equipment=hand;
     try{
       posePreview?.setGrip(hand);
@@ -197,7 +253,13 @@ export function createStudioViewport(
     updateMarkers();
   }
   function setArcheryState(state:ArcheryState):void{
+    cancelBowWorker();
     archeryState=state;
+    if(state==="partial"&&isBowEquipment(equipment)&&posePreview){
+      posePreview.stagePartialDraw();
+      queueBowDraw();
+      updateMarkers();return;
+    }
     try{
       posePreview?.setArcheryState(state);
       if(isBowEquipment(equipment))refreshSword();
@@ -213,6 +275,10 @@ export function createStudioViewport(
       throw new Error("Invalid archery draw");
     if(archeryDraw===value)return;
     archeryDraw=value;
+    if(isBowEquipment(equipment)&&archeryState==="partial"&&posePreview){
+      queueBowDraw();
+      return;
+    }
     try{
       posePreview?.setArcheryDraw(value);
       // Replacing identical bow meshes outside partial needlessly allocates
@@ -261,8 +327,12 @@ export function createStudioViewport(
   const visibilityChanged=():void=>{
     performanceMonitor.setSuspended(document.hidden);
     if(document.hidden){
+      cancelBowWorker();
       cancelAnimationFrame(raf);raf=0;
-    }else if(renderer&&!contextLost&&!disposed&&raf===0)draw();
+    }else {
+      if(archeryState==="partial"&&isBowEquipment(equipment))queueBowDraw();
+      if(renderer&&!contextLost&&!disposed&&raf===0)draw();
+    }
   };
   document.addEventListener("visibilitychange",visibilityChanged);
   performanceMonitor.setSuspended(document.hidden);
@@ -377,6 +447,7 @@ export function createStudioViewport(
     moveTo(previous.position,previous.target);
   }
   function setPose(next:StudioPose):void {
+    cancelBowWorker();
     pose=next;
     try{
       posePreview?.setPose(next);
@@ -393,6 +464,7 @@ export function createStudioViewport(
   }
   async function setExpression(next:StudioExpression):Promise<boolean> {
     if(!active)return false;
+    cancelBowWorker();
     const current=++ticket;
     requestAbort?.abort();
     const abort=new AbortController();requestAbort=abort;
@@ -528,6 +600,7 @@ export function createStudioViewport(
   }
   function onLost(event:Event):void {
     event.preventDefault();
+    cancelBowWorker();
     contextLost=true;
     performanceMonitor.setSuspended(true);
     cancelAnimationFrame(raf);raf=0;
@@ -540,7 +613,10 @@ export function createStudioViewport(
     cancelAnimationFrame(raf);raf=0;
     performanceMonitor.setSuspended(document.hidden);
     if(!document.hidden)draw();
-    if(active)onReady();else void load();
+    if(active){
+      if(archeryState==="partial"&&isBowEquipment(equipment))queueBowDraw();
+      onReady();
+    }else void load();
   }
   function onCanvasKey(event:KeyboardEvent):void {
     if(disposed||!controls||contextLost)return;
@@ -609,6 +685,7 @@ export function createStudioViewport(
     recipe?:StudioRecipeV1):Promise<boolean>{
     const started=performance.now();
     const hadActive=!!active;
+    cancelBowWorker();
     validateStudioAppearance(appearance);
     if(disposed)return false;
     const current=++ticket;
@@ -708,6 +785,7 @@ export function createStudioViewport(
   function dispose():void {
     if(disposed)return;
     disposed=true;ticket++;
+    cancelBowWorker();
     clearSword();
     requestAbort?.abort();
     requestAbort=undefined;
