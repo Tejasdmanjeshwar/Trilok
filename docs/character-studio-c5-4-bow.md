@@ -517,3 +517,50 @@ five slider points and both handedness settings, measure solver CPU time/
 candidate cost and Cloudflare deployed SHA, then implement and verify an
 anatomically credible partial trajectory. PR #87 remains draft/unmerged;
 no owner visual acceptance of partial draw or C5.4 is claimed.
+
+
+### 2026-11-17 owner clarification: bow arm already extended during partial draw
+
+The owner's intended choreography is now unambiguous: after the accepted full
+draw establishes the extended bow arm, **partial draw should keep the holding
+elbow almost straight**, while the drawing elbow, wrist, fingers and dependent
+upper shoulder/back controls track the moving string. Do **not** interpolate
+the holding elbow from the cramped nocking posture to full extension using the
+partial string fraction. Nocking and full draw remain protected checkpoints.
+
+A direct test pinned all nine accepted full-draw bow-side FK freedoms and
+source-skinned bow contact, removed those freedoms from partial-draw IK, and
+seeded the drawing side from the full-draw reference. It was implemented at
+`ad1d416`/`95a7859`, extended with continuity and cache tests at
+`315aa732`, and with the explicit full-draw draw-arm seed at `5b04d3a`.
+The exact full-draw bow reference was cached across partial-slider changes
+so it would not require a redundant full-body solve on every input update.
+
+**This trial failed the real contacts and was reverted.** CI
+[44027669334](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44027669334)
+failed 9 of 477 tests: nominal partial string-hook distance exceeded 65–72 mm
+against the retained 30 mm gate, with source index/middle gaps above 8 mm.
+Adding the solved full-draw drawing arm as a warm start still failed
+[44028245512](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44028245512):
+nominal residuals remained ~66 mm (left) and ~63 mm (right), and the
+wide-shoulder/short/light/asymmetric morphologies also lost contact. The
+holding landmarks themselves remained fixed, but that is insufficient proof
+of a functional partial draw. Consequently the trial was restored to the
+known 477-test baseline; no drawing-hand thresholds, source FK limits,
+weapon contact tolerances or accepted endpoints were relaxed.
+
+**Next correction:** preserve *bow elbow extension* and source-skinned grip,
+not exact full-draw world-space holding-wrist coordinates. Use the existing
+source FK and measured two-arm reach envelope to establish one stable,
+morphology-dependent **supported partial bow-arm configuration** with legal
+shoulder/clavicle offsets. Choose that partial support configuration jointly
+with a reachable string-hook path across slider 0/.25/.5/.75/1, then hold
+its bow-side joint angles throughout the partial stage and solve drawing-side
+arm/finger progression. The bow side should be nearly straight in overhead
+and 3D projection; bow grip/arrow aim must remain physical and contact-valid.
+A gentle nocking-to-supported-arm transition may be presented separately.
+Do not reintroduce a constant pinned full-draw wrist or prematurely alter
+string travel to hide the geometric reach constraint. Add hard numerical
+elbow/continuity gates only after a reachable candidate is independently
+verified. Capture top/side/quarter/close renders before claiming visual
+quality. C5.4 remains unaccepted and PR #87 remains draft.
