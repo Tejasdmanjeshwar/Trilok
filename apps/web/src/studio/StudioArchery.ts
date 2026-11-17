@@ -374,23 +374,26 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     initialWrist.distanceTo(initialPalm)*.28,maximumForwardReach);
   const extendedTarget=bowShoulder.clone().add(transverseOffset)
     .addScaledVector(forward,desiredForwardReach);
-  // Set up compact enough to nock; extend against resistance as the string
-  // comes back. Extending at zero draw puts the nock beyond the other hand's
-  // legal reach even though the bow hand itself can grip it.
-  // Until the drawing hand is safely on the string, the bow target
-  // remains close to the verified nock geometry. In later expansion,
-  // smoothly load the bow arm rather than snapping to a long extension.
+  // Nocking and full draw are accepted fixed endpoints. The partial
+  // slider spans only 0..65% of physical string travel, so reusing the
+  // late full-draw expansion gate (.58..1) held its bow grip beside the
+  // chest for almost the entire intermediate pose. Coordinate its reach
+  // independently of string travel, without moving either contact target.
+  // Both targets remain source-landmark-derived and capped by the opposing
+  // arm's physical reach envelope.
   const expansion=THREE.MathUtils.clamp((tension-.58)/.42,0,1);
   const smoothExpansion=expansion*expansion*(3-2*expansion);
-  const extensionBlend=state==="rest"?0:state==="release"?.70:
-    smoothExpansion;
-  // The measured nock-reach cap can be shorter than the visually desirable
-  // target on unusual anatomy. Use it as a REAL geometric limit, not a
-  // cosmetic change to the weapon or string. The coupled IK resolves the
-  // remaining arm and finger DOFs under unchanged hard contact gates.
+  const partialExpansion=draw*draw*(3-2*draw);
+  const extensionBlend=state==="partial"?partialExpansion:
+    state==="rest"?0:state==="release"?.70:smoothExpansion;
   const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
-  const desiredBend=tension<.80?undefined:THREE.MathUtils.degToRad(
-    19-7*tension);
+  // A supported intermediate arm needs the same shared FK elbow guidance
+  // as the accepted full draw. It is a soft objective, not an elbow lock:
+  // the coupled source-skinned contact optimizer can refuse an infeasible
+  // request. Avoid changing the nock/aim endpoints or legal FK limits.
+  const desiredBend=state==="partial"&&draw>.10?
+    THREE.MathUtils.degToRad(44-27*partialExpansion):
+    tension<.80?undefined:THREE.MathUtils.degToRad(19-7*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
