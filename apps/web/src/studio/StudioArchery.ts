@@ -386,7 +386,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // The source arm's accessible contact basins change around mid-draw.
   // Delay expansion until the drawing hand has settled its string contact,
   // then ramp the bow arm toward the full shooting line by partial/full draw.
-  const expansion=THREE.MathUtils.clamp((tension-.38)/.38,0,1);
+  const expansion=THREE.MathUtils.clamp((tension-.42)/.30,0,1);
   const smoothExpansion=expansion*expansion*(3-2*expansion);
   const extensionBlend=state==="rest"?0:state==="release"?.70:
     smoothExpansion;
@@ -395,7 +395,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // cosmetic change to the weapon or string. The coupled IK resolves the
   // remaining arm and finger DOFs under unchanged hard contact gates.
   const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
-  const desiredBend=tension<.20?undefined:THREE.MathUtils.degToRad(
+  const desiredBend=tension<.58?undefined:THREE.MathUtils.degToRad(
     19-7*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
