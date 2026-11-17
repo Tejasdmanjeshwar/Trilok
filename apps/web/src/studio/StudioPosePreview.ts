@@ -10,9 +10,10 @@ import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
 import {solveArcheryPose,isBowEquipment,type ArcheryPoseResult,
   type ArcheryState,type ArcheryTransitionGuide} from "./StudioArchery";
 import {twoHandGripContactWorld} from "./StudioTwoHandGrip";
-import {measureStringFingerSkin,oppositeHand} from "./StudioArchery";
+import {oppositeHand} from "./StudioArchery";
+import {bowNockLocal} from "./StudioBowGeometry";
 import {measureSourceArrowShaft} from "./StudioArrowRest";
-import {sourceHandSamples} from "./StudioSourceContact";
+import {sourceHandSamples,measureSourceStringContact} from "./StudioSourceContact";
 import {isSwordShieldEquipment,shieldHand,solveShieldPose,type ShieldPoseResult,
   type ShieldStance} from "./StudioShieldGrip";
 
@@ -194,15 +195,21 @@ export class StudioPosePreview {
       this.correctives?.apply([]);
       this.fk.apply(result.commands);
       const scale=result.descriptor.limbLengthMeters/.64;
-      const string=measureStringFingerSkin(this.model,oppositeHand(result.hand),result);
-      const gaps=new Map(string.map(s=>[s.digit,s.nearestGapMeters]));
+      // Complete original source-region vertices, not IK downsampling:
+      // revalidate against this actual posed rendering character.
+      const drawSide=oppositeHand(result.hand);
+      const bowTip=(side:1|-1)=>bowNockLocal(result.descriptor,side)
+        .applyMatrix4(result.bowWorld);
+      const gaps=measureSourceStringContact(this.model,
+        sourceHandSamples(this.model,drawSide),result.nockWorld,
+        bowTip(1),bowTip(-1),.0018*scale,.055*scale);
       const shaft=measureSourceArrowShaft(this.model,
         sourceHandSamples(this.model,result.hand),result.bowWorld,
         result.nockWorld.clone().applyMatrix4(result.bowWorld.clone().invert()),
         result.descriptor.arrowLengthMeters,
         result.descriptor.arrowRest.shaftRadiusMeters);
-      if(!(["index","middle"] as const).every(d=>Number.isFinite(gaps.get(d))&&
-          gaps.get(d)!<.008*scale)||
+      if(!Number.isFinite(gaps.index)||!Number.isFinite(gaps.middle)||
+        gaps.index>=.008*scale||gaps.middle>=.008*scale||
         shaft.some(x=>!Number.isFinite(x.nearestSurfaceClearanceMeters)||
           x.nearestSurfaceClearanceMeters<-.001*scale))
         throw new Error("Worker source-skin contact rejected by live character");
