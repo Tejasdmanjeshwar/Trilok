@@ -383,7 +383,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // smoothly load the bow arm rather than snapping to a long extension.
   // Once the string is nocked, expand the supported bow arm progressively
   // rather than postponing all extension until the full-draw control.
-  const expansion=THREE.MathUtils.clamp((tension-.08)/.92,0,1);
+  // The source arm's accessible contact basins change around mid-draw.
+  // Delay expansion until the drawing hand has settled its string contact,
+  // then ramp the bow arm toward the full shooting line by partial/full draw.
+  const expansion=THREE.MathUtils.clamp((tension-.38)/.38,0,1);
   const smoothExpansion=expansion*expansion*(3-2*expansion);
   const extensionBlend=state==="rest"?0:state==="release"?.70:
     smoothExpansion;
@@ -613,7 +616,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const bowPlanar=desiredBend===undefined?undefined:
           measureProjectedArmAlignment(at(bowShoulderBone),
             at(bowElbowBone),at(bowWristBone),up,forward);
-        const planarWeight=THREE.MathUtils.smoothstep(tension,.25,.9);
+        const planarWeight=THREE.MathUtils.smoothstep(tension,.65,.95);
         const skin=fingerSkin(actualBow,goal);
         const indexPad=sourcePadWorld(model,padVertices.index);
         const middlePad=sourcePadWorld(model,padVertices.middle);
@@ -707,7 +710,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       const bowPlanar=desiredBend===undefined?undefined:
         measureProjectedArmAlignment(at(bowShoulderBone),
           at(bowElbowBone),at(bowWristBone),up,forward);
-      const planarWeight=THREE.MathUtils.smoothstep(tension,.25,.9);
+      const planarWeight=THREE.MathUtils.smoothstep(tension,.65,.95);
       const extensionCost=bowArm&&desiredBend!==undefined?
         bowArmExtensionResidual(bowArm,desiredBend)*.55:0;
       const projectedCost=bowPlanar?
