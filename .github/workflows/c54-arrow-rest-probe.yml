@@ -17,4 +17,4 @@ jobs:
           node-version: '22'
       - run: pnpm install --no-frozen-lockfile
       - run: node scripts/fetch-makehuman-core.mjs
-      - run: pnpm exec vitest run tests/character-studio-arrow-rest.test.ts tests/character-studio-archery.test.ts --pool=threads --maxWorkers=1
+      - run: pnpm exec vitest run tests/character-studio-arrow-rest.test.ts tests/character-studio-archery.test.ts tests/character-studio-archery-partial-continuity.test.ts tests/character-studio-bilateral-symmetry.test.ts --pool=threads --maxWorkers=1
