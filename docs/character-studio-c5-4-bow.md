@@ -601,3 +601,53 @@ determinism, solver wall time and candidate cost, real multi-view preview
 inspection and independently confirmed Cloudflare SHA. Do not infer visual
 quality or production readiness from numerical tests. Keep PR #87 open
 until owner review.
+
+
+### 2026-11-17 user top-view regression report: partial draw outside shooting line
+
+The user supplied three actual Character Studio top-down screenshots
+(`1000000273.jpg` full draw, `1000000271.jpg` partial draw,
+`1000000269.jpg` nocking). The accepted nocking and full-draw
+silhouettes keep the bow comparatively close to the forward shooting
+line. The partial-draw support is radically sideways, visibly unlike
+either endpoint. This is **not accepted** as a coherent interpolation.
+
+At the last passing commit `c1602b3383b6b36bc1afc2e7d0f95feb2399d442`,
+nominal partial slider 100% reaches ~370 mm forward but has ~305 mm
+horizontal lateral deviation. In the same nominal tests, full draw
+reaches ~502 mm forward and has only ~14–22 mm lateral deviation.
+The source hand/string contacts pass, but contact alone does not
+guarantee a believable top-down archery silhouette.
+
+The underlying partial-target construction is the root of the
+discontinuity: `supportForward = min(...)` together with
+`supportLateral = sqrt(supportReach^2-supportForward^2)`
+intentionally moves the support arm sharply sideways while the
+nocking and full-draw paths use forward targets. The compliant
+`supportedContactFreedoms` preserved this wrong target rather than
+resolving it.
+
+**Two deliberately rejected experiments:**
+- `63dafaf8` removed the large lateral offset and let partial
+  torso yaw progress normally. CI `44035482637` failed
+  7/480 tests; at nominal partial draw the drawing hook missed its
+  source-skinned string goal by ~112 mm on both sides.
+- `acf43a36` also accelerated partial string travel and blended
+  from the nocking bow target. CI `44036181434` failed
+  6/480 tests; nominal hook residual remained ~38.6 mm,
+  above the unchanged 30 mm gate, and it changed the established
+  `archeryDrawFraction` contract. Do not weaken the hard contact
+  acceptance or silently redefine the physical slider fraction.
+
+**Recovery:** both experiments are reverted at `838fc13593698f322e6eb0881cab14d033471283`,
+restoring the last known passing source behavior while the visual
+regression remains tracked as unresolved. Nocking and full draw
+are untouched; the shared compliant support remains intact.
+A lasting correction must couple shoulder-girdle/torso orientation,
+bow/grip placement and true-string draw reach in one feasible
+shooting-plane trajectory, rather than separately pushing the bow
+target forward. Add overhead silhouette continuity gates against
+both accepted endpoints and test seeded, asymmetric, bilateral
+morphologies alongside original skinned contact. Neither attempt
+had independent rendered screenshot verification or deployment-SHA
+confirmation. PR #87 remains draft/unmerged.
