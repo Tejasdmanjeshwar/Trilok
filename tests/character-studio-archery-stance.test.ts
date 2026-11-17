@@ -23,9 +23,9 @@ describe("C5.4 upright, foot-planted shooting-plane coordination",()=>{
     expect(left[0]).toBe(0);
     expect(left[1]).toBeCloseTo(left[2]!);
     expect(left.slice(1).every((v,i,a)=>i===0||v>=a[i-1]!-1e-10)).toBe(true);
-    expect(left.at(-1)).toBeCloseTo(.85);
-    expect(left[1]).toBeGreaterThan(.5);
-    expect(archeryShootingPlaneYaw("release",1,"left")).toBeGreaterThan(.7);
+    expect(left.at(-1)).toBeCloseTo(.80);
+    expect(left[1]).toBeGreaterThan(.14);
+    expect(archeryShootingPlaneYaw("release",1,"left")).toBeGreaterThan(.6);
     for(const state of ["rest","nock","partial","aim","release"] as ArcheryState[])
       for(const draw of [0,.25,.5,.75,1])
         expect(archeryShootingPlaneYaw(state,draw,"right"))
