@@ -95,13 +95,18 @@ export function sourceIndexRestLandmark(model:StudioHumanModel,
   const mcp=bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(inverse);
   const point=new THREE.Vector3();
   let nearestDistance=Infinity,nearest:THREE.Vector3|undefined;
+  let upperSurface:THREE.Vector3|undefined;
+  // Choose the exposed proximal index surface, not the central MCP bone
+  // position. The proximal contact band is hand-morphology dependent.
+  const maxProximalDistanceSq=.032*.032;
   for(const id of samples.get("index")??[]){
     mesh.getVertexPosition(id,point).applyMatrix4(mesh.matrixWorld)
       .applyMatrix4(inverse);
-    // Do not choose a distant fingertip merely because it is above the rest.
     const distance=point.distanceToSquared(mcp);
     if(distance<nearestDistance){nearestDistance=distance;nearest=point.clone();}
+    if(distance<=maxProximalDistanceSq&&
+      (!upperSurface||point.y>upperSurface.y))upperSurface=point.clone();
   }
   if(!nearest)throw new Error("Missing source index-rest skin");
-  return nearest;
+  return upperSurface??nearest;
 }
