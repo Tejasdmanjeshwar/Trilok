@@ -13,7 +13,9 @@ import {twoHandGripContactWorld} from "./StudioTwoHandGrip";
 import {oppositeHand} from "./StudioArchery";
 import {bowNockLocal} from "./StudioBowGeometry";
 import {measureSourceArrowShaft} from "./StudioArrowRest";
-import {sourceHandSamples,measureSourceStringContact} from "./StudioSourceContact";
+import {sourceHandSamples,measureSourceStringContact,
+  measureSourceCylinder} from "./StudioSourceContact";
+import {isAcceptableBowContact} from "./StudioBowContact";
 import {isSwordShieldEquipment,shieldHand,solveShieldPose,type ShieldPoseResult,
   type ShieldStance} from "./StudioShieldGrip";
 
@@ -203,12 +205,20 @@ export class StudioPosePreview {
       const gaps=measureSourceStringContact(this.model,
         sourceHandSamples(this.model,drawSide),result.nockWorld,
         bowTip(1),bowTip(-1),.0018*scale,.055*scale);
+      const bowSkin=sourceHandSamples(this.model,result.hand);
+      // The worker's earlier calibrated grip report cannot substitute for
+      // the LIVE final rendered hand. Recheck every original volar region
+      // against the same strict finite-cylinder acceptance used by C5.4.
+      const grasp=measureSourceCylinder(this.model,bowSkin,result.bowWorld,
+        result.descriptor.handleRadiusMeters,
+        result.descriptor.handleLengthMeters);
       const shaft=measureSourceArrowShaft(this.model,
-        sourceHandSamples(this.model,result.hand),result.bowWorld,
+        bowSkin,result.bowWorld,
         result.nockWorld.clone().applyMatrix4(result.bowWorld.clone().invert()),
         result.descriptor.arrowLengthMeters,
         result.descriptor.arrowRest.shaftRadiusMeters);
-      if(!Number.isFinite(gaps.index)||!Number.isFinite(gaps.middle)||
+      if(!isAcceptableBowContact(grasp)||
+        !Number.isFinite(gaps.index)||!Number.isFinite(gaps.middle)||
         gaps.index>=.008*scale||gaps.middle>=.008*scale||
         shaft.some(x=>!Number.isFinite(x.nearestSurfaceClearanceMeters)||
           x.nearestSurfaceClearanceMeters<-.001*scale))
