@@ -73,6 +73,14 @@ cache hits, source-equivalent regions, mirrored samples, and invalidation.
 checks; deterministic cache read-count and IK evaluation-count regression
 assertions. No wall-clock pass/fail threshold.
 
+**Automatic same-run classification comparison:** the narrowly scoped
+`studio-source-classification-compare.yml` PR workflow checks out the
+candidate and exact base SHA in separate pnpm workspaces on one runner, uses
+the same microbenchmark against each revision, and preserves their raw
+`source-hand-classification.json` timings and source skin-index attribute
+read counts as an artifact. This isolates the focused classification
+optimization, **not end-to-end pose solves**.
+
 **Controlled Node benchmark:** Actions -> *Character Studio Solver Benchmark*
 -> Run workflow against the exact candidate ref. Or locally:
 `pnpm bench:studio` on Node 22 / pnpm 10.20.0 with verified MakeHuman assets.
