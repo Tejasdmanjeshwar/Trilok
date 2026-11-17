@@ -26,11 +26,6 @@ export class StudioPosePreview {
   private archeryState:ArcheryState="rest";
   private archeryDraw=1;
   private archeryResult?:ArcheryPoseResult;
-  /** One accepted source-skinned holding arm per unchanged anatomy, Studio
-   * pose and bow side. Partial slider updates only re-solve the drawing hand. */
-  private archeryHoldingReference?:Readonly<{
-    pose:StudioPose;hand:"left"|"right";result:ArcheryPoseResult;
-  }>;
   get bowPoseResult():ArcheryPoseResult|undefined{return this.archeryResult;}
   setArcheryState(state:ArcheryState):void{this.archeryState=state;this.refresh();}
   setArcheryDraw(value:number):void{this.archeryDraw=value;this.refresh();}
@@ -40,10 +35,7 @@ export class StudioPosePreview {
     this.shieldStance=stance;this.refresh();
   }
   get twoHandResult():TwoHandIKResult|undefined{return this.result;}
-  setGrip(hand:EquipmentChoice):void{
-    if(hand!==this.grip)this.archeryHoldingReference=undefined;
-    this.grip=hand;this.refresh();
-  }
+  setGrip(hand:EquipmentChoice):void{this.grip=hand;this.refresh();}
   constructor(private readonly model:StudioHumanModel,
     archery?:Readonly<{state:ArcheryState;draw:number}>){
     if(archery){
@@ -92,23 +84,8 @@ export class StudioPosePreview {
     this.shieldResult=undefined;
     this.archeryResult=undefined;
     if(isBowEquipment(this.grip)){
-      const hand=this.grip.endsWith("right")?"right":"left";
-      if(this.archeryHoldingReference?.pose!==id||
-        this.archeryHoldingReference.hand!==hand)
-        this.archeryHoldingReference=undefined;
-      if(this.archeryState==="partial"&&!this.archeryHoldingReference){
-        const reference=solveArcheryPose(this.model,this.fk,effective,hand,"aim",1);
-        if(reference.reachable)this.archeryHoldingReference={
-          pose:id,hand,result:reference,
-        };
-      }
       this.archeryResult=solveArcheryPose(this.model,this.fk,effective,
-        hand,this.archeryState,this.archeryDraw,
-        this.archeryHoldingReference?.result);
-      if(this.archeryState==="aim"&&this.archeryResult.reachable)
-        this.archeryHoldingReference={
-          pose:id,hand,result:this.archeryResult,
-        };
+        this.grip.endsWith("right")?"right":"left",this.archeryState,this.archeryDraw);
     }else if(dual){
       const swordSide=this.grip.endsWith("right")?"right":"left";
       this.shieldResult=solveShieldPose(this.model,this.fk,effective,
@@ -128,7 +105,6 @@ export class StudioPosePreview {
     this.result=undefined;
     this.shieldResult=undefined;
     this.archeryResult=undefined;
-    this.archeryHoldingReference=undefined;
     this.fk.apply([]);
     this.correctives?.dispose();
   }
