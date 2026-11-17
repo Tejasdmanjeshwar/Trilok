@@ -224,6 +224,9 @@ export function createStudioViewport(
         updateMarkers();
       },message=>{
         if(disposed||active!==owner||generation!==ticket)return;
+        // Do not retain a permanently failed boot/worker as an active owner.
+        // A later input can create a fresh isolated source solver.
+        cancelBowWorker();
         onEditError("The background bow solver could not complete this draw.");
         window.dispatchEvent(new CustomEvent("trilok:studio:bow-worker-result",{
           detail:{draw:archeryDraw,reachable:false,accepted:false,error:true},
@@ -240,8 +243,14 @@ export function createStudioViewport(
     startBowWorker();
     if(!bowWorker||!active)return;
     active.human.spike.character.root.updateWorldMatrix(true,true);
-    bowWorker.request(archeryDraw,
-      [...active.human.spike.character.root.matrixWorld.elements]);
+    try{
+      bowWorker.request(archeryDraw,
+        [...active.human.spike.character.root.matrixWorld.elements]);
+    }catch(error){
+      cancelBowWorker();
+      onEditError("The background bow solver could not accept this draw.");
+      console.warn("[Trilok Studio Worker IK]",error);
+    }
   }
   function setEquipment(hand:EquipmentChoice):void{
     if(!["none","left","right","longsword-left","longsword-right",
