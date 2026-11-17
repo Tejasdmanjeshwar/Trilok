@@ -25,7 +25,8 @@ describe("C5.5 source torso topology reuse",()=>{
         const second=new StudioBodyCollision(model);
         expect(second.sourceVertices).toBe(first.sourceVertices);
         expect(second.sourceTriangleCount).toBe(first.sourceTriangleCount);
-        expect(second.clearance(point)).toBeCloseTo(first.clearance(point),9);
+        const baselineClearance=first.clearance(point);
+        expect(second.clearance(point)).toBeCloseTo(baselineClearance,9);
 
         root.position.add(new THREE.Vector3(.43,.19,-.3));
         root.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
@@ -35,8 +36,10 @@ describe("C5.5 source torso topology reuse",()=>{
         const moved=new StudioBodyCollision(model);
         expect(moved.sourceVertices).toBe(first.sourceVertices);
         expect(moved.sourceTriangleCount).toBe(first.sourceTriangleCount);
+        // The earlier collision object has bind-root transforms for the
+        // ORIGINAL pose and must not be queried after moving the root.
         expect(moved.clearance(transformed))
-          .toBeCloseTo(first.clearance(point),6);
+          .toBeCloseTo(baselineClearance,6);
 
         // A geometry version change invalidates the immutable classification.
         // Recalibration continues to use the same actual skin and contact.
