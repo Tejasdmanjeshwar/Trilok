@@ -3,6 +3,8 @@
  * the caller owns anatomical frames, collision barriers and surface samples.
  * This deliberately does not change a Three.js skeleton outside evaluate().
  */
+import {countStudioSolverWork} from "./StudioSolverDiagnostics";
+
 export interface IKFreedom {
   readonly min:number;
   readonly max:number;
@@ -95,9 +97,11 @@ export function fitConstrainedIK(start:readonly number[],
       limits.some((b,i)=>!Number.isFinite(b.min)||!Number.isFinite(b.max)||
         b.min>b.max||start[i]!<b.min-1e-8||start[i]!>b.max+1e-8))
     throw new Error("Invalid constrained IK parameter bounds");
+  countStudioSolverWork("ikFits");
   let evaluations=0;
   const sampledObjective=(values:readonly number[])=>{
     evaluations++;
+    countStudioSolverWork("ikObjectives");
     return evaluate(values);
   };
   let parameters=[...start];
@@ -108,6 +112,7 @@ export function fitConstrainedIK(start:readonly number[],
   let cost=squared(errors),lambda=.002,iterations=0,stalls=0;
   for(let it=0;it<maxIterations;it++){
     iterations++;
+    countStudioSolverWork("ikIterations");
     const jacobian=Array.from({length:count},()=>Array<number>(start.length).fill(0));
     for(let j=0;j<start.length;j++){
       const bound=limits[j]!,h=.006;
