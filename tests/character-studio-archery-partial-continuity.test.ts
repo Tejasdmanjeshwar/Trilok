@@ -58,6 +58,10 @@ describe("C5.4 partial-draw source-kinematic progression",()=>{
       try{
         preview.setGrip(side==="left"?"bow-left":"bow-right");
         preview.setArcheryState("partial");
+        const holdingJoints=new Set(human.spike.graph.joints.filter(j=>
+          ["clavicle_","shoulder_","elbow_","wrist_"].some(prefix=>
+            j.role===prefix+side)).map(j=>j.id));
+        const holdingStates:Map<string,number>[]=[];
         const rows=[] as Array<{
           slider:number;elbow3d:number;elbowOverhead:number;
           forwardReach:number;lateralOffset:number;shoulderLead:number;
@@ -71,6 +75,11 @@ describe("C5.4 partial-draw source-kinematic progression",()=>{
           expect(result.reachable,`${side} draw ${slider}: ${result.reason}`)
             .toBe(true);
           expect(result.stanceAlignment).toBeDefined();
+          const support=new Map(result.commands.filter(c=>
+            holdingJoints.has(c.jointId)).map(c=>
+            [c.jointId+"/"+c.motion,c.radians]));
+          expect(support.size).toBeGreaterThanOrEqual(9);
+          holdingStates.push(support);
           const a=result.stanceAlignment!;
           const gaps=measureStringFingerSkin(model,
             side==="left"?"right":"left",result);
@@ -104,6 +113,16 @@ describe("C5.4 partial-draw source-kinematic progression",()=>{
           expect(Number.isFinite(row.lateralOffset)).toBe(true);
           expect(Number.isFinite(row.elbowBehindHook)).toBe(true);
         }
+        // The soft support DOFs must actually participate in the coupled
+        // optimization, without allowing a wild postural excursion. This
+        // detects accidentally returning to the former []-freedoms lock.
+        const starting=holdingStates[0]!;
+        const changes=holdingStates.slice(1).flatMap(state=>
+          [...starting].map(([key,angle])=>Math.abs(
+            (state.get(key)??angle)-angle)));
+        expect(Math.max(...changes)).toBeGreaterThan(1e-6);
+        expect(Math.max(...changes)).toBeLessThanOrEqual(
+          THREE.MathUtils.degToRad(4)+1e-8);
         // Record the current trajectory without falsely accepting a bent
         // partial elbow: those target angles require owner visual approval
         // and a separate contact-preserving solver correction.
