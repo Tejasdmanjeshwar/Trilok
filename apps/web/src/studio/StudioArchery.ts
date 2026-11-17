@@ -14,8 +14,8 @@ import {retargetSourceArcherPose} from "./StudioMakeHumanArcherRetarget";
 import {measureSourceStringContact,sourceHandSamples,
   sourceFingerPadVertices,sourcePadWorld,
   type SourceCylinderRegion} from "./StudioSourceContact";
-import {contactArmFreedoms,composeContactPose,clampContactSeed,
-  mirrorContactDifferenceSign}
+import {contactArmFreedoms,supportedContactFreedoms,composeContactPose,
+  clampContactSeed,mirrorContactDifferenceSign}
   from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
 import {coordinateTorsoAndGaze} from "./StudioUpperBodyCoordination";
@@ -517,9 +517,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         }
       }
     }
-    // Hold the chosen partial support arm steady. Draw-side clavicle,
-    // shoulder, elbow, wrist and the index/middle hook remain legal DOFs.
-    const holdingFreedoms=partialSupport?[]:
+    // A supported bow arm is NOT a locked FK chain. Retain its calibrated
+    // nine anatomical DOFs inside the same coupled contact solver, with
+    // limited compliant motion about the *solved* source-skin grip pose.
+    // The full-draw/nock solvers keep their existing unrestricted freedoms.
+    const supportReference=partialSupport?
+      contactArmFreedoms(model.human.spike.graph,fk,hand):undefined;
+    const holdingFreedoms=partialSupport?supportedContactFreedoms(
+      supportReference!,staged,THREE.MathUtils.degToRad(2)):
       contactArmFreedoms(model.human.spike.graph,fk,hand);
     const freedoms=[
       ...holdingFreedoms,
@@ -680,6 +685,11 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // Keep the bow arm near its source-reach-calibrated target.
           (bowGrip.x-bowTarget.x)*.45,(bowGrip.y-bowTarget.y)*.45,
           (bowGrip.z-bowTarget.z)*.45,
+          // A reference pose is a compliance preference, not a frozen
+          // shoulder/elbow/wrist. Draw-hand contact can still induce small,
+          // legal support-arm changes within the calibrated search envelope.
+          ...(partialSupport?values.slice(0,holdingFreedoms.length)
+            .map((v,i)=>(v-initial[i]!)*.075*scale):[]),
           Math.max(0,.018*scale-collisions.clearance(elbowMid))*1.5,
           Math.max(0,.012*scale-collisions.clearance(finger))*1.5,
           ...values.map((v,i)=>(v-seed[i]!)*.002),
