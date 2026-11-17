@@ -66,6 +66,22 @@ describe("bounded coupled IK optimization",()=>{
     expect(a.values[0]).not.toBeCloseTo(-b.values[0]!,2);
     expect(()=>fitCanonicalIK([0],[{min:-1,max:1}],[],q=>q)).toThrow();
   });
+  it("reports objective work exactly without an extra solve",()=>{
+    let calls=0;
+    const fit=fitConstrainedIK([0],[{min:-1,max:1}],values=>{
+      calls++;
+      return [values[0]!-.4];
+    },12);
+    expect(fit.evaluations).toBe(calls);
+    expect(fit.evaluations).toBeGreaterThan(fit.iterations);
+    let mirroredCalls=0;
+    const mirrored=fitCanonicalIK([0],[{min:-1,max:1}],[-1],values=>{
+      mirroredCalls++;
+      return [values[0]!+.4];
+    },12);
+    expect(mirrored.evaluations).toBe(mirroredCalls);
+    expect(mirrored.cost).toBeCloseTo(fit.cost,12);
+  });
   it("rejects invalid or nonfinite calibration",()=>{
     expect(()=>fitConstrainedIK([2],[{min:0,max:1}],v=>v)).toThrow();
     expect(()=>fitConstrainedIK([0],[{min:-1,max:1}],()=>[NaN])).toThrow();

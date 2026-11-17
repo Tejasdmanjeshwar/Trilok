@@ -1,0 +1,65 @@
+name: Studio Source Classification Before After
+
+# Scoped benchmark triggered only for source-index optimization proposals.
+# Timing evidence is informational, never a PR approval gate.
+on:
+  pull_request:
+    paths:
+      - 'apps/web/src/studio/StudioSourceContact.ts'
+      - 'benchmarks/character-studio-source-hand.bench.test.ts'
+      - '.github/workflows/studio-source-classification-compare.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-classify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out optimized candidate
+        uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare optimized pinned anatomy
+        run: |
+          pnpm install --no-frozen-lockfile
+          node scripts/fetch-makehuman-core.mjs
+      - name: Measure optimized source sampling
+        env:
+          STUDIO_BENCH_LABEL: optimized
+          STUDIO_BENCH_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pnpm exec vitest run benchmarks/character-studio-source-hand.bench.test.ts --pool=threads --maxWorkers=1
+      - name: Prepare independent baseline worktree outside the pnpm workspace
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/trilok-source-baseline" "$BASE_SHA"
+          mkdir -p "$RUNNER_TEMP/trilok-source-baseline/benchmarks"
+          cp benchmarks/character-studio-source-hand.bench.test.ts "$RUNNER_TEMP/trilok-source-baseline/benchmarks/"
+          cd "$RUNNER_TEMP/trilok-source-baseline"
+          pnpm install --no-frozen-lockfile
+          node scripts/fetch-makehuman-core.mjs
+      - name: Measure unmodified baseline source sampling
+        working-directory: ${{ runner.temp }}/trilok-source-baseline
+        env:
+          STUDIO_BENCH_LABEL: baseline
+          STUDIO_BENCH_SHA: ${{ github.event.pull_request.base.sha }}
+        run: pnpm exec vitest run benchmarks/character-studio-source-hand.bench.test.ts --pool=threads --maxWorkers=1
+      - name: Preserve base and optimized observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-source-classification-${{ github.event.pull_request.head.sha }}
+          path: |
+            \${{ runner.temp }}/trilok-source-baseline/test-results/source-hand-classification.json
+            test-results/source-hand-classification.json
+          retention-days: 14
+          if-no-files-found: warn

@@ -13,6 +13,8 @@ export interface IKFit {
   readonly values:readonly number[];
   readonly cost:number;
   readonly iterations:number;
+  /** Deterministic count of full caller objective evaluations. */
+  readonly evaluations:number;
 }
 function normalStep(jacobian:readonly (readonly number[])[],
   residual:readonly number[],lambda:number):number[]|undefined{
@@ -75,7 +77,8 @@ export function fitCanonicalIK(start:readonly number[],
     values=>evaluate(physical(values)),maxIterations,maxParameterStep);
   const values=Object.freeze(physical(result.values));
   // fitConstrainedIK re-applies the final canonical pose before returning.
-  return Object.freeze({values,cost:result.cost,iterations:result.iterations});
+  return Object.freeze({values,cost:result.cost,iterations:result.iterations,
+    evaluations:result.evaluations});
 }
 
 const squared=(v:readonly number[])=>v.reduce((sum,x)=>sum+x*x,0);
@@ -92,8 +95,13 @@ export function fitConstrainedIK(start:readonly number[],
       limits.some((b,i)=>!Number.isFinite(b.min)||!Number.isFinite(b.max)||
         b.min>b.max||start[i]!<b.min-1e-8||start[i]!>b.max+1e-8))
     throw new Error("Invalid constrained IK parameter bounds");
+  let evaluations=0;
+  const sampledObjective=(values:readonly number[])=>{
+    evaluations++;
+    return evaluate(values);
+  };
   let parameters=[...start];
-  let errors=[...evaluate(parameters)];
+  let errors=[...sampledObjective(parameters)];
   const count=errors.length;
   if(!count||errors.some(x=>!Number.isFinite(x)))
     throw new Error("Nonfinite constrained IK residual");
@@ -114,7 +122,7 @@ export function fitConstrainedIK(start:readonly number[],
       const delta=moved-parameters[j]!;
       if(Math.abs(delta)<1e-10)continue;
       const trial=[...parameters];trial[j]=moved;
-      const sampled=evaluate(trial);
+      const sampled=sampledObjective(trial);
       if(sampled.length!==count||sampled.some(x=>!Number.isFinite(x)))
         throw new Error("Unstable constrained IK residual");
       for(let k=0;k<count;k++)
@@ -128,7 +136,7 @@ export function fitConstrainedIK(start:readonly number[],
         Math.max(limits[j]!.min,Math.min(limits[j]!.max,
           value+Math.max(-maxParameterStep,
           Math.min(maxParameterStep,step[j]!*factor)))));
-      const sampled=[...evaluate(trial)];
+      const sampled=[...sampledObjective(trial)];
       const nextCost=squared(sampled);
       if(Number.isFinite(nextCost)&&nextCost<cost-1e-12){
         parameters=trial;errors=sampled;cost=nextCost;
@@ -143,6 +151,6 @@ export function fitConstrainedIK(start:readonly number[],
   }
   // evaluate() may mutate a skeleton: ensure the successful parameter vector
   // is the last applied pose, even after finite difference / line searches.
-  evaluate(parameters);
-  return Object.freeze({values:Object.freeze(parameters),cost,iterations});
+  sampledObjective(parameters);
+  return Object.freeze({values:Object.freeze(parameters),cost,iterations,evaluations});
 }
