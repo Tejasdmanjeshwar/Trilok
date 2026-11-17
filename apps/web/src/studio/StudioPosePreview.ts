@@ -10,6 +10,12 @@ import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
 import {solveArcheryPose,isBowEquipment,type ArcheryPoseResult,
   type ArcheryState,type ArcheryTransitionGuide} from "./StudioArchery";
 import {twoHandGripContactWorld} from "./StudioTwoHandGrip";
+import {oppositeHand} from "./StudioArchery";
+import {bowNockLocal} from "./StudioBowGeometry";
+import {measureSourceArrowShaft} from "./StudioArrowRest";
+import {sourceHandSamples,measureSourceStringContact,
+  measureSourceCylinder} from "./StudioSourceContact";
+import {isAcceptableBowContact} from "./StudioBowContact";
 import {isSwordShieldEquipment,shieldHand,solveShieldPose,type ShieldPoseResult,
   type ShieldStance} from "./StudioShieldGrip";
 
@@ -160,6 +166,72 @@ export class StudioPosePreview {
       this.shieldResult?.commands??this.archeryResult?.commands??effective);
     human.spike.character.root.updateWorldMatrix(true,true);
     this.current=id;
+  }
+  /** Worker-only transition: the last validated source pose stays visible
+   * until a separate source-skinned solver accepts a new draw. */
+  stagePartialDraw():void{
+    if(!isBowEquipment(this.grip))
+      throw new Error("No source bow equipped for deferred partial draw");
+    this.archeryState="partial";
+  }
+  /** Only adopt a result from the identically generated source once the
+   * viewport has verified model/generation/hand/pose/root ownership.
+   * Recheck full-resolution posed source finger/string and arrow/hand
+   * clearance against the LIVE source before changing rendered props.
+   * A rejected result restores the last legal FK and corrective pose.
+   */
+  acceptWorkerPartial(draw:number,result:ArcheryPoseResult):boolean{
+    if(!isBowEquipment(this.grip)||this.archeryState!=="partial"||
+      result.state!=="partial"||
+      result.hand!==(this.grip.endsWith("right")?"right":"left")||
+      !Number.isFinite(draw)||draw<0||draw>1)
+      throw new Error("Mismatched worker source pose");
+    if(!result.reachable)return false;
+    const before=this.archeryResult;
+    const restore=()=>{
+      this.correctives?.apply([]);
+      if(before)this.fk.apply(before.commands);
+      this.correctives?.apply(before?.commands??[]);
+    };
+    try{
+      this.correctives?.apply([]);
+      this.fk.apply(result.commands);
+      const scale=result.descriptor.limbLengthMeters/.64;
+      // Complete original source-region vertices, not IK downsampling:
+      // revalidate against this actual posed rendering character.
+      const drawSide=oppositeHand(result.hand);
+      const bowTip=(side:1|-1)=>bowNockLocal(result.descriptor,side)
+        .applyMatrix4(result.bowWorld);
+      const gaps=measureSourceStringContact(this.model,
+        sourceHandSamples(this.model,drawSide),result.nockWorld,
+        bowTip(1),bowTip(-1),.0018*scale,.055*scale);
+      const bowSkin=sourceHandSamples(this.model,result.hand);
+      // The worker's earlier calibrated grip report cannot substitute for
+      // the LIVE final rendered hand. Recheck every original volar region
+      // against the same strict finite-cylinder acceptance used by C5.4.
+      const grasp=measureSourceCylinder(this.model,bowSkin,result.bowWorld,
+        result.descriptor.handleRadiusMeters,
+        result.descriptor.handleLengthMeters);
+      const shaft=measureSourceArrowShaft(this.model,
+        bowSkin,result.bowWorld,
+        result.nockWorld.clone().applyMatrix4(result.bowWorld.clone().invert()),
+        result.descriptor.arrowLengthMeters,
+        result.descriptor.arrowRest.shaftRadiusMeters);
+      if(!isAcceptableBowContact(grasp)||
+        !Number.isFinite(gaps.index)||!Number.isFinite(gaps.middle)||
+        gaps.index>=.008*scale||gaps.middle>=.008*scale||
+        shaft.some(x=>!Number.isFinite(x.nearestSurfaceClearanceMeters)||
+          x.nearestSurfaceClearanceMeters<-.001*scale))
+        throw new Error("Worker source-skin contact rejected by live character");
+      this.archeryDraw=draw;
+      this.archeryResult=result;
+      this.correctives?.apply(result.commands);
+      this.model.human.spike.character.root.updateWorldMatrix(true,true);
+      return true;
+    }catch(error){
+      restore();
+      throw error;
+    }
   }
   /** Invalidate calibrated source contacts after in-place face/source edits.
    * Regeneration creates a new preview and needs no explicit invalidation. */

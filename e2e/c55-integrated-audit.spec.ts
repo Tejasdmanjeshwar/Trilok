@@ -55,6 +55,7 @@ test("C5.5 integrated weapon transitions, source snapshots and input timing",asy
       fullPage:true});
   }
   const sliderObservations:Array<{side:string;amount:number;elapsedMs:number;
+    solvedMs:number;accepted:boolean;error:boolean;
     warning:string;gpu:Metrics["gpu"]}>=[];
   for(const side of ["left","right"] as const){
     await equipment.selectOption("bow-"+side);
@@ -64,18 +65,37 @@ test("C5.5 integrated weapon transitions, source snapshots and input timing",asy
       if(position!=="partial")continue;
       const draw=page.locator("#studio-archery-draw");
       for(const amount of [0,25,50,75,100,0,100]){
-        const elapsedMs=await draw.evaluate(async(element,value)=>{
+        const observed=await draw.evaluate(async(element,value)=>{
           const slider=element as HTMLInputElement;
           const begin=performance.now();
+          // Listen BEFORE dispatching input: a worker could finish before
+          // the page evaluates the second animation callback.
+          const resolved=new Promise<{accepted:boolean;error?:boolean}>(resolve=>{
+            const listener=(event:Event)=>{
+              const detail=(event as CustomEvent<{
+                draw:number;accepted:boolean;error?:boolean}>).detail;
+              if(detail.draw!==value/100)return;
+              window.removeEventListener("trilok:studio:bow-worker-result",listener);
+              resolve(detail);
+            };
+            window.addEventListener("trilok:studio:bow-worker-result",listener);
+          });
           slider.value=String(value);
           slider.dispatchEvent(new Event("input",{bubbles:true}));
-          // Two animation callbacks approximate next rendering opportunity;
-          // this does NOT prove the browser has painted or GPU has finished.
+          // This ACK only indicates a main-thread rendering opportunity,
+          // not completed source IK or physical compositor presentation.
           await new Promise<void>(resolve=>requestAnimationFrame(()=>
             requestAnimationFrame(()=>resolve())));
-          return performance.now()-begin;
+          const elapsedMs=performance.now()-begin;
+          const settled=await Promise.race([
+            resolved,
+            new Promise<never>((_,reject)=>setTimeout(()=>
+              reject(new Error("Timed out waiting for full source bow solve")),120_000)),
+          ]);
+          return {elapsedMs,solvedMs:performance.now()-begin,
+            accepted:settled.accepted,error:settled.error===true};
         },amount);
-        sliderObservations.push({side,amount,elapsedMs,
+        sliderObservations.push({side,amount,...observed,
           warning:await page.locator("#studio-edit-status").innerText(),
           gpu:(await readMetrics(page)).gpu});
         if([0,25,50,75,100].includes(amount))
@@ -114,6 +134,9 @@ test("C5.5 integrated weapon transitions, source snapshots and input timing",asy
   expect(baseline.gpu).not.toBeNull();
   expect(final.gpu).not.toBeNull();
   expect(sliderObservations).toHaveLength(14);
-  expect(sliderObservations.every(x=>Number.isFinite(x.elapsedMs))).toBe(true);
+  expect(sliderObservations.every(x=>Number.isFinite(x.elapsedMs)&&
+    Number.isFinite(x.solvedMs)&&x.solvedMs>=x.elapsedMs)).toBe(true);
+  expect(sliderObservations.every(x=>x.accepted&&!x.error),
+    "Every neutral source partial must settle under full skin validation").toBe(true);
   expect(errors).toEqual([]);
 });
