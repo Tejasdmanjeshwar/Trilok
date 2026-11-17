@@ -651,3 +651,76 @@ both accepted endpoints and test seeded, asymmetric, bilateral
 morphologies alongside original skinned contact. Neither attempt
 had independent rendered screenshot verification or deployment-SHA
 confirmation. PR #87 remains draft/unmerged.
+
+
+### 2026-11-17 endpoint-guided partial-draw shooting-line correction (visual review pending)
+
+The user's overhead screenshots show nocking and full-draw on a near-forward
+shooting plane but partial draw displaced sideways. The previous partial
+support target deliberately set a transverse offset of ~305 mm through
+`sqrt(supportReach² - supportForward²)`. That target was the defect:
+passing source finger/string contact cannot validate an overhead silhouette.
+The original screenshot remains the user-supplied visual regression reference.
+
+The corrected partial path **no longer uses that sideways target when a
+verified endpoint guide is available**. `StudioPosePreview` computes and
+caches the *actual* accepted nocking and full-draw FK/contact results for
+the current character, Studio base pose, and bow handedness. Those source
+solutions supply the real bow-hand world positions and calibrated arm,
+clavicle and draw-finger joint commands. `StudioArchery` interpolates
+the reference positions/pose channels using a deterministic physical
+draw-progress parameter while retaining `archeryDrawFraction("partial",x)
+= 0.65*x` and the original bow descriptor and string travel. The same
+source-skinned, bounded coupled IK then refines the reference to satisfy the
+actual drawing finger pads and bow grip. This avoids manually rotating
+the avatar root or the visible prop, and it works through the same
+morphology-aware source rig as other C5 equipment.
+
+Partial-only holding-arm freedoms remain active in the shared compliant
+contact solver. The guide-backed fit allows a calibrated +/-10° search
+window around its source contact reference (rather than the earlier
+unguided +/-2°) with a continuous source-pose residual to avoid switching
+between joint-twist candidates; the original source joint limits always
+take precedence. The fallback for unavailable/noncontacting references
+retains the previously verified safe pose instead of faking contact.
+Nocking, full draw and other weapon solver paths were not changed.
+
+The overhead test now compares the *actual projected source-bone* lateral
+deviation to both accepted endpoints; it no longer accepts the old rigid
+sideways arm merely because the bow hand stays fixed. It also checks
+adjacent joint command differences at 0, 25, 50, 75 and 100% partial slider
+values, full source-skinned index/middle string gaps, the original 30 mm
+drawing-hook reach gate, bilateral behavior and arrow aim.
+
+**CI-verified candidate:** commit
+`018f9c732361e322a8a1494bc248b9e7cf79c953`, GitHub
+[Verify #44041329909](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44041329909),
+480/480 tests across 86 suites, typecheck, production build, and compiled
+identity `6d3651dc-20261117T075126413Z`.
+
+Measured nominal **partial** (slider 0 → 25 → 50 → 75 → 100%):
+- Left: horizontal lateral deviation 7.80, 5.47, 3.14, 4.26, 6.09 mm;
+  elbow interior 138.39°, 137.33°, 141.10°, 144.17°, 150.14°;
+  source shoulder-to-wrist forward reach 474.0 → 490.8 mm.
+- Right: lateral deviation 0.14, 9.72, 4.06, 1.58, 0.20 mm;
+  elbow interior 139.91°, 138.02°, 143.70°, 147.29°, 151.61°;
+  forward reach 479.9 → 493.9 mm.
+- Previously the incorrect partial arm was displaced ~305 mm laterally
+  (left/right) despite meeting the physical contact gates. The accepted
+  full draw measures ~162.66° elbow interior, ~502–503 mm forward reach,
+  and ~14–22 mm lateral deviation on nominal anatomy.
+- Across sampled partial positions both hands remain below 30 mm
+  actual drawing-hook error, below 8 mm skinned index/middle gaps, and
+  pass the new 20° neighboring-channel transition gate. The reported
+  bounded draw-stage candidate attempts ranged from 4 to 27 per sample.
+
+**Outstanding verification / limitations:** The above is FK/skin numerical
+evidence, **not** owner approval or a rendered visual-quality certification.
+A real top/side/front/three-quarter Chromium inspection and independent
+Cloudflare deployed SHA are still missing. The guide is cached per Studio
+preview instance rather than re-solved on every slider update; cold-entry
+latency and mobile solver time must still be benchmarked. A more general
+future action-level compliance profile can tune the 10° envelope without
+altering the shared FK/IK foundation. No new combat authority, ballistics,
+AI, root transforms, or C5.5 work was introduced. PR #87 remains draft
+and unmerged pending visual review.
