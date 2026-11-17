@@ -1,0 +1,67 @@
+name: Studio Source Classification Before After
+
+# Scoped benchmark triggered only for source-index optimization proposals.
+# Timing evidence is informational, never a PR approval gate.
+on:
+  pull_request:
+    paths:
+      - 'apps/web/src/studio/StudioSourceContact.ts'
+      - 'benchmarks/character-studio-source-hand.bench.test.ts'
+      - '.github/workflows/studio-source-classification-compare.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-classify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out optimized candidate
+        uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare optimized pinned anatomy
+        run: |
+          pnpm install --no-frozen-lockfile
+          node scripts/fetch-makehuman-core.mjs
+      - name: Measure optimized source sampling
+        env:
+          STUDIO_BENCH_LABEL: optimized
+          STUDIO_BENCH_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pnpm exec vitest run benchmarks/character-studio-source-hand.bench.test.ts --pool=threads --maxWorkers=1
+      - name: Check out exact base SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline
+          persist-credentials: false
+      - name: Prepare baseline (same benchmark code, different application revision)
+        run: |
+          mkdir -p baseline/benchmarks
+          cp benchmarks/character-studio-source-hand.bench.test.ts baseline/benchmarks/
+          cd baseline
+          pnpm install --no-frozen-lockfile
+          node scripts/fetch-makehuman-core.mjs
+      - name: Measure unmodified baseline source sampling
+        working-directory: baseline
+        env:
+          STUDIO_BENCH_LABEL: baseline
+          STUDIO_BENCH_SHA: ${{ github.event.pull_request.base.sha }}
+        run: pnpm exec vitest run benchmarks/character-studio-source-hand.bench.test.ts --pool=threads --maxWorkers=1
+      - name: Preserve base and optimized observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-source-classification-${{ github.event.pull_request.head.sha }}
+          path: |
+            baseline/test-results/source-hand-classification.json
+            test-results/source-hand-classification.json
+          retention-days: 14
+          if-no-files-found: warn
