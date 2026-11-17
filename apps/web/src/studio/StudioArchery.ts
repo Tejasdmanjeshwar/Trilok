@@ -536,9 +536,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   staged=handFit.commands;
   fk.apply(staged);
   const world=handFit.bowWorld;
-  // The fitted source index skin, not a global avatar offset, establishes
-  // the provisional hand-supported rest above the physical grip cap.
-  // The same nock is used by drawing IK, shaft and both string segments.
+  // The fitted source index skin and nearby curled thumb establish the
+  // traditional hand-supported shaft position alongside the finite grip.
+  // The same physical nock is used by IK, shaft and both string segments.
   const bowSkin=sourceHandSamples(model,hand);
   // Small bounded source-vertex subset for candidate ranking. Full skin is
   // reserved for the chosen final contact check, avoiding a per-seed O(mesh)

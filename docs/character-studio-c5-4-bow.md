@@ -834,3 +834,50 @@ in the nominal inspection logs. That candidate was **not accepted**.
 The next candidate fits the shaft alongside the finite grip, and reports
 arrow-specific unreachability explicitly. Its tests and Cloudflare build
 must be independently reverified before this draft is review-ready.
+
+## C5.4 arrow-rest PR #88 — measured verification, 17 November 2026
+
+The final draft candidate uses a **7 mm diameter physical shaft** and a
+configurable 5 mm hand-supported clearance, replacing the original
+overlarge 12 mm diameter. Its bow-local X rest side is selected by the
+actual **nearest posed thumb surface along the full shaft**, not the
+MCP sign or overall curled-thumb centroid. Both the drawing-hand string
+goal and rendered nock/shaft/arrowhead share the solved reference.
+The full physical shaft is measured against six distinct source-skin
+hand regions, and the finite handle is measured separately.
+
+The nominal source-skinned C5.4 probe reports (all millimeters):
+- Left nock/partial/aim: original middle finger clearance
+  -2/-3/-3, corrected +33/+32/+34; rest center above proximal
+  index support 9/8/10.
+- Right nock/partial/aim: original middle finger clearance
+  -3/-3/-3, corrected +32/+32/+33; rest above index 8/9/10.
+- Corrected left nock thumb clearance is only approximately **+1 mm**,
+  so precise triangle and close-up render inspection remain important.
+  All six nominal region tests, arrowhead, handle, string contact and
+  collinearity assertions pass.
+- The accepted guided partial arm benefits from a bounded early support
+  progression envelope and stronger support-reference regularization
+  in the coupled offset-arrow case. The late 75/100% support target
+  remains unchanged. The original 20-degree neighboring-FK continuity
+  limit and existing partial elbow reachability checks remain enforced.
+
+**Verified GitHub Actions results:** focused regression
+[run #44074947120](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44074947120):
+26/26 tests, four suites; complete PR Verify
+[run #44074956492](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44074956492):
+482/482 tests, 87 suites, TypeScript check, authoritative deterministic
+combat replay within the existing full test script, production bundle,
+and compiled build identity verification all passed.
+The reported CI artifact identity `c9299fc1-20261117T113848991Z`
+is the checkout's synthesized PR merge revision and **not proof of
+Cloudflare deployment of the actual feature branch HEAD**.
+
+This does **not** establish browser-rendered visual acceptance,
+performance measurements on real mobile devices, exhaustive
+source-triangle collision avoidance, or a verified Cloudflare
+feature-preview deployment and SHA. Extreme supported body morphologies
+retain deterministic safe fallback on an impossible contact; that does
+not certify all extreme poses playable or final-quality. The draft
+must remain unmerged until real top/front/side and mobile inspection
+and owner approval. No authoritative gameplay/combat behavior changed.
