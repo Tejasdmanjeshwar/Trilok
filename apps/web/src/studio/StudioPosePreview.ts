@@ -10,6 +10,9 @@ import {STUDIO_POSES,type StudioPose} from "./StudioInspection";
 import {solveArcheryPose,isBowEquipment,type ArcheryPoseResult,
   type ArcheryState,type ArcheryTransitionGuide} from "./StudioArchery";
 import {twoHandGripContactWorld} from "./StudioTwoHandGrip";
+import {measureStringFingerSkin,oppositeHand} from "./StudioArchery";
+import {measureSourceArrowShaft} from "./StudioArrowRest";
+import {sourceHandSamples} from "./StudioSourceContact";
 import {isSwordShieldEquipment,shieldHand,solveShieldPose,type ShieldPoseResult,
   type ShieldStance} from "./StudioShieldGrip";
 
@@ -160,6 +163,58 @@ export class StudioPosePreview {
       this.shieldResult?.commands??this.archeryResult?.commands??effective);
     human.spike.character.root.updateWorldMatrix(true,true);
     this.current=id;
+  }
+  /** Worker-only transition: the last validated source pose stays visible
+   * until a separate source-skinned solver accepts a new draw. */
+  stagePartialDraw():void{
+    if(!isBowEquipment(this.grip))
+      throw new Error("No source bow equipped for deferred partial draw");
+    this.archeryState="partial";
+  }
+  /** Only adopt a result from the identically generated source once the
+   * viewport has verified model/generation/hand/pose/root ownership.
+   * Recheck full-resolution posed source finger/string and arrow/hand
+   * clearance against the LIVE source before changing rendered props.
+   * A rejected result restores the last legal FK and corrective pose.
+   */
+  acceptWorkerPartial(draw:number,result:ArcheryPoseResult):boolean{
+    if(!isBowEquipment(this.grip)||this.archeryState!=="partial"||
+      result.state!=="partial"||
+      result.hand!==(this.grip.endsWith("right")?"right":"left")||
+      !Number.isFinite(draw)||draw<0||draw>1)
+      throw new Error("Mismatched worker source pose");
+    if(!result.reachable)return false;
+    const before=this.archeryResult;
+    const restore=()=>{
+      this.correctives?.apply([]);
+      if(before)this.fk.apply(before.commands);
+      this.correctives?.apply(before?.commands??[]);
+    };
+    try{
+      this.correctives?.apply([]);
+      this.fk.apply(result.commands);
+      const scale=result.descriptor.limbLengthMeters/.64;
+      const string=measureStringFingerSkin(this.model,oppositeHand(result.hand),result);
+      const gaps=new Map(string.map(s=>[s.digit,s.nearestGapMeters]));
+      const shaft=measureSourceArrowShaft(this.model,
+        sourceHandSamples(this.model,result.hand),result.bowWorld,
+        result.nockWorld.clone().applyMatrix4(result.bowWorld.clone().invert()),
+        result.descriptor.arrowLengthMeters,
+        result.descriptor.arrowRest.shaftRadiusMeters);
+      if(!["index","middle"].every(d=>Number.isFinite(gaps.get(d))&&
+          gaps.get(d)!<.008*scale)||
+        shaft.some(x=>!Number.isFinite(x.nearestSurfaceClearanceMeters)||
+          x.nearestSurfaceClearanceMeters<-.001*scale))
+        throw new Error("Worker source-skin contact rejected by live character");
+      this.archeryDraw=draw;
+      this.archeryResult=result;
+      this.correctives?.apply(result.commands);
+      this.model.human.spike.character.root.updateWorldMatrix(true,true);
+      return true;
+    }catch(error){
+      restore();
+      throw error;
+    }
   }
   /** Invalidate calibrated source contacts after in-place face/source edits.
    * Regeneration creates a new preview and needs no explicit invalidation. */
