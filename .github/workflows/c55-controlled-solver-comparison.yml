@@ -1,0 +1,63 @@
+name: C5.5 Controlled Solver Comparison
+
+# Audit-only same-run benchmark, not a production timing gate.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/c55-controlled-solver-comparison.yml'
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve candidate and baseline SHAs
+        env:
+          BASELINE_SHA: 64ac634c91198eea30e83c583b08c70e0868d43f
+          CANDIDATE_SHA: 5114afedc6a2e4ba6473404f2274752e44a184c4
+        run: |
+          git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA" "$BASELINE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/c55-candidate" "$CANDIDATE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/c55-baseline" "$BASELINE_SHA"
+          echo "Candidate: $CANDIDATE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Baseline: $BASELINE_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Prepare candidate source corpus
+        working-directory: ${{ runner.temp }}/c55-candidate
+        run: |
+          pnpm install --no-frozen-lockfile
+          node scripts/fetch-makehuman-core.mjs
+      - name: Measure candidate full source-skinned equipment matrix
+        working-directory: ${{ runner.temp }}/c55-candidate
+        run: pnpm bench:studio
+      - name: Prepare baseline source corpus
+        working-directory: ${{ runner.temp }}/c55-baseline
+        run: |
+          pnpm install --no-frozen-lockfile
+          node scripts/fetch-makehuman-core.mjs
+      - name: Measure baseline full source-skinned equipment matrix
+        working-directory: ${{ runner.temp }}/c55-baseline
+        run: pnpm bench:studio
+      - name: Copy reports to artifact path
+        if: always()
+        run: |
+          mkdir -p test-results/c55-benchmark
+          for revision in baseline candidate; do
+            report="$RUNNER_TEMP/c55-$revision/test-results/studio-solver-benchmark.json"
+            if [ -f "$report" ]; then
+              cp "$report" "test-results/c55-benchmark/$revision.json"
+            fi
+          done
+      - name: Upload end-to-end solver observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c55-solver-comparison-${{ github.event.pull_request.head.sha }}
+          path: test-results/c55-benchmark/
+          retention-days: 14
+          if-no-files-found: warn
