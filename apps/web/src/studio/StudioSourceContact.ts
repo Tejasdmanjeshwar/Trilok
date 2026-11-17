@@ -92,6 +92,11 @@ interface HandSampleCache {
   readonly entries:Map<string,SourceHandSamples>;
 }
 const handSampleCaches=new WeakMap<StudioHumanModel,HandSampleCache>();
+function attributeRevision(
+  attribute:THREE.BufferAttribute|THREE.InterleavedBufferAttribute):number{
+  return attribute instanceof THREE.InterleavedBufferAttribute?
+    attribute.data.version:attribute.version;
+}
 function currentHandSampleCache(model:StudioHumanModel):HandSampleCache {
   const {mesh,spike,template}=model.human;
   const geometry=mesh.geometry;
@@ -101,14 +106,14 @@ function currentHandSampleCache(model:StudioHumanModel):HandSampleCache {
   const previous=handSampleCaches.get(model);
   if(previous&&previous.geometry===geometry&&previous.indices===indices&&
     previous.weights===weights&&previous.position===position&&
-    previous.indexVersion===indices.version&&
-    previous.weightVersion===weights.version&&
-    previous.positionVersion===position.version&&
+    previous.indexVersion===attributeRevision(indices)&&
+    previous.weightVersion===attributeRevision(weights)&&
+    previous.positionVersion===attributeRevision(position)&&
     previous.graph===spike.graph&&previous.skeleton===spike.skeleton&&
     previous.sourceIds===template.sourceVertexIds)return previous;
   const next:HandSampleCache={
-    geometry,indices,weights,position,indexVersion:indices.version,
-    weightVersion:weights.version,positionVersion:position.version,
+    geometry,indices,weights,position,indexVersion:attributeRevision(indices),
+    weightVersion:attributeRevision(weights),positionVersion:attributeRevision(position),
     graph:spike.graph,skeleton:spike.skeleton,sourceIds:template.sourceVertexIds,
     entries:new Map(),
   };
