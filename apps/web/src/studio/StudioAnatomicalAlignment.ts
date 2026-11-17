@@ -96,3 +96,55 @@ export function feasibleBowArmExtension(
   const longest=stringBehindGripMeters-forwardOffset+forwardReach;
   return THREE.MathUtils.clamp(longest,0,bowArmReachMeters);
 }
+
+
+/** Horizontal-planar arm alignment, independent of elevation. The 3D elbow
+ * interior alone does not detect a visibly kinked overhead shooting line.
+ * Up and forward are character-local WORLD unit vectors, so this also works
+ * under a non-identity character root transform.
+ */
+export interface ProjectedArmAlignment {
+  readonly elbowInteriorRadians:number;
+  readonly reachAlongForwardMeters:number;
+  readonly wristLateralOffsetMeters:number;
+  readonly projectedLengthMeters:number;
+}
+export function measureProjectedArmAlignment(
+  shoulder:THREE.Vector3,elbow:THREE.Vector3,wrist:THREE.Vector3,
+  up:THREE.Vector3,forward:THREE.Vector3,
+):ProjectedArmAlignment{
+  if(Math.abs(up.lengthSq()-1)>1e-5||
+    Math.abs(forward.lengthSq()-1)>1e-5||
+    Math.abs(up.dot(forward))>1e-5)
+    throw new Error("Invalid shooting-plane basis");
+  const horizontal=(value:THREE.Vector3)=>value
+    .addScaledVector(up,-value.dot(up));
+  const a=horizontal(shoulder.clone().sub(elbow));
+  const b=horizontal(wrist.clone().sub(elbow));
+  const wristDelta=horizontal(wrist.clone().sub(shoulder));
+  const aLength=a.length(),bLength=b.length();
+  // Elevation may hide the projected elbow. Return finite diagnostics and
+  // let the caller keep its 3D constraint when the projection degenerates.
+  const elbowInterior=aLength<1e-5||bLength<1e-5?Math.PI:
+    Math.acos(THREE.MathUtils.clamp(a.dot(b)/(aLength*bLength),-1,1));
+  const lateral=wristDelta.clone()
+    .addScaledVector(forward,-wristDelta.dot(forward)).length();
+  return {
+    elbowInteriorRadians:elbowInterior,
+    reachAlongForwardMeters:wristDelta.dot(forward),
+    wristLateralOffsetMeters:lateral,
+    projectedLengthMeters:wristDelta.length(),
+  };
+}
+
+/** Keep the projected bow elbow softly extended. The target is a minimum
+ * angle, not a locked elbow or a visual-space wrist translation. */
+export function planarExtensionResidual(
+  alignment:ProjectedArmAlignment,minimumInteriorRadians:number,
+):number{
+  if(!Number.isFinite(minimumInteriorRadians)||
+    minimumInteriorRadians<0||minimumInteriorRadians>Math.PI)
+    throw new Error("Invalid projected elbow target");
+  return Math.max(0,minimumInteriorRadians-alignment.elbowInteriorRadians)*
+    alignment.projectedLengthMeters*.32;
+}
