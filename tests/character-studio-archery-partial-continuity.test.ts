@@ -1,4 +1,10 @@
-
+import {describe,expect,it} from "vitest";
+import * as THREE from "three";
+import {make} from "./helpers/studio-two-hand-fixtures";
+import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
+import {measureStringFingerSkin} from "../apps/web/src/studio/StudioArchery";
+import {contactArmFreedoms,supportedContactFreedoms} from
+  "../apps/web/src/studio/StudioContactIK";
 describe("Shared compliant contact support (no fixed anatomical DOFs)",()=>{
   it.each(["left","right"] as const)(
     "retains a legal bounded search interval on every %s arm channel",side=>{
@@ -39,13 +45,6 @@ describe("Shared compliant contact support (no fixed anatomical DOFs)",()=>{
   });
 });
 
-import {describe,expect,it} from "vitest";
-import * as THREE from "three";
-import {make} from "./helpers/studio-two-hand-fixtures";
-import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
-import {measureStringFingerSkin} from "../apps/web/src/studio/StudioArchery";
-import {contactArmFreedoms,supportedContactFreedoms} from
-  "../apps/web/src/studio/StudioContactIK";
 
 /** Source-landmark and skin-contact observations across the actual slider,
  * not inferred from a single 3D elbow number at full draw. These are
