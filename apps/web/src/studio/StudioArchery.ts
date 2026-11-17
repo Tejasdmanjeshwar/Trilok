@@ -540,6 +540,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // scan during repeated Character Studio slider movement.
   const coarseBowSkin=sourceHandSamples(model,hand,24);
   const indexRest=sourceIndexRestLandmark(model,hand,bowSkin,world);
+  const arrowRestY=indexRest.y+descriptor.arrowRest.shaftRadiusMeters+
+    descriptor.arrowRest.supportGapMeters;
   // A shelf-less traditional arrow passes beside the handle on the
   // anatomical index-support side. Raising it over the entire wooden grip
   // made it float 29-41 mm above the actual proximal index surface.
@@ -561,8 +563,6 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   if(arrowSide===0)throw new Error("Degenerate source thumb-web shaft side");
   const arrowRestX=arrowSide*(descriptor.handleRadiusMeters+
     descriptor.arrowRest.shaftRadiusMeters+descriptor.arrowRest.supportGapMeters);
-  const arrowRestY=indexRest.y+descriptor.arrowRest.shaftRadiusMeters+
-    descriptor.arrowRest.supportGapMeters;
   descriptor=Object.freeze({...descriptor,arrowRest:Object.freeze({
     ...descriptor.arrowRest,lateralOffsetMeters:arrowRestX})});
   const fraction=tension;
