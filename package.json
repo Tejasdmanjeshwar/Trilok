@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/fetch-makehuman-core.mjs && vitest run tests/ --pool=threads --maxWorkers=1",
     "test:e2e": "playwright test",
-    "bench:studio": "node scripts/fetch-makehuman-core.mjs && vitest run benchmarks/ --pool=threads --maxWorkers=1"
+    "bench:studio": "node scripts/fetch-makehuman-core.mjs && vitest run benchmarks/ --pool=threads --maxWorkers=1",
+    "build:deployment": "pnpm build && node scripts/verify-build-identity.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
