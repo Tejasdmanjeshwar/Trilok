@@ -6,7 +6,7 @@ import {coordinateTorsoAndGaze} from
 import {archeryShootingPlaneYaw,type ArcheryState} from
   "../apps/web/src/studio/StudioArchery";
 import {measureArmAlignment,bowArmExtensionResidual,measurePullLineAlignment,
-  feasibleBowArmExtension} from "../apps/web/src/studio/StudioAnatomicalAlignment";
+  feasibleBowArmExtension,measureProjectedArmAlignment,planarExtensionResidual} from "../apps/web/src/studio/StudioAnatomicalAlignment";
 
 /** These tests exercise the shared legal rig, not a stylized bow/root offset.
  * Rendered multi-view acceptance and the existing true-skin string tests
@@ -201,4 +201,39 @@ describe("Source-rest elbow extension calibration",()=>{
         fk.apply([]);
       }finally{human.dispose();}
     });
+});
+
+describe("Orthographic top-view anatomical bow-arm geometry",()=>{
+  it("detects an overhead elbow kink hidden by a valid 3D reach",()=>{
+    const shoulder=new THREE.Vector3(0,1.5,0);
+    const elbow=new THREE.Vector3(.16,1.7,.24);
+    const wrist=new THREE.Vector3(0,1.5,.55);
+    const up=new THREE.Vector3(0,1,0);
+    const forward=new THREE.Vector3(0,0,1);
+    const projected=measureProjectedArmAlignment(shoulder,elbow,wrist,up,forward);
+    expect(projected.elbowInteriorRadians).toBeLessThan(
+      THREE.MathUtils.degToRad(140));
+    expect(projected.wristLateralOffsetMeters).toBeCloseTo(0);
+    expect(planarExtensionResidual(projected,THREE.MathUtils.degToRad(152)))
+      .toBeGreaterThan(0);
+    const straight=measureProjectedArmAlignment(shoulder,
+      new THREE.Vector3(0,1.7,.28),wrist,up,forward);
+    expect(straight.elbowInteriorRadians).toBeCloseTo(Math.PI);
+    expect(planarExtensionResidual(straight,THREE.MathUtils.degToRad(152)))
+      .toBe(0);
+  });
+  it("is invariant under bilateral sagittal reflection",()=>{
+    const reflect=(p:THREE.Vector3)=>new THREE.Vector3(-p.x,p.y,p.z);
+    const shoulder=new THREE.Vector3(-.19,1.5,.10);
+    const elbow=new THREE.Vector3(-.12,1.55,.31);
+    const wrist=new THREE.Vector3(-.14,1.52,.57);
+    const up=new THREE.Vector3(0,1,0);
+    const fwd=new THREE.Vector3(0,0,1);
+    const left=measureProjectedArmAlignment(shoulder,elbow,wrist,up,fwd);
+    const right=measureProjectedArmAlignment(
+      reflect(shoulder),reflect(elbow),reflect(wrist),up,fwd);
+    expect(right.elbowInteriorRadians).toBeCloseTo(left.elbowInteriorRadians,12);
+    expect(right.wristLateralOffsetMeters).toBeCloseTo(left.wristLateralOffsetMeters,12);
+    expect(right.reachAlongForwardMeters).toBeCloseTo(left.reachAlongForwardMeters,12);
+  });
 });
