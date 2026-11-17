@@ -211,6 +211,11 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
           bowArmExtensionResidual(measureArmAlignment(
             at(shoulder),elbowWorld,wristWorld),desiredBowBendRadians)*.22]),
         ...values.map((angle,i)=>(angle-initial[i]!)*.003),
+        // Prefer one continuous source-FK candidate family rather than
+        // switching between equivalent twist/abduction basins when the
+        // target grip is nearly identical across neighboring partial draws.
+        ...(continuationSeed?values.map((angle,i)=>
+          (angle-continuationSeed[i]!)*.028*scale):[]),
       ];
     };
     const fit=fitCanonicalIK(initial,axes,
@@ -224,8 +229,11 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
     const extensionPenalty=drawHand||desiredBowBendRadians===undefined?0:
       bowArmExtensionResidual(measureArmAlignment(
         at(shoulder),at(elbow),at(wrist)),desiredBowBendRadians)*.22;
+    const referenceDeviation=continuationSeed?fit.values.reduce(
+      (sum,value,i)=>sum+Math.abs(value-continuationSeed[i]!),0):0;
     const score=error+Math.max(0,.01*scale-clearance)*2+
-      inclination*.08*scale+extensionPenalty;
+      inclination*.08*scale+extensionPenalty+
+      referenceDeviation*.012*scale;
     if(!best||score<best.score){
       best={commands,error,clearance,iterations:fit.iterations,score};
     }
