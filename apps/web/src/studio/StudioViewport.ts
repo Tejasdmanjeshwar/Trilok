@@ -209,10 +209,15 @@ export function createStudioViewport(
     updateMarkers();
   }
   function setArcheryDraw(value:number):void{
+    if(!Number.isFinite(value)||value<0||value>1)
+      throw new Error("Invalid archery draw");
+    if(archeryDraw===value)return;
     archeryDraw=value;
     try{
       posePreview?.setArcheryDraw(value);
-      if(isBowEquipment(equipment))refreshSword();
+      // Replacing identical bow meshes outside partial needlessly allocates
+      // and disposes GPU buffers on every slider input.
+      if(isBowEquipment(equipment)&&archeryState==="partial")refreshSword();
     }catch(error){
       clearSword();
       reportGripFailure(error);
@@ -397,6 +402,9 @@ export function createStudioViewport(
         ()=>!disposed&&!abort.signal.aborted&&current===ticket);
       if(!ok)return false;
       expression=next;
+      // Source face/jaw geometry changed in place; discard any prior
+      // source-skinned IK endpoint calibration before re-solving.
+      posePreview?.invalidateSourceContact();
       posePreview?.refresh();
       if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||isBowEquipment(equipment))refreshSword();
       return true;
@@ -620,6 +628,7 @@ export function createStudioViewport(
         currentAppearance=appearance;
         currentMorphology=state;
         currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
+        if(!sameFace)posePreview?.invalidateSourceContact();
         posePreview?.refresh();
         if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||
           isBowEquipment(equipment))refreshSword();

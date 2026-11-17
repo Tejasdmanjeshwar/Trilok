@@ -32,9 +32,28 @@ export class StudioPosePreview {
   private archeryGuide?:Readonly<{
     pose:StudioPose;hand:"left"|"right";value:ArcheryTransitionGuide;
   }>;
+  /** A failed nock/aim endpoint must also be remembered for this unchanged
+   * generated character and pose. Otherwise each partial-draw input repeats
+   * both expensive rejected endpoint fits before its own constrained solve.
+   * This is a single bounded status record, never a cached posed-skin sample. */
+  private archeryEndpointsAttempted?:Readonly<{
+    pose:StudioPose;hand:"left"|"right";
+  }>;
   get bowPoseResult():ArcheryPoseResult|undefined{return this.archeryResult;}
-  setArcheryState(state:ArcheryState):void{this.archeryState=state;this.refresh();}
-  setArcheryDraw(value:number):void{this.archeryDraw=value;this.refresh();}
+  setArcheryState(state:ArcheryState):void{
+    this.archeryState=state;
+    this.setPose(this.current);
+  }
+  setArcheryDraw(value:number):void{
+    if(!Number.isFinite(value)||value<0||value>1)
+      throw new Error("Invalid archery draw");
+    if(value===this.archeryDraw)return;
+    this.archeryDraw=value;
+    // The slider interpolates partial draw only. Retain its value for a
+    // later partial state without re-solving settled rest/nock/aim/release.
+    if(isBowEquipment(this.grip)&&this.archeryState==="partial")
+      this.setPose(this.current);
+  }
   get shieldPoseResult():ShieldPoseResult|undefined{return this.shieldResult;}
   setShieldStance(stance:ShieldStance):void{
     if(!["guard","attack-ready","parry"].includes(stance))throw new Error("Unknown shield stance");
@@ -42,8 +61,12 @@ export class StudioPosePreview {
   }
   get twoHandResult():TwoHandIKResult|undefined{return this.result;}
   setGrip(hand:EquipmentChoice):void{
-    if(hand!==this.grip)this.archeryGuide=undefined;
-    this.grip=hand;this.refresh();
+    if(hand!==this.grip){
+      this.archeryGuide=undefined;
+      this.archeryEndpointsAttempted=undefined;
+    }
+    this.grip=hand;
+    this.setPose(this.current);
   }
   constructor(private readonly model:StudioHumanModel,
     archery?:Readonly<{state:ArcheryState;draw:number}>){
@@ -64,6 +87,10 @@ export class StudioPosePreview {
   }
   setPose(id:StudioPose):void{
     if(!Object.hasOwn(STUDIO_POSES,id))throw new Error("Unknown preview pose");
+    if(id!==this.current){
+      this.archeryGuide=undefined;
+      this.archeryEndpointsAttempted=undefined;
+    }
     const human=this.model.human;
     const commands=resolveAnatomicalPose(anatomicalPoseById(id),
       human.spike.graph,this.fk);
@@ -96,7 +123,11 @@ export class StudioPosePreview {
       const hand=this.grip.endsWith("right")?"right":"left";
       if(this.archeryGuide?.pose!==id||this.archeryGuide.hand!==hand)
         this.archeryGuide=undefined;
-      if(this.archeryState==="partial"&&!this.archeryGuide){
+      if(this.archeryEndpointsAttempted?.pose!==id||
+        this.archeryEndpointsAttempted.hand!==hand)
+        this.archeryEndpointsAttempted=undefined;
+      if(this.archeryState==="partial"&&!this.archeryGuide&&
+        !this.archeryEndpointsAttempted){
         // Endpoints are solved with the same legal FK and strict source-skin
         // contact gates as normal preview states. No manufactured hand pose.
         const nock=solveArcheryPose(this.model,this.fk,effective,hand,"nock",1);
@@ -110,6 +141,9 @@ export class StudioPosePreview {
             nock:{commands:nock.commands,gripWorld:nockGrip},
             aim:{commands:aim.commands,gripWorld:aimGrip},
           }};
+        // Remember even unreachable endpoints: the next distinct slider
+        // amount still undergoes its own full IK/source-skin validation.
+        this.archeryEndpointsAttempted={pose:id,hand};
       }
       this.archeryResult=solveArcheryPose(this.model,this.fk,effective,
         hand,this.archeryState,this.archeryDraw,this.archeryGuide?.value);
@@ -127,12 +161,21 @@ export class StudioPosePreview {
     human.spike.character.root.updateWorldMatrix(true,true);
     this.current=id;
   }
+  /** Invalidate calibrated source contacts after in-place face/source edits.
+   * Regeneration creates a new preview and needs no explicit invalidation. */
+  invalidateSourceContact():void{
+    this.archeryGuide=undefined;
+    this.archeryEndpointsAttempted=undefined;
+  }
+  /** Re-evaluate the same generated source without discarding valid endpoints.
+   * Explicit source edits must call invalidateSourceContact() first. */
   refresh():void{this.setPose(this.current);}
   dispose():void{
     this.result=undefined;
     this.shieldResult=undefined;
     this.archeryResult=undefined;
     this.archeryGuide=undefined;
+    this.archeryEndpointsAttempted=undefined;
     this.fk.apply([]);
     this.correctives?.dispose();
   }
