@@ -84,7 +84,11 @@ test("C5.5 integrated weapon transitions, source snapshots and input timing",asy
             fullPage:true});
       }
     }
+    // Do not record a transitional full-body camera and call it a close-up.
+    // Capture full aim with the actual drawing finger/string contact in view.
+    await state.selectOption("aim");
     await page.locator("#studio-sword-focus").click();
+    await page.waitForTimeout(700);
     await page.screenshot({
       path:`test-results/c55/${test.info().project.name}-bow-${side}-finger-close.png`,
       fullPage:true});
@@ -92,9 +96,17 @@ test("C5.5 integrated weapon transitions, source snapshots and input timing",asy
   }
   await equipment.selectOption("none");
   const final=await readMetrics(page);
+  // The first pass can initialize lazy GPU textures. A second pass measures
+  // repeat-cycle stability instead of incorrectly labeling lazy allocation
+  // as a leak or assuming .dispose() proves GPU cleanup.
+  for(const choice of ["right","longsword-left","staff-right",
+    "sword-shield-left","bow-right","none"] as const){
+    await equipment.selectOption(choice);
+  }
+  const repeatedFinal=await readMetrics(page);
   const report={sha:await page.locator(".studio-build-revision").innerText(),
     project:test.info().project.name,measurement:"Synthetic slider input to second requestAnimationFrame; not browser paint or GPU time",
-    baseline,final,transitions,slider:sliderObservations,
+    baseline,final,repeatedFinal,transitions,slider:sliderObservations,
     sliderSummary:summary(sliderObservations.map(x=>x.elapsedMs)),
     errors};
   writeFileSync(`test-results/c55/${test.info().project.name}-measurements.json`,
