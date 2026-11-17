@@ -19,8 +19,8 @@ import {contactArmFreedoms,composeContactPose,clampContactSeed,
   from "./StudioContactIK";
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
 import {coordinateTorsoAndGaze} from "./StudioUpperBodyCoordination";
-import {measureArmAlignment,bowArmExtensionResidual,measurePullLineAlignment}
-  from "./StudioAnatomicalAlignment";
+import {measureArmAlignment,bowArmExtensionResidual,measurePullLineAlignment,
+  feasibleBowArmExtension} from "./StudioAnatomicalAlignment";
 
 /** Studio-only visual states. A release preview never dispatches a combat event. */
 export type ArcheryState="rest"|"nock"|"partial"|"aim"|"release";
@@ -345,6 +345,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const initialPalm=at(bone(model,"palm_"+hand,hand));
   const armReach=bowShoulder.distanceTo(initialElbow)+
     initialElbow.distanceTo(initialWrist);
+  const drawSide=oppositeHand(hand);
+  const drawShoulder=at(bone(model,"shoulder_"+drawSide,drawSide));
+  const drawElbow=at(bone(model,"elbow_"+drawSide,drawSide));
+  const drawWrist=at(bone(model,"wrist_"+drawSide,drawSide));
+  const drawHook=drawingFingerContactWorld(model,drawSide);
+  const drawingReach=drawShoulder.distanceTo(drawElbow)+
+    drawElbow.distanceTo(drawWrist)+drawWrist.distanceTo(drawHook);
   // The old chest+fixed-Z target let flexed elbows reach the bow while
   // the shoulder line was correct. Use real limb lengths from source FK,
   // with a higher, longer target in the bow-side shooting plane.
@@ -352,29 +359,38 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const preparedTarget=chest.clone()
     .addScaledVector(right,(hand==="right"?1:-1)*.12*scale)
     .addScaledVector(forward,.56*scale).addScaledVector(up,.06*scale);
-  const extendedTarget=bowShoulder.clone()
-    .addScaledVector(forward,armReach*.90+
-      initialWrist.distanceTo(initialPalm)*.28)
-    .addScaledVector(right,(hand==="right"?1:-1)*.014*scale)
-    .addScaledVector(up,.015*scale);
+  const transverseOffset=right.clone().multiplyScalar(
+    (hand==="right"?1:-1)*.014*scale).addScaledVector(up,.015*scale);
+  const maximumForwardReach=feasibleBowArmExtension(
+    bowShoulder,drawShoulder,forward,armReach*.96,
+    drawingReach,scale*(.07+.28*tension),transverseOffset,.045*scale);
+  // The requested bow-hand target is the actual source hand rather than
+  // the wrist: leave a small metacarpal offset beyond the wrist reach.
+  const desiredForwardReach=Math.min(armReach*.92+
+    initialWrist.distanceTo(initialPalm)*.28,maximumForwardReach);
+  const extendedTarget=bowShoulder.clone().add(transverseOffset)
+    .addScaledVector(forward,desiredForwardReach);
   // Set up compact enough to nock; extend against resistance as the string
   // comes back. Extending at zero draw puts the nock beyond the other hand's
   // legal reach even though the bow hand itself can grip it.
   // Until the drawing hand is safely on the string, the bow target
   // remains close to the verified nock geometry. In later expansion,
   // smoothly load the bow arm rather than snapping to a long extension.
-  const expansion=THREE.MathUtils.clamp((tension-.42)/.58,0,1);
+  const expansion=THREE.MathUtils.clamp((tension-.08)/.92,0,1);
   const smoothExpansion=expansion*expansion*(3-2*expansion);
-  const extensionBlend=state==="rest"?0:state==="release"?.75:
-    .08+.84*smoothExpansion;
+  const extensionBlend=state==="rest"?0:state==="release"?.70:
+    smoothExpansion;
+  // The measured nock-reach cap can be shorter than the visually desirable
+  // target on unusual anatomy. Use it as a REAL geometric limit, not a
+  // cosmetic change to the weapon or string. The coupled IK resolves the
+  // remaining arm and finger DOFs under unchanged hard contact gates.
   const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
-  const desiredBend=tension<.55?undefined:THREE.MathUtils.degToRad(
-    20-8*tension);
+  const desiredBend=tension<.15?undefined:THREE.MathUtils.degToRad(
+    19-7*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
   const width=at(bone(model,"finger_index_0",hand)).distanceTo(
     at(bone(model,"finger_little_0",hand)));
-  const drawSide=oppositeHand(hand);
   const socket=model.human.spike.graph.sockets.find(s=>s.purpose==="primary_grip"&&
     s.parentJointId===scoped(model,"palm",hand)?.id);
   if(!socket)throw new Error("Missing source bow-hand grip socket");
