@@ -16,7 +16,7 @@ describe("C5 shared source-hand sample cache",()=>{
       expect(again).not.toBe(initial);
       expect(reads.mock.calls.length).toBe(scanned);
       // A solver can replace a selected region without poisoning the cache.
-      again.set("thumb",[]);
+      (again as Map<string,readonly number[]>).set("thumb",[]);
       expect(sourceHandSamples(model,"left",80).get("thumb"))
         .toEqual(initial.get("thumb"));
       const full=sourceHandSamples(model,"left");
