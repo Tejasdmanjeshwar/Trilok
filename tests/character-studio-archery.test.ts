@@ -10,6 +10,8 @@ import {StudioBowPreview,archeryDrawFraction,validateBowReference,
   measureStringFingerSkin,
   type ArcheryState,MAX_ARCHERY_AIM_DEVIATION_RADIANS}
   from "../apps/web/src/studio/StudioArchery";
+import {measureSourceArrowShaft,sourceIndexRestLandmark,
+  validateArrowRestReference} from "../apps/web/src/studio/StudioArrowRest";
 import {aimBallisticAt,sampleTrajectory} from "../packages/combat/src/projectile-motion";
 
 describe("Shared anatomical weapon contacts",()=>{
@@ -108,6 +110,7 @@ describe("Studio bow and visual nock contract",()=>{
         const reference=new StudioBowPreview(model,rest);
         try{
           validateBowReference(reference.descriptor,human.spike.graph);
+          validateArrowRestReference(reference.descriptor.arrowRest);
           expect(reference.object.getObjectByName("BowHandle")).toBeDefined();
           expect(reference.object.getObjectByName("BowStave")).toBeDefined();
           expect(reference.object.getObjectByName("UpperBowNock")).toBeDefined();
@@ -140,6 +143,15 @@ describe("Studio bow and visual nock contract",()=>{
           drawError:report.drawHandErrorMeters,bowError:report.bowHandErrorMeters,
           body:report.bodyClearanceMeters,skin:report.drawingSkinGapsMeters,
           attempts:report.solverAttempts}));
+        if(!report.reachable)console.log("C5.4 ARROW UNREACHABLE",JSON.stringify({
+          hand,state,reason:report.reason,drawErrorMm:report.drawHandErrorMeters*1000,
+          nockLocal:report.nockWorld.clone().applyMatrix4(
+            report.bowWorld.clone().invert()).toArray(),
+          lateralOffsetMm:report.descriptor.arrowRest.lateralOffsetMeters*1000,
+          shaft:report.arrowShaftClearance?.map(s=>({
+            region:s.region,clearanceMm:s.nearestSurfaceClearanceMeters*1000,
+            closest:s.closestPointLocal.toArray()})),
+        }));
         expect(report.reachable,hand+"/"+state+" safe pose").toBe(true);
         if(report.reachable){
           const line=report.stanceAlignment;
@@ -213,6 +225,50 @@ describe("Studio bow and visual nock contract",()=>{
           const bow=new StudioBowPreview(model,report);
           try{
             if(state!=="release"){
+              // A finite-radius shaft must clear the *full* posed MakeHuman
+              // source hand, not merely its centerline or skeleton pivots.
+              const reports=report.arrowShaftClearance!;
+              expect(reports).toHaveLength(6);
+              for(const region of reports){
+                expect(region.vertices,hand+"/"+state+"/"+region.region).toBeGreaterThan(0);
+                expect(region.nearestSurfaceClearanceMeters,
+                  hand+"/"+state+"/"+region.region+" arrow penetration")
+                  .toBeGreaterThanOrEqual(-.001);
+              }
+              const rest=report.descriptor.arrowRest;
+              const local=report.nockWorld.clone().applyMatrix4(
+                report.bowWorld.clone().invert());
+              const indexSkin=sourceIndexRestLandmark(model,hand,
+                sourceHandSamples(model,hand),report.bowWorld);
+              expect(local.y).toBeGreaterThanOrEqual(indexSkin.y-.003);
+              expect(local.y-indexSkin.y).toBeLessThan(.015);
+              // The shaft sits on the anatomical index side of the stave,
+              // clearing the finite handle by its *radius*, not by raising
+              // it over the entire upper handle cap.
+              expect(local.x).toBeCloseTo(rest.lateralOffsetMeters,8);
+              const handleGap=signedFiniteCylinderDistance(
+                local.x,local.y,0,report.descriptor.handleRadiusMeters,
+                report.descriptor.handleLengthMeters)-rest.shaftRadiusMeters;
+              expect(handleGap).toBeGreaterThanOrEqual(-.001);
+              const tipContact=measureSourceArrowShaft(model,
+                sourceHandSamples(model,hand),report.bowWorld,
+                bow.tipLocal.clone().add(new THREE.Vector3(0,0,-.065)),
+                .065,.016*report.descriptor.limbLengthMeters/.64);
+              for(const region of tipContact)
+                expect(region.nearestSurfaceClearanceMeters,
+                  hand+"/"+state+"/"+region.region+" arrowhead penetration")
+                  .toBeGreaterThan(0);
+              const previous=measureSourceArrowShaft(model,
+                sourceHandSamples(model,hand),report.bowWorld,
+                new THREE.Vector3(0,0,local.z),
+                report.descriptor.arrowLengthMeters,rest.shaftRadiusMeters);
+              console.log("C5.4 shaft source clearance before/after",
+                JSON.stringify({hand,state,
+                  originalMm:previous.map(s=>[s.region,
+                    Math.round(s.nearestSurfaceClearanceMeters*1000)]),
+                  correctedMm:reports.map(s=>[s.region,
+                    Math.round(s.nearestSurfaceClearanceMeters*1000)]),
+                  restAboveIndexMm:Math.round((local.y-indexSkin.y)*1000)}));
               expect(bow.object.getObjectByName("ArrowNock")).toBeDefined();
               expect(new THREE.Vector3().copy(bow.nockLocal)
                 .applyMatrix4(bow.object.matrix).distanceTo(report.nockWorld))
