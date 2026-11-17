@@ -1,0 +1,47 @@
+name: Character Studio Solver Benchmark
+
+# Timings are evidence on a documented runner, never brittle PR gates.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-solver-benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - name: Run serial source-skinned solver matrix
+        run: pnpm bench:studio
+      - name: Record exact benchmark revision
+        if: always()
+        env:
+          TESTED_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "## Character Studio solver (Node, not browser FPS)"
+            echo "- Commit: \`$TESTED_SHA\`"
+            echo "- Runner: ubuntu-latest; Node 22; serial Vitest worker"
+            echo "- Run: $RUN_URL"
+            echo "- Compare identical workflow/runner configuration and inspect JSON timings."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve measured solver timing samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-solver-benchmark-${{ github.sha }}
+          path: test-results/studio-solver-benchmark.json
+          if-no-files-found: warn
+          retention-days: 14
