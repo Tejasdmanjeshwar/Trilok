@@ -779,3 +779,44 @@ The owner inspected the newly available C5.4 feature preview and explicitly conf
 The feature-head runner correction `0e43295c671788e7d8b245e808c15c3725df6959` changes only the root test script to `vitest run tests/ --pool=threads --maxWorkers=1`. It was introduced after Cloudflare's 2-worker fork-based Vitest 3.2.7 run reported 480 passing assertions in 86 suites but two unhandled `[vitest-worker]: Timeout calling "onTaskUpdate"` errors, aborting before the production bundle. The bounded single-thread worker run retained all tests and passed GitHub [Verify #44055047838](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44055047838) (86 suites/480 assertions, TypeScript, build and build identity). Cloudflare [Workers Builds #34668ae5-26fd-49ec-88f6-3b6d8ca9c86b](https://dash.cloudflare.com/3e19634386530acbc03082b1d8889a0b/workers/services/view/trilok/production/previews/feat-c5-4-anatomical-bow-draw/builds/34668ae5-26fd-49ec-88f6-3b6d8ca9c86b) also reported **success** for that exact commit. This verifies one complete Cloudflare build, not guaranteed absence of future resource pressure.
 
 The Cloudflare check establishes successful preview build/deployment pipeline reporting, but direct `/build-info.json` verification against the served feature SHA was blocked by network access in the checking environment; do not conflate successful check and externally confirmed content revision. The owner independently verified the rendered result in the accessible preview. Cold solver-cache latency, mobile performance, source-skinned continuous triangle collision and production-art polish remain future concerns. Neither gameplay ballistics nor combat authority was changed. No C5.5 work or phase-wide acceptance was undertaken here.
+
+
+## C5.4 follow-up: anatomical arrow rest (draft PR #88)
+
+The owner accepted C5.4 bow pose presentation in PR #87, then identified
+remaining source-hand penetration by the nocked arrow. The C5.4 pose
+targets and source-hand grip remain protected.
+
+Root cause: the previous bow-local shaft was rendered from a string nock with
+a nominal Y=0 rest, adjusted by at most 25% of the finite handle length.
+The accepted shared IK enforced drawing-finger/string source contacts and
+bow-hand/handle source contacts independently, but **never measured the
+actual finite-radius shaft against the posed bow hand**. Consequently a
+source-skinned grasp could pass every C5.4 contact test while the shaft
+crossed the bow's index/middle/ring region or the physical grip.
+
+The follow-up introduces `StudioArrowRest.ts`, a version-1 validated,
+replaceable hand-supported or shelf-style rest reference. The current
+traditional hand-supported profile uses the original physical bow +Y
+index-to-little-knuckle frame for either hand. It derives a posed proximal
+index-skin landmark and a minimum centerline height over the finite handle
+cap, including the shaft radius and a configurable support gap. The shared
+string/nock IK solves the vertical rest parameter against the same
+source-skinned drawing pads; the renderer uses that solved nock for both
+string segments, arrowhead and shaft. No unrelated pose-controller,
+combat projectile logic or visual shaft translation is permitted.
+
+The solver uses a bounded deterministic hand-vertex subset when ranking
+candidate shaft positions and the complete original posed source skin in
+its final check. Source-vertex capsule clearance is a **finite-radius
+diagnostic**, not a proof of triangle-level absence of intersections.
+A final triangle-level mesh gate, real rendered close-ups in both hands,
+source-morphology stress tests, Cloudflare preview SHA and owner acceptance
+are still required before this correction is considered ready. The
+drawing-hook/string alignment, index knuckle support, finger/palm
+separation and handle top clearance are independently reported by tests.
+Existing archery shoulder, elbow and shooting-plane targets are unchanged.
+
+PR: https://github.com/Tejasdmanjeshwar/Trilok/pull/88
+Tracking: https://github.com/Tejasdmanjeshwar/Trilok/issues/81
+Status: **draft engineering candidate, not accepted, not merged**.
