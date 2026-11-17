@@ -5,6 +5,12 @@ on:
   pull_request:
     paths:
       - '.github/workflows/c55-controlled-solver-comparison.yml'
+      - 'apps/web/src/studio/StudioSolverDiagnostics.ts'
+      - 'apps/web/src/studio/ConstrainedIK.ts'
+      - 'apps/web/src/studio/StudioSourceContact.ts'
+      - 'apps/web/src/studio/StudioBodyCollision.ts'
+      - 'benchmarks/character-studio-solver.bench.test.ts'
+      - 'tests/character-studio-solver-diagnostics.test.ts'
 permissions:
   contents: read
 jobs:
@@ -19,8 +25,8 @@ jobs:
           node-version: '22'
       - name: Resolve candidate and baseline SHAs
         env:
-          BASELINE_SHA: 64ac634c91198eea30e83c583b08c70e0868d43f
-          CANDIDATE_SHA: 5114afedc6a2e4ba6473404f2274752e44a184c4
+          BASELINE_SHA: ${{ github.event.pull_request.base.sha }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA" "$BASELINE_SHA"
           git worktree add --detach "$RUNNER_TEMP/c55-candidate" "$CANDIDATE_SHA"
