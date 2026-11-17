@@ -1,3 +1,4 @@
+import {getBuildIdentity} from "../build-info";
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
@@ -13,6 +14,7 @@ import {STUDIO_FOCUS,STUDIO_POSES,STUDIO_EXPRESSIONS,
   type StudioFocus,type StudioPose,type StudioExpression}
   from "./StudioInspection";
 
+const studioBuild=getBuildIdentity();
 const host=document.querySelector<HTMLElement>("#studio-app");
 if(!host)throw new Error("Unable to open Character Studio");
 host.innerHTML=String.raw`
@@ -44,7 +46,12 @@ host.innerHTML=String.raw`
     <section class="studio-stage" aria-label="Character preview">
       <div class="studio-stage-top">
         <div><span class="studio-indicator" aria-hidden="true"></span> <span id="studio-scene-label">Human · Neutral pose</span></div>
-        <span class="studio-stage-note">CHARACTER PREVIEW</span>
+        <div class="studio-stage-meta">
+          <span class="studio-stage-note">CHARACTER PREVIEW</span>
+          <a class="studio-build-revision" href="/build-info.json" target="_blank"
+            rel="noopener noreferrer" aria-label="View deployed Character Studio build revision"
+            title="View exact deployed build SHA">BUILD ${studioBuild.commitSha==="unknown"?"LOCAL":studioBuild.commitSha.slice(0,8)}</a>
+        </div>
       </div>
       <div id="studio-viewport" class="studio-viewport" aria-label="Three-dimensional character stage"></div>
       <div class="studio-loading" id="studio-loading" role="status" aria-live="polite">
