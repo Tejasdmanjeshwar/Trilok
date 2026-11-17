@@ -88,6 +88,20 @@ describe("C5.4 partial-draw source-kinematic progression",()=>{
           // is NOT a coherent intermediate pose, even when it passes IK.
           expect(result.stanceAlignment!.bowArmLateralOffsetMeters)
             .toBeLessThan(maxEndpointLateral+.09);
+          // The bow arm must have established nearly the same straight,
+          // supported shooting column as the accepted full-draw endpoint.
+          // Lateral-only metrics previously allowed a visibly folded arm.
+          if(slider>=.75){
+            expect(result.stanceAlignment!.bowElbowInteriorRadians,
+              `${side} ${slider} bow elbow must match accepted full draw`)
+              .toBeGreaterThanOrEqual(
+                aim.stanceAlignment!.bowElbowInteriorRadians-
+                THREE.MathUtils.degToRad(5));
+            expect(result.stanceAlignment!.bowArmForwardReachMeters,
+              `${side} ${slider} bow support reach must match full draw`)
+              .toBeGreaterThanOrEqual(
+                aim.stanceAlignment!.bowArmForwardReachMeters-.025);
+          }
           const support=new Map(result.commands.filter(c=>
             holdingJoints.has(c.jointId)).map(c=>
             [c.jointId+"/"+c.motion,c.radians]));
