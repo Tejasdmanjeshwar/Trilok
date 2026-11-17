@@ -10,7 +10,8 @@ import {countStudioSolverWork} from "./StudioSolverDiagnostics";
  * torso vertices. Each section follows its source torso bone, so legal spine
  * flexion/rotation is included in IK evaluations. The volume is calibrated
  * once per solve (and therefore regenerated after each body/pose rebuild).
- * No per-iteration full-mesh query, BVH dependency or mutable global cache.
+ * No per-iteration full-mesh query or BVH dependency. Immutable source-index
+ * classifications are weakly held per human; posed envelopes are never cached.
  */
 export interface BodyClearance {
   readonly minimumMeters:number;
@@ -41,6 +42,92 @@ const boneByRole=(model:StudioHumanModel,role:string):THREE.Bone=>{
   return bone;
 };
 const boneWorld=(bone:THREE.Bone)=>bone.getWorldPosition(new THREE.Vector3());
+
+/** Only bind-source ownership/topology may be reused between poses. Root,
+ * FK and morphed skin cross-sections are always recalibrated per solve.
+ * Attribute versions (including in-place needsUpdate), graph, skeleton and
+ * source-id replacements invalidate the single entry held for this human. */
+type SkinAttribute=THREE.BufferAttribute|THREE.InterleavedBufferAttribute;
+type TorsoTopology=Readonly<{
+  geometry:THREE.BufferGeometry;
+  position:SkinAttribute;indices:SkinAttribute;weights:SkinAttribute;
+  trianglesIndex:THREE.BufferAttribute;
+  positionVersion:number;indicesVersion:number;weightsVersion:number;
+  trianglesVersion:number;
+  graph:unknown;skeleton:unknown;sourceIds:unknown;
+  vertices:readonly number[];
+  triangles:readonly (readonly [number,number,number])[];
+}>;
+const torsoTopologies=new WeakMap<StudioHumanModel,TorsoTopology>();
+const revision=(attribute:SkinAttribute):number=>
+  attribute instanceof THREE.InterleavedBufferAttribute?
+    attribute.data.version:attribute.version;
+
+function torsoTopology(model:StudioHumanModel):TorsoTopology{
+  const {mesh,spike,template}=model.human;
+  const geometry=mesh.geometry;
+  const position=geometry.getAttribute("position");
+  const indices=geometry.getAttribute("skinIndex");
+  const weights=geometry.getAttribute("skinWeight");
+  const trianglesIndex=geometry.getIndex();
+  if(!position||!indices||!weights||!trianglesIndex||
+      indices.count!==position.count||weights.count!==position.count)
+    throw new Error("Missing morphed torso skin attributes");
+  const existing=torsoTopologies.get(model);
+  if(existing&&existing.geometry===geometry&&
+      existing.position===position&&existing.indices===indices&&
+      existing.weights===weights&&existing.trianglesIndex===trianglesIndex&&
+      existing.positionVersion===revision(position)&&
+      existing.indicesVersion===revision(indices)&&
+      existing.weightsVersion===revision(weights)&&
+      existing.trianglesVersion===revision(trianglesIndex)&&
+      existing.graph===spike.graph&&existing.skeleton===spike.skeleton&&
+      existing.sourceIds===template.sourceVertexIds)
+    return existing;
+  const torsoIds=new Set<number>();
+  for(const joint of spike.graph.joints){
+    if(["pelvis","spine_lower","chest"].includes(joint.role)){
+      const index=spike.skeleton.bones.indexOf(spike.bones.get(joint.id)!);
+      if(index>=0)torsoIds.add(index);
+    }
+  }
+  if(torsoIds.size!==3)throw new Error("Incomplete calibrated torso skin");
+  const ownership=new Float32Array(position.count);
+  const vertices:number[]=[];
+  const used=new Set<number>();
+  for(let i=0;i<position.count;i++){
+    let influence=0;
+    for(let k=0;k<4;k++)
+      if(torsoIds.has(indices.getComponent(i,k)))
+        influence+=weights.getComponent(i,k);
+    ownership[i]=influence;
+    const sourceId=template.sourceVertexIds[i]!;
+    if(used.has(sourceId))continue;
+    used.add(sourceId);
+    if(influence>=.45)vertices.push(i);
+  }
+  const triangles:(readonly [number,number,number])[]=[];
+  for(let i=0;i<trianglesIndex.count;i+=3){
+    const a=trianglesIndex.getX(i),b=trianglesIndex.getX(i+1),
+      c=trianglesIndex.getX(i+2);
+    const owned=Number(ownership[a]!>=.3)+Number(ownership[b]!>=.3)+
+      Number(ownership[c]!>=.3);
+    if(owned>=2)triangles.push(Object.freeze([a,b,c] as const));
+  }
+  if(triangles.length<250)
+    throw new Error("Insufficient actual torso-surface triangle coverage");
+  const next:TorsoTopology={
+    geometry,position,indices,weights,trianglesIndex,
+    positionVersion:revision(position),indicesVersion:revision(indices),
+    weightsVersion:revision(weights),
+    trianglesVersion:revision(trianglesIndex),
+    graph:spike.graph,skeleton:spike.skeleton,
+    sourceIds:template.sourceVertexIds,
+    vertices:Object.freeze(vertices),triangles:Object.freeze(triangles),
+  };
+  torsoTopologies.set(model,next);
+  return next;
+}
 
 /** This helper also makes the calibrated occupied surface independently
  * inspectable by regression tests, including the belly bulge of real recipes. */
@@ -76,33 +163,12 @@ export class StudioBodyCollision {
       y:lo+i*step,minX:Infinity,maxX:-Infinity,
       minZ:Infinity,maxZ:-Infinity,count:0,
     }));
-    const position=mesh.geometry.getAttribute("position");
-    const indices=mesh.geometry.getAttribute("skinIndex");
-    const weights=mesh.geometry.getAttribute("skinWeight");
-    if(!position||!indices||!weights||indices.count!==position.count||
-       weights.count!==position.count)
-      throw new Error("Missing morphed torso skin attributes");
-    const torsoIds=new Set<number>();
-    for(const joint of spike.graph.joints){
-      if(["pelvis","spine_lower","chest"].includes(joint.role)){
-        const index=spike.skeleton.bones.indexOf(spike.bones.get(joint.id)!);
-        if(index>=0)torsoIds.add(index);
-      }
-    }
-    if(torsoIds.size!==3)throw new Error("Incomplete calibrated torso skin");
-    const used=new Set<number>(),point=new THREE.Vector3();
+    const topology=torsoTopology(model);
+    const point=new THREE.Vector3();
     let accepted=0;
-    for(let i=0;i<position.count;i++){
-      const sourceId=template.sourceVertexIds[i]!;
-      if(used.has(sourceId))continue;
-      used.add(sourceId);
-      let influence=0;
-      for(let k=0;k<4;k++){
-        if(torsoIds.has(indices.getComponent(i,k)))
-          influence+=weights.getComponent(i,k);
-      }
-      if(influence<.45)continue;
-      // Actual skin, not the neutral skeleton or an assumed radial body size.
+    // Skin the real source on every solve, including after root/pose changes.
+    // Only its immutable list of torso-owned bind vertices is reused.
+    for(const i of topology.vertices){
       mesh.getVertexPosition(i,point).applyMatrix4(mesh.matrixWorld)
         .applyMatrix4(this.bindRootInverse);
       if(!point.toArray().every(Number.isFinite))throw new Error("Nonfinite torso skin");
@@ -136,31 +202,9 @@ export class StudioBodyCollision {
     if(sections.length<10)throw new Error("Incomplete anatomical torso envelope");
     this.sections=Object.freeze(sections);
     this.sourceVertices=accepted;
-    // The source topology and weights never change during FK. Preserve a
-    // compact, morphology-local torso triangle index, rather than reclassify
-    // or search the entire MakeHuman mesh for each final IK candidate.
-    const index=mesh.geometry.getIndex();
-    if(!index)throw new Error("Missing indexed source skin triangles");
-    const ownership=new Float32Array(position.count);
-    for(let i=0;i<position.count;i++){
-      let weight=0;
-      for(let k=0;k<4;k++)
-        if(torsoIds.has(indices.getComponent(i,k)))
-          weight+=weights.getComponent(i,k);
-      ownership[i]=weight;
-    }
-    const triangleRefs:(readonly [number,number,number])[]=[];
-    for(let i=0;i<index.count;i+=3){
-      const a=index.getX(i),b=index.getX(i+1),c=index.getX(i+2);
-      const owned=Number(ownership[a]!>=.3)+
-        Number(ownership[b]!>=.3)+Number(ownership[c]!>=.3);
-      if(owned>=2)triangleRefs.push(Object.freeze([a,b,c] as const));
-    }
-    if(triangleRefs.length<250)
-      throw new Error("Insufficient actual torso-surface triangle coverage");
-    this.torsoTriangles=Object.freeze(triangleRefs);
-    this.sourceTriangleCount=triangleRefs.length;
-    countStudioSolverWork("torsoTriangles",triangleRefs.length);
+    this.torsoTriangles=topology.triangles;
+    this.sourceTriangleCount=topology.triangles.length;
+    countStudioSolverWork("torsoTriangles",topology.triangles.length);
   }
 
   /**
