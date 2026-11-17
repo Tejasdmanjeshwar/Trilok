@@ -550,9 +550,17 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     // depending on the source hand. Give the nock a bounded, shared bow-local
     // longitudinal variable instead of forcing every anatomy onto local Y=0.
     const nockYBound=Math.min(.035*scale,descriptor.handleLengthMeters*.25);
-    const nockLimits=[...freedoms,{min:-nockYBound,max:nockYBound}];
-    const nockWorldFor=(bow:THREE.Matrix4,y:number)=>
-      new THREE.Vector3(0,y,localNock.z).applyMatrix4(bow);
+    // The nock remains a single physical string/arrow point. Permit a small
+    // bounded draw adjustment when a rigid requested draw is unreachable
+    // for the source arms; never extend beyond maximum bow draw.
+    const drawn=descriptor.maximumDrawMeters*fraction;
+    const zMin=-Math.min(.065*scale,descriptor.maximumDrawMeters-drawn);
+    const zMax=Math.min(.035*scale,drawn);
+    const zScale=.065*scale;
+    const nockLimits=[...freedoms,
+      {min:-nockYBound,max:nockYBound},{min:zMin,max:zMax}];
+    const nockWorldFor=(bow:THREE.Matrix4,y:number,z:number)=>
+      new THREE.Vector3(0,y,localNock.z+z).applyMatrix4(bow);
     const dynamicBow=()=>model.human.spike.character.socketWorld(socket.id)
       .multiply(bowOffset);
     const calibratedHook=handContactTargets(model.human.spike.graph,
@@ -581,7 +589,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           ...initial.slice(0,9),...angles,...digits],freedoms);
         fk.apply(composeContactPose(staged,freedoms,joints));
         const bow=dynamicBow();
-        const goal=nockWorldFor(bow,0);
+        const goal=nockWorldFor(bow,0,0);
         const hook=drawingFingerContactWorld(model,drawSide);
         const pointing=new THREE.Vector3(0,0,1)
           .transformDirection(bow).angleTo(forward);
@@ -595,19 +603,20 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     let best:{commands:readonly JointTarget[];world:THREE.Matrix4;
       contact:THREE.Vector3;error:number;clearance:number;cost:number;
       skin:Readonly<Record<"index"|"middle"|"ring",number>>;
-      nockY:number;valid:boolean;skinValid:boolean;
+      nockY:number;nockZ:number;valid:boolean;skinValid:boolean;
       iterations:number;armSeed:number;fingerSeed:number}|undefined;
     candidateSearch:for(const {armSeed,fingerSeedIndex} of orderedSeeds){
       const angles=drawSeeds[armSeed]!,fingerSeed=digitSeeds[fingerSeedIndex]!;
       const jointSeed=clampContactSeed([
         ...initial.slice(0,9),...angles,...fingerSeed],freedoms);
-      const seed=[...jointSeed,0];
+      const seed=[...jointSeed,0,0];
       const commands=(values:readonly number[])=>
         composeContactPose(staged,freedoms,values.slice(0,freedoms.length));
       const evaluate=(values:readonly number[])=>{
         fk.apply(commands(values));
         const actualBow=dynamicBow();
-        const goal=nockWorldFor(actualBow,values[freedoms.length]!);
+        const goal=nockWorldFor(actualBow,values[freedoms.length]!,
+          values[freedoms.length+1]!);
         const finger=drawingFingerContactWorld(model,drawSide);
         const bowGrip=twoHandGripContactWorld(model,hand);
         const elbowMid=at(elbow).lerp(at(wrist),.5);
@@ -671,6 +680,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           ...values.map((v,i)=>(v-seed[i]!)*.002),
           // Keep the arrow rest near the bow grip's source-calibrated center.
           values[freedoms.length]!/nockYBound*.003,
+          values[freedoms.length+1]!/zScale*.008,
         ];
       };
       // A larger bounded trust region reaches a verified source-pose target
@@ -688,14 +698,15 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
             joint.id.includes("arm[right,0]")?"right":"left";
           return mirrorContactDifferenceSign(model.human.spike.graph,fk,
             f.jointId,f.motion,side);
-        }),1,
+        }),1,1,
       ];
       const fit=fitCanonicalIK(seed,nockLimits,signs,evaluate,32,.55);
       const candidate=commands(fit.values);
       fk.apply(candidate);
       const actualBow=dynamicBow();
       const finger=drawingFingerContactWorld(model,drawSide);
-      const goal=nockWorldFor(actualBow,fit.values[freedoms.length]!);
+      const goal=nockWorldFor(actualBow,fit.values[freedoms.length]!,
+        fit.values[freedoms.length+1]!);
       const error=finger.distanceTo(goal);
       const skin=fingerSkin(actualBow,goal,fullHook);
       const clearance=Math.min(
@@ -721,7 +732,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       const cost=error+Math.max(0,.01*scale-clearance)*2+
         Math.max(0,bowDisplacement-.06*scale)*.5+
         (skin.index+skin.middle)*1.5+
-        arrowAimDeviation*.115*scale+extensionCost+projectedCost;
+        arrowAimDeviation*.115*scale+extensionCost+projectedCost+
+        Math.abs(fit.values[freedoms.length+1]!)*.20;
       drawAttempts++;
       drawIterations=Math.max(drawIterations,fit.iterations);
       const valid=error<.03*scale&&clearance>-.025*scale&&
@@ -734,7 +746,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           (valid===best.valid&&skinValid===best.skinValid&&cost<best.cost))best={
         commands:candidate,world:actualBow,contact:finger,
         error,clearance,cost,skin,valid,skinValid,
-        nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
+        nockY:fit.values[freedoms.length]!,
+        nockZ:fit.values[freedoms.length+1]!,iterations:fit.iterations,
         armSeed,fingerSeed:fingerSeedIndex,
       };
       // Deterministic feasible-first exit at a bounded margin inside the
@@ -753,7 +766,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           bowArm.elbowInteriorRadians>THREE.MathUtils.degToRad(148))){
         best={commands:candidate,world:actualBow,contact:finger,
           error,clearance,cost,skin,valid:true,skinValid:true,
-          nockY:fit.values[freedoms.length]!,iterations:fit.iterations,
+          nockY:fit.values[freedoms.length]!,
+        nockZ:fit.values[freedoms.length+1]!,iterations:fit.iterations,
           armSeed,fingerSeed:fingerSeedIndex};
         break candidateSearch;
       }
@@ -766,8 +780,9 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     solvedWorld=dynamicBow();
     target=localNock.clone().applyMatrix4(solvedWorld);
     contact=drawingFingerContactWorld(model,drawSide);
+    target=nockWorldFor(best.world,best.nockY,best.nockZ);
     localNock.y=best.nockY;
-    target=nockWorldFor(best.world,best.nockY);
+    localNock.z+=best.nockZ;
     drawError=contact.distanceTo(target);
     drawSkinGaps=best.skin;
     drawClearance=best.clearance;
