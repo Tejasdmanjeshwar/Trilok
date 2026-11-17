@@ -302,8 +302,8 @@ export function archeryShootingPlaneYaw(state:ArcheryState,draw:number,
     throw new Error("Invalid shooting-plane state");
   // Establish most shoulder alignment at setup; tension adds only a
   // smaller refinement instead of twisting the torso through full draw.
-  const angle=state==="rest"?0:state==="nock"?.55:
-    state==="release"?.75:.55+.30*draw;
+  const angle=state==="rest"?0:state==="nock"?.15:
+    state==="release"?.68:.15+.65*draw;
   return (hand==="left"?1:-1)*angle;
 }
 export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
@@ -376,7 +376,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // Until the drawing hand is safely on the string, the bow target
   // remains close to the verified nock geometry. In later expansion,
   // smoothly load the bow arm rather than snapping to a long extension.
-  const expansion=THREE.MathUtils.clamp((tension-.08)/.92,0,1);
+  const expansion=THREE.MathUtils.clamp((tension-.58)/.42,0,1);
   const smoothExpansion=expansion*expansion*(3-2*expansion);
   const extensionBlend=state==="rest"?0:state==="release"?.70:
     smoothExpansion;
@@ -385,7 +385,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // cosmetic change to the weapon or string. The coupled IK resolves the
   // remaining arm and finger DOFs under unchanged hard contact gates.
   const bowTarget=preparedTarget.lerp(extendedTarget,extensionBlend);
-  const desiredBend=tension<.15?undefined:THREE.MathUtils.degToRad(
+  const desiredBend=tension<.80?undefined:THREE.MathUtils.degToRad(
     19-7*tension);
   const held=fitArm(model,fk,fingers,hand,bowTarget,false,scale,desiredBend);
   let staged:readonly JointTarget[]=held.commands;
@@ -492,7 +492,16 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       ...contactArmFreedoms(model.human.spike.graph,fk,hand),
       ...contactArmFreedoms(model.human.spike.graph,fk,drawSide),
       ...drawDigitFreedoms,
-    ];
+    ].map(channel=>{
+      // At a settled full draw the bow elbow is a nearly straight support
+      // column. Restrict only the CONTACT optimizer's legal elbow-flexion
+      // search window; source FK joint limits and other weapons are intact.
+      // On partial draws the elbow remains free to seek the real string.
+      const bowElbow=scoped(model,"elbow",hand);
+      return tension>=.85&&channel.jointId===bowElbow?.id&&
+        channel.motion==="flexion"?
+        {...channel,max:Math.min(channel.max,.38)}:channel;
+    });
     // Separate a deterministic Jacobian sampling budget from FINAL
     // acceptance. Source-skin evaluation on every finite-difference probe
     // was monopolizing Vitest worker RPC and browser input response.
