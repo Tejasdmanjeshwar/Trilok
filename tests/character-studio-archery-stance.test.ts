@@ -158,3 +158,47 @@ describe("Physical reach envelope of a two-arm string contact",()=>{
       .toThrow("Invalid anatomical reach envelope");
   });
 });
+
+describe("Source-rest elbow extension calibration",()=>{
+  it.each(["left","right"] as const)(
+    "recovers a near-straight %s elbow with the shared FK, without root motion",
+    side=>{
+      const {human,fk}=make();
+      try{
+        const graph=human.spike.graph;
+        const member=(role:string)=>{
+          const j=graph.joints.find(j=>j.role===role)!;
+          return human.spike.bones.get(j.id)!;
+        };
+        const shoulder=member("shoulder_"+side);
+        const elbow=member("elbow_"+side);
+        const wrist=member("wrist_"+side);
+        const id=graph.joints.find(j=>j.role==="elbow_"+side)!.id;
+        const freedom=fk.frames.get(id)!.freedoms.get("flexion")!;
+        const root=human.spike.character.root;
+        root.updateWorldMatrix(true,true);
+        const transform=root.matrixWorld.clone();
+        const rest=measureArmAlignment(
+          shoulder.getWorldPosition(new THREE.Vector3()),
+          elbow.getWorldPosition(new THREE.Vector3()),
+          wrist.getWorldPosition(new THREE.Vector3()));
+        fk.apply([{jointId:id,motion:"flexion",radians:freedom.min}]);
+        const extended=measureArmAlignment(
+          shoulder.getWorldPosition(new THREE.Vector3()),
+          elbow.getWorldPosition(new THREE.Vector3()),
+          wrist.getWorldPosition(new THREE.Vector3()));
+        console.log("C5.4 measured source elbow extension",JSON.stringify({
+          side,minimumRadians:freedom.min,
+          restDegrees:THREE.MathUtils.radToDeg(rest.elbowInteriorRadians),
+          extendedDegrees:THREE.MathUtils.radToDeg(extended.elbowInteriorRadians),
+        }));
+        expect(freedom.min).toBeLessThan(-.30);
+        expect(extended.elbowInteriorRadians).toBeGreaterThan(
+          THREE.MathUtils.degToRad(150));
+        expect(extended.elbowInteriorRadians).toBeLessThan(
+          THREE.MathUtils.degToRad(179));
+        expect(root.matrixWorld.elements).toEqual(transform.elements);
+        fk.apply([]);
+      }finally{human.dispose();}
+    });
+});
