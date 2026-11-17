@@ -564,6 +564,11 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const drawFreedoms=freedoms.slice(holdingFreedoms.length,
       holdingFreedoms.length+9);
     const drawSeeds=[
+      // Preserve the accepted full-draw chain as a continuous initial
+      // candidate. Generic source poses alone can fall into cramped local
+      // minima when the holding arm is stationary.
+      ...(fixedHolding?[initial.slice(holdingFreedoms.length,
+        holdingFreedoms.length+9)]:[]),
       drawFreedoms.map(c=>sourceDrawMap.get(k(c))??0),
       [0,0,.48,.29,.86*signed,1.40,0,-.06,0],
       [0,0,.16,.88,-.80*signed,1.58,0,-.12,0],
