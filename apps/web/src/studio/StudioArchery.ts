@@ -215,7 +215,7 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
         // switching between equivalent twist/abduction basins when the
         // target grip is nearly identical across neighboring partial draws.
         ...(continuationSeed?values.map((angle,i)=>
-          (angle-continuationSeed[i]!)*.028*scale):[]),
+          (angle-continuationSeed[i]!)*.045*scale):[]),
       ];
     };
     const fit=fitCanonicalIK(initial,axes,
@@ -233,7 +233,7 @@ function fitArm(model:StudioHumanModel,fk:AnatomicalFK,base:readonly JointTarget
       (sum,value,i)=>sum+Math.abs(value-continuationSeed[i]!),0):0;
     const score=error+Math.max(0,.01*scale-clearance)*2+
       inclination*.08*scale+extensionPenalty+
-      referenceDeviation*.012*scale;
+      referenceDeviation*.020*scale;
     if(!best||score<best.score){
       best={commands,error,clearance,iterations:fit.iterations,score};
     }
