@@ -724,3 +724,50 @@ future action-level compliance profile can tune the 10° envelope without
 altering the shared FK/IK foundation. No new combat authority, ballistics,
 AI, root transforms, or C5.5 work was introduced. PR #87 remains draft
 and unmerged pending visual review.
+
+
+### 2026-11-17 late partial support: user screenshot folding correction
+
+After the initial endpoint-guided correction removed the ~305 mm sideways
+bow-arm excursion, the user supplied new actual top-down screenshots
+(`1000000279.jpg` full, `1000000277.jpg` partial,
+`1000000275.jpg` nock). Partial still **visibly folded** the bow elbow
+compared with accepted full draw, despite source string contact and
+single-digit millimeter lateral deviation. The first guided solver used
+`transition=clamp((tension-.08)/.92,0,1)` for the holding arm, while
+partial string tension is bounded to 0..0.65. This left the partial
+holding arm at no more than ~62% of its nock-to-aim FK interpolation.
+The drawing hand and bow holding arm therefore had mismatched progression.
+
+A trial using full support too early (`smoothstep(draw,0,.5)`) failed
+CI `44044772534` (6/480 failures including coupled bow grip and drawing
+reach): it was not adopted. The verified bounded support progression in
+`283d226bf569c1d8726a13e852b09f27b0c38eb4`
+uses a partial-action support blend `min(.78,smoothstep(draw,0,1))`,
+independent of **unchanged physical string travel**. It interpolates the
+current morphology's already-verified nock and full-draw FK
+bow-side reference channels and world-space grip target; the drawing
+arm retains its physical tension-based continuation and is still solved
+jointly with source-skinned string contact. There is no fixed Euler
+override, root transform or combat-system change.
+
+CI `44045476159` passed 480/480 tests, 86 suites, typecheck and
+production build (compiled identity
+`3b2fcfdc-20261117T082153208Z`). At maximum partial slider,
+nominal bow elbow improved from approximately 150.1° left / 151.6°
+right to 161.5° left / 161.4° right, compared with accepted ~162.7°
+at full draw. At slider 50%, elbow is 153.0° left / 155.1° right;
+at 75%, 161.1° on both sides. Forward reach at slider 100% is
+501–502 mm and lateral reach is ~3–4 mm. The accepted full draw
+forward reach remains ~502–503 mm. Five partial slider positions
+on both sides retain the unchanged 30 mm draw-hook and 8 mm actual
+source-skinned index/middle string-contact acceptance.
+
+A new strict late-partial regression test compares elbow interior
+against the accepted full-draw endpoint (within 5°) and shoulder-to-wrist
+forward reach (within 25 mm) at slider 75% and 100%, in addition to
+existing overhead and neighboring-FK continuity gates. This numerical
+verification is not a replacement for real rendered top/side/quarter
+inspection or owner acceptance. The Cloudflare preview deployed SHA,
+cold-entry cache cost and mobile solve performance have **not** been
+independently verified; PR #87 remains draft and unmerged.
