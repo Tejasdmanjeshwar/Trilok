@@ -1,8 +1,51 @@
+
+describe("Shared compliant contact support (no fixed anatomical DOFs)",()=>{
+  it.each(["left","right"] as const)(
+    "retains a legal bounded search interval on every %s arm channel",side=>{
+      const {human,fk}=make();
+      try{
+        const source=contactArmFreedoms(human.spike.graph,fk,side);
+        const reference=source.map(f=>({
+          jointId:f.jointId,motion:f.motion,
+          radians:(f.min+f.max)/2,
+        }));
+        const supported=supportedContactFreedoms(source,reference,
+          THREE.MathUtils.degToRad(2));
+        expect(supported).toHaveLength(9);
+        for(let i=0;i<supported.length;i++){
+          const f=supported[i]!,original=source[i]!;
+          expect(f.min).toBeGreaterThanOrEqual(original.min);
+          expect(f.max).toBeLessThanOrEqual(original.max);
+          expect(f.max-f.min).toBeGreaterThan(0);
+          expect(f.min).toBeCloseTo(Math.max(original.min,
+            reference[i]!.radians-THREE.MathUtils.degToRad(2)),8);
+          expect(f.max).toBeCloseTo(Math.min(original.max,
+            reference[i]!.radians+THREE.MathUtils.degToRad(2)),8);
+        }
+      }finally{human.dispose();}
+    });
+  it("clamps compliant support within asymmetric source limits",()=>{
+    const {human,fk}=make();
+    try{
+      const source=contactArmFreedoms(human.spike.graph,fk,"left");
+      const reference=source.map(f=>({
+        jointId:f.jointId,motion:f.motion,radians:f.max,
+      }));
+      const adjusted=supportedContactFreedoms(source,reference,.05);
+      expect(adjusted.every((f,i)=>f.max===source[i]!.max)).toBe(true);
+      expect(adjusted.every((f,i)=>f.min>=source[i]!.min)).toBe(true);
+      expect(()=>supportedContactFreedoms(source,reference,0)).toThrow();
+    }finally{human.dispose();}
+  });
+});
+
 import {describe,expect,it} from "vitest";
 import * as THREE from "three";
 import {make} from "./helpers/studio-two-hand-fixtures";
 import {StudioPosePreview} from "../apps/web/src/studio/StudioPosePreview";
 import {measureStringFingerSkin} from "../apps/web/src/studio/StudioArchery";
+import {contactArmFreedoms,supportedContactFreedoms} from
+  "../apps/web/src/studio/StudioContactIK";
 
 /** Source-landmark and skin-contact observations across the actual slider,
  * not inferred from a single 3D elbow number at full draw. These are
