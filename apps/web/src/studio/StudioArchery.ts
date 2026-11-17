@@ -12,6 +12,7 @@ import {calibrateGripSpreads,handContactTargets,fitHandleCenter}
 import {fitBowHandContact,fitMorphologyAwareBowRadius} from "./StudioBowContact";
 import {retargetSourceArcherPose} from "./StudioMakeHumanArcherRetarget";
 import {measureSourceStringContact,sourceHandSamples,
+  signedFiniteCylinderDistance,
   sourceFingerPadVertices,sourcePadWorld,
   type SourceCylinderRegion} from "./StudioSourceContact";
 import {measureSourceArrowShaft,sourceIndexRestLandmark,
@@ -273,7 +274,7 @@ function bowFrame(model:StudioHumanModel,hand:HandSide,
 export interface ArcheryPoseResult {
   readonly reachable:boolean;
   readonly reason:"ok"|"bow-unreachable"|"draw-unreachable"|
-    "aim-unreachable"|"body-intersection";
+    "aim-unreachable"|"body-intersection"|"arrow-rest-unreachable";
   readonly hand:HandSide;
   readonly state:ArcheryState;
   readonly commands:readonly JointTarget[];
@@ -539,14 +540,22 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // scan during repeated Character Studio slider movement.
   const coarseBowSkin=sourceHandSamples(model,hand,24);
   const indexRest=sourceIndexRestLandmark(model,hand,bowSkin,world);
-  const arrowRestY=Math.max(indexRest.y,
-    descriptor.handleLengthMeters/2)+descriptor.arrowRest.shaftRadiusMeters+
+  // A shelf-less traditional arrow passes beside the handle on the
+  // anatomical index-support side. Raising it over the entire wooden grip
+  // made it float 29-41 mm above the actual proximal index surface.
+  const arrowSide=Math.sign(indexRest.x);
+  if(arrowSide===0)throw new Error("Degenerate source index arrow-rest side");
+  const arrowRestX=arrowSide*(descriptor.handleRadiusMeters+
+    descriptor.arrowRest.shaftRadiusMeters+descriptor.arrowRest.supportGapMeters);
+  const arrowRestY=indexRest.y+descriptor.arrowRest.shaftRadiusMeters+
     descriptor.arrowRest.supportGapMeters;
+  descriptor=Object.freeze({...descriptor,arrowRest:Object.freeze({
+    ...descriptor.arrowRest,lateralOffsetMeters:arrowRestX})});
   const fraction=tension;
   // Pull travels along the bow's own forward axis. Bound its world target
   // by occupied torso space before any arm IK, never by moving the avatar.
   const collisions=new StudioBodyCollision(model);
-  const localNock=new THREE.Vector3(0,0,-descriptor.stringRestMeters-
+  const localNock=new THREE.Vector3(arrowRestX,0,-descriptor.stringRestMeters-
     descriptor.maximumDrawMeters*fraction);
   let target=localNock.clone().applyMatrix4(world);
   if(fraction>0){
@@ -656,7 +665,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const nockYBound=Math.max(.035*scale,arrowRestY+.012*scale);
     const nockLimits=[...freedoms,{min:-nockYBound,max:nockYBound}];
     const nockWorldFor=(bow:THREE.Matrix4,y:number)=>
-      new THREE.Vector3(0,y,localNock.z).applyMatrix4(bow);
+      new THREE.Vector3(arrowRestX,y,localNock.z).applyMatrix4(bow);
     const dynamicBow=()=>model.human.spike.character.socketWorld(socket.id)
       .multiply(bowOffset);
     const calibratedHook=handContactTargets(model.human.spike.graph,
@@ -813,13 +822,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       const extensionCost=bowArm&&desiredBend!==undefined?
         bowArmExtensionResidual(bowArm,desiredBend)*.55:0;
       const shaftClearance=measureSourceArrowShaft(model,coarseBowSkin,
-        actualBow,new THREE.Vector3(0,fit.values[freedoms.length]!,localNock.z),
+        actualBow,new THREE.Vector3(arrowRestX,fit.values[freedoms.length]!,localNock.z),
         descriptor.arrowLengthMeters,descriptor.arrowRest.shaftRadiusMeters);
       const shaftValid=shaftClearance.every(s=>
         s.nearestSurfaceClearanceMeters>=-.001*scale);
-      const handleValid=fit.values[freedoms.length]!>=
-        descriptor.handleLengthMeters/2+descriptor.arrowRest.shaftRadiusMeters-
-        .001*scale;
+      const handleValid=signedFiniteCylinderDistance(
+        arrowRestX,fit.values[freedoms.length]!,0,
+        descriptor.handleRadiusMeters,descriptor.handleLengthMeters)-
+        descriptor.arrowRest.shaftRadiusMeters>=-.001*scale;
       const restGap=Math.abs(fit.values[freedoms.length]!-arrowRestY);
       const cost=error+Math.max(0,.01*scale-clearance)*2+
         Math.max(0,restGap-.008*scale)*2+
@@ -849,7 +859,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       // solution with acceptable complete source-skin geometry does not
       // require 14 more expensive exploratory candidates; the hard
       // acceptance assertions remain unchanged.
-      if(error<.029*scale&&clearance>0&&
+      if(error<.029*scale&&clearance>0&&shaftValid&&handleValid&&
         bowDisplacement<.09*scale&&
         skin.index<.0075*scale&&skin.middle<.0075*scale&&
         arrowAimDeviation<=MAX_ARCHERY_AIM_DEVIATION_RADIANS&&
@@ -886,7 +896,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const bowError=twoHandGripContactWorld(model,hand).distanceTo(bowTarget);
   const arrowShaftClearance=state==="rest"||state==="release"?undefined:
     measureSourceArrowShaft(model,bowSkin,solvedWorld,
-      new THREE.Vector3(0,localNock.y,localNock.z),
+      new THREE.Vector3(arrowRestX,localNock.y,localNock.z),
       descriptor.arrowLengthMeters,descriptor.arrowRest.shaftRadiusMeters);
   const arrowClear=arrowShaftClearance===undefined||
     arrowShaftClearance.every(s=>s.nearestSurfaceClearanceMeters>=-.001*scale);
@@ -927,6 +937,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   })():undefined;
   return Object.freeze({
     reachable,reason:!handFit.accepted||bowError>=.10*scale?"bow-unreachable":
+      !arrowClear?"arrow-rest-unreachable":
       unsafe||held.clearance<=-.027*scale||
         state!=="rest"&&state!=="release"&&drawClearance<=-.025*scale?
         "body-intersection":
