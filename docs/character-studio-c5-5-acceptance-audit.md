@@ -90,3 +90,19 @@ Cloudflare production `/build-info.json` could not be independently retrieved fr
 **Current review candidates:** [PR #95](https://github.com/Tejasdmanjeshwar/Trilok/pull/95) caches immutable torso vertex ownership/triangle indices; the first test improperly compared a stale calibration across changed roots, then was corrected to compare fresh envelopes at the same root. The latest rebased PR CI and controlled benchmark must pass before merge; this does **not** certify root-transform invariance by itself. [PR #97](https://github.com/Tejasdmanjeshwar/Trilok/pull/97) introduces a draft, latest-only worker for **partial bow draws only**, using a separately owned true MakeHuman source/IK. It checks generation, pose, hand, draw and root ownership, and re-evaluates the live finger/string and arrow-shaft skin before displaying an accepted result. Heavy initial equip, sword/staff and other Studio transitions remain synchronous. Worker build correctness, desktop/touch Chromium responsiveness, skin-contact screenshots, cancellation, memory and disposal require independent evidence; **PR creation is not runtime certification**.
 
 **Still blocked:** exact-final-main C5 Phase Acceptance, validated desktop 60 FPS/mobile 30 FPS, device-specific input latency, owner visual approval, full integrated contact/lifecycle acceptance and an independently fetched Cloudflare production `build-info.json`. GitHub Verify and preview deploy success do not establish a served production SHA. Do not close issue #81 or begin C6.
+
+## Reconciled torso-cache merge and off-thread candidate — November 18, 2026
+
+[PR #95](https://github.com/Tejasdmanjeshwar/Trilok/pull/95) passed its latest [Verify #44155513745](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44155513745) and [same-run comparison #44155513738](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44155513738), then merged to main as `68903d3704083c10d3f34b28d4c268957a6d5f57`. The comparison, run against instrumented post-#94 main, recorded:
+
+| Instrumented Node scenario | Main baseline | Topology-cache candidate |
+| --- | ---: | ---: |
+| Asymmetric seed 2929832126, left-bow partial warm | 2,086.7 ms | 2,037.8 ms |
+| Asymmetric longsword-right warm | 1,021.2 ms | 1,010.3 ms |
+| Neutral bow-left partial warm | 325.0 ms | 312.0 ms |
+
+Source-skinned, FK and contact objective counts were unchanged by this cache. The reduction is modest and **does not resolve the remaining synchronous two-second worker-cost problem**. The new root-transform topology test covers independently recalibrated envelopes at the same transformed root, not a claim of complete physical root-transform invariance. A separate full root-transform equivalence/contact audit remains a C5 gate.
+
+[Draft PR #97](https://github.com/Tejasdmanjeshwar/Trilok/pull/97), rebased onto merged #95, implements a candidate source-skinned partial-bow Web Worker. No numerical tolerances or combat authority were changed. Its correctness, source parity, cancellation/resource ownership and desktop/touch browser results must be established before merging; it does **not yet** fix synchronous heavy sword/staff or initial equipment transitions. The full manual C5 Phase Acceptance workflow must not be dispatched as a subphase acceptance substitute.
+
+**Release boundary:** main `68903d3704083c10d3f34b28d4c268957a6d5f57` is a verified interim engineering checkpoint, not the accepted C5 release commit. The served production Cloudflare SHA remains independently unverified; no owner integrated visual approval has been recorded. Keep issue #81 open.
