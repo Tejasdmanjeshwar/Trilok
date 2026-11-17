@@ -349,10 +349,17 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // shooting planes, not an unrelated sideways stance. The unguided
   // legacy path is retained only as a safe fallback for unavailable guides.
   const guidedPartial=state==="partial"&&guide!==undefined;
+  // A supported bow arm establishes its shooting column *before* the
+  // drawing fingers complete their physical string travel. These are
+  // independent, deterministic progressions; neither is a global FK lock.
+  // The fast support phase blends between actual accepted endpoint poses,
+  // not fixed skeleton angles or invented bow offsets.
+  const supportProgress=guidedPartial?
+    THREE.MathUtils.smoothstep(draw,0,.5):0;
   const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
     archeryShootingPlaneYaw(guidedPartial?state:
       state==="partial"?"aim":state,
-      state==="partial"&&!guidedPartial?1:draw,hand));
+      state==="partial"?(guidedPartial?supportProgress:1):draw,hand));
   fk.apply(stance);
   const head=at(bone(model,"head",hand));
   const ankle=at(bone(model,"ankle_left","left"));
@@ -395,9 +402,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const guideCommands=guidedPartial?(()=>{
     const source=new Map(guide!.nock.commands.map(c=>[k(c),c.radians]));
     const goal=new Map(guide!.aim.commands.map(c=>[k(c),c.radians]));
+    const bowArmIds=new Set(model.human.spike.graph.joints.filter(j=>
+      ["clavicle_","shoulder_","elbow_","wrist_"].some(role=>
+        j.role===role+hand)).map(j=>j.id));
     return [...guide!.nock.commands].map(c=>({
       jointId:c.jointId,motion:c.motion,
-      radians:THREE.MathUtils.lerp(c.radians,goal.get(k(c))??c.radians,transition),
+      radians:THREE.MathUtils.lerp(c.radians,goal.get(k(c))??c.radians,
+        bowArmIds.has(c.jointId)?supportProgress:transition),
     })).concat(guide!.aim.commands.filter(c=>!source.has(k(c))));
   })():undefined;
   const preparedTarget=chest.clone()
@@ -450,7 +461,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     .addScaledVector(right,(hand==="left"?1:-1)*supportLateral)
     .addScaledVector(up,.015*scale);
   const bowTarget=guidedPartial?
-    guide!.nock.gripWorld.clone().lerp(guide!.aim.gripWorld,transition):
+    guide!.nock.gripWorld.clone().lerp(guide!.aim.gripWorld,supportProgress):
     partialSupport?supportTarget:preparedTarget.lerp(extendedTarget,extensionBlend);
   const desiredBend=partialSupport?THREE.MathUtils.degToRad(17):
     tension<.80?undefined:THREE.MathUtils.degToRad(19-7*tension);
