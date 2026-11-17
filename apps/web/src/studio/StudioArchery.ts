@@ -325,7 +325,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // The partial draw is an established shooting stance, not a progressive
   // bend of the holding arm. Only the draw arm follows string tension.
   const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
-    archeryShootingPlaneYaw(state==="partial"?"aim":state,draw,hand));
+    archeryShootingPlaneYaw(state==="partial"?"aim":state,
+      state==="partial"?1:draw,hand));
   fk.apply(stance);
   const head=at(bone(model,"head",hand));
   const ankle=at(bone(model,"ankle_left","left"));
@@ -400,8 +401,13 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const supportForward=Math.min(armReach*.70,feasibleBowArmExtension(
     bowShoulder,drawShoulder,forward,armReach*.96,drawingReach,
     scale*.07,transverseOffset,.045*scale));
+  // A contact target lies beyond the source wrist, not at the end of its
+  // forearm. Include the measured wrist-to-palm span to avoid shortening
+  // the supported elbow simply to bring a hand grip near the string.
+  const supportReach=armReach*.97+
+    initialWrist.distanceTo(initialPalm)*.45;
   const supportLateral=Math.sqrt(Math.max(0,
-    Math.pow(armReach*.94,2)-supportForward*supportForward));
+    supportReach*supportReach-supportForward*supportForward));
   const supportTarget=bowShoulder.clone()
     .addScaledVector(forward,supportForward)
     .addScaledVector(right,(hand==="left"?1:-1)*supportLateral)
