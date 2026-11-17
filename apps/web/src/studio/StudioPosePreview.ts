@@ -161,13 +161,15 @@ export class StudioPosePreview {
     human.spike.character.root.updateWorldMatrix(true,true);
     this.current=id;
   }
-  refresh():void{
-    // External regeneration/face/corrective refresh may mutate source
-    // geometry. Explicitly invalidate both positive and failed endpoints.
+  /** Invalidate calibrated source contacts after in-place face/source edits.
+   * Regeneration creates a new preview and needs no explicit invalidation. */
+  invalidateSourceContact():void{
     this.archeryGuide=undefined;
     this.archeryEndpointsAttempted=undefined;
-    this.setPose(this.current);
   }
+  /** Re-evaluate the same generated source without discarding valid endpoints.
+   * Explicit source edits must call invalidateSourceContact() first. */
+  refresh():void{this.setPose(this.current);}
   dispose():void{
     this.result=undefined;
     this.shieldResult=undefined;

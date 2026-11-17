@@ -27,6 +27,9 @@ describe("C5.5 cached failed archery endpoints",()=>{
       }
       preview.refresh();
       expect(preview.bowPoseResult?.reachable).toBe(false);
+      preview.invalidateSourceContact();
+      preview.refresh();
+      expect(preview.bowPoseResult?.reachable).toBe(false);
     }finally{
       preview.dispose();
       human.dispose();
