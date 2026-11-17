@@ -500,7 +500,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
       const bowElbow=scoped(model,"elbow",hand);
       return tension>=.85&&channel.jointId===bowElbow?.id&&
         channel.motion==="flexion"?
-        {...channel,max:Math.min(channel.max,.38)}:channel;
+        {...channel,max:Math.min(channel.max,.16)}:channel;
     });
     // Separate a deterministic Jacobian sampling budget from FINAL
     // acceptance. Source-skin evaluation on every finite-difference probe
