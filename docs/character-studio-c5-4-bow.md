@@ -407,3 +407,45 @@ combat release authority, parent rig, mesh, runtime solver, or root rotation.**
 and bilateral reachability checks, full 0–100% draw kinematic measurements,
 measured before/after solver cost/allocations, multi-angle rendered review and
 Cloudflare preview SHA verification. Do not merge PR #87 without owner signoff.
+
+
+### 2026-11-17 overhead-shooting-plane review (owner screenshot)
+
+The owner supplied a real top-down Character Studio screenshot showing a bent,
+crooked bow arm and compressed drawing-arm triangle even after a nominal
+full-draw elbow measurement reached 162.66 degrees. This reveals a missing
+measurement: the original `measureArmAlignment` measures the 3D
+shoulder-elbow-wrist interior, which does not establish a credible **horizontal
+shooting-plane silhouette**.
+
+`StudioAnatomicalAlignment.ts` now also provides
+`measureProjectedArmAlignment` and `planarExtensionResidual`, both
+source-rig-independent, root-orientation-aware, and sagittal-reflection
+invariant. The coupled archery IK carries a soft top-view bow-elbow
+straightness/lateral wrist error along with its original bow-socket,
+index/middle source-skin, arrow-direction, and body-clearance objectives.
+The actual result reports `bowElbowTopViewRadians`,
+`bowArmForwardReachMeters`, and `bowArmLateralOffsetMeters`.
+An integration test requires the overhead full-draw elbow to exceed 145 degrees
+and retains the independent 3D elbow angle over 150 degrees.
+
+The first overhead optimization candidate (CI
+[44019601666](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44019601666))
+**failed**: 471/475 tests passed and the partial draw / bilateral
+reachability gates regressed (4 failures). It did not warrant visual acceptance.
+The follow-up applies overhead weighting only after substantial draw tension
+and rebalances the nock-to-aim extension schedule; its verification is a new
+independent gate. No contact threshold was relaxed.
+
+The previously verified full-draw FK correction at
+`6694eb2435e9e399c61b8f178d633a427879d87c` passed 473/473 tests, with
+nominal source-elbow interior 162.66 degrees on both sides, compared with
+136.16 degrees before shared FK rest-extension calibration. **These are 3D
+angles only** and cannot by themselves establish the top-view geometry.
+
+Remaining requirements before PR approval: latest full CI (including
+partial-draw 0/25/50/75/100%, bilateral and seed/morphology gates), measured
+top-view arm straightness and draw-elbow triangle in both hands, actual
+browser screenshots compared side-by-side with owner overhead and side
+references, deployment SHA verification and measured solver cost. The release
+follow-through remains a separate choreography/artistic-quality item.
