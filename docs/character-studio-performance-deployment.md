@@ -1,6 +1,6 @@
 # Character Studio solver profiling and Cloudflare verification gates
 
-Status: **performance instrumentation and bounded cache candidate under review**.
+Status update (2026-11-17): **PR #89's bounded cache and solver-evaluation instrumentation are merged on `main` at `64ac634c91198eea30e83c583b08c70e0868d43f`.** The baseline/feature-branch references below are historical experiment inputs. Full-IK before/after latency, browser input-to-paint, resource churn and independent Cloudflare deployment SHA are still unverified. See [C5.5 audit ledger](character-studio-c5-5-acceptance-audit.md).
 This document describes what is verified by source inspection and what is not.
 Never treat Node test runtime as browser frame time, or a green Cloudflare check as
 evidence that GitHub verification gated the exact deployment commit.
