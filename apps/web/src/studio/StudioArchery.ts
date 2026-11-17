@@ -555,7 +555,8 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const supportReference=partialSupport?
       contactArmFreedoms(model.human.spike.graph,fk,hand):undefined;
     const holdingFreedoms=partialSupport?supportedContactFreedoms(
-      supportReference!,staged,THREE.MathUtils.degToRad(2)):
+      supportReference!,staged,THREE.MathUtils.degToRad(
+        guidedPartial?10:2)):
       contactArmFreedoms(model.human.spike.graph,fk,hand);
     const freedoms=[
       ...holdingFreedoms,
@@ -725,7 +726,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // shoulder/elbow/wrist. Draw-hand contact can still induce small,
           // legal support-arm changes within the calibrated search envelope.
           ...(partialSupport?values.slice(0,holdingFreedoms.length)
-            .map((v,i)=>(v-initial[i]!)*.075*scale):[]),
+            .map((v,i)=>(v-initial[i]!)*(guidedPartial?.025:.075)*scale):[]),
           Math.max(0,.018*scale-collisions.clearance(elbowMid))*1.5,
           Math.max(0,.012*scale-collisions.clearance(finger))*1.5,
           ...values.map((v,i)=>(v-seed[i]!)*.002),
