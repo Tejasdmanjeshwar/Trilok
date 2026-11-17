@@ -20,7 +20,8 @@ import {contactArmFreedoms,composeContactPose,clampContactSeed,
 import {twoHandGripContactWorld,type HandSide} from "./StudioTwoHandGrip";
 import {coordinateTorsoAndGaze} from "./StudioUpperBodyCoordination";
 import {measureArmAlignment,bowArmExtensionResidual,measurePullLineAlignment,
-  feasibleBowArmExtension} from "./StudioAnatomicalAlignment";
+  feasibleBowArmExtension,measureProjectedArmAlignment,
+  planarExtensionResidual} from "./StudioAnatomicalAlignment";
 
 /** Studio-only visual states. A release preview never dispatches a combat event. */
 export type ArcheryState="rest"|"nock"|"partial"|"aim"|"release";
@@ -280,6 +281,10 @@ export interface ArcheryPoseResult {
     bowShoulderLeadMeters:number;
     drawElbowBehindHookMeters:number;
     drawElbowOffAxisMeters:number;
+    /** Elbow straightness and shoulder/wrist path viewed from overhead. */
+    bowElbowTopViewRadians:number;
+    bowArmForwardReachMeters:number;
+    bowArmLateralOffsetMeters:number;
   }>;
   readonly descriptor:BowReferenceV1;
   /** Read-only candidate-selection evidence, not part of authoritative play. */
@@ -605,6 +610,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         const elbowMid=at(elbow).lerp(at(wrist),.5);
         const bowArm=desiredBend===undefined?undefined:measureArmAlignment(
           at(bowShoulderBone),at(bowElbowBone),at(bowWristBone));
+        const bowPlanar=desiredBend===undefined?undefined:
+          measureProjectedArmAlignment(at(bowShoulderBone),
+            at(bowElbowBone),at(bowWristBone),up,forward);
+        const planarWeight=THREE.MathUtils.smoothstep(tension,.25,.9);
         const skin=fingerSkin(actualBow,goal);
         const indexPad=sourcePadWorld(model,padVertices.index);
         const middlePad=sourcePadWorld(model,padVertices.middle);
@@ -643,8 +652,14 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
           // the fingertips perfectly on the string. Use a low-weight
           // skeletal extension residual INSIDE this shared IK, so contact
           // and elbow alignment are solved together (not post-rotated).
-          ...(bowArm&&desiredBend!==undefined?[
-            bowArmExtensionResidual(bowArm,desiredBend)*.55]:[]),
+          ...(bowArm&&desiredBend!==undefined&&bowPlanar?[
+            bowArmExtensionResidual(bowArm,desiredBend)*.55,
+            // Critical overhead constraint: a 3D elbow can be extended
+            // while the arm still appears kinked in top projection.
+            planarExtensionResidual(bowPlanar,THREE.MathUtils.degToRad(152))*
+              .48*planarWeight,
+            Math.max(0,bowPlanar.wristLateralOffsetMeters-.10*scale)*
+              .25*planarWeight]:[]),
           // Keep the bow arm near its source-reach-calibrated target.
           (bowGrip.x-bowTarget.x)*.45,(bowGrip.y-bowTarget.y)*.45,
           (bowGrip.z-bowTarget.z)*.45,
@@ -689,12 +704,21 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
         .transformDirection(actualBow).angleTo(forward);
       const bowArm=desiredBend===undefined?undefined:measureArmAlignment(
         at(bowShoulderBone),at(bowElbowBone),at(bowWristBone));
+      const bowPlanar=desiredBend===undefined?undefined:
+        measureProjectedArmAlignment(at(bowShoulderBone),
+          at(bowElbowBone),at(bowWristBone),up,forward);
+      const planarWeight=THREE.MathUtils.smoothstep(tension,.25,.9);
       const extensionCost=bowArm&&desiredBend!==undefined?
         bowArmExtensionResidual(bowArm,desiredBend)*.55:0;
+      const projectedCost=bowPlanar?
+        planarExtensionResidual(bowPlanar,THREE.MathUtils.degToRad(152))*
+          .48*planarWeight+
+        Math.max(0,bowPlanar.wristLateralOffsetMeters-.10*scale)*
+          .25*planarWeight:0;
       const cost=error+Math.max(0,.01*scale-clearance)*2+
         Math.max(0,bowDisplacement-.06*scale)*.5+
         (skin.index+skin.middle)*1.5+
-        arrowAimDeviation*.115*scale+extensionCost;
+        arrowAimDeviation*.115*scale+extensionCost+projectedCost;
       drawAttempts++;
       drawIterations=Math.max(drawIterations,fit.iterations);
       const valid=error<.03*scale&&clearance>-.025*scale&&
@@ -773,12 +797,17 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
     const grip=twoHandGripContactWorld(model,hand);
     const line=measurePullLineAlignment(grip,nock,
       at(bone(model,"elbow_"+drawSide,drawSide)));
+    const projected=measureProjectedArmAlignment(at(bowShoulderBone),
+      at(bowElbowBone),at(bowWristBone),up,forward);
     return Object.freeze({bowElbowInteriorRadians:bowArm.elbowInteriorRadians,
       bowElbowExtensionDeficitMeters:bowArm.extensionDeficitMeters,
       bowShoulderLeadMeters:at(bowShoulderBone).sub(
         at(bone(model,"shoulder_"+drawSide,drawSide))).dot(forward),
       drawElbowBehindHookMeters:line.behindHookMeters,
-      drawElbowOffAxisMeters:line.perpendicularMeters});
+      drawElbowOffAxisMeters:line.perpendicularMeters,
+      bowElbowTopViewRadians:projected.elbowInteriorRadians,
+      bowArmForwardReachMeters:projected.reachAlongForwardMeters,
+      bowArmLateralOffsetMeters:projected.wristLateralOffsetMeters});
   })():undefined;
   return Object.freeze({
     reachable,reason:!handFit.accepted||bowError>=.10*scale?"bow-unreachable":
