@@ -34,7 +34,15 @@ export class StudioPosePreview {
   }>;
   get bowPoseResult():ArcheryPoseResult|undefined{return this.archeryResult;}
   setArcheryState(state:ArcheryState):void{this.archeryState=state;this.refresh();}
-  setArcheryDraw(value:number):void{this.archeryDraw=value;this.refresh();}
+  setArcheryDraw(value:number):void{
+    if(!Number.isFinite(value)||value<0||value>1)
+      throw new Error("Invalid archery draw");
+    if(value===this.archeryDraw)return;
+    this.archeryDraw=value;
+    // The slider interpolates partial draw only. Retain its value for a
+    // later partial state without re-solving settled rest/nock/aim/release.
+    if(isBowEquipment(this.grip)&&this.archeryState==="partial")this.refresh();
+  }
   get shieldPoseResult():ShieldPoseResult|undefined{return this.shieldResult;}
   setShieldStance(stance:ShieldStance):void{
     if(!["guard","attack-ready","parry"].includes(stance))throw new Error("Unknown shield stance");

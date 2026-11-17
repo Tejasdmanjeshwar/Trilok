@@ -345,6 +345,10 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   draw=1,guide?:ArcheryTransitionGuide):ArcheryPoseResult{
   if(!Object.hasOwn(ARCHERY_STATES,state)||!["left","right"].includes(hand))
     throw new Error("Unknown archery pose");
+  if(!Number.isFinite(draw)||draw<0||draw>1)
+    throw new Error("Invalid archery draw");
+  // A previous partial draw must never alter the full-aim shooting plane.
+  const effectiveDraw=state==="partial"?draw:1;
   const root=model.human.spike.character.root;
   root.updateWorldMatrix(true,true);
   const rootMatrix=root.matrixWorld.clone();
@@ -371,7 +375,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   const stance=coordinateTorsoAndGaze(model.human.spike.graph,fk,base,
     archeryShootingPlaneYaw(guidedPartial?state:
       state==="partial"?"aim":state,
-      state==="partial"?(guidedPartial?supportProgress:1):draw,hand));
+      state==="partial"?(guidedPartial?supportProgress:1):effectiveDraw,hand));
   fk.apply(stance);
   const head=at(bone(model,"head",hand));
   const ankle=at(bone(model,"ankle_left","left"));
@@ -407,7 +411,7 @@ export function solveArcheryPose(model:StudioHumanModel,fk:AnatomicalFK,
   // The old chest+fixed-Z target let flexed elbows reach the bow while
   // the shoulder line was correct. Use real limb lengths from source FK,
   // with a higher, longer target in the bow-side shooting plane.
-  const tension=archeryDrawFraction(state,draw);
+  const tension=archeryDrawFraction(state,effectiveDraw);
   // Physical draw remains 0..65% in partial. This is an endpoint pose
   // interpolation parameter, NOT a replacement for string travel.
   const transition=THREE.MathUtils.clamp((tension-.08)/.92,0,1);
