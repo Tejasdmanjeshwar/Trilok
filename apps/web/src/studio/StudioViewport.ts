@@ -209,10 +209,15 @@ export function createStudioViewport(
     updateMarkers();
   }
   function setArcheryDraw(value:number):void{
+    if(!Number.isFinite(value)||value<0||value>1)
+      throw new Error("Invalid archery draw");
+    if(archeryDraw===value)return;
     archeryDraw=value;
     try{
       posePreview?.setArcheryDraw(value);
-      if(isBowEquipment(equipment))refreshSword();
+      // Replacing identical bow meshes outside partial needlessly allocates
+      // and disposes GPU buffers on every slider input.
+      if(isBowEquipment(equipment)&&archeryState==="partial")refreshSword();
     }catch(error){
       clearSword();
       reportGripFailure(error);
