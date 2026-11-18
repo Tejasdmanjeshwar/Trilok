@@ -16,7 +16,13 @@ describe("Studio double-tap anatomical focus",()=>{
     expect(isDoubleTap(tap(100,90,100),tap(114,92,410))).toBe(true);
     expect(isDoubleTap(tap(100,90,100,"mouse"),tap(108,95,350,"mouse"))).toBe(true);
     expect(isDoubleTap(tap(100,90,100),tap(108,95,350,"mouse"))).toBe(false);
-    expect(isDoubleTap(tap(100,90,100),tap(108,95,550))).toBe(false);
+    // Touch screens tolerate slower but deliberate repeated taps after a
+    // busy render frame; mouse/pen keep the shorter desktop double-click bound.
+    expect(isDoubleTap(tap(100,90,100),tap(108,95,550))).toBe(true);
+    expect(isDoubleTap(tap(100,90,100),tap(108,95,750))).toBe(true);
+    expect(isDoubleTap(tap(100,90,100),tap(108,95,751))).toBe(false);
+    expect(isDoubleTap(tap(100,90,100,"mouse"),tap(108,95,550,"mouse"))).toBe(false);
+    expect(isDoubleTap(tap(100,90,100,"pen"),tap(108,95,550,"pen"))).toBe(false);
     expect(isDoubleTap(tap(100,90,100),tap(140,95,350))).toBe(false);
   });
   it("rotates around the same focused spot at unchanged distance for all camera presets",()=>{
