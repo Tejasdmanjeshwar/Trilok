@@ -34,7 +34,7 @@ try {
   const manifest=JSON.stringify({
     schemaVersion:1,creator:"trilok",license:"Trilok-Proprietary",
     generator:"packages/character-core/src/animation-library.ts",
-    generatorRevision:"c6.2-motion-source-v1",
+    generatorRevision:"c6.2-gait-source-v2",
     toolchain:"Node.js 22 + Vite 6 (repo lockfile)",normalization:"rest_delta; radians; local XYZ quaternion",
     entries,
   },null,2)+"\n";
