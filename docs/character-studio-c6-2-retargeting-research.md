@@ -74,3 +74,29 @@ Later C6.3 foot planning/IK and C6.4 weapon/grip constraints solve physically im
 - No additional dependency until pinning, licensing, maintenance, Vite/Node compatibility and comparison against the existing Three.js baseline pass.
 
 **Acceptance is explicitly NOT achieved by drafting this document.** PR #112 stays draft. Cloudflare preview must be verified independently and production may not be used as a workaround.
+
+## R1/R2 implementation checkpoint (2026-11-19)
+
+**Engineering status: mathematical foundation introduced, not integrated or visually approved.**
+The branch adds `packages/character-core/src/retargeting.ts` with versioned
+rig descriptors, an explicit one-to-one exact joint ID mapping, an orthonormal
+shaft-plus-signed-secondary reference frame, strict rejection of collinear
+reference cues, full quaternion swing/twist transfer, and target-world hierarchy
+reconstruction. It exposes `createRetargetProfile`, `anatomicalFrame`, and
+`retargetWorldPose` without Three.js or clip-name dependencies. A focused
+synthetic test file covers axial twists, nonaligned T/A rest, parent-space
+reconstruction, bilateral finger IDs, and invalid mappings.
+
+**Not yet complete:** This API is not called by the legacy
+`scripts/bake-reference-animations.mjs`; checked-in clips are unchanged.
+No actual UAL1 glTF inverse-bind or signed secondary-cue extraction and no
+calibrated MakeHuman runtime-bone descriptor have yet been wired to it.
+Therefore R1's 3D anatomical ground truth and R2's real-data calibration are
+**not proven**. Source profile hashing/provenance, root policy, clip generality,
+the fourth clip, rendered inspection, and exact deployment verification remain
+separate gates. The existing `setFromUnitVectors` baker remains provisional
+and must not be presented as solved by the new module.
+
+The test matrix is mathematical only: it cannot establish absence of
+deformation artifacts. Do not promote any previously rejected motion or merge
+PR #112 based on this checkpoint.
