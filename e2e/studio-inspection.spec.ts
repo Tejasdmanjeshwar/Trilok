@@ -1,6 +1,24 @@
 import {test,expect} from "@playwright/test";
 import {mkdirSync} from "node:fs";
 
+/**
+ * Generate both real touch presses as one Chromium compositor gesture. Two
+ * awaited Playwright touchscreen.tap() calls can be separated by >650ms while
+ * SwiftShader is busy, despite no intentional user pause. This CDP operation
+ * sends real browser touch input; it is not a script-dispatched DOM event or a
+ * mouse fallback. Keep the application's strict gesture/rejection rules.
+ */
+async function nativeTouchDoubleTap(page:import("@playwright/test").Page,x:number,y:number):Promise<void>{
+  const session=await page.context().newCDPSession(page);
+  try{
+    await session.send("Input.synthesizeTapGesture",{
+      x,y,duration:45,tapCount:2,gestureSourceType:"touch",
+    });
+  }finally{
+    await session.detach();
+  }
+}
+
 test("Studio focus, orthographic, pose and inspection preserve customization",async({page})=>{
   test.setTimeout(180_000);
   const errors:string[]=[];
@@ -91,8 +109,7 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
   expect(rect).not.toBeNull();
   const x=rect!.x+rect!.width/2,y=rect!.y+rect!.height/2;
   if(test.info().project.name.startsWith("touch")){
-    await page.touchscreen.tap(x,y);
-    await page.touchscreen.tap(x,y);
+    await nativeTouchDoubleTap(page,x,y);
   }else{
     // dblclick sends two complete pointer sequences, as does a physical double tap.
     await page.mouse.dblclick(x,y,{delay:70});
@@ -111,6 +128,14 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
       body:Buffer.from(JSON.stringify(longTasks,null,2)),contentType:"application/json",
     });
     throw error;
+  }
+  if(test.info().project.name.startsWith("touch")){
+    const stages=await page.evaluate(()=>
+      (window as Window & {__studioFocusStages?:{stage:string;pointerType?:string}[]}).__studioFocusStages??[]);
+    expect(stages.filter(s=>s.stage==="tap-accepted"&&s.pointerType==="touch")).toHaveLength(2);
+    expect(stages.map(s=>s.stage)).toContain("double-tap-recognized");
+    expect(stages.map(s=>s.stage)).toContain("skin-hit");
+    expect(stages.map(s=>s.stage)).toContain("focus-committed");
   }
   const chosen=await page.locator("#studio-focus-area").inputValue();
   expect(chosen).not.toBe("");
@@ -175,8 +200,7 @@ test("Studio gesture rejects empty background taps without changing focus",async
   const returnButton=page.locator("#studio-return-focus");
   await expect(returnButton).toBeDisabled();
   if(test.info().project.name.startsWith("touch")){
-    await page.touchscreen.tap(x,y);
-    await page.touchscreen.tap(x,y);
+    await nativeTouchDoubleTap(page,x,y);
   }else{
     await page.mouse.dblclick(x,y,{delay:70});
   }
