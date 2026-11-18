@@ -33,3 +33,14 @@
 5. Record actual Vite built asset count/bundle size changes after builds, rather than guessing from removed source line counts.
 
 **C6.2 remains paused pending this candidate's verification and issue #108 cleanup closure.** This migration neither introduces an extra rig nor changes combat authority. Formal C6 Phase Acceptance remains reserved for end-of-C6.
+
+
+## Focused browser evidence — inspected
+
+[GitHub Actions run #44319510827](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44319510827) completed **successfully in both desktop and touch Chromium** with Playwright retries disabled and single worker per viewport. It tested PR branch commit `a40d43cb7d0562ce5211ff340132e059e70beb2a`, running the source-parity suite, Studio navigation and Studio customization. Both jobs built Game+Studio without the retired Lab and verified compiled build identity.
+
+Retrieved artifact `lab-retirement-touch-chromium-7f89a7a...` (SHA-256 `2ca299689d1c7d6ec1891752ba1d91c62ed011e0c8ce6ee3834d51e72ee69714`) and desktop artifact `lab-retirement-desktop-chromium-7f89a7a...` (SHA-256 `83c5ff978b508b1947e37d9689af90ef4033fc2f485a6cb56d2561ffa400f774`) each contain **21 actual-render screenshot PNGs**. Both contact sheets were visually inspected.
+
+**Observed:** Real source-skinned human rendered in front, rear, side and three-quarter. Facial asymmetric/blink, native mouth + jaw, body shoulder/muscle/hand presets, wireframe joint overlay and multiple infant-to-child ages appeared without a catastrophic geometry failure or missing mesh. The tiny infant meshes are deliberately small in the unchanged fixed side camera; close inspection framing remains a future polish opportunity, not an acceptance blocker for retiring the old research Lab.
+
+**Limits:** Automated checks and these screenshots do not prove AAA skin quality, zero subtle deformation artifacts, perfect motion, or performance regression absence. The source/per-bone/UV-seam numerical headless tests remain intact. Final merge still requires a fresh standard Verify against the exact final PR head and reconciliation with current `main`; the temporary browser workflow itself is removed before merge to avoid lasting CI bloat. The tested Studio source/E2E suite is unchanged by that removal.
