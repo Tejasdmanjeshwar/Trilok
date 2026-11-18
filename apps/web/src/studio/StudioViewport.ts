@@ -70,6 +70,16 @@ export function createStudioViewport(
   let pointerStart:StudioTap|undefined;
   let previousTap:StudioTap|undefined;
   const pointers=new Set<number>();
+  // Opt-in browser diagnostic events distinguish gesture, skin hit, anatomy and UI
+  // transitions without logging in normal production sessions.
+  const focusDiagnostics=new URLSearchParams(location.search).has("studio-focus-diagnostics");
+  const reportFocus=(stage:string,detail:Record<string,unknown>={}):void=>{
+    if(!focusDiagnostics)return;
+    window.dispatchEvent(new CustomEvent("trilok:studio:surface-focus-diagnostic",{
+      detail:{stage,...detail},
+    }));
+  };
+
   const makeTap=(event:PointerEvent):StudioTap=>({
     // Preserve the physical event time when a busy render frame queues input.
     x:event.clientX,y:event.clientY,time:event.timeStamp,pointerType:event.pointerType,
@@ -77,24 +87,34 @@ export function createStudioViewport(
   const clearTap=():void=>{pointerStart=undefined;previousTap=undefined;};
   const onPointerDown=(event:PointerEvent):void=>{
     if(disposed||contextLost||event.button!==0)return;
+    reportFocus("pointerdown",{pointerType:event.pointerType,pointerId:event.pointerId,time:event.timeStamp,x:event.clientX,y:event.clientY});
     pointers.add(event.pointerId);
-    if(pointers.size!==1){clearTap();return;}
+    if(pointers.size!==1){reportFocus("multi-pointer-rejected",{count:pointers.size});clearTap();return;}
     pointerStart=makeTap(event);
   };
   const onPointerCancel=(event:PointerEvent):void=>{
+    reportFocus("pointercancel",{pointerId:event.pointerId});
     pointers.delete(event.pointerId);clearTap();
   };
   const onPointerUp=(event:PointerEvent):void=>{
     const wasSingle=pointers.size===1&&pointers.has(event.pointerId);
     pointers.delete(event.pointerId);
-    if(!wasSingle||!pointerStart){clearTap();return;}
+    if(!wasSingle||!pointerStart){reportFocus("pointer-sequence-rejected",{pointerId:event.pointerId,wasSingle});clearTap();return;}
     const end=makeTap(event),start=pointerStart;
     pointerStart=undefined;
-    if(!isShortTap(start,end)){previousTap=undefined;return;}
+    if(!isShortTap(start,end)){
+      reportFocus("tap-rejected",{duration:end.time-start.time,distance:Math.hypot(end.x-start.x,end.y-start.y)});
+      previousTap=undefined;return;
+    }
+    reportFocus("tap-accepted",{pointerType:end.pointerType,time:end.time,elapsedSincePrior:previousTap?end.time-previousTap.time:null});
     if(previousTap&&isDoubleTap(previousTap,end)){
+      reportFocus("double-tap-recognized",{pointerType:end.pointerType});
       previousTap=undefined;
       const rect=renderer?.domElement.getBoundingClientRect();
-      if(!rect||rect.width<=0||rect.height<=0||!active)return;
+      if(!rect||rect.width<=0||rect.height<=0||!active){
+        reportFocus("scene-unavailable",{canvasWidth:rect?.width,canvasHeight:rect?.height,active:!!active});
+        return;
+      }
       pointerNDC.set((event.clientX-rect.left)/rect.width*2-1,
         1-(event.clientY-rect.top)/rect.height*2);
       // A pointer can arrive before the first post-load frame. Always
@@ -105,8 +125,23 @@ export function createStudioViewport(
       // Raycast exactly the current skinned, posed mesh, not the ground or overlays.
       const hit=raycaster.intersectObject(active.human.mesh,false)[0];
       const area=hit?.face?focusAreaForSkinTriangle(active.human,hit.face):undefined;
-      if(area&&hit&&focusAt(area,hit.point))onSurfaceFocus?.(area);
-    }else previousTap=end;
+      reportFocus(!hit?"skin-miss":!area?"anatomy-miss":"skin-hit",{
+        ndcX:pointerNDC.x,ndcY:pointerNDC.y,canvasWidth:rect.width,canvasHeight:rect.height,
+        area:area??null,faceIndex:hit?.faceIndex??null,
+      });
+      if(area&&hit){
+        if(focusAt(area,hit.point)){
+          onSurfaceFocus?.(area);
+          reportFocus("focus-committed",{area});
+        }else reportFocus("focus-rejected",{area});
+      }
+    }else {
+      if(previousTap)reportFocus("double-tap-rejected",{
+        delta:end.time-previousTap.time,distance:Math.hypot(end.x-previousTap.x,end.y-previousTap.y),
+        priorType:previousTap.pointerType,currentType:end.pointerType,
+      });
+      previousTap=end;
+    }
   };
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
