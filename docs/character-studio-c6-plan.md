@@ -1,6 +1,6 @@
 # Trilok C6 — Hybrid Animation Production, Retargeting & Runtime Integration
 
-**Status:** C6 planning document; C6.1 contract/reference implementation is under PR review (see [C6.1 implementation audit](character-studio-c6-1-foundation.md)); C6.2–C6.6 and overall phase acceptance remain unimplemented. Created 2026-11-18 after owner explicitly authorized optional Blender/external animation software for **internal workflows**.
+**Status:** C6 planning document; C6.1 contract/reference implementation merged in [PR #106](https://github.com/Tejasdmanjeshwar/Trilok/pull/106) with successful post-merge Verify on `aaab465120f214337ba69db438925faf9f7bce67` (see [C6.1 implementation audit](character-studio-c6-1-foundation.md)); C6.2–C6.6 and overall phase acceptance remain unimplemented. Created 2026-11-18 after owner explicitly authorized optional Blender/external animation software for **internal workflows**.
 
 **Parent roadmap:** [Character Studio C0–C9](character-studio-roadmap.md)  
 **Tracking:** [C6 Issue #104](https://github.com/Tejasdmanjeshwar/Trilok/issues/104)  
@@ -108,6 +108,10 @@ For each work package, require:
 **Repository stays a monorepo initially.** Studio and Game already have different Vite HTML entrypoints but share packages and a single Cloudflare output. An independent infrastructure phase can produce `trilok-game` and `trilok-studio` deployables with independent build-info manifests, separate Cloudflare Workers/deploy pipelines and explicit channel promotion, while sharing the canonical character/animation packages. This is a **proposal**, not an existing capability. Do not claim new public URLs until deployed and verified. Neither C6 nor the next campaign should depend on duplicate repositories or duplicated runtime rigs.
 
 For each C6 slice: audit latest main → scoped feature branch → implementation + tests/docs → Verify PR CI → review/merge only after green CI → verify main SHA and deploy when applicable. Keep manual full Phase Acceptance reserved for C6 completion. C5 residual browser test timing [#103](https://github.com/Tejasdmanjeshwar/Trilok/issues/103) is tracked without delaying unrelated C6 work.
+
+## Major-phase hygiene requirement
+
+At C6 closure, complete the [mandatory cleanup gate](phase-closeout-cleanup-policy.md), including tracked dead-code/legacy Lab retirement and CI workflow rationalization against the [November 2026 repo audit](repository-cleanup-audit-2026-11-18.md). Supply the committed `Phase: C6` cleanup report to manual Phase Acceptance. Preserve C5 contacts, active `SkinningSpike`, legacy-combat adapter until proven replaced, and unique MakeHuman/visual regression tests. Do not interpret subphase CI as formal C6 acceptance.
 
 ## 7. New-session handoff
 
