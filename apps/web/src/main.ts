@@ -50,7 +50,7 @@ host.innerHTML = [
   '<div class="build-field"><b>BUILT (UTC)</b><span id="build-time"></span></div>',
   '<div class="build-field"><b>BUILD ID</b><code id="build-id"></code></div>',
   '<div class="build-actions"><button type="button" id="copy-build">COPY DETAILS</button><a href="/build-info.json" target="_blank" rel="noopener noreferrer">MANIFEST</a></div>',
-  '</div></details><a id="character-studio-link" class="lab-link" href="/studio/" aria-label="Open Character Studio">✦ CHARACTER STUDIO</a><a id="character-lab-link" class="lab-link" href="/c2-lab.html" aria-label="Open experimental Character Lab">✦ CHARACTER LAB</a></div></div>',
+  '</div></details><a id="character-studio-link" class="lab-link" href="/studio/" aria-label="Open Character Studio">✦ CHARACTER STUDIO</a></div></div>',
   '<div class="tools"><span id="fps">— FPS</span><button id="quality" type="button" aria-label="Toggle graphics quality">⚙ HIGH</button>',
   '<button id="audio" aria-label="Toggle sound">♫</button></div></header>',
   '<div class="location">ARANYA · THE FORGOTTEN SHRINE</div>',

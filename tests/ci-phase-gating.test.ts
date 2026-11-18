@@ -10,6 +10,26 @@ import {join} from "node:path";
 describe("Trilok CI budget and phase acceptance policy",()=>{
   const dir=".github/workflows";
   const paths=readdirSync(dir).filter(name=>/\.ya?ml$/.test(name));
+  it("keeps the retired C2 Lab out of production while preserving full diagnostic E2E",()=>{
+    const vite=readFileSync("apps/web/vite.config.mjs","utf8");
+    const acceptance=readFileSync(join(dir,"phase-acceptance.yml"),"utf8");
+    const verify=readFileSync(join(dir,"ci.yml"),"utf8");
+    expect(vite).toContain('process.env.TRILOK_INCLUDE_LAB === "1"');
+    expect(vite).toContain("...(includeDiagnosticLab ? {");
+    expect(acceptance.split("TRILOK_INCLUDE_LAB: '1'")).toHaveLength(3);
+    expect(verify).toContain("test ! -e apps/web/dist/c2-lab.html");
+    expect(verify).not.toContain("TRILOK_INCLUDE_LAB");
+  });
+  it("requires a committed cleanup report for C6+ acceptance without invalidating historical phases",()=>{
+    const acceptance=readFileSync(join(dir,"phase-acceptance.yml"),"utf8");
+    const policy=readFileSync("docs/phase-closeout-cleanup-policy.md","utf8");
+    expect(acceptance).toContain("cleanup_report:");
+    expect(acceptance).toContain('if [[ "$PHASE" =~ ^C[6-9]$ ]]');
+    expect(acceptance).toContain('grep -Fxq "Phase: $PHASE" "$REPORT"');
+    expect(acceptance).toContain('[[ ! -f "$REPORT" ]]');
+    expect(policy).toContain("end of each major Character Studio phase");
+    expect(policy).toContain("Do not weaken, delete or skip regression tests");
+  });
   it("reserves Chromium and Playwright to explicitly manual scoped workflows",()=>{
     expect(paths).toContain("phase-acceptance.yml");
     for(const path of paths){
