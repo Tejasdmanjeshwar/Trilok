@@ -24,7 +24,7 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
-import {REFERENCE_MOTION_SOURCES} from "@trilok/character-core";
+import {STUDIO_REFERENCE_ANIMATIONS} from "./StudioReferenceLibrary";
 import {loadBakedStudioAnimation} from "./StudioReferenceLibrary";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
 import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
@@ -223,7 +223,7 @@ export function createStudioViewport(
     emitAnimation();
   }
   function enterAnimation(id:string):void {
-    const source=REFERENCE_MOTION_SOURCES.find(entry=>entry.id===id);
+    const source=STUDIO_REFERENCE_ANIMATIONS.find(entry=>entry.id===id);
     if(!source)throw new Error("Unknown reference animation");
     if(!active||!posePreview)throw new Error("Character is not ready for animation");
     animation?.dispose();animation=undefined;
