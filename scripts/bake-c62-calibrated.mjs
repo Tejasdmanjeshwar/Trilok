@@ -139,9 +139,10 @@ try{
   if(profile.calibrations.length!==49)throw Error("Incomplete source mapping");
   const neutral=retargetWorldPose(profile,targetRig,
     new Map(sourceRig.joints.map(j=>[j.id,j.restWorldRotation])),
-    sourceRig.identitySha256);
-  if(neutral.some(p=>new THREE.Quaternion(...p.rotation).angleTo(new THREE.Quaternion())>1e-6))
-    throw Error("Rest-pose transfer drift");
+    sourceRig.identitySha256,"source-anatomical");
+  if(neutral.length!==mappings.length||neutral.some(p=>
+      Math.abs(Math.hypot(...p.rotation)-1)>1e-5))
+    throw Error("Invalid full-frame T/A rest-pose conversion");
   const profileBytes=Buffer.from(JSON.stringify(profile)+"\n");
   const files={"profile.json":profileBytes.toString("utf8")};
   const entries=[];
@@ -174,7 +175,7 @@ try{
       scene.updateMatrixWorld(true);
       const rotations=new Map(mappings.map(m=>[
         m.sourceId,sourceQuat(objects[sourceIndices.get(m.sourceId)])]));
-      const pose=retargetWorldPose(profile,targetRig,rotations,sourceRig.identitySha256);
+      const pose=retargetWorldPose(profile,targetRig,rotations,sourceRig.identitySha256,"source-anatomical");
       for(const p of pose)buffers.get(p.jointId).push(p.rotation);
       const pelvis=objects[pelvisIndex].getWorldPosition(new THREE.Vector3());
       if(!firstPelvis)firstPelvis=pelvis.clone();
@@ -234,7 +235,8 @@ try{
     profile:"profile.json",
     sourceBindMaxResidual:maxBindResidual,
     mappedJointCount:profile.calibrations.length,
-    engine:"packages/character-core/src/retargeting.ts@c6.2-full-frame-v1",
+    engine:"packages/character-core/src/retargeting.ts@c6.2-anatomical-absolute-v2",
+    poseMode:"source-anatomical",
     entries,
   };
   files["manifest.json"]=JSON.stringify(manifest,null,2)+"\n";
