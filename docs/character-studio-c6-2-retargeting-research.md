@@ -100,3 +100,13 @@ and must not be presented as solved by the new module.
 The test matrix is mathematical only: it cannot establish absence of
 deformation artifacts. Do not promote any previously rejected motion or merge
 PR #112 based on this checkpoint.
+
+### Follow-up R1 real-rest descriptor adapter
+
+The same branch now also contains:
+- `packages/character-core/src/retarget-human-frames.ts`: explicit human anatomical-frame adapter deriving signed torso forward, left/right palm normal, bone shaft and terminal finger cues from *measured world-rest landmarks*. It rejects missing/duplicate/collinear landmarks. The independent retarget math remains unaware of anatomical labels.
+- `apps/web/src/characters/animation/UAL1SkeletonAdapter.ts`: explicit UAL1-to-C1 correspondence for the **49** currently mapped joints, including all 28 bilateral finger phalanges, with no ambiguous bare finger roles and no silent extra-arm aliasing.
+- `tests/character-animation-c6-2-real-calibration.test.ts`: an integration test that constructs the original UAL1 source rest scene, calls the real `calibrateHumanBones` using pinned MakeHuman OBJ/.mhskel landmarks and the existing `SkinningSpike` bones/skin helpers, builds both descriptors, and demands neutral full-frame transfer preserve the actual target rest pose.
+- Additional exact mapping and full-quaternion unit tests.
+
+**Important boundary:** The above integration test validates a rest-pose construction path, *not* any source clip quality or inverse-bind consistency. The existing baker has **not** been migrated, existing animation assets remain unchanged, and the returned profile is not yet persisted in a SHA-256-manifested asset. The original GLB inverse bind matrices must be collected and verified against source rest transforms; the three Quaternius clips must only be rebaked after that audit. No result is visually accepted or deployed by these changes.
