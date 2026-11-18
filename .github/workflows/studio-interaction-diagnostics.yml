@@ -1,0 +1,149 @@
+name: Studio Interaction Diagnostics
+
+# Short, explicitly requested WebGL Studio checks; not a PR/push gate.
+# Dispatch from Actions using the chosen branch/ref. github.sha is pinned.
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Studio tests to run (never all E2E tests)"
+        required: true
+        type: choice
+        options: [focus-repeat, related]
+        default: focus-repeat
+      iterations:
+        description: "First-attempt repetitions per Chromium project"
+        required: true
+        type: choice
+        options: ['1', '10', '20']
+        default: '10'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-diagnostics-${{ github.ref }}-${{ inputs.suite }}
+  cancel-in-progress: false
+
+jobs:
+  browser:
+    name: Studio ${{ matrix.project }} (${{ inputs.suite }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chromium, touch-chromium]
+    steps:
+      - name: Checkout exact dispatched SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Record tested ref and SHA
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          TESTED_REF: ${{ github.ref_name }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          echo "Dispatch ref: $TESTED_REF"
+          echo "Exact checkout SHA: $(git rev-parse HEAD)"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - name: Reuse pinned MakeHuman assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/web/public/anatomy/makehuman-base.obj
+            apps/web/public/anatomy/makehuman-default.mhskel
+            apps/web/public/anatomy/makehuman-default_weights.mhw
+            apps/web/public/anatomy/makehuman-facial-v1.json
+            assets/cache/makehuman-body-v1.json
+          key: makehuman-pinned-v1-${{ runner.os }}-${{ hashFiles('assets/makehuman-core.json', 'assets/makehuman-body-v1.json', 'assets/makehuman-facial-v1.json', 'scripts/fetch-makehuman-*.mjs', 'scripts/fetch-pinned-source.mjs') }}
+      - name: Build and verify pinned source assets
+        run: |
+          pnpm build
+          node scripts/verify-build-identity.mjs
+          for file in apps/web/public/anatomy/makehuman-base.obj \
+            apps/web/public/anatomy/makehuman-default.mhskel \
+            apps/web/public/anatomy/makehuman-default_weights.mhw \
+            apps/web/public/anatomy/makehuman-facial-v1.json \
+            assets/cache/makehuman-body-v1.json; do
+            test -s "$file" || { echo "::error::Required asset missing: $file"; exit 1; }
+          done
+      - name: Cache Chromium browser files
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: studio-chromium-${{ runner.os }}-${{ hashFiles('package.json') }}
+      - name: Install Chromium and required system dependencies
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run only selected Studio browser checks (no retries)
+        env:
+          PROJECT: ${{ matrix.project }}
+          SUITE: ${{ inputs.suite }}
+          ITERATIONS: ${{ inputs.iterations }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/studio-diagnostics/results.xml
+        shell: bash
+        run: |
+          mkdir -p test-results/studio-diagnostics
+          if [ "$SUITE" = "focus-repeat" ]; then
+            PATTERN="Double-tapping the rendered character"
+          elif [ "$SUITE" = "related" ]; then
+            PATTERN="Studio focus, orthographic|Double-tapping the rendered character|Studio gesture"
+          else
+            echo "::error::Unsupported Studio suite"; exit 2
+          fi
+          pnpm exec playwright test e2e/studio-inspection.spec.ts \
+            --project="$PROJECT" --grep "$PATTERN" \
+            --repeat-each="$ITERATIONS" --retries=0 --workers=1 \
+            --reporter=list,junit --trace=retain-on-failure \
+            --output=test-results/studio-diagnostics/e2e
+      - name: Summarize exact iterations and first-attempt results
+        if: always()
+        env:
+          PROJECT: ${{ matrix.project }}
+          SUITE: ${{ inputs.suite }}
+          ITERATIONS: ${{ inputs.iterations }}
+          TESTED_SHA: ${{ github.sha }}
+          TESTED_REF: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node --input-type=module <<'EOF'
+          import {readFileSync, existsSync, appendFileSync} from 'node:fs';
+          const f='test-results/studio-diagnostics/results.xml';
+          const xml=existsSync(f)?readFileSync(f,'utf8'):'';
+          const cases=(xml.match(/<testcase\b/g)||[]).length;
+          const failures=(xml.match(/<(?:failure|error)\b/g)||[]).length;
+          const skipped=(xml.match(/<skipped\b/g)||[]).length;
+          const expected=Number(process.env.ITERATIONS)*(process.env.SUITE==='focus-repeat'?1:2);
+          const result=[
+            '## Studio interaction diagnostics ('+process.env.PROJECT+')',
+            '- Workflow: '+process.env.RUN_URL,
+            '- Selected ref: '+process.env.TESTED_REF,
+            '- Exact tested SHA: '+process.env.TESTED_SHA,
+            '- Suite: '+process.env.SUITE,
+            '- Requested repetitions per test: '+process.env.ITERATIONS,
+            '- Expected test executions: '+expected,
+            '- Recorded JUnit testcases: '+cases,
+            '- First-attempt failures/errors: '+failures,
+            '- Skipped: '+skipped,
+            '- Playwright retries: **0**',
+            '- No C5 phase acceptance or production deploy is implied.',
+            (!xml||cases!==expected?'**WARNING: Missing/incomplete JUnit evidence.**':''),
+          ].join('\n')+'\n';
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,result);
+          console.log(result);
+          EOF
+      - name: Upload Studio traces, screenshots, browser logs and JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-diagnostics-${{ github.run_id }}-${{ matrix.project }}
+          path: |
+            test-results/studio-diagnostics/**
+            test-results/studio/**
+          if-no-files-found: warn
+          retention-days: 14
