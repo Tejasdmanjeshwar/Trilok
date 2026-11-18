@@ -10,7 +10,7 @@ import {join} from "node:path";
 describe("Trilok CI budget and phase acceptance policy",()=>{
   const dir=".github/workflows";
   const paths=readdirSync(dir).filter(name=>/\.ya?ml$/.test(name));
-  it("reserves Chromium and Playwright to manually dispatched phase acceptance",()=>{
+  it("reserves Chromium and Playwright to explicitly manual scoped workflows",()=>{
     expect(paths).toContain("phase-acceptance.yml");
     for(const path of paths){
       const source=readFileSync(join(dir,path),"utf8");
@@ -26,6 +26,17 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         expect(source).toMatch(/project:\s*\[desktop-chromium,\s*touch-chromium\]/);
         expect(source).toMatch(/pnpm test:e2e --project="\$PROJECT"/);
         expect(source).toMatch(/phase-\$\{\{ inputs.phase \}\}-\$\{\{ matrix.project \}\}-evidence/);
+        continue;
+      }
+      if(path==="studio-interaction-diagnostics.yml"){
+        expect(source).toMatch(/workflow_dispatch:/);
+        expect(source).not.toMatch(/^  pull_request:/m);
+        expect(source).not.toMatch(/^  push:/m);
+        expect(source).toMatch(/e2e\/studio-inspection\\.spec\\.ts/);
+        expect(source).toMatch(/--retries=0 --workers=1/);
+        expect(source).toMatch(/--repeat-each/);
+        expect(source).toMatch(/project: \\[desktop-chromium, touch-chromium\\]/);
+        expect(source).not.toMatch(/pnpm test:e2e/);
         continue;
       }
       expect(source, `${path} must not install or execute browsers during subphases`)
