@@ -42,5 +42,7 @@ jobs:
       # Includes the existing 1,000-seed deterministic combat replay.
       - run: pnpm test
       - run: pnpm build
+      - name: Verify production build excludes retired diagnostic Lab
+        run: test ! -e apps/web/dist/c2-lab.html
       - name: Verify compiled build identity
         run: node scripts/verify-build-identity.mjs
