@@ -13,7 +13,7 @@
 
 ## Actioned in the hygiene PR
 
-1. Remove the **experimental Character Lab navigation** from the playable Combat header and update the associated end-to-end navigation check to use supported Character Studio instead. The Lab **route remains temporarily accessible for existing specialized regression tests**, but is no longer presented as a supported player destination.
+1. Remove the **experimental Character Lab navigation** from the playable Combat header and update its navigation check to use supported Character Studio instead. Exclude `c2-lab.html` and its dependency tree from default production Vite build output using an explicit `TRILOK_INCLUDE_LAB=1` opt-in. Full manual Phase Acceptance opts in to retain unique C2/C3 Lab E2E coverage until migrated; normal `verify` asserts the Lab entrypoint is not emitted. The Lab source remains tracked and isolated; no claim is made that all source bloat is gone.
 2. Record and enforce [mandatory phase-end cleanup policy](phase-closeout-cleanup-policy.md), with an explicit report gate for newly closing C6–C9 phases. C0–C5 historical acceptance is not retroactively invalidated.
 3. Leave gameplay, combat timings, source anatomy, normal Verify, C5 equipment, and the existing Lab test matrix untouched. This is a staged deprecation and audit PR, **not** a claim of complete repository bloat elimination.
 
@@ -47,7 +47,7 @@
 
 ## Safe retirement plan (not claimed complete)
 
-**Stage 1, this audit PR:** Remove player-visible obsolete Lab link, preserve isolated laboratory tooling as a test dependency, add policy and tested documentation gate; run Verify.
+**Stage 1, this audit PR:** Remove player-visible obsolete Lab link and production Lab entrypoint, preserve isolated laboratory tooling behind diagnostic-build opt-in, add policy and tested documentation gate; run Verify.
 
 **Stage 2, dedicated Lab migration PR before C6 phase closeout:** For each of three Lab-focused E2E suites, identify unique assertions and migrate them to maintained Studio surface/inspection or to pure real-source headless tests. Replace `tests/character-lab-camera-focus.test.ts` only if equivalent maintained focus coverage exists. Maintain camera/skin/source geometry diagnostics and screenshot evidence. Once replacement suites pass on desktop and touch, remove `apps/web/c2-lab.html` and `characters/lab/`, Vite `c2Lab` input, legacy-only imports, obsolete routes/links, and update documentation. Remove `ContinuousHumanPrototype.ts` only if no unique test or runtime dependency remains. Report production chunk/size changes.
 
@@ -59,4 +59,4 @@
 
 Starting baseline: `main` `aaab465120f214337ba69db438925faf9f7bce67`, which passed [post-C6.1 main Verify](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44303429762).
 
-This audit was performed through connected GitHub read actions; local `pnpm` and full repo checkout were unavailable in the agent container. Accordingly no complete import graph, actual production bundle measurements, Chromium render captures or local dependency-license scans are asserted at audit time. Record resulting PR SHA, Verify URL, exact tests, and bundle deltas after GitHub CI runs; keep this ledger truthful.
+This audit and scoped changes were performed through connected GitHub actions; local `pnpm` and full repo checkout were unavailable in the agent container. Accordingly no complete import graph, actual production bundle measurements, Chromium render captures or local dependency-license scans are asserted at audit time. Record resulting PR SHA, Verify URL, exact tests, and bundle deltas after GitHub CI runs; keep this ledger truthful.
