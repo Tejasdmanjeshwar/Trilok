@@ -29,12 +29,21 @@ Use **Actions → Phase Acceptance → Run workflow** and choose:
 2. The phase selector (C0–C9).
 3. Optional notes identifying the tracking issue/acceptance scope.
 
-`.github/workflows/phase-acceptance.yml` runs the same strict TypeScript,
+`.github/workflows/phase-acceptance.yml` first runs the same strict TypeScript,
 full deterministic unit and replay suite, production build and compiled
-build-identity check; then installs Chromium and executes **all** desktop/touch
-Playwright browser tests. It uploads screenshots from
-`test-results/**/*.png` for inspection and records the selected phase,
-ref and **actual checked-out commit SHA** in the Actions run summary.
+build-identity check. Only after those checks pass, **two independent browser
+jobs** rebuild the same checkout and execute the **entire** Playwright suite
+once each for desktop Chromium and touch Chromium. Each job keeps one worker,
+preserving the existing serial WebGL tests within a viewport, but the two
+viewports execute concurrently, with `fail-fast: false` so both report their
+results even if one fails.
+
+Each browser job uploads its own `phase-<phase>-<viewport>-evidence` artifact
+containing `test-results/**/*.png` screenshots and JSON observations, and
+records the selected phase, viewport, ref and **actual checked-out commit SHA**
+in the Actions run summary. A green *overall* workflow requires deterministic
+checks **and both** browser projects to pass; no desktop/touch tests are
+removed, filtered by phase or moved into automatic PR checks.
 
 The phase input is a label, **not** a filter that weakens the test matrix.
 It does not publish, merge, or mark an issue as completed automatically.
