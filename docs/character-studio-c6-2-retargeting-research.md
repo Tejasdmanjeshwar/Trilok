@@ -110,3 +110,43 @@ The same branch now also contains:
 - Additional exact mapping and full-quaternion unit tests.
 
 **Important boundary:** The above integration test validates a rest-pose construction path, *not* any source clip quality or inverse-bind consistency. The existing baker has **not** been migrated, existing animation assets remain unchanged, and the returned profile is not yet persisted in a SHA-256-manifested asset. The original GLB inverse bind matrices must be collected and verified against source rest transforms; the three Quaternius clips must only be rebaked after that audit. No result is visually accepted or deployed by these changes.
+
+## R1/R2/R3 candidate proof — source GLB bind matrices and reusable four-clip baking
+
+**Implemented candidate (not a promoted motion library, not visually accepted):**
+`scripts/extract-quaternius-ual1.mjs` now optionally extracts glTF
+`skin.inverseBindMatrices` and fourth-clip `Sprint_Loop`. The candidate baker
+(`scripts/bake-c62-calibrated.mjs`) rejects missing inverse bind metadata,
+checks a single common mesh-bind space across actual source joints
+(`sourceJointRestWorld * sourceInverseBind`), calibrates the existing
+MakeHuman runtime bones through `calibrateHumanBones`, derives a single full
+anatomical retargeting profile, and processes every selected clip without
+named-bone orientation corrections. It preserves the old reference assets.
+The candidate files are stored under `assets/animations/candidate-c62-v1/`,
+with `profile.json`, SHA-256 manifest and four distinct canonical clip JSONs.
+Studio offers explicitly labeled experimental choices side by side with the
+previous UAL1 versions; no experimental candidate is silently substituted.
+
+**Reproducible proof:** The original UAL1 ZIP and glTF SHA-256 were rechecked
+in GitHub Actions [#44394239022](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44394239022).
+All 4 clips (`Idle_Loop`, `Walk_Loop`, `Jog_Fwd_Loop`,
+`Sprint_Loop`) were extracted. A single 49-joint profile
+`159e7b77c3997364e7fed624a17f13be280c25a07d2fc913c2880627211834e2`
+baked all four with deterministic byte-for-byte regeneration;
+the source-glTF bind consistency maximum matrix residual was
+`6.383178585700477e-7` against the GLB's common mesh-bind transform.
+Three focused test files / 8 tests passed. The candidate commit was
+subsequently produced by the second successful proof workflow
+[#44394583248](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44394583248);
+the generated candidate remains **unapproved**.
+
+**Strict remaining gates:** C6.2 R1 needs source and target rest/skin
+visual overlays (the IBM check is numerical); R2 needs axial-twist/hand
+quality evaluation on all frames; R3 now has the fourth-clip proof but
+not visual signoff; R4 needs source-versus-target moving comparisons and
+review of screenshot evidence on normal, short, tall and muscular characters.
+Root displacement is deliberately presentation-only and C6.3 still owns foot
+contact. The current CI/browser/Cloudflare check statuses must be recorded
+at their **exact** current branch commit, never inferred from an older proof.
+Cloudflare Workers Builds continue to fail, and there is no verified current
+commit Cloudflare branch preview. Do not merge on mathematical checks alone.
