@@ -102,18 +102,19 @@ test("D14 boss phase HUD starts in Sentinel and resets safely",async ({page})=>{
   expect(errors).toEqual([]);
 });
 
-test("combat header links to the isolated Character Lab and back",async({page})=>{
+test("combat header links to Character Studio and back without advertising retired Lab",async({page})=>{
   const errors:string[]=[];
   page.on("pageerror",error=>errors.push(error.message));
   await page.goto("/");
   await expect(page.locator("#loading")).toBeHidden({timeout:20_000});
-  const link=page.getByRole("link",{name:"Open experimental Character Lab"});
+  const link=page.getByRole("link",{name:"Open Character Studio"});
   await expect(link).toBeVisible();
-  await expect(link).toHaveAttribute("href","/c2-lab.html");
+  await expect(link).toHaveAttribute("href","/studio/");
+  await expect(page.locator("#character-lab-link")).toHaveCount(0);
   await link.click();
-  await expect(page).toHaveURL(/\/c2-lab\.html$/);
-  await expect(page.locator("h1")).toContainText("Experimental skinned character surface");
-  await page.getByRole("link",{name:/Combat arena/}).click();
+  await expect(page).toHaveURL(/\/studio\/$/);
+  await expect(page.getByRole("heading",{name:"Character Studio"})).toBeVisible();
+  await page.getByRole("link",{name:"Return to Trilok"}).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator("#loading")).toBeHidden({timeout:20_000});
   await expect(page.locator("#boss-phase-name")).toContainText("SENTINEL");
