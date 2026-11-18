@@ -30,10 +30,10 @@ describe("C6.2 deterministic reference motions",()=>{
   });
   it("bakes three distinct validated motions with exact rig and loop endpoints",()=>{
     expect(REFERENCE_MOTION_SOURCES.map(s=>s.id)).toEqual([
-      "relaxed-idle","controlled-step","ready-gesture"]);
+      "human-idle","human-walk","human-run"]);
     for(const source of REFERENCE_MOTION_SOURCES){
       const clip=bakeReferenceMotion(source,graph);
-      expect(clip.rootMotion).toBe("locked");
+      expect(clip.rootMotion).toBe("visual_only");
       expect(clip.tracks.length).toBeGreaterThan(3);
       expect(serializeAnimationClip(parseAnimationClip(serializeAnimationClip(clip,graph),graph),graph))
         .toBe(serializeAnimationClip(clip,graph));
@@ -73,14 +73,14 @@ describe("C6.2 deterministic reference motions",()=>{
     player.seek(.2);player.seek(1.5);
     expect(bone.quaternion.angleTo(pose)).toBeLessThan(1e-7);
     player.step(-1);expect(player.state.playing).toBe(false);
-    player.setLoop(false);player.seek(2.9);player.setPlaying(true);
+    player.setLoop(false);player.seek(3.5);player.setPlaying(true);
     player.update(3000);player.update(4000);
-    expect(player.state.timeSeconds).toBe(3);
+    expect(player.state.timeSeconds).toBe(3.6);
     expect(player.state.playing).toBe(false);
-    player.seek(1);player.setPlaying(true);
+    player.seek(.2);player.setPlaying(true);
     player.update(5000);player.suspend();player.update(9000);
-    expect(player.state.timeSeconds).toBe(1);
-    player.update(10000);expect(player.state.timeSeconds).toBe(2);
+    expect(player.state.timeSeconds).toBe(.2);
+    player.update(10000);expect(player.state.timeSeconds).toBe(1.2);
     player.dispose();
     expect(bone.quaternion.angleTo(before)).toBeLessThan(1e-7);
     expect(()=>player.seek(1)).toThrow(/disposed/);
