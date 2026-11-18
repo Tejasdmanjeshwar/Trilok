@@ -122,3 +122,23 @@ Manual [C5 Phase Acceptance #44239291037](https://github.com/Tejasdmanjeshwar/Tr
 The Studio viewport was initialized by `resetView()`, starting a 430ms animated camera transition from the new camera's origin. OrbitControls explicitly cancels camera transitions on pointer start. If the first pointer arrives before the initial camera completes its render flight, the camera/ray can remain in a partial startup pose and miss the real human. The corrective first-load patch positions the camera/target at the documented three-quarter default **synchronously**, updates camera and posed source-root transforms before double-tap raycast, and uses browser input event timestamps for gesture recognition rather than a potentially delayed event-handler wall time. It retains exact skinned-triangle ray hits, gesture safety limits, subsequent animated view changes, reduced motion, and combat independence. The browser regression still verifies double-tap focus, semantic area selection, persistent focus across camera angles, return navigation and reset; it waits for two rendered frames (no fixed timeout sleep) and uses genuine Playwright double-click mouse input.
 
 **Evidence status:** This code correction requires PR Verify, a fresh manual complete C5 Phase Acceptance on the *resulting merged main* to establish whether both browser projects pass on their first attempts, independent production `/build-info.json` verification, and actual rendered evidence/owner review. No acceptance or production deployment is implied by this note; leave issue #81 open.
+
+## November 18, 2026 — C5 acceptance upstream download failure
+
+[Manual Phase Acceptance #44251207529](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44251207529)
+tested exact main `17c97f701b775a1229623bc38ac19069e3b151d6`, after the double-tap
+startup fix merged. TypeScript passed, but the deterministic job aborted in
+`scripts/fetch-makehuman-facial.mjs` with upstream `read ECONNRESET` during
+pinned facial asset acquisition. Unit/replay tests **did not execute**, and
+desktop/touch browser jobs were **skipped**. This does not indicate a gameplay
+or browser regression and cannot be treated as C5 acceptance.
+
+Follow-up acquisition reliability change: shared bounded transient retries
+for pinned base/rig/facial/body sources, conservative body request concurrency,
+and an integrity-checked cache reused by the PR/main Verify and all manual
+acceptance jobs. Cached source digests and licenses are still verified before
+use; no alternate revision or relaxed gameplay tests. Validate through PR CI,
+merge after green checks, then run one full manual C5 Phase Acceptance against
+the *new* exact main SHA. Inspect the first-attempt double-tap browser result,
+desktop/touch artifacts and deployment identity before owner sign-off; keep
+issue #81 open.

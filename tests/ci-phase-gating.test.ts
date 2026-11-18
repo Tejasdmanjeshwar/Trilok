@@ -32,6 +32,18 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         .not.toMatch(/playwright\s+(install|test)|pnpm\s+(test:e2e|exec\s+playwright)|chromium/i);
     }
   });
+  it("reuses only pinned MakeHuman assets across gated acceptance jobs",()=>{
+    const verify=readFileSync(join(dir,"ci.yml"),"utf8");
+    const acceptance=readFileSync(join(dir,"phase-acceptance.yml"),"utf8");
+    expect(verify.split("uses: actions/cache@v4")).toHaveLength(2);
+    expect(acceptance.split("uses: actions/cache@v4")).toHaveLength(3);
+    for(const source of [verify,acceptance]){
+      expect(source).toContain("assets/cache/makehuman-body-v1.json");
+      expect(source).toContain("scripts/fetch-pinned-source.mjs");
+      expect(source).toMatch(/pnpm test/);
+      expect(source).toMatch(/pnpm build/);
+    }
+  });
   it("keeps fast Verify on PRs and main without browser setup",()=>{
     const ci=readFileSync(join(dir,"ci.yml"),"utf8");
     expect(ci).toMatch(/pull_request:/);

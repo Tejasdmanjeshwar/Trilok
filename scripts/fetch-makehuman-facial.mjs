@@ -1,6 +1,7 @@
 // C3.5: pinned CC0 MakeHuman facial targets, precompiled without external editors.
 // Runs during the existing asset acquisition step; no runtime upstream requests.
 import {createHash} from "node:crypto";
+import {fetchPinnedSourceBytes} from "./fetch-pinned-source.mjs";
 import {mkdir,readFile,writeFile} from "node:fs/promises";
 import {dirname,resolve} from "node:path";
 import {fileURLToPath} from "node:url";
@@ -43,10 +44,7 @@ else{
         throw new Error("Invalid facial asset manifest entry "+index);
       const url="https://raw.githubusercontent.com/makehumancommunity/makehuman/"+
         sourceRevision+"/"+asset.path;
-      const response=await fetch(url,{signal:AbortSignal.timeout(45000)});
-      if(!response.ok)throw new Error("MakeHuman pinned facial download "+
-        asset.id+" HTTP "+response.status);
-      const bytes=Buffer.from(await response.arrayBuffer());
+      const bytes=await fetchPinnedSourceBytes(url,{timeoutMs:45_000});
       const gitBlob=sha(Buffer.concat([
         Buffer.from("blob "+bytes.length+"\0","utf8"),bytes]),"sha1");
       if(bytes.length!==asset.rawBytes||gitBlob!==asset.gitBlobSha1)

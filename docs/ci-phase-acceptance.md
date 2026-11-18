@@ -77,3 +77,21 @@ and only then record C2 as accepted for transition to C3.
 Keep the `e2e/` suite in the repository. Do not remove or skip assertions
 merely to make acceptance faster. Future browser-test speedups (e.g., splitting
 desktop/touch jobs or reducing redundant screenshot work) need separate review.
+
+## Pinned MakeHuman acquisition reliability
+
+Both full deterministic checks and browser acceptance require a reproducible
+pinned MakeHuman CC0 mesh, official rig, facial atlas and original body targets.
+The acquisition transport retries bounded transient connection resets, timeouts,
+HTTP throttling and server failures with backoff. Missing/unlicensed/mismatched
+content is never silently accepted: the original pinned Git blob, SHA-256,
+byte-size, corpus-digest and license validations remain mandatory.
+
+Automatic Verify and manually dispatched Phase Acceptance use a GitHub Actions
+cache keyed by the source manifests and acquisition-script hashes. Its contents
+are **untrusted until validated** by the normal build/test scripts, so a cache
+hit never bypasses pinned-source verification. The acceptance deterministic
+job saves the validated source cache before independent desktop/touch browser
+jobs restore it; this avoids repeating hundreds of upstream downloads across
+runner jobs. Only the normal manually dispatched phase workflow installs
+Chromium or runs the entire browser matrix.

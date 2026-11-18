@@ -1,6 +1,7 @@
 // C3.6: original CC0 MakeHuman body targets; immutable Git-blob correspondence.
 // Never imports or executes MakeHuman application code.
 import {createHash} from "node:crypto";
+import {fetchPinnedSourceBytes} from "./fetch-pinned-source.mjs";
 import {gzipSync} from "node:zlib";
 import {mkdir,readFile,writeFile} from "node:fs/promises";
 import {resolve,dirname} from "node:path";
@@ -37,17 +38,7 @@ if(cached?.payload&&cached.contentDigest===digest(cached.payload)&&
         throw new Error("Invalid MakeHuman body manifest "+index);
       const url="https://raw.githubusercontent.com/makehumancommunity/makehuman/"+
         revision+"/"+entry.path;
-      let bytes;
-      for(let attempt=0;attempt<3;attempt++){
-        try{
-          const response=await fetch(url,{signal:AbortSignal.timeout(60000)});
-          if(!response.ok)throw new Error("HTTP "+response.status);
-          bytes=Buffer.from(await response.arrayBuffer());
-          break;
-        }catch(error){
-          if(attempt===2)throw new Error("Pinned body fetch "+entry.id+": "+error);
-        }
-      }
+      const bytes=await fetchPinnedSourceBytes(url);
       const git=sha(Buffer.concat([
         Buffer.from("blob "+bytes.length+"\0","utf8"),bytes]),"sha1");
       if(git!==entry.gitBlobSha1||bytes.length!==entry.rawBytes)
@@ -72,7 +63,7 @@ if(cached?.payload&&cached.contentDigest===digest(cached.payload)&&
       parsed[index]={id:entry.id,rows};
     }
   }
-  await Promise.all(Array.from({length:20},worker));
+  await Promise.all(Array.from({length:10},worker));
   const payload={schemaVersion:1,revision,license:"CC0-1.0",
     units:"MakeHuman source coordinates",sourceManifestHash:fingerprint,targets:parsed};
   const result={payload,contentDigest:digest(payload)};
