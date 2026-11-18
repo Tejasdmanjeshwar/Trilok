@@ -1,0 +1,57 @@
+name: C6.2 visual inspection contact sheet
+on:
+  push:
+    branches: [feat/c6-2-animation-baking-studio-playback]
+    paths: ['.github/workflows/c6-2-visual-thumb.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  thumbnails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download real Playwright screenshot evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/c62-visual
+          gh run download 44367786386 -n c62-motion-render-touch-chromium-251dfcad73d9b3c38b9e2037dce2070f768d79e8 -D /tmp/c62-visual
+          find /tmp/c62-visual -name '*.png' | head -30
+      - run: python3 -m pip -q install Pillow==11.2.1
+      - name: Encode downsized actual character frames for reviewed evidence
+        run: |
+          python3 - <<'PY'
+          import glob,os,io,base64
+          from PIL import Image,ImageOps,ImageDraw
+          paths=glob.glob('/tmp/c62-visual/**/studio-c6-2/*.png',recursive=True)
+          if not paths:paths=glob.glob('/tmp/c62-visual/**/*.png',recursive=True)
+          focus=['human-idle-front','human-walk-front','human-run-front',
+            'human-run-side','human-run-rear','human-run-three-quarter',
+            'human-walk-side','human-walk-rear','human-walk-three-quarter',
+            'restored-one-hand-sword','muscular-step','compact-step','tall-step']
+          selected=[]
+          for needle in focus:
+            matching=next((p for p in paths if needle in os.path.basename(p)),None)
+            if matching:selected.append((needle,matching))
+          if not selected:raise SystemExit('Missing expected real character screenshots')
+          tiles=[]
+          for label,path in selected:
+            im=Image.open(path).convert('RGB')
+            im.thumbnail((270,270))
+            canvas=Image.new('RGB',(290,305),'white')
+            canvas.paste(im,((290-im.width)//2,15))
+            ImageDraw.Draw(canvas).text((6,280),label,fill='black')
+            tiles.append(canvas)
+          cols=4;rows=(len(tiles)+cols-1)//cols
+          sheet=Image.new('RGB',(cols*290,rows*305),'white')
+          for i,tile in enumerate(tiles):sheet.paste(tile,((i%cols)*290,(i//cols)*305))
+          output=io.BytesIO()
+          sheet.save(output,format='JPEG',quality=73,optimize=True)
+          payload=base64.b64encode(output.getvalue()).decode('ascii')
+          print('VISUAL_REVIEW_IMAGE_BEGIN'+payload+'VISUAL_REVIEW_IMAGE_END')
+          print('Reviewed screenshot filenames:',[os.path.basename(p) for _,p in selected])
+          print('Sheet pixels:',sheet.size,'JPEG bytes:',len(output.getvalue()))
+          PY
