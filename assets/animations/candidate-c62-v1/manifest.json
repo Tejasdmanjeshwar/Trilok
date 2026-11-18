@@ -9,35 +9,36 @@
   "profile": "profile.json",
   "sourceBindMaxResidual": 6.383178585700477e-7,
   "mappedJointCount": 49,
-  "engine": "packages/character-core/src/retargeting.ts@c6.2-full-frame-v1",
+  "engine": "packages/character-core/src/retargeting.ts@c6.2-anatomical-absolute-v2",
+  "poseMode": "source-anatomical",
   "entries": [
     {
       "id": "human-idle",
       "sourceClip": "Idle_Loop",
       "filename": "human-idle.clip.json",
-      "artifactSha256": "192484bb6bdd0aeaa73434ee0c4a1eb0044ecbcc2ff1d9e51f6b8eeb711c2035",
-      "bytes": 379759
+      "artifactSha256": "72bd194b75aa1c372b604fe2d8df9453d229bce7bf504b842959744553b8db5b",
+      "bytes": 380297
     },
     {
       "id": "human-run",
       "sourceClip": "Jog_Fwd_Loop",
       "filename": "human-run.clip.json",
-      "artifactSha256": "c3219b33ac44e36f5b04430e7f172a753f32665a2e8b819072508d258805472b",
-      "bytes": 152920
+      "artifactSha256": "ab5baf19623d33c8d83a10d2bf12c5dad6e6f047c4812c56cddc18b3803ba29b",
+      "bytes": 152754
     },
     {
       "id": "human-sprint",
       "sourceClip": "Sprint_Loop",
       "filename": "human-sprint.clip.json",
-      "artifactSha256": "c2f4f961f11f6b9a0ced6dc4186aec89cc189b68859ab27d918e3c5df41c83cd",
-      "bytes": 113029
+      "artifactSha256": "0878fb44d74190874509fc4d2434e3bcfb358a13356c123f628ccdbb518e815b",
+      "bytes": 112918
     },
     {
       "id": "human-walk",
       "sourceClip": "Walk_Loop",
       "filename": "human-walk.clip.json",
-      "artifactSha256": "d77f30cebe05961341fb9205fd97737791de2257b47514d2ec8768be58186ecf",
-      "bytes": 213064
+      "artifactSha256": "d3192156d73ec9c3c780238b1c7b28ecd35cf181ac7eae4b3ce1b336cb048a21",
+      "bytes": 212374
     }
   ]
 }
