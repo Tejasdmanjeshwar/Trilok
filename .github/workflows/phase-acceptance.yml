@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$PHASE" =~ ^C[6-9]$ ]] || [[ -n "$REPORT" ]]; then
-            if [[ ! "$REPORT" =~ ^docs/[a-zA-Z0-9/_-]+\\.md$ ]]; then
+            if [[ ! "$REPORT" =~ ^docs/[a-zA-Z0-9/_-]+[.]md$ ]]; then
               echo "::error::C6+ Phase Acceptance requires a relative docs/*.md cleanup report"; exit 1
             fi
             if [[ ! -f "$REPORT" ]] || ! grep -Fq "Phase: $PHASE" "$REPORT"; then
