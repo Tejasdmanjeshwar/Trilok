@@ -71,6 +71,26 @@ try{
     await server.ssrLoadModule("/packages/character-core/src/animation.ts");
   const graph=createAnatomyPreset({archetype:"human"});
   const rig=canonicalRigIdentity(graph);
+  // Use the ACTUAL OFFICIAL MAKEHUMAN skeletal landmarks, not the C1
+  // schematic/prototype bindTranslation offsets. These calibrated positions
+  // are the source of truth for hands, finger phalanges, wrists and hips in
+  // Studio. The offline importer reads the same pinned CC0 data as runtime.
+  const {parseAnatomicalOBJ}=await server.ssrLoadModule(
+    "/apps/web/src/characters/geometry/AnatomicalTemplate.ts");
+  const {makeSourceLandmarks,sourceBoneForRole}=await server.ssrLoadModule(
+    "/apps/web/src/characters/geometry/OfficialHumanRig.ts");
+  const objBytes=await readFile(resolve(root,
+    "apps/web/public/anatomy/makehuman-base.obj"));
+  const rigBytes=await readFile(resolve(root,
+    "apps/web/public/anatomy/makehuman-default.mhskel"));
+  const template=parseAnatomicalOBJ(objBytes.toString("utf8"),
+    {includeGroups:["body"]});
+  let officialLandmarks;
+  try{
+    officialLandmarks=makeSourceLandmarks(JSON.parse(rigBytes.toString("utf8")),
+      template,new THREE.Float32BufferAttribute(template.sourcePositions,3));
+  }finally{template.geometry.dispose();}
+  const calibrationSha256=sha256(Buffer.concat([objBytes,rigBytes]));
   // C1 graph is the reference hierarchy; not a second presentation skeleton.
   const target=new Map();
   const targetScene=new THREE.Group();
@@ -117,7 +137,14 @@ try{
       childIndex=fallback===undefined?undefined:nodeNames.get(fallback);
     }
     if(childIndex===undefined||source.nodes[childIndex].parent!==srcIndex)continue;
-    const targetDir=new THREE.Vector3(...targetChild.bindTranslation);
+    const actualTarget=(j)=>{
+      const key=sourceBoneForRole(j.role,j.id);
+      const official=key?officialLandmarks.get(key):undefined;
+      return official?.clone()??
+        target.get(j.id).getWorldPosition(new THREE.Vector3());
+    };
+    const targetDir=actualTarget(targetChild).sub(actualTarget(joint))
+      .applyQuaternion(targetRest.get(joint.id).clone().invert());
     const sourceDir=new THREE.Vector3(...source.nodes[childIndex].translation);
     if(targetDir.lengthSq()<1e-8||sourceDir.lengthSq()<1e-8)
       throw new Error("Collapsed anatomical retarget segment "+joint.role);
@@ -245,9 +272,10 @@ try{
     license:source.license,origin:source.origin,
     sourceArchiveSha256:source.sourceArchiveSha256,
     sourceGlbSha256:source.sourceGlbSha256,sourceInputSha256:sha256(sourceBytes),
-    importer:source.importer,retargeter:"scripts/bake-reference-animations.mjs@ual1-measured-segment-v2",
-    generatorRevision:"c6.2-ual1-segment-basis-v2",
-    normalization:"source glTF absolute world motion via measured child-axis basis to canonical local rest deltas",
+    importer:source.importer,retargeter:"scripts/bake-reference-animations.mjs@ual1-official-makehuman-v3",
+    generatorRevision:"c6.2-ual1-measured-makehuman-v3",
+    normalization:"source glTF absolute world motion through official MakeHuman calibrated bone axes to C1 local deltas",
+    targetCalibrationSha256:calibrationSha256,
     entries},null,2)+"\n";
   files["manifest.json"]=manifest;
   if(write){
