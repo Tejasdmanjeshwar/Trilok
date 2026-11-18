@@ -32,10 +32,10 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         expect(source).toMatch(/workflow_dispatch:/);
         expect(source).not.toMatch(/^  pull_request:/m);
         expect(source).not.toMatch(/^  push:/m);
-        expect(source).toMatch(/e2e\/studio-inspection\\.spec\\.ts/);
+        expect(source).toMatch(/e2e\/studio-inspection\.spec\.ts/);
         expect(source).toMatch(/--retries=0 --workers=1/);
         expect(source).toMatch(/--repeat-each/);
-        expect(source).toMatch(/project: \\[desktop-chromium, touch-chromium\\]/);
+        expect(source).toMatch(/project:\s*\[desktop-chromium,\s*touch-chromium\]/);
         expect(source).not.toMatch(/pnpm test:e2e/);
         continue;
       }
