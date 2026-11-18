@@ -23,9 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # There is currently no committed pnpm lockfile. Preserve the existing
-      # compatible install mode until lockfile work is separately reviewed.
-      - run: pnpm install --no-frozen-lockfile
+      # pnpm-lock.yaml is committed; fail if dependency resolutions drift.
+      - run: pnpm install --frozen-lockfile
       # Every restored output is independently digest/size/license verified by
       # the mandatory pnpm test/build asset acquisition; the cache is untrusted.
       - name: Reuse pinned MakeHuman assets

@@ -54,7 +54,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       # Every restored output is independently digest/size/license verified by
       # the mandatory pnpm test/build asset acquisition; the cache is untrusted.
       - name: Reuse pinned MakeHuman assets
@@ -93,7 +93,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       # Every restored output is independently digest/size/license verified by
       # the mandatory pnpm test/build asset acquisition; the cache is untrusted.
       - name: Reuse pinned MakeHuman assets
