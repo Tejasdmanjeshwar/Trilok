@@ -62,6 +62,38 @@ describe("C6.2 reusable anatomical retarget core",()=>{
         tuple(quat(ta).invert().multiply(expected).multiply(quat(ta))));
     }
   });
+  it("source-anatomical mode transfers a source T rest to physical T despite target A rest",()=>{
+    const sourceRest=q([0,0,1],Math.PI/2);
+    const targetRest=q([0,0,1],Math.PI/4);
+    const srcShaft:Vec3=[1,0,0];
+    const tgtShaft:Vec3=[Math.SQRT1_2,Math.SQRT1_2,0];
+    const src=rig("a",[joint("upperarm",null,sourceRest,srcShaft,[0,0,1])]);
+    const dst=rig("b",[joint("upperarm",null,targetRest,tgtShaft,[0,0,1])]);
+    const profile=createRetargetProfile(src,dst,[{sourceId:"upperarm",targetId:"upperarm"}]);
+    const samples=retargetWorldPose(profile,dst,new Map([["upperarm",sourceRest]]),
+      src.identitySha256,"source-anatomical");
+    const actualTarget=quat(targetRest).multiply(quat(samples[0]!.rotation));
+    const worldShaft=rotate(tgtShaft,
+      tuple(actualTarget.clone().multiply(quat(targetRest).invert())));
+    const targetShaft=new Vector3(...worldShaft);
+    expect(targetShaft.distanceTo(new Vector3(...srcShaft))).toBeLessThan(1e-6);
+    expect(quat(samples[0]!.rotation).angleTo(new Quaternion())).toBeGreaterThan(.1);
+    for(const motion of [
+      q([1,0,0],Math.PI/4),
+      q([0,1,0],.7),
+      q([.3,.5,.6],Math.PI),
+    ]){
+      const animated=tuple(quat(motion).multiply(quat(sourceRest)));
+      const result=retargetWorldPose(profile,dst,
+        new Map([["upperarm",animated]]),src.identitySha256,"source-anatomical");
+      const targetWorld=quat(targetRest).multiply(quat(result[0]!.rotation));
+      const expected=quat(motion).multiply(
+        quat(profile.calibrations[0]!.sourceAnatomicalFrameWorld))
+        .multiply(quat(profile.calibrations[0]!.targetAnatomicalFrameWorld).invert())
+        .multiply(quat(targetRest));
+      approxRotation(tuple(targetWorld),tuple(expected));
+    }
+  });
   it("reconstructs animated target parent space and preserves bilateral finger identity",()=>{
     const id:Quat=[0,0,0,1];
     const source=rig("a",[
