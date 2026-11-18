@@ -1,0 +1,45 @@
+name: C6.2 motion source rig diagnostic
+on:
+  push:
+    branches: [feat/c6-2-animation-baking-studio-playback]
+    paths: ['.github/workflows/c6-2-retarget-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect pinned UAL1 source GLB metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/c62
+          gh run download 44360056543 -n c6-2-motion-source-probe -D /tmp/c62
+          sha256sum /tmp/c62/UAL1-Standard.zip
+          python3 - <<'PY'
+          import zipfile,json,struct,pathlib,collections
+          z=zipfile.ZipFile('/tmp/c62/UAL1-Standard.zip')
+          path=next(x for x in z.namelist() if x.endswith('Unreal-Godot/UAL1_Standard.glb'))
+          blob=z.read(path)
+          magic,version,total=struct.unpack_from('<III',blob,0)
+          assert magic==0x46546c67 and version==2 and total==len(blob)
+          size,kind=struct.unpack_from('<II',blob,12)
+          assert kind==0x4e4f534a
+          gltf=json.loads(blob[20:20+size])
+          nodes=gltf['nodes'];parents={}
+          for i,n in enumerate(nodes):
+            for c in n.get('children',[]):parents[c]=i
+          print('GLB_SIZE',len(blob),'NODE_COUNT',len(nodes),'SKINS',len(gltf.get('skins',[])))
+          for i,n in enumerate(nodes):
+            print('SOURCE_NODE',i,repr(n.get('name')), 'parent',parents.get(i),'T',n.get('translation'),'R',n.get('rotation'))
+          print('SKINS',[(s.get('name'),s.get('joints')) for s in gltf.get('skins',[])])
+          for animation in gltf.get('animations',[]):
+            channels=animation['channels'];samplers=animation['samplers']
+            counts=collections.Counter(c.get('target',{}).get('path') for c in channels)
+            joints=collections.Counter(nodes[c['target']['node']].get('name') for c in channels if c['target']['path']=='rotation')
+            print('CLIP',repr(animation.get('name')),'CHANNELS',len(channels),'COUNTS',dict(counts),'ROTATION_JOINTS',list(joints))
+          PY
