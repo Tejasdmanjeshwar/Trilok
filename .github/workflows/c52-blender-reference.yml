@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       - name: Verify pinned MakeHuman source and source rig
         run: node scripts/fetch-makehuman-core.mjs
       - name: Export exact source-skinned geometry, bone IDs and weights

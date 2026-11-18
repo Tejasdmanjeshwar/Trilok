@@ -124,7 +124,7 @@ does not incorporate those models or source-derived code.
 ## 5. Required pre-release verification
 
 1. Confirm legal ownership/permission for all Trilok-original contributions.
-2. Pin and install a committed lockfile, then generate a **full transitive**
+2. Install using the now-committed pnpm lockfile (pnpm 10.20.0); generate a **full transitive**
    SBOM and SPDX/license report for the exact installed versions. The
    audited repository does **not** contain a `pnpm-lock.yaml`; caret ranges
    alone cannot establish the final dependency/license set.

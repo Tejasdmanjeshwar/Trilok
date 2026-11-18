@@ -63,6 +63,10 @@
 
 A dedicated follow-up `chore/retire-c2-character-lab-with-studio-parity` removes the old Lab route, Lab-only files and implicit prototype and migrates source-backed visual checks onto the maintained Studio; see [Lab retirement evidence and test crosswalk](cleanup-2026-11-18-lab-retirement.md). This is a **pending PR candidate until targeted desktop/touch Chromium validates the new renders**. Historic inventory in this audit records the initial state, not continued availability of those files after the candidate is merged.
 
+## Dependency determinism follow-up
+
+A separate [dependency-lock generation and licensing handoff](cleanup-2026-11-18-pnpm-lock.md) records reproducible pnpm resolution and remaining transitive SBOM/licensing work. The baseline observation above (no lockfile at original audit SHA) remains historically accurate. Once this focused PR merges, all remaining install-bearing workflows use frozen resolutions.
+
 ## Verification ledger
 
 Starting baseline: `main` `aaab465120f214337ba69db438925faf9f7bce67`, which passed [post-C6.1 main Verify](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44303429762).
