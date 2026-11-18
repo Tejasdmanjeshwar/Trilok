@@ -57,8 +57,17 @@ test("Studio focus, orthographic, pose and inspection preserve customization",as
 });
 
 test("Double-tapping the rendered character focuses the hit anatomy and allows angle changes",async({page})=>{
+  // Collect stage-by-stage gesture/raycast diagnostics only for this test.
+  // On failure the attachment differentiates timing, skin misses and UI failures.
+  await page.addInitScript(()=>{
+    const stages:unknown[]=[];
+    (window as Window & {__studioFocusStages?:unknown[]}).__studioFocusStages=stages;
+    window.addEventListener("trilok:studio:surface-focus-diagnostic",event=>{
+      stages.push((event as CustomEvent).detail);
+    });
+  });
   test.setTimeout(150_000);
-  await page.goto("/studio/");
+  await page.goto("/studio/?studio-focus-diagnostics=1");
   await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
   const canvas=page.locator("#studio-viewport canvas");
   await expect(canvas).toBeVisible();
@@ -76,7 +85,16 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
     // dblclick sends two complete pointer sequences, as does a physical double tap.
     await page.mouse.dblclick(x,y,{delay:70});
   }
-  await expect(page.locator("#studio-return-focus")).toBeEnabled({timeout:10_000});
+  try{
+    await expect(page.locator("#studio-return-focus")).toBeEnabled({timeout:10_000});
+  }catch(error){
+    const stages=await page.evaluate(()=>(
+      window as Window & {__studioFocusStages?:unknown[]}).__studioFocusStages??[]);
+    await test.info().attach("surface-focus-stages",{
+      body:Buffer.from(JSON.stringify(stages,null,2)),contentType:"application/json",
+    });
+    throw error;
+  }
   const chosen=await page.locator("#studio-focus-area").inputValue();
   expect(chosen).not.toBe("");
   await page.getByRole("button",{name:"View",exact:true}).click();
