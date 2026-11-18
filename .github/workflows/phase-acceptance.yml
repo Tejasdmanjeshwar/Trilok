@@ -14,6 +14,10 @@ on:
         description: "Optional acceptance candidate / issue reference"
         required: false
         type: string
+      cleanup_report:
+        description: "Committed docs/ phase-cleanup report (required for C6–C9)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -30,6 +34,22 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Require current-phase cleanup evidence before acceptance
+        shell: bash
+        env:
+          PHASE: ${{ inputs.phase }}
+          REPORT: ${{ inputs.cleanup_report }}
+        run: |
+          set -euo pipefail
+          if [[ "$PHASE" =~ ^C[6-9]$ ]] || [[ -n "$REPORT" ]]; then
+            if [[ ! "$REPORT" =~ ^docs/[a-zA-Z0-9/_-]+\\.md$ ]]; then
+              echo "::error::C6+ Phase Acceptance requires a relative docs/*.md cleanup report"; exit 1
+            fi
+            if [[ ! -f "$REPORT" ]] || ! grep -Fq "Phase: $PHASE" "$REPORT"; then
+              echo "::error::Cleanup report must exist at this SHA and declare Phase: $PHASE"; exit 1
+            fi
+            echo "Validated cleanup report: $REPORT for $PHASE"
+          fi
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
