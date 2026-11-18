@@ -7,9 +7,10 @@
   "sourceGlbSha256": "69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997",
   "sourceInputSha256": "6b8515fd92c37bc11511a7f8204eaea87962e843cbb046b1ca83194df4b9a989",
   "importer": "scripts/extract-quaternius-ual1.mjs@1",
-  "retargeter": "scripts/bake-reference-animations.mjs@ual1-measured-segment-v2",
-  "generatorRevision": "c6.2-ual1-segment-basis-v2",
-  "normalization": "source glTF absolute world motion via measured child-axis basis to canonical local rest deltas",
+  "retargeter": "scripts/bake-reference-animations.mjs@ual1-official-makehuman-v3",
+  "generatorRevision": "c6.2-ual1-measured-makehuman-v3",
+  "normalization": "source glTF absolute world motion through official MakeHuman calibrated bone axes to C1 local deltas",
+  "targetCalibrationSha256": "66ecf6318f96d9bb2223969e09a9fa7ef09433b4022fc53fe7913c76cfc5ffc7",
   "entries": [
     {
       "id": "human-idle",
@@ -17,8 +18,8 @@
       "sourceClip": "Idle_Loop",
       "filename": "human-idle.clip.json",
       "sourceSha256": "6b8515fd92c37bc11511a7f8204eaea87962e843cbb046b1ca83194df4b9a989",
-      "artifactSha256": "09a6d287d8e87e11b52ef85a4f359ee70a4494a0fa9113287fbb5bbf4867eb6e",
-      "bytes": 164832
+      "artifactSha256": "cedc43286322b54474889d2e823b802a59b9d5c14e4251356408cd3f3f89a7a2",
+      "bytes": 163634
     },
     {
       "id": "human-run",
@@ -26,8 +27,8 @@
       "sourceClip": "Jog_Fwd_Loop",
       "filename": "human-run.clip.json",
       "sourceSha256": "6b8515fd92c37bc11511a7f8204eaea87962e843cbb046b1ca83194df4b9a989",
-      "artifactSha256": "fd0fae1f036f87c09b051da70bb337978a99f0f02bd63009a2a486510a17b03f",
-      "bytes": 67137
+      "artifactSha256": "69edb108454944891369985aaf0f2bb5b18777454c36ec9479be8c3655128e87",
+      "bytes": 66410
     },
     {
       "id": "human-walk",
@@ -35,8 +36,8 @@
       "sourceClip": "Walk_Loop",
       "filename": "human-walk.clip.json",
       "sourceSha256": "6b8515fd92c37bc11511a7f8204eaea87962e843cbb046b1ca83194df4b9a989",
-      "artifactSha256": "6e2a9b7f37cc39dbbf309166e5638d5fff9e33b0b2d31a27146b753e6c2db1f7",
-      "bytes": 93830
+      "artifactSha256": "92437c9d6c21e6ac0d46138e166d8d52a2e8484ab9b4f0f802199f197ca4c941",
+      "bytes": 92836
     }
   ]
 }
