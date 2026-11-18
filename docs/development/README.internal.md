@@ -61,13 +61,17 @@ before C3 or production-quality claims. See
 [Character Studio roadmap](docs/character-studio-roadmap.md) and
 [CC0 source/deformation evidence](docs/character-studio-c2-anatomical-import.md).
 
-## Switching between laboratories
+## Current Game / Studio navigation and historical Lab
 
-The Combat Arena header includes a **Character Lab** link to the isolated
-[`/c2-lab.html`](https://trilok.tejasdmjr996.workers.dev/c2-lab.html).
-Select **← Combat arena** in the lab to return to the battle. This is
-navigation between independent pages, not a Character Studio release or
-replacement of the existing combat actors.
+The playable Combat Arena links to the supported
+[`/studio/`](https://trilok.tejasdmjr996.workers.dev/studio/)
+Character Studio. The old C2 Character Lab is **not a production build
+entrypoint** and is no longer linked from the game; diagnostic CI may
+temporarily compile `/c2-lab.html` using `TRILOK_INCLUDE_LAB=1` to
+preserve specialized MakeHuman regression tests until their migration.
+The historical C2/C3 notes below describe earlier acceptance evidence,
+not currently supported player-facing features. See
+[cleanup audit](../repository-cleanup-audit-2026-11-18.md).
 
 ## Character Studio roadmap (C0–C9)
 
