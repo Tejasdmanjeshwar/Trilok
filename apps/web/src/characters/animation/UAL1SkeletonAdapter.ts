@@ -34,14 +34,14 @@ export function mapUAL1StandardJoints(graph: AnatomicalGraphV1,
   }
   const used=new Set<string>(), mappings:RetargetJointMappingV1[]=[];
   for(const joint of graph.joints){
-    const side=/arm\\[(left|right),/.exec(joint.id)?.[1];
+    const side=/arm\[(left|right),/.exec(joint.id)?.[1];
     const key=joint.role.startsWith("finger_") ?
       joint.role+"_"+side:joint.role;
     // Other anatomical modules can share roles: do not silently use the
     // foundation mapping for an extra arm or anatomical extension.
-    if(joint.role.startsWith("finger_") && (!side || !/arm\\[(left|right),0\\]/.test(joint.id)))
+    if(joint.role.startsWith("finger_") && (!side || !/arm\[(left|right),0\]/.test(joint.id)))
       continue;
-    if(joint.id.includes("arm[") && !/arm\\[(left|right),0\\]/.test(joint.id))
+    if(joint.id.includes("arm[") && !/arm\[(left|right),0\]/.test(joint.id))
       continue;
     const sourceId=map.get(key);
     if(!sourceId)continue; // explicit unmapped target policy belongs to profile
