@@ -59,6 +59,10 @@
 
 [Workflow-retirement evidence and retained benchmark procedures](cleanup-2026-11-18-workflows.md) document retirement of the historical ref-pruning workflow/script and redundant automatic source-classification benchmark. This reduces the workflow definitions from nine to seven **upon merge** and does not affect the normal Verify, manual Phase Acceptance, source and combat regression suites, or production runtime. The remaining C55 paired comparison is retained while C5 issue #81 is open.
 
+## Dependency determinism follow-up
+
+A separate [dependency-lock generation and licensing handoff](cleanup-2026-11-18-pnpm-lock.md) records reproducible pnpm resolution and remaining transitive SBOM/licensing work. The baseline observation above (no lockfile at original audit SHA) remains historically accurate. Once this focused PR merges, all remaining install-bearing workflows use frozen resolutions.
+
 ## Verification ledger
 
 Starting baseline: `main` `aaab465120f214337ba69db438925faf9f7bce67`, which passed [post-C6.1 main Verify](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44303429762).
