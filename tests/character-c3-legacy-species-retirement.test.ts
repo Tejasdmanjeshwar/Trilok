@@ -24,16 +24,17 @@ describe("C3 legacy species retirement while retaining C7 extensibility",()=>{
       "apps/web/src/characters/geometry/VanaraHeadReplacement.ts",
       "apps/web/src/characters/geometry/VanaraScanRegistration.ts",
     ]) expect(existsSync(path),path).toBe(false);
-    expect(read("apps/web/c2-lab.html")).not.toMatch(/Primate \/ Vanara|C3\.5 mammalian heads/);
-    expect(read("apps/web/src/characters/lab/c2-lab.ts")).not.toMatch(
+    expect(existsSync("apps/web/c2-lab.html")).toBe(false);
+    expect(existsSync("apps/web/src/characters/lab/c2-lab.ts")).toBe(false);
+    expect(read("apps/web/src/studio/StudioMorphCatalog.ts")).not.toMatch(
       /createMammalianHeadRecipe|MammalianHeadDeformation|head-family/);
     expect(read("apps/web/src/characters/geometry/HumanMorphology.ts")).not.toMatch(
       /MAMMAL_HEAD_GENERATORS|MammalianHeadDeformation/);
   });
   it("keeps MakeHuman human face and body source integration",()=>{
-    expect(read("apps/web/src/characters/lab/c2-lab.ts")).toMatch(/MakeHumanBodyController/);
-    expect(read("apps/web/src/characters/lab/c2-lab.ts")).toMatch(/MakeHumanFacialController/);
-    expect(read("apps/web/c2-lab.html")).toMatch(/c36-body-controls/);
-    expect(read("apps/web/c2-lab.html")).toMatch(/c35-facial-controls/);
+    expect(read("apps/web/src/studio/StudioHumanModel.ts")).toMatch(/MakeHumanBodyController/);
+    expect(read("apps/web/src/studio/StudioHumanModel.ts")).toMatch(/MakeHumanFacialController/);
+    expect(read("apps/web/src/studio/StudioMorphCatalog.ts")).toMatch(/BODY_CONTROLS/);
+    expect(read("apps/web/src/studio/StudioMorphCatalog.ts")).toMatch(/ALL_FACIAL_CONTROLS/);
   });
 });
