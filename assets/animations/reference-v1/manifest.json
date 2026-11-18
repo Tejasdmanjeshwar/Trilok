@@ -3,33 +3,33 @@
   "creator": "trilok",
   "license": "Trilok-Proprietary",
   "generator": "packages/character-core/src/animation-library.ts",
-  "generatorRevision": "c6.2-motion-source-v1",
+  "generatorRevision": "c6.2-gait-source-v2",
   "toolchain": "Node.js 22 + Vite 6 (repo lockfile)",
   "normalization": "rest_delta; radians; local XYZ quaternion",
   "entries": [
     {
-      "id": "relaxed-idle",
-      "label": "Relaxed breathing",
-      "filename": "relaxed-idle.clip.json",
-      "sourceSha256": "d25296c16a90b83077262ebe1befce6b92098d13258a5c80c7b6cdf01241d829",
-      "artifactSha256": "c9d1175a139b966e3f7f8aba7907b20fdaa0c60691776d342883d80f8fdb52e3",
-      "bytes": 2442
+      "id": "human-idle",
+      "label": "Natural idle · breathing and balance",
+      "filename": "human-idle.clip.json",
+      "sourceSha256": "8d02c5d0bad2c442495b80c9fa56ff7dcff757b26871bb2bca996a49ba0f184c",
+      "artifactSha256": "93a614f0f1fe5fff9574c750f0a658c787312dd938a4613263a0230177a62ecb",
+      "bytes": 159373
     },
     {
-      "id": "controlled-step",
-      "label": "Controlled forward step",
-      "filename": "controlled-step.clip.json",
-      "sourceSha256": "eb353adbba6d2ea656663c1f1621333f287675ecf358aeaccf6ddbfa42328cf3",
-      "artifactSha256": "48c5fa75474243bba7b7d85ecd9f53b767cbc383d7987460000bf5fbe5d9a9cb",
-      "bytes": 5941
+      "id": "human-walk",
+      "label": "Walking · heel strike and toe-off",
+      "filename": "human-walk.clip.json",
+      "sourceSha256": "d06249ac8590a7a2e1370abe963f6a9b83d8af5155536ebc745f5cf4712010ea",
+      "artifactSha256": "6ca52ad9b339dff4f9a5112494ce929274a09568e4213b341cb4ac0ec96f79c8",
+      "bytes": 129427
     },
     {
-      "id": "ready-gesture",
-      "label": "Weapon-ready gesture",
-      "filename": "ready-gesture.clip.json",
-      "sourceSha256": "a825244b19fd90e3e1d3a0e5b844d8ab1aaeb4e7b6f9c237197bb4b72bf22e4a",
-      "artifactSha256": "2fe003e50b8ff76b60b7c5df7d94cf7391f33ac3dd1a79adec14ad3a362b8f82",
-      "bytes": 5143
+      "id": "human-run",
+      "label": "Running · flight, arm drive and recovery",
+      "filename": "human-run.clip.json",
+      "sourceSha256": "aee107684aa17ac12f4ce0a269c9c0b580975fb766467d32f568d1625b539743",
+      "artifactSha256": "ca60ec0904c2419e8bfea253b334a755e6208359aa9db8b91e3cfd3ced470e20",
+      "bytes": 81195
     }
   ]
 }
