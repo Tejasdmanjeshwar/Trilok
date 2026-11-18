@@ -36,5 +36,7 @@ jobs:
           git add docs/character-studio-c6-2-source-fit-audit.json
           if ! git diff --cached --quiet; then
             git commit -m "docs(c6.2): record measured Quaternius vs MakeHuman fit and ACCAD candidates"
+            git fetch origin feat/c6-2-animation-baking-studio-playback
+            git rebase origin/feat/c6-2-animation-baking-studio-playback
             git push origin HEAD:feat/c6-2-animation-baking-studio-playback
           fi
