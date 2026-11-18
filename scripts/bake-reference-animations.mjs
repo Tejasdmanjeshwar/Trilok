@@ -45,8 +45,11 @@ try {
       await writeFile(resolve(output,name),content);
   }else if(!emit){
     for(const [name,content] of Object.entries(files)){
-      const existing=await readFile(resolve(output,name),"utf8");
-      if(existing!==content)throw new Error("Animation bake drift: "+name);
+      const existing=await readFile(resolve(output,name),"utf8").catch(()=>null);
+      if(existing!==content){
+        if(process.env.GITHUB_ACTIONS==="true")console.log("C6_2_BAKE_BEGIN"+JSON.stringify(files)+"C6_2_BAKE_END");
+        throw new Error("Animation bake drift: "+name);
+      }
     }
   }
   for(const entry of entries)console.log(entry.id+" "+entry.bytes+" bytes sha256:"+entry.artifactSha256);
