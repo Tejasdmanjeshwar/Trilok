@@ -18,7 +18,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p /tmp/c62-visual
-          gh run download 44367786386 -n c62-motion-render-touch-chromium-251dfcad73d9b3c38b9e2037dce2070f768d79e8 -D /tmp/c62-visual
+          gh run download 44369970290 -n c62-motion-render-desktop-chromium-af82b6fd6c353a26c18d06312bf194b94aada7b8 -D /tmp/c62-visual
           find /tmp/c62-visual -name '*.png' | head -30
       - uses: actions/setup-python@v5
         with:
