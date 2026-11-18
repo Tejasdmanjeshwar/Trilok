@@ -47,7 +47,10 @@ try {
     for(const [name,content] of Object.entries(files)){
       const existing=await readFile(resolve(output,name),"utf8").catch(()=>null);
       if(existing!==content){
-        if(process.env.GITHUB_ACTIONS==="true")console.log("C6_2_BAKE_BEGIN"+JSON.stringify(files)+"C6_2_BAKE_END");
+        if(process.env.GITHUB_ACTIONS==="true")
+          for(const [fileName,data] of Object.entries(files))
+            for(let start=0;start<data.length;start+=3000)
+              console.log("C6_2_FILE_PART "+fileName+" "+(start/3000)+" "+JSON.stringify(data.slice(start,start+3000)));
         throw new Error("Animation bake drift: "+name);
       }
     }
