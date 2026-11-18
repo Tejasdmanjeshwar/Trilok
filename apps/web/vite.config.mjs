@@ -24,6 +24,9 @@ const revision = [
   process.env.COMMIT_SHA,
   gitRevision(),
 ].find((sha) => /^[0-9a-f]{40}$/i.test(sha ?? "")) ?? "unknown";
+// The superseded C2 Character Lab stays available only to diagnostic
+// builds until its unique anatomical source tests migrate to Studio.
+const includeDiagnosticLab = process.env.TRILOK_INCLUDE_LAB === "1";
 const builtAtUtc = new Date().toISOString();
 const token = builtAtUtc.replace(/[-:.]/g, "");
 const build = Object.freeze({
@@ -37,13 +40,15 @@ const build = Object.freeze({
 
 // One object is embedded in the UI and emitted as an inspectable manifest.
 export default defineConfig({
-  // Isolated multi-page entrypoints: Studio never imports combat or Lab startup.
+  // Production ships Game and Studio; diagnostic builds opt in to the old Lab.
   build: {
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
-        c2Lab: fileURLToPath(new URL("./c2-lab.html", import.meta.url)),
         studio: fileURLToPath(new URL("./studio/index.html", import.meta.url)),
+        ...(includeDiagnosticLab ? {
+          c2Lab: fileURLToPath(new URL("./c2-lab.html", import.meta.url)),
+        } : {}),
       },
     },
   },
