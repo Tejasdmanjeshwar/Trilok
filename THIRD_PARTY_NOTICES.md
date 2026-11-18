@@ -55,6 +55,19 @@ credits above are retained voluntarily for provenance and transparency.
 Neither CC0 nor any of the other licenses listed here is overridden by
 the Trilok proprietary notice.
 
+## Quaternius Universal Animation Library 1 — CC0-1.0 (C6.2 draft)
+
+- **Creator:** Quaternius
+- **Source:** https://quaternius.itch.io/universal-animation-library
+- **Licensed asset:** Universal Animation Library 1, Standard edition; included `License.txt` confirms Creative Commons CC0 1.0 Universal
+- **Original archive:** `UAL1-Standard.zip`, 15,904,933 bytes; SHA-256 `cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724`
+- **Source GLB:** `Unreal-Godot/UAL1_Standard.glb` (non-root-motion), SHA-256 `69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997`
+- **Redistributed derivative data:** only deterministic canonical motion samples for `Idle_Loop`, `Walk_Loop`, `Jog_Fwd_Loop`, in `assets/animations/reference-v1/`. Source rig and raw GLB are not bundled in the browser.
+- **Reproduction:** `scripts/extract-quaternius-ual1.mjs`, `scripts/bake-reference-animations.mjs`; source integrity and derivative checksums in `assets/animations/reference-v1/manifest.json`.
+- **Status:** C6.2 draft PR; no claim of visually accepted quality, production deployment, or retarget compatibility across all morphologies.
+
+Quaternius's CC0 dedication does not confer exclusive Trilok ownership over the underlying motion data. Attribution is retained voluntarily.
+
 ## 2. Runtime dependency — Three.js
 
 | Component | Declared range | License | Source / license evidence |
