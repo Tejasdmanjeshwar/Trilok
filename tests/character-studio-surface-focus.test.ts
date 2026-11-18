@@ -3,7 +3,7 @@ import * as THREE from "three";
 import {createSkinningSpike} from "../apps/web/src/characters/geometry/SkinningSpike";
 import {STUDIO_VIEWS} from "../apps/web/src/studio/StudioPresentation";
 import {STUDIO_FOCUS} from "../apps/web/src/studio/StudioInspection";
-import {isShortTap,isDoubleTap,positionForFocusedAngle,focusAreaForSkinTriangle,
+import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,positionForFocusedAngle,focusAreaForSkinTriangle,
   type StudioTap} from "../apps/web/src/studio/StudioSurfaceFocus";
 
 const tap=(x:number,y:number,time:number,pointerType="touch"):StudioTap=>
@@ -24,6 +24,22 @@ describe("Studio double-tap anatomical focus",()=>{
     expect(isDoubleTap(tap(100,90,100,"mouse"),tap(108,95,550,"mouse"))).toBe(false);
     expect(isDoubleTap(tap(100,90,100,"pen"),tap(108,95,550,"pen"))).toBe(false);
     expect(isDoubleTap(tap(100,90,100),tap(140,95,350))).toBe(false);
+  });
+  it("allows a trusted browser mouse doubleclick after delayed pointer delivery only for two valid matching taps",()=>{
+    const first=tap(100,90,100,"mouse"),second=tap(102,92,1420,"mouse");
+    const event={clientX:102,clientY:92,timeStamp:1425,button:0,detail:2,isTrusted:true};
+    expect(isDoubleTap(first,second)).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,second,event)).toBe(true);
+    expect(isTrustedMouseDoubleClick(first,second,{...event,isTrusted:false})).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,second,{...event,detail:1})).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,second,{...event,button:1})).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,second,{...event,timeStamp:1921})).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,second,{...event,timeStamp:1410})).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,second,{...event,clientX:150})).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,{...second,x:140},{...event,clientX:140})).toBe(false);
+    expect(isTrustedMouseDoubleClick({...first,pointerType:"touch"},second,event)).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,{...second,pointerType:"pen"},event)).toBe(false);
+    expect(isTrustedMouseDoubleClick(first,{...second,time:100},event)).toBe(false);
   });
   it("rotates around the same focused spot at unchanged distance for all camera presets",()=>{
     const target=new THREE.Vector3(-.24,1.43,.10);
