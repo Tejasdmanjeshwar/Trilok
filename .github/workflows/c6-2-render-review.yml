@@ -1,4 +1,5 @@
 name: C6.2 rendered source motion quality gate
+# Review revision: v2 measured source and destination limb bind directions.
 on:
   push:
     branches: [feat/c6-2-animation-baking-studio-playback]
