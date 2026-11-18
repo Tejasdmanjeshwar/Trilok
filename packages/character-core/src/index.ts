@@ -7,4 +7,3 @@ export * from "./morphology-local";
 export * from "./morphology-head";
 export * from "./animation";
 export * from "./animation-reference";
-export * from "./animation-library";
