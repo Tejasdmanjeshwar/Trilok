@@ -12,8 +12,8 @@
     "test:e2e": "playwright test",
     "bench:studio": "node scripts/fetch-makehuman-core.mjs && vitest run benchmarks/ --pool=threads --maxWorkers=1",
     "build:deployment": "pnpm build && node scripts/verify-build-identity.mjs",
-    "animation:bake": "node scripts/bake-reference-animations.mjs --write",
-    "animation:verify": "node scripts/bake-reference-animations.mjs"
+    "animation:bake": "node scripts/fetch-makehuman-core.mjs && node scripts/bake-reference-animations.mjs --write",
+    "animation:verify": "node scripts/fetch-makehuman-core.mjs && node scripts/bake-reference-animations.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
