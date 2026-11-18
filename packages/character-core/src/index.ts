@@ -5,3 +5,5 @@ export * from "./presets";
 export * from "./morphology";
 export * from "./morphology-local";
 export * from "./morphology-head";
+export * from "./animation";
+export * from "./animation-reference";
