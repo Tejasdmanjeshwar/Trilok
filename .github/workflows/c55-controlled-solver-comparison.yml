@@ -2,16 +2,16 @@ name: C5.5 Controlled Solver Comparison
 
 # Audit-only same-run benchmark, not a production timing gate.
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/c55-controlled-solver-comparison.yml'
-      - 'apps/web/src/studio/StudioSolverDiagnostics.ts'
-      - 'apps/web/src/studio/ConstrainedIK.ts'
-      - 'apps/web/src/studio/StudioSourceContact.ts'
-      - 'apps/web/src/studio/StudioBodyCollision.ts'
-      - 'benchmarks/character-studio-solver.bench.test.ts'
-      - 'tests/character-studio-solver-diagnostics.test.ts'
-      - 'tests/character-studio-body-topology-cache.test.ts'
+  workflow_dispatch:
+    inputs:
+      baseline_sha:
+        description: 'Exact 40-character baseline commit with committed pnpm lockfile'
+        required: true
+        type: string
+      candidate_sha:
+        description: 'Exact 40-character candidate commit with committed pnpm lockfile'
+        required: true
+        type: string
 permissions:
   contents: read
 jobs:
@@ -26,9 +26,11 @@ jobs:
           node-version: '22'
       - name: Resolve candidate and baseline SHAs
         env:
-          BASELINE_SHA: ${{ github.event.pull_request.base.sha }}
-          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+          BASELINE_SHA: ${{ inputs.baseline_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
+          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid baseline SHA"; exit 1; }
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid candidate SHA"; exit 1; }
           git fetch --no-tags --depth=1 origin "$CANDIDATE_SHA" "$BASELINE_SHA"
           git worktree add --detach "$RUNNER_TEMP/c55-candidate" "$CANDIDATE_SHA"
           git worktree add --detach "$RUNNER_TEMP/c55-baseline" "$BASELINE_SHA"
@@ -64,7 +66,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: c55-solver-comparison-${{ github.event.pull_request.head.sha }}
+          name: c55-solver-comparison-${{ inputs.candidate_sha }}
           path: test-results/c55-benchmark/
           retention-days: 14
           if-no-files-found: warn
