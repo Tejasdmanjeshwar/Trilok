@@ -1,0 +1,52 @@
+name: C6.2 One-shot Motion Browser Evidence
+on:
+  push:
+    branches: [feat/c6-2-animation-baking-studio-playback]
+    paths: [.github/workflows/c6-2-visual-once.yml]
+permissions:
+  contents: read
+jobs:
+  studio-animation:
+    name: Motion evidence (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chromium, touch-chromium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: |
+            apps/web/public/anatomy/makehuman-base.obj
+            apps/web/public/anatomy/makehuman-default.mhskel
+            apps/web/public/anatomy/makehuman-default_weights.mhw
+            apps/web/public/anatomy/makehuman-facial-v1.json
+            assets/cache/makehuman-body-v1.json
+          key: makehuman-pinned-v1-${{ runner.os }}-${{ hashFiles('assets/makehuman-core.json', 'assets/makehuman-body-v1.json', 'assets/makehuman-facial-v1.json', 'scripts/fetch-makehuman-*.mjs', 'scripts/fetch-pinned-source.mjs') }}
+      - run: pnpm build
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: studio-chromium-${{ runner.os }}-${{ hashFiles('package.json') }}
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Capture real-skinned C6.2 motion
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: |
+          pnpm exec playwright test e2e/studio-animation-c6-2.spec.ts --project="$PROJECT" --retries=0 --workers=1 --reporter=list --trace=retain-on-failure --output=test-results/c6-2-motion
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: c6-2-motion-${{ matrix.project }}-${{ github.run_id }}
+          path: |
+            test-results/c6-2-motion/**
+            test-results/studio-c6-2/**
+          if-no-files-found: warn
+          retention-days: 14
