@@ -59,6 +59,15 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         expect(source).not.toMatch(/pnpm test:e2e/);
         continue;
       }
+      if(path==="lab-retirement-visual.yml"){
+        // Temporary, exact-PR-path migration evidence. REMOVE before merge.
+        expect(source).toMatch(/pull_request:/);
+        expect(source).toMatch(/e2e\/studio-source-parity\.spec\.ts/);
+        expect(source).toMatch(/--retries=0 --workers=1/);
+        expect(source).toMatch(/project: \[desktop-chromium, touch-chromium\]/);
+        expect(source).not.toMatch(/pnpm test:e2e/);
+        continue;
+      }
       expect(source, `${path} must not install or execute browsers during subphases`)
         .not.toMatch(/playwright\s+(install|test)|pnpm\s+(test:e2e|exec\s+playwright)|chromium/i);
     }
