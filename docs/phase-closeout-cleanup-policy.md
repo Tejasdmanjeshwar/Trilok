@@ -20,6 +20,8 @@ Before any phase may be signed off:
 
 C0–C5 predate this policy. Do not retroactively erase historical evidence or rerun their entire manual Phase Acceptance just for documentation; the [retrospective audit](repository-cleanup-audit-2026-11-18.md) inventories their inherited debt, to be retired incrementally before C6 closure. C5 issue #81 remains separately tracked.
 
+Until C2/C3 dedicated Lab E2E checks are ported, `TRILOK_INCLUDE_LAB=1 pnpm build` intentionally retains the diagnostic page for manually dispatched full browser acceptance; default production builds must omit it. This separation is temporary and is **not** full Lab code retirement.
+
 C6.1 has already merged (PR #106); C6.2 must build on the existing canonical rig and should not be delayed by speculative repository-wide refactoring. The **C6 phase cleanup record and removal of retired Lab production paths** are required before C6 Phase Acceptance. Perform small code hygiene alongside appropriate work, with one focused change per PR.
 
 A permanent GitHub Action for every subphase, a second repository, a new build system or a blanket tree-shaking rule is **not** required.
