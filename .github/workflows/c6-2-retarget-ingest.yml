@@ -2,7 +2,7 @@ name: C6.2 ingest Quaternius source clips
 on:
   push:
     branches: [feat/c6-2-animation-baking-studio-playback]
-    paths: ['.github/workflows/c6-2-retarget-ingest.yml']
+    paths: ['.github/workflows/c6-2-retarget-ingest.yml', 'scripts/bake-reference-animations.mjs']
   workflow_dispatch:
 permissions:
   contents: write
