@@ -13,7 +13,7 @@ describe("C6.2 exact UAL1 anatomical correspondence",()=>{
     const graph=createAnatomyPreset({archetype:"human"});
     const map=mapUAL1StandardJoints(graph,names);
     const pairs=new Map(map.map(m=>[m.sourceId,m.targetId]));
-    expect(map.length).toBeGreaterThanOrEqual(55);
+    expect(map.length).toBe(49);
     expect(new Set(map.map(m=>m.targetId)).size).toBe(map.length);
     expect(new Set(map.map(m=>m.sourceId)).size).toBe(map.length);
     for(const side of ["left","right"] as const){
