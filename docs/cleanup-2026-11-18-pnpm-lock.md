@@ -12,7 +12,7 @@
 
 ## Verification gate
 
-Remaining Github workflows with installs switch to `pnpm install --frozen-lockfile`. The normal Verify, complete manual Phase Acceptance, manual solver performance runs, C5 paired solver comparison and Blender C5.2 reference use the same locked graph. `tests/ci-phase-gating.test.ts` checks pinned package-manager declaration, lock schema and that none of the current workflow definitions bypasses frozen installation.
+Remaining Github workflows with installs switch to `pnpm install --frozen-lockfile`. The normal Verify, complete manual Phase Acceptance, manual solver performance runs, C5 paired solver comparison and Blender C5.2 reference use the same locked graph. The historically expensive C5 paired comparison is **manual workflow_dispatch only** with independently validated baseline/candidate SHAs; it requires both commits to include a compatible committed lockfile, avoiding uncontrolled PR-triggered 65-minute CI runs. `tests/ci-phase-gating.test.ts` checks pinned package-manager declaration, lock schema and that none of the current workflow definitions bypasses frozen installation.
 
 Required before merge: clean Verify with `pnpm typecheck`, full deterministic tests, `pnpm build`, compiled build identity. Should it fail due lockfile incompatibility, investigate the actual generated file or package manifest; do **not** fall back to non-frozen installs.
 
