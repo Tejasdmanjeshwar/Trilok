@@ -41,5 +41,7 @@ jobs:
             channels=animation['channels'];samplers=animation['samplers']
             counts=collections.Counter(c.get('target',{}).get('path') for c in channels)
             joints=collections.Counter(nodes[c['target']['node']].get('name') for c in channels if c['target']['path']=='rotation')
-            print('CLIP',repr(animation.get('name')),'CHANNELS',len(channels),'COUNTS',dict(counts),'ROTATION_JOINTS',list(joints))
+            if animation.get('name') in ('Idle_Loop','Walk_Loop','Jog_Fwd_Loop','Sprint_Loop'):
+              print('SELECTED',animation.get('name'),'SAMPLERS',[(s['interpolation'] if 'interpolation' in s else 'LINEAR',gltf['accessors'][s['input']]['count'],gltf['accessors'][s['input']].get('max')) for s in samplers][:5])
+          print('CLIP',repr(animation.get('name')),'CHANNELS',len(channels),'COUNTS',dict(counts),'ROTATION_JOINTS',list(joints))
           PY
