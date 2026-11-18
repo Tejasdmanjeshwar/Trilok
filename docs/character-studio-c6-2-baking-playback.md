@@ -1,9 +1,9 @@
-# C6.2 reference animation baking and Studio playback
+# C6.2 reference animation baking, locomotion revision and Studio playback
 
 **Status:** Draft PR #112. Canonical JSON assets and SHA-256 manifest are generated and committed from a pinned GitHub Actions Node/Vite bake. This record does not assert browser visual acceptance, CI passage, or C6 phase acceptance.
 
 ## Production route
-The source of truth for all three original, proprietary Trilok reference motions is
+The source of truth for all three original, proprietary Trilok motion source definitions is
 `packages/character-core/src/animation-library.ts`. This is a tightly scoped
 TypeScript procedural source: no externally licensed mocap data, Blender binary,
 or Python dependency is required in the public build. The manually dispatched
@@ -67,3 +67,11 @@ Diagnostics (`suite=animation`, `iterations=1`). This is not full C6 Phase
 Acceptance; the scope is three reference clips and two viewport projects.
 Do not merge until the manual workflow completes and actual screenshots are
 visually inspected. Keep the baseline policy tests unchanged.
+
+## 2026-11-18 animation quality review and next acceptance gate
+
+The owner rejected the former `relaxed-idle`, `controlled-step` and `ready-gesture` as visually implausible. These were implementation reference clips, **not approved polished animation**. They have been replaced in the draft feature branch by `human-idle`, `human-walk` and `human-run`, with deterministic cyclic joint-pose authoring, opposing limb coordination, stride/flight rhythm, toe/ankle motion and presentation-only root offsets. This replacement is still a **procedural reference**, not a verified motion-capture-quality asset; do not assert realistic planted feet, C6.3 gait IK, or visual acceptance until there is multi-angle browser evidence and direct owner review.
+
+**Production asset research:** MakeHuman supports skeleton poses/BVH; its source plugins and Blender MPFB2 tooling permit BVH-based motion import, but do not constitute an independently validated commercial-quality animation library (see https://github.com/makehumancommunity/makehuman/blob/master/makehuman/plugins/3_libraries_pose.py). Blender can bake/export armature actions to glTF (https://docs.blender.org/manual/en/dev/addons/scene_gltf2.html), but no Blender binary was available in this execution environment. Adobe documents that its Mixamo animations can be used royalty-free in video games (https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html), subject to its product-specific restrictions. Mixamo download requires access to the hosted asset; no external animation download, rights verification at the file level, or third-party clip ingestion occurred in this revision. Do not claim that the current procedurally-authored clips were sampled from Mixamo or Blender.
+
+**Quality gate:** Inspect front, rear, side and 3/4 video or screenshot sequences on the actual MakeHuman-skinned Studio human. Reject visible limb inversion, foot clipping/sliding, joint pinching, mechanical arm swing, unstable root bob, and unmatched walk/run speed. Before C6.3 promotion, use externally authored/licensed motion or a measured foot-contact + balance solver for any cases the handcrafted loops cannot satisfy. Keep combat authority and C5 grip recovery unchanged. The user-facing Studio must never call these clips polished or AAA until actual evidence exists.
