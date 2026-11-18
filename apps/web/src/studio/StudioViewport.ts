@@ -699,8 +699,8 @@ export function createStudioViewport(
     // Initialize the real framing synchronously; retain animated Reset View
     // and angle transitions after the Studio is interactive.
     const startingView=STUDIO_VIEWS["three-quarter"];
-    camera.position.set(...startingView.position);
-    controls.target.set(...startingView.target);
+    camera.position.fromArray(startingView.position);
+    controls.target.fromArray(startingView.target);
     controls.update();
     setLight(light);
     resize=new ResizeObserver(measure);
