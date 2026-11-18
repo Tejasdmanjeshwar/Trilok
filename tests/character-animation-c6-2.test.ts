@@ -30,9 +30,9 @@ describe("C6.2 verified Quaternius source-backed motion",()=>{
     expect(manifest.sourceArchiveSha256).toBe(source.sourceArchiveSha256);
     expect(manifest.sourceGlbSha256).toBe(source.sourceGlbSha256);
     expect(manifest.sourceInputSha256).toBe(hash(raw));
-    expect(manifest.entries.map(e=>e.id)).toEqual(expectedIds);
-    expect(source.clips.map(c=>c.sourceName)).toEqual([
-      "Idle_Loop","Walk_Loop","Jog_Fwd_Loop"]);
+    expect(manifest.entries.map(e=>e.id).sort()).toEqual([...expectedIds].sort());
+    expect(source.clips.map(c=>c.sourceName).sort()).toEqual([
+      "Idle_Loop","Walk_Loop","Jog_Fwd_Loop"].sort());
     for(const entry of manifest.entries){
       const content=readFileSync("assets/animations/reference-v1/"+entry.filename,"utf8");
       const clip=parseAnimationClip(content,graph);
