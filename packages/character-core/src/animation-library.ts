@@ -230,7 +230,7 @@ export function bakeReferenceMotion(source:ReferenceMotionSourceV1,
     durationSeconds:source.durationSeconds,
     source:{kind:"internal",creator:"trilok",revision:"c6.2-gait-source-v2",
       license:"Trilok-Proprietary"},
-    rootMotion:source.rootTranslation?"visual_only":"locked",layer:{mode:"base",jointMask:tracks.map(t=>t.jointId)},
+    rootMotion:source.rootTranslation?"visual_only":"locked",layer:{mode:"base",jointMask:[...new Set(tracks.map(t=>t.jointId))]},
     retarget:{mode:"rest_delta",authoredBindPoseId:rig.bindPoseId},
     tracks,contacts:[]};
   validateAnimationClip(clip,graph);
