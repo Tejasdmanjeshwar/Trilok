@@ -99,6 +99,7 @@ try{
   const sourceChildFallback=new Map([
     ["spine_01","spine_02"],
     ["hand_l","middle_01_l"],["hand_r","middle_01_r"],
+    ["foot_l","ball_l"],["foot_r","ball_r"],
   ]);
   const localRetargetBasis=new Map();
   for(const joint of graph.joints){
