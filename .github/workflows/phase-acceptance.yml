@@ -69,7 +69,10 @@ jobs:
           key: makehuman-pinned-v1-${{ runner.os }}-${{ hashFiles('assets/makehuman-core.json', 'assets/makehuman-body-v1.json', 'assets/makehuman-facial-v1.json', 'scripts/fetch-makehuman-*.mjs', 'scripts/fetch-pinned-source.mjs') }}
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
+      - name: Build with diagnostic Lab for legacy E2E parity
+        env:
+          TRILOK_INCLUDE_LAB: '1'
+        run: pnpm build
       - name: Verify exact checkout build identity
         run: node scripts/verify-build-identity.mjs
 
@@ -103,7 +106,10 @@ jobs:
             apps/web/public/anatomy/makehuman-facial-v1.json
             assets/cache/makehuman-body-v1.json
           key: makehuman-pinned-v1-${{ runner.os }}-${{ hashFiles('assets/makehuman-core.json', 'assets/makehuman-body-v1.json', 'assets/makehuman-facial-v1.json', 'scripts/fetch-makehuman-*.mjs', 'scripts/fetch-pinned-source.mjs') }}
-      - run: pnpm build
+      - name: Build with diagnostic Lab for legacy E2E parity
+        env:
+          TRILOK_INCLUDE_LAB: '1'
+        run: pnpm build
       - name: Verify exact checkout build identity
         run: node scripts/verify-build-identity.mjs
       - name: Install Chromium
