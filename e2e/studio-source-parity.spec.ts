@@ -73,6 +73,7 @@ test("Original MakeHuman face controls render on Studio skin, jaw and camera mod
   await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
   await capture(page,"facial-asymmetric");
   await page.locator("#studio-advanced").check();
+  await page.locator("#studio-group").selectOption("all");
   await page.locator("#studio-control-search").fill("mouth-open");
   const mouth = page.locator('[data-control-id="face:native/expression/mouth-open"] input[type=number]');
   await expect(mouth).toBeVisible();
