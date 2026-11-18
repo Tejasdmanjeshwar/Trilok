@@ -55,4 +55,15 @@ See C6.3 and C6.4 for grounded gait and weapon-aware layered IK.
 
 Committed original motion clips at `assets/animations/reference-v1/` have respective byte sizes **2,442**, **5,941** and **5,143**. The exact output SHA-256 values are recorded in `manifest.json`; the ordinary PR Verify recomputes source/clip/manifest bytes and fails on differences. Studio's `StudioReferenceLibrary` imports the **baked JSON**, verifies the canonical rig before playback, and never needs Vite's SSR API in the browser. The existing C5.2 Blender workflow was inspected but not invoked or duplicated; no new third-party assets or packages were added.
 
-Rendered desktop/touch evidence is tracked by the focused `e2e/studio-animation-c6-2.spec.ts` test and the scoped PR run artifact. Until those have succeeded and been reviewed, claims about the quality of step grounding or deformation remain unverified.
+Rendered desktop/touch evidence is tracked by the focused `e2e/studio-animation-c6-2.spec.ts` test and the existing manually dispatched `Studio Interaction Diagnostics` workflow with suite `animation` on the PR branch, one iteration per desktop and touch project; this avoids PR-triggered Chromium costs. Until those have succeeded and been reviewed, claims about the quality of step grounding or deformation remain unverified.
+
+## Verification gate
+
+The first draft PR Verify run exposed an explicit CI policy violation: automatically
+installing Chromium inside fast `ci.yml` is prohibited. The two failures in
+`tests/ci-phase-gating.test.ts` were corrected by restoring the fast Verify
+workflow and extending existing **manually dispatched** Studio Interaction
+Diagnostics (`suite=animation`, `iterations=1`). This is not full C6 Phase
+Acceptance; the scope is three reference clips and two viewport projects.
+Do not merge until the manual workflow completes and actual screenshots are
+visually inspected. Keep the baseline policy tests unchanged.

@@ -9,7 +9,7 @@ on:
         description: "Studio tests to run (never all E2E tests)"
         required: true
         type: choice
-        options: [focus-repeat, related]
+        options: [focus-repeat, related, animation]
         default: focus-repeat
       iterations:
         description: "First-attempt repetitions per Chromium project"
@@ -89,6 +89,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p test-results/studio-diagnostics
+          if [ "$SUITE" = "animation" ]; then
+            pnpm exec playwright test e2e/studio-animation-c6-2.spec.ts \
+              --project="$PROJECT" --repeat-each="$ITERATIONS" --retries=0 --workers=1 \
+              --reporter=list,junit --trace=retain-on-failure \
+              --output=test-results/studio-diagnostics/e2e
+            exit $?
+          fi
           if [ "$SUITE" = "focus-repeat" ]; then
             PATTERN="Double-tapping the rendered character"
           elif [ "$SUITE" = "related" ]; then
@@ -118,7 +125,7 @@ jobs:
           const cases=(xml.match(/<testcase\b/g)||[]).length;
           const failures=(xml.match(/<(?:failure|error)\b/g)||[]).length;
           const skipped=(xml.match(/<skipped\b/g)||[]).length;
-          const expected=Number(process.env.ITERATIONS)*(process.env.SUITE==='focus-repeat'?1:4);
+          const expected=Number(process.env.ITERATIONS)*(process.env.SUITE==='focus-repeat'?1:process.env.SUITE==='animation'?2:4);
           const result=[
             '## Studio interaction diagnostics ('+process.env.PROJECT+')',
             '- Workflow: '+process.env.RUN_URL,
@@ -145,5 +152,6 @@ jobs:
           path: |
             test-results/studio-diagnostics/**
             test-results/studio/**
+            test-results/studio-c6-2/**
           if-no-files-found: warn
           retention-days: 14
