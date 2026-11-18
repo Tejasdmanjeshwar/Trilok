@@ -65,6 +65,18 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
     window.addEventListener("trilok:studio:surface-focus-diagnostic",event=>{
       stages.push((event as CustomEvent).detail);
     });
+    // Correlate gesture gaps with main-thread long tasks rather than
+    // assuming that every delayed CDP input was blocked by rendering.
+    const longTasks:{startTime:number;duration:number}[]=[];
+    (window as Window & {__studioFocusLongTasks?:unknown[]}).__studioFocusLongTasks=longTasks;
+    if(typeof PerformanceObserver!=="undefined"){
+      try{
+        new PerformanceObserver(entries=>{
+          for(const entry of entries.getEntries())
+            longTasks.push({startTime:entry.startTime,duration:entry.duration});
+        }).observe({type:"longtask",buffered:true});
+      }catch{/* Long-task entries are unsupported on some browsers. */}
+    }
   });
   test.setTimeout(150_000);
   await page.goto("/studio/?studio-focus-diagnostics=1");
@@ -92,6 +104,11 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
       window as Window & {__studioFocusStages?:unknown[]}).__studioFocusStages??[]);
     await test.info().attach("surface-focus-stages",{
       body:Buffer.from(JSON.stringify(stages,null,2)),contentType:"application/json",
+    });
+    const longTasks=await page.evaluate(()=>
+      (window as Window & {__studioFocusLongTasks?:unknown[]}).__studioFocusLongTasks??[]);
+    await test.info().attach("surface-focus-long-tasks",{
+      body:Buffer.from(JSON.stringify(longTasks,null,2)),contentType:"application/json",
     });
     throw error;
   }
