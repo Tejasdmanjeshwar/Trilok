@@ -16,10 +16,14 @@ export function isShortTap(start:StudioTap,end:StudioTap):boolean {
     Math.hypot(end.x-start.x,end.y-start.y)<=12;
 }
 
-/** Two deliberate taps at the same screen location, on mouse, pen or touch. */
+/** Two deliberate taps at the same screen location, on mouse, pen or touch.
+ * Touch input can be delivered later than mouse input under a busy mobile
+ * WebGL frame. Allow a slightly longer human double-tap cadence while keeping
+ * movement and per-tap gesture rejection unchanged. */
 export function isDoubleTap(first:StudioTap,second:StudioTap):boolean {
+  const interval=first.pointerType==="touch"?650:380;
   return first.pointerType===second.pointerType &&
-    second.time>first.time && second.time-first.time<=380 &&
+    second.time>first.time && second.time-first.time<=interval &&
     Math.hypot(second.x-first.x,second.y-first.y)<=26;
 }
 
