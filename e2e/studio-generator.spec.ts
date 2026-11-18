@@ -13,8 +13,11 @@ test("One-click Random character produces editable results with Undo and Redo",a
   await expect(generator.getByRole("button",{name:"Random character"})).toBeVisible();
   await expect(generator.locator("#studio-generator-seed")).toBeVisible();
   await generator.getByRole("button",{name:"Random character"}).click();
+  const firstSeed=await generator.locator("#studio-generator-seed").inputValue();
   await expect(page.locator("#studio-generator-feedback"))
-    .toContainText("New character created",{timeout:150_000});
+    .toContainText(`Character generated from seed ${firstSeed}.`,{timeout:60_000});
+  await expect(page.locator("#studio-generator-current-seed"))
+    .toContainText(firstSeed);
   await expect(page.locator("#studio-undo")).toBeEnabled();
   await page.locator("#studio-undo").click();
   await expect(page.locator("#studio-redo")).toBeEnabled();
@@ -24,8 +27,11 @@ test("One-click Random character produces editable results with Undo and Redo",a
   await expect(page.locator("#studio-control-count")).toBeVisible();
   await page.getByRole("button",{name:"Generate",exact:true}).click();
   await generator.getByRole("button",{name:"Random character"}).click();
+  const secondSeed=await generator.locator("#studio-generator-seed").inputValue();
   await expect(page.locator("#studio-generator-feedback"))
-    .toContainText("New character created",{timeout:150_000});
+    .toContainText(`Character generated from seed ${secondSeed}.`,{timeout:60_000});
+  await expect(page.locator("#studio-generator-current-seed"))
+    .toContainText(secondSeed);
   await page.getByRole("button",{name:"View",exact:true}).click();
   await page.locator("#studio-focus-area").selectOption("face");
   await page.locator("#studio-focus").click();
