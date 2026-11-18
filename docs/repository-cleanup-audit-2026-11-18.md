@@ -57,7 +57,7 @@
 
 ## Follow-up remediation (cleanup slice 2)
 
-[Workflow-retirement evidence and retained benchmark procedures](cleanup-2026-11-18-workflows.md) document retirement of the historical ref-pruning workflow/script and redundant automatic source-classification benchmark. This reduces the workflow definitions from nine to seven **upon merge** and does not affect the normal Verify, manual Phase Acceptance, source and combat regression suites, or production runtime. The remaining C55 paired comparison is retained while C5 issue #81 is open.
+[Workflow-retirement evidence and retained benchmark procedures](cleanup-2026-11-18-workflows.md) document retirement of the historical ref-pruning workflow/script and redundant automatic source-classification benchmark. This reduces the workflow definitions from nine to seven **upon merge** and does not affect the normal Verify, manual Phase Acceptance, source and combat regression suites, or production runtime. The remaining C55 paired comparison is retained while C5 issue #81 is open, and a subsequent focused dependency-lock PR converts it to manual exact-SHA dispatch rather than expensive PR-path automation.
 
 ## Dependency determinism follow-up
 
