@@ -233,7 +233,8 @@ export function createStudioViewport(
     posePreview.setGrip("none");
     posePreview.setPose("neutral");
     const clip=loadBakedStudioAnimation(source.id,active.human.spike.graph);
-    animation=new StudioAnimationPlayback(active.human.spike.character,clip);
+    animation=new StudioAnimationPlayback(active.human.spike.character,clip,
+      samples=>posePreview!.applyAnimationSamples(samples));
     animationId=id;
     updateMarkers();emitAnimation();
   }
