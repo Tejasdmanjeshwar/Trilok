@@ -1,5 +1,6 @@
 // Reproducible asset acquisition for browser build; never invokes MakeHuman/Blender.
 import { createHash } from "node:crypto";
+import {fetchPinnedSourceBytes} from "./fetch-pinned-source.mjs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,9 +26,7 @@ if(cached){
   catch{console.warn("Cached anatomy asset invalid; re-fetching pinned upstream");}
 }
 if(!cacheVerified){
-const response=await fetch(url,{signal:AbortSignal.timeout(45000)});
-if(!response.ok)throw new Error("Pinned MakeHuman download failed: HTTP "+response.status);
-const bytes=Buffer.from(await response.arrayBuffer());
+const bytes=await fetchPinnedSourceBytes(url,{timeoutMs:45_000});
 const sha256=await verify(bytes);
 await mkdir(dirname(target),{recursive:true});
 await writeFile(target,bytes);
@@ -61,10 +60,7 @@ for(const data of [
   try{if(existing&&verifySource(existing))continue;}catch{}
   const pinnedUrl="https://raw.githubusercontent.com/makehumancommunity/makehuman/"+
     manifest.revision+"/"+data.path;
-  const sourceResponse=await fetch(pinnedUrl,{signal:AbortSignal.timeout(45000)});
-  if(!sourceResponse.ok)throw new Error("Official rig download failed: "+data.path+
-    " ("+sourceResponse.status+")");
-  const bytes=Buffer.from(await sourceResponse.arrayBuffer());
+  const bytes=await fetchPinnedSourceBytes(pinnedUrl,{timeoutMs:45_000});
   verifySource(bytes);
   await mkdir(dirname(file),{recursive:true});
   await writeFile(file,bytes);
