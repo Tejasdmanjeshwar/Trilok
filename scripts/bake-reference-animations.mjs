@@ -84,6 +84,54 @@ try{
   targetScene.updateMatrixWorld(true);
   const targetRest=new Map(graph.joints.map(j=>[
     j.id,target.get(j.id).getWorldQuaternion(new THREE.Quaternion())]));
+  /**
+   * Quaternius is T-posed: upperarm_r's REST segment points almost entirely
+   * toward -X; MakeHuman's corresponding C1 arm points down/sideways.
+   * Transferring only world-rest quaternion deltas rotates a DOWNWARD arm
+   * by the 90-degree T-pose recovery, folding it across the abdomen.
+   *
+   * Instead align the target's measured local bone-to-child anatomical axis
+   * to the source's actual local bone-to-child axis. Applying source ABSOLUTE
+   * animated world orientations through that fixed rest-basis conversion
+   * reproduces its physical segment direction without guessing any poses.
+   * Missing minor segments conservatively retain the old delta behavior.
+   */
+  const sourceChildFallback=new Map([
+    ["spine_01","spine_02"],
+    ["hand_l","middle_01_l"],["hand_r","middle_01_r"],
+  ]);
+  const localRetargetBasis=new Map();
+  for(const joint of graph.joints){
+    const srcName=roles.get(joint.role);
+    if(!srcName)continue;
+    const srcIndex=nodeNames.get(srcName);
+    if(srcIndex===undefined)throw new Error("Unknown source joint "+srcName);
+    const candidates=graph.joints.filter(j=>j.parentId===joint.id);
+    const targetChild=candidates.find(j=>roles.has(j.role))??candidates[0];
+    if(!targetChild)continue;
+    const preferredName=roles.get(targetChild.role);
+    let childIndex=preferredName===undefined?undefined:nodeNames.get(preferredName);
+    if(childIndex===undefined||source.nodes[childIndex].parent!==srcIndex){
+      const fallback=sourceChildFallback.get(srcName);
+      childIndex=fallback===undefined?undefined:nodeNames.get(fallback);
+    }
+    if(childIndex===undefined||source.nodes[childIndex].parent!==srcIndex)continue;
+    const targetDir=new THREE.Vector3(...targetChild.bindTranslation);
+    const sourceDir=new THREE.Vector3(...source.nodes[childIndex].translation);
+    if(targetDir.lengthSq()<1e-8||sourceDir.lengthSq()<1e-8)
+      throw new Error("Collapsed anatomical retarget segment "+joint.role);
+    const correction=new THREE.Quaternion().setFromUnitVectors(
+      targetDir.normalize(),sourceDir.normalize());
+    localRetargetBasis.set(joint.id,correction);
+  }
+  for(const role of ["pelvis","spine_lower","chest","neck",
+    "clavicle_left","clavicle_right","shoulder_left","shoulder_right",
+    "elbow_left","elbow_right","wrist_left","wrist_right",
+    "hip_left","hip_right","knee_left","knee_right","ankle_left","ankle_right"]){
+    const joint=graph.joints.find(j=>j.role===role);
+    if(!joint||!localRetargetBasis.has(joint.id))
+      throw new Error("Missing primary anatomical segment retarget basis "+role);
+  }
   const files={};
   const entries=[];
   const coverage=new Set(["pelvis","spine_lower","chest","neck","head",
@@ -128,9 +176,13 @@ try{
             desiredWorld.get(joint.parentId).clone().multiply(localRest):localRest;
         }else{
           const now=joints[srcIndex].getWorldQuaternion(new THREE.Quaternion());
-          // World-rest-relative motion in the source's actual glTF hierarchy,
-          // translated into canonical world axes and then target parent space.
-          world=now.multiply(restRot[srcIndex].clone().invert()).multiply(base).normalize();
+          // Source T-pose and C1 MakeHuman bind limbs have DIFFERENT segment
+          // directions. Match source animated physical bone orientation using
+          // measured child axes; a generic world-rest delta overrotates arms.
+          const anatomicalBasis=localRetargetBasis.get(joint.id);
+          world=anatomicalBasis?
+            now.multiply(anatomicalBasis).normalize():
+            now.multiply(restRot[srcIndex].clone().invert()).multiply(base).normalize();
         }
         const parentWorld=joint.parentId?desiredWorld.get(joint.parentId):new THREE.Quaternion();
         const local=parentWorld.clone().invert().multiply(world).normalize();
@@ -192,9 +244,9 @@ try{
     license:source.license,origin:source.origin,
     sourceArchiveSha256:source.sourceArchiveSha256,
     sourceGlbSha256:source.sourceGlbSha256,sourceInputSha256:sha256(sourceBytes),
-    importer:source.importer,retargeter:"scripts/bake-reference-animations.mjs@ual1-rest-world-v1",
-    generatorRevision:"c6.2-ual1-rest-world-v1",
-    normalization:"source glTF world-rest delta to C1 calibrated local rest delta",
+    importer:source.importer,retargeter:"scripts/bake-reference-animations.mjs@ual1-measured-segment-v2",
+    generatorRevision:"c6.2-ual1-segment-basis-v2",
+    normalization:"source glTF absolute world motion via measured child-axis basis to canonical local rest deltas",
     entries},null,2)+"\n";
   files["manifest.json"]=manifest;
   if(write){
