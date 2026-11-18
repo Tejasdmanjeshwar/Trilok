@@ -53,7 +53,7 @@
 
 **Stage 3, CI/workflow rationalization:** Benchmark the cost and uniqueness of C5 comparison workflows. Keep `verify`, source pinning, core acceptance and an accessible focused browser diagnostic. Remove or convert redundant PR-triggered benchmarks to manual when performance baselines are retained. Review post-branch-cleanup workflow and GitHub auto-delete settings.
 
-**Stage 4, end-of-C6 closeout:** Audit import graph and actual built chunks, test counts, paths/workflows/assets, ownership/disposal, source rights and exact SHA; produce `docs/character-studio-c6-cleanup.md` with literal `Phase: C6`. Run normal Verify and dedicated desktop/touch acceptance, then collect owner signoff. **C6.2 can proceed once Stage 1 has green CI; C6 phase acceptance remains gated on remaining confirmed debt.**
+**Stage 4, end-of-C6 closeout:** Audit import graph and actual built chunks, test counts, paths/workflows/assets, ownership/disposal, source rights and exact SHA; produce `docs/character-studio-c6-cleanup.md` with literal `Phase: C6`. Run normal Verify and dedicated desktop/touch acceptance, then collect owner signoff. **Hold C6.2 until the retrospective Lab retirement and workflow cleanup are completed and verified, or the owner explicitly accepts a documented narrowly scoped deferral.** Full C6 phase acceptance remains gated on a signed cleanup record.
 
 ## Verification ledger
 
