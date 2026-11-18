@@ -71,7 +71,8 @@ export function createStudioViewport(
   let previousTap:StudioTap|undefined;
   const pointers=new Set<number>();
   const makeTap=(event:PointerEvent):StudioTap=>({
-    x:event.clientX,y:event.clientY,time:performance.now(),pointerType:event.pointerType,
+    // Preserve the physical event time when a busy render frame queues input.
+    x:event.clientX,y:event.clientY,time:event.timeStamp,pointerType:event.pointerType,
   });
   const clearTap=():void=>{pointerStart=undefined;previousTap=undefined;};
   const onPointerDown=(event:PointerEvent):void=>{
@@ -96,6 +97,10 @@ export function createStudioViewport(
       if(!rect||rect.width<=0||rect.height<=0||!active)return;
       pointerNDC.set((event.clientX-rect.left)/rect.width*2-1,
         1-(event.clientY-rect.top)/rect.height*2);
+      // A pointer can arrive before the first post-load frame. Always
+      // raycast the actual posed surface with current camera/skin matrices.
+      camera.updateMatrixWorld();
+      active.human.spike.character.root.updateWorldMatrix(true,true);
       raycaster.setFromCamera(pointerNDC,camera);
       // Raycast exactly the current skinned, posed mesh, not the ground or overlays.
       const hit=raycaster.intersectObject(active.human.mesh,false)[0];
@@ -688,8 +693,15 @@ export function createStudioViewport(
     element.append(renderer.domElement);
     controls=new OrbitControls(camera,renderer.domElement);
     configureControls(controls);
-    controls.target.set(0,.95,0);
-    resetView();
+    // Startup has no meaningful previous view. A 430ms animated flight from
+    // the camera origin could be interrupted by the user's first pointerdown,
+    // leaving the first double-tap ray outside the displayed human.
+    // Initialize the real framing synchronously; retain animated Reset View
+    // and angle transitions after the Studio is interactive.
+    const startingView=STUDIO_VIEWS["three-quarter"];
+    camera.position.set(...startingView.position);
+    controls.target.set(...startingView.target);
+    controls.update();
     setLight(light);
     resize=new ResizeObserver(measure);
     resize.observe(element);
