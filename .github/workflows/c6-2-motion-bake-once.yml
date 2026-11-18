@@ -23,7 +23,7 @@ jobs:
       - run: pnpm animation:bake
       - name: Remove replaced C6.2 prototype files
         run: |
-          git rm assets/animations/reference-v1/relaxed-idle.clip.json assets/animations/reference-v1/controlled-step.clip.json assets/animations/reference-v1/ready-gesture.clip.json
+          git rm -f --ignore-unmatch assets/animations/reference-v1/relaxed-idle.clip.json assets/animations/reference-v1/controlled-step.clip.json assets/animations/reference-v1/ready-gesture.clip.json
       - name: Commit reproducibly baked reference assets
         run: |
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
