@@ -45,7 +45,7 @@ jobs:
             if [[ ! "$REPORT" =~ ^docs/[a-zA-Z0-9/_-]+[.]md$ ]]; then
               echo "::error::C6+ Phase Acceptance requires a relative docs/*.md cleanup report"; exit 1
             fi
-            if [[ ! -f "$REPORT" ]] || ! grep -Fq "Phase: $PHASE" "$REPORT"; then
+            if [[ ! -f "$REPORT" ]] || ! grep -Fxq "Phase: $PHASE" "$REPORT"; then
               echo "::error::Cleanup report must exist at this SHA and declare Phase: $PHASE"; exit 1
             fi
             echo "Validated cleanup report: $REPORT for $PHASE"
