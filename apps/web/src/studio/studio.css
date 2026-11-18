@@ -333,3 +333,11 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
   .studio-generator-seed-actions button{width:100%}}
 @media(forced-colors:active){.studio-generator-seed-actions input,
   .studio-generator-seed-actions button{border:1px solid CanvasText}}
+
+/* C6.2 animation controls share the existing responsive Studio inspector. */
+.studio-animation-panel input[type="range"] { width:100%; min-height:36px; cursor:pointer; }
+.studio-animation-panel output { display:block; text-align:right; font-variant-numeric:tabular-nums; margin-bottom:12px; }
+.studio-animation-panel button { min-height:42px; }
+.studio-animation-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.studio-animation-panel .studio-switch { margin-block:12px; }
+#studio-animation-static { width:100%; }

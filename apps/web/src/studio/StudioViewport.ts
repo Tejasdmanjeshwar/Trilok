@@ -24,6 +24,8 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
+import {bakeReferenceMotion,REFERENCE_MOTION_SOURCES} from "@trilok/character-core";
+import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
 import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
 
@@ -45,7 +47,22 @@ export interface StudioViewport {
   setExpression(expression:StudioExpression):Promise<boolean>;
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
+  selectAnimation(id:string|null):void;
+  playAnimation(playing:boolean):void;
+  seekAnimation(seconds:number):void;
+  setAnimationSpeed(speed:number):void;
+  setAnimationLoop(loop:boolean):void;
+  stepAnimation(direction:-1|1):void;
+  resetAnimation():void;
   dispose():void;
+}
+export interface StudioAnimationState {
+  readonly clipId:string;
+  readonly timeSeconds:number;
+  readonly durationSeconds:number;
+  readonly playing:boolean;
+  readonly loop:boolean;
+  readonly speed:number;
 }
 
 /** The same CC0 human assembler and semantic skinned rig used by Character Lab.
@@ -55,6 +72,7 @@ export function createStudioViewport(
   onEditError:(message:string)=>void,
   onSurfaceFocus?:(area:StudioFocus)=>void,
   onGripFailure?:(report:StudioGripFailureReport|undefined)=>void,
+  onAnimationState?:(state:StudioAnimationState|undefined)=>void,
 ):StudioViewport {
   const scene=new THREE.Scene();
   const perspective=new THREE.PerspectiveCamera(40,1,.05,90);
@@ -172,6 +190,8 @@ export function createStudioViewport(
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
+  let animation:StudioAnimationPlayback|undefined;
+  let animationId:string|null=null;
   let equipment:EquipmentChoice="none";
   let bowProfile:BowProfile="recurve";
   let archeryState:ArcheryState="rest";
@@ -192,6 +212,41 @@ export function createStudioViewport(
         result&&"bowSkinContact" in result?result:undefined,error));
     }
   };
+  function emitAnimation():void {onAnimationState?.(animation?.state);}
+  function stopAnimation():void {
+    if(!animation&&!animationId)return;
+    animation?.dispose();animation=undefined;animationId=null;
+    posePreview?.setGrip(equipment);
+    posePreview?.setPose(pose);
+    refreshSword();
+    emitAnimation();
+  }
+  function enterAnimation(id:string):void {
+    const source=REFERENCE_MOTION_SOURCES.find(entry=>entry.id===id);
+    if(!source)throw new Error("Unknown reference animation");
+    if(!active||!posePreview)throw new Error("Character is not ready for animation");
+    animation?.dispose();animation=undefined;
+    cancelBowWorker();clearSword();
+    // Static FK/IK and source correctives must be removed before capturing rest.
+    // Retain Studio pose/equipment choices for restoring when animation stops.
+    posePreview.setGrip("none");
+    posePreview.setPose("neutral");
+    const clip=bakeReferenceMotion(source,active.human.spike.graph);
+    animation=new StudioAnimationPlayback(active.human.spike.character,clip);
+    animationId=id;
+    updateMarkers();emitAnimation();
+  }
+  function selectAnimation(id:string|null):void {
+    if(id===null){stopAnimation();return;}
+    if(animationId===id)return;
+    enterAnimation(id);
+  }
+  function playAnimation(playing:boolean):void{animation?.setPlaying(playing);emitAnimation();}
+  function seekAnimation(seconds:number):void{animation?.seek(seconds);updateMarkers();emitAnimation();}
+  function setAnimationSpeed(speed:number):void{animation?.setSpeed(speed);emitAnimation();}
+  function setAnimationLoop(loop:boolean):void{animation?.setLoop(loop);emitAnimation();}
+  function stepAnimation(direction:-1|1):void{animation?.step(direction);updateMarkers();emitAnimation();}
+  function resetAnimation():void{animation?.reset();updateMarkers();emitAnimation();}
   function clearSword():void{
     sword?.dispose();sword=undefined;
     shield?.dispose();shield=undefined;
@@ -322,6 +377,7 @@ export function createStudioViewport(
     }
   }
   function setEquipment(hand:EquipmentChoice):void{
+    stopAnimation();
     if(!["none","left","right","longsword-left","longsword-right",
       "staff-left","staff-right","sword-shield-left","sword-shield-right",
       "bow-left","bow-right"].includes(hand))throw new Error("Unknown equipment choice");
@@ -338,11 +394,13 @@ export function createStudioViewport(
     updateMarkers();
   }
   function setShieldStance(stance:ShieldStance):void{
+    stopAnimation();
     posePreview?.setShieldStance(stance);
     if(isSwordShieldEquipment(equipment))refreshSword();
     updateMarkers();
   }
   function setArcheryState(state:ArcheryState):void{
+    stopAnimation();
     cancelBowWorker();
     archeryState=state;
     if(state==="partial"&&isBowEquipment(equipment)&&posePreview){
@@ -361,6 +419,7 @@ export function createStudioViewport(
     updateMarkers();
   }
   function setArcheryDraw(value:number):void{
+    stopAnimation();
     if(!Number.isFinite(value)||value<0||value>1)
       throw new Error("Invalid archery draw");
     if(archeryDraw===value)return;
@@ -382,6 +441,7 @@ export function createStudioViewport(
     updateMarkers();
   }
   function setBowProfile(profile:BowProfile):void{
+    stopAnimation();
     if(profile!=="simple"&&profile!=="recurve")throw new Error("Unknown bow profile");
     bowProfile=profile;
     if(isBowEquipment(equipment))refreshSword();
@@ -417,6 +477,7 @@ export function createStudioViewport(
   const visibilityChanged=():void=>{
     performanceMonitor.setSuspended(document.hidden);
     if(document.hidden){
+      animation?.suspend();
       cancelBowWorker();
       cancelAnimationFrame(raf);raf=0;
     }else {
@@ -537,6 +598,7 @@ export function createStudioViewport(
     moveTo(previous.position,previous.target);
   }
   function setPose(next:StudioPose):void {
+    stopAnimation();
     cancelBowWorker();
     pose=next;
     try{
@@ -553,6 +615,7 @@ export function createStudioViewport(
     updateMarkers();
   }
   async function setExpression(next:StudioExpression):Promise<boolean> {
+    stopAnimation();
     if(!active)return false;
     cancelBowWorker();
     const current=++ticket;
@@ -668,6 +731,7 @@ export function createStudioViewport(
       if(t>=1)transition=undefined;
     }
     controls.update();
+    if(animation){animation.update(performance.now());emitAnimation();}
     updateMarkers();
     if(element.clientWidth>0 && element.clientHeight>0) {
       renderer.render(scene,camera);
@@ -804,9 +868,9 @@ export function createStudioViewport(
         currentMorphology=state;
         currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
         if(!sameFace)posePreview?.invalidateSourceContact();
-        posePreview?.refresh();
-        if(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||
-          isBowEquipment(equipment))refreshSword();
+        if(!animation)posePreview?.refresh();
+        if(!animation&&(isTwoHandEquipment(equipment)||isSwordShieldEquipment(equipment)||
+          isBowEquipment(equipment)))refreshSword();
         if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
         if(equipment==="none"||sword)onEditError("");
         return true;
@@ -839,13 +903,23 @@ export function createStudioViewport(
       if(!valid()){preview.dispose();incoming.dispose();return false;}
       const previous=active;
       const previousPose=posePreview;
+      const selectedAnimation=animationId;
+      animation?.dispose();animation=undefined;
       disposeInspection();
       clearSword();
       scene.add(incoming.human.spike.character.root);
       active=incoming;
       posePreview=preview;
       currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
-      refreshSword();
+      if(selectedAnimation) {
+        try{enterAnimation(selectedAnimation);}
+        catch(error){
+          animationId=null;
+          preview.setGrip(equipment);preview.setPose(pose);
+          refreshSword();
+          onEditError("This body cannot use the current reference animation.");
+        }
+      }else refreshSword();
       currentMorphology=state;
       currentAppearance=appearance;
       previousPose?.dispose();
@@ -884,6 +958,7 @@ export function createStudioViewport(
     if(disposed)return;
     disposed=true;ticket++;
     cancelBowWorker();
+    animation?.dispose();animation=undefined;
     clearSword();
     requestAbort?.abort();
     requestAbort=undefined;
@@ -913,5 +988,5 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,selectAnimation,playAnimation,seekAnimation,setAnimationSpeed,setAnimationLoop,stepAnimation,resetAnimation,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
 }
