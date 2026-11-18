@@ -27,6 +27,26 @@ export function isDoubleTap(first:StudioTap,second:StudioTap):boolean {
     Math.hypot(second.x-first.x,second.y-first.y)<=26;
 }
 
+/**
+ * A browser can authoritatively emit a trusted mouse dblclick even if its
+ * pointer-event delivery was delayed by WebGL/main-thread scheduling. Honor
+ * that explicit browser gesture only after TWO independently validated short
+ * mouse presses at the same surface location. Do not widen ordinary pointer
+ * intervals, accept script-dispatched events, or apply this to synthetic
+ * touch-generated clicks. The native event must immediately follow tap #2.
+ */
+export function isTrustedMouseDoubleClick(
+  first:StudioTap,second:StudioTap,
+  click:Pick<MouseEvent,"clientX"|"clientY"|"timeStamp"|"button"|"detail"|"isTrusted">,
+):boolean {
+  return click.isTrusted && click.button===0 && click.detail===2 &&
+    first.pointerType==="mouse" && second.pointerType==="mouse" &&
+    second.time>first.time &&
+    click.timeStamp>=second.time && click.timeStamp-second.time<=500 &&
+    Math.hypot(second.x-first.x,second.y-first.y)<=26 &&
+    Math.hypot(click.clientX-second.x,click.clientY-second.y)<=12;
+}
+
 /** Preserve the current orbit target and zoom when switching angle presets.
  * The offset is relative to the baseline preset's target, never world origin. */
 export function positionForFocusedAngle(
