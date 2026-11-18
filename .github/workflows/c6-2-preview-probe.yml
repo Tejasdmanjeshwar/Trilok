@@ -1,0 +1,48 @@
+name: C6.2 deployed preview identity
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/c6-2-animation-baking-studio-playback]
+    paths: ['.github/workflows/c6-2-preview-probe.yml']
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify live preview is built from the exact checked-out commit
+        env:
+          PREVIEW: https://feat-c6-2-animation-baking-studio-playback-trilok.tejasdmjr996.workers.dev
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json,os,time,urllib.request
+          base=os.environ["PREVIEW"]
+          sha=os.environ["COMMIT_SHA"]
+          last="unavailable"
+          # Cloudflare builds are asynchronous; bounded probe never assumes
+          # successful GitHub tests imply a deployment.
+          for attempt in range(12):
+            try:
+              req=urllib.request.Request(base+"/build-info.json",
+                headers={"Cache-Control":"no-cache","User-Agent":"Trilok-preview-identity/1"})
+              with urllib.request.urlopen(req,timeout=12) as response:
+                payload=json.load(response)
+              last=payload.get("commitSha","missing")
+              if last==sha:
+                with urllib.request.urlopen(base+"/studio/",timeout=15) as response:
+                  if response.status!=200:raise ValueError("Studio route HTTP "+str(response.status))
+                  if b"studio-app" not in response.read(250000):
+                    raise ValueError("Studio HTML missing mounting target")
+                print("VERIFIED_PREVIEW",base+"/studio/","SHA",sha)
+                break
+              print("Preview revision mismatch",last,"expected",sha,flush=True)
+            except Exception as exc:
+              last=type(exc).__name__+": "+str(exc)
+              print("Preview probe",attempt+1,last,flush=True)
+            if attempt<11:time.sleep(15)
+          else:
+            raise SystemExit("NO VERIFIED PREVIEW: expected "+sha+", got "+last)
+          PY
