@@ -1,6 +1,6 @@
 # C6.2 — Reusable rig-level motion retargeting: research, architecture and decision
 
-**Status: researched and proposed, NOT implemented or visually accepted.** Prepared for draft PR #112; do not confuse a documented algorithm with verified motion. Source of truth remains C1/C5/C6.1 runtime code and the C6 roadmap. Current PR source-fit audit: [character-studio-c6-2-source-fit-audit.md](character-studio-c6-2-source-fit-audit.md). The live Cloudflare branch preview is stale until its build identity is independently verified.
+**Status: rig-level retargeting implemented and exercised in quarantined four-clip candidates; final visual approval and Cloudflare preview pending.** Prepared for draft PR #112; do not confuse a documented algorithm with verified motion. Source of truth remains C1/C5/C6.1 runtime code and the C6 roadmap. Current PR source-fit audit: [character-studio-c6-2-source-fit-audit.md](character-studio-c6-2-source-fit-audit.md). The live Cloudflare branch preview is stale until its build identity is independently verified.
 
 ## Goal and what “works for any bone movement” means
 
@@ -150,3 +150,58 @@ contact. The current CI/browser/Cloudflare check statuses must be recorded
 at their **exact** current branch commit, never inferred from an older proof.
 Cloudflare Workers Builds continue to fail, and there is no verified current
 commit Cloudflare branch preview. Do not merge on mathematical checks alone.
+
+## Observed correction and R4 evidence (2026-11-19)
+
+The initial rig-level mathematical baker made an important **visual mistake**:
+it treated UAL1's T-pose source rest as though it were the same neutral
+auxiliary pose as MakeHuman's A-pose. The first desktop/touch capture set
+([#44395094619](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44395094619))
+passed browser automation **but visibly collapsed the upper arms behind
+the torso** in idle and walk. The owner must not be shown those clips as
+accepted quality.
+
+The corrected `source-anatomical` retarget mode uses the source world
+motion quaternion and the *full shaft-plus-signed-secondary anatomical
+frames* to transfer the original segment orientation without treating
+unmatched T/A rests as identical. This is a **rig-level calibration rule**,
+not a per-clip offset. The old `rest-relative` mode remains available
+for genuinely matched auxiliary poses.
+
+The same four clips were rebaked with the unchanged 49-joint source profile
+and reproducible source archive under successful
+[#44396449061](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44396449061).
+All 9 focused tests passed, and the generated files were checked in as
+**experimental** candidate assets. The corrected desktop/touch Chromium
+run [#44396639705](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44396639705)
+passed all four tests. Its multi-angle/full-cycle-phase screenshots were
+**actually inspected**. The conspicuous collapsed upper arms are no
+longer present; shoulders/forearms stay visibly connected. This is
+significant improvement, **not visual acceptance**: idle is still somewhat
+wide/active, jog and sprint are stylized, and grounded foot contact plus
+weapon-aware animation layering remain later phases.
+
+The direct original UAL1 versus MakeHuman direction-parity test
+(`tests/character-animation-c6-2-motion-parity.test.ts`) ran successfully
+in the otherwise failing Verify
+[#44398119439](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44398119439).
+Its measured maximum primary-segment directional discrepancies over all
+source keys were **idle 0.5066°, jog 0.6175°, walk 0.0001°**.
+The test now enforces **less than 1°** for the eight primary upper/lower
+arm and leg segments. This proves numerical shaft-direction fidelity,
+not finger/foot contact or realistic timing.
+
+Verify #44398119439 failed **only** its existing
+`tests/ci-phase-gating.test.ts` policy, because a one-shot workflow with
+automatic Chromium installation remained tracked. The workflow
+`.github/workflows/c6-2-candidate-visual.yml` has therefore been
+**removed after capturing evidence**, as required by the policy; CI has
+not been weakened. Screenshots remain in that run's retained artifact.
+Exact-final-head Verify and independent Cloudflare preview checks must
+be rechecked after this change.
+
+**Outstanding:** Full moving source-mannequin versus MakeHuman side-by-side,
+quantitative feet/hand/twist and C5 equipment contact review across
+morphologies, owner visual approval, Cloudflare Workers Builds diagnosis,
+a safe current-SHA branch deployment and SHA-verified preview. PR #112
+remains draft; production deployment and merge are not authorized.
