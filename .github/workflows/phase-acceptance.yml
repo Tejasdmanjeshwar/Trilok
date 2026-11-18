@@ -24,9 +24,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # All deterministic checks must pass before spending runner time on Chromium.
   acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -39,35 +40,63 @@ jobs:
       - run: pnpm build
       - name: Verify exact checkout build identity
         run: node scripts/verify-build-identity.mjs
-      - name: Install Chromium for desktop and touch verification
+
+  # Each viewport keeps one worker for repeatable WebGL measurements, but
+  # desktop and touch no longer block one another or share a 40-minute budget.
+  browser:
+    name: Chromium acceptance (${{ matrix.project }})
+    needs: acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chromium, touch-chromium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm build
+      - name: Verify exact checkout build identity
+        run: node scripts/verify-build-identity.mjs
+      - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
-      - name: Run full browser acceptance matrix
-        run: pnpm test:e2e
-      - name: Record tested phase and revision
+      - name: Run complete ${{ matrix.project }} browser suite
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: pnpm test:e2e --project="$PROJECT"
+      - name: Record tested phase, revision and viewport
         if: always()
         env:
           PHASE: ${{ inputs.phase }}
           NOTES: ${{ inputs.notes }}
+          PROJECT: ${{ matrix.project }}
           TESTED_SHA: ${{ github.sha }}
           TESTED_REF: ${{ github.ref_name }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           {
-            echo "## $PHASE acceptance candidate"
-            echo "- Tested ref: \`$TESTED_REF\`"
-            echo "- Tested commit: \`$TESTED_SHA\`"
+            echo "## $PHASE acceptance candidate ($PROJECT)"
+            echo "- Tested ref: $TESTED_REF"
+            echo "- Tested commit: $TESTED_SHA"
+            echo "- Project: $PROJECT"
             echo "- Workflow: $RUN_URL"
             if [ -n "$NOTES" ]; then
               echo "- Notes: $NOTES"
             fi
-            echo "- Acceptance requires a green run plus actual rendered screenshot review."
+            echo "- Acceptance requires both green browser projects, deterministic checks and rendered screenshot review."
             echo "- This workflow does not automatically mark any phase complete."
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload rendered browser screenshots for review
+      - name: Upload rendered browser screenshots and diagnostics for review
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase-${{ inputs.phase }}-screenshots
-          path: test-results/**/*.png
+          name: phase-${{ inputs.phase }}-${{ matrix.project }}-evidence
+          path: |
+            test-results/**/*.png
+            test-results/**/*.json
           if-no-files-found: ignore
           retention-days: 14
