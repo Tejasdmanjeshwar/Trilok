@@ -115,6 +115,9 @@ test("Pinned MakeHuman body morphs and infant ages render with stable Studio cam
     await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
     await capture(page,"body-" + preset);
   }
+  // Isolate age calibration from muscular/shoulder presets.
+  await page.locator("#studio-section-reset").click();
+  await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
   await section(page, "View");
   await page.locator('[data-view="side"]').click();
   await section(page, "Body");
