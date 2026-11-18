@@ -26,6 +26,17 @@ jobs:
       # There is currently no committed pnpm lockfile. Preserve the existing
       # compatible install mode until lockfile work is separately reviewed.
       - run: pnpm install --no-frozen-lockfile
+      # Temporary generation proof for one pinned dependency-lock PR only.
+      # Remove immediately after committing the verified lockfile.
+      - name: Capture deterministic generated pnpm lockfile
+        if: github.event_name == 'pull_request' && github.head_ref == 'chore/pin-pnpm-lockfile'
+        shell: bash
+        run: |
+          test -s pnpm-lock.yaml
+          echo '__TRILOK_LOCKFILE_START__'
+          base64 -w0 pnpm-lock.yaml
+          echo
+          echo '__TRILOK_LOCKFILE_END__'
       # Every restored output is independently digest/size/license verified by
       # the mandatory pnpm test/build asset acquisition; the cache is untrusted.
       - name: Reuse pinned MakeHuman assets
