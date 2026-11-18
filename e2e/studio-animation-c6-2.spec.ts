@@ -27,7 +27,7 @@ test("C6.2 clips visibly deform the existing skinned Studio human and restore C5
   const errors:string[]=[];
   page.on("pageerror",e=>errors.push(e.message));
   await openStudio(page);
-  for(const [id,time] of [["relaxed-idle",.75],["controlled-step",.75],["ready-gesture",1.2]] as const){
+  for(const [id,time] of [["human-idle",.75],["human-walk",.30],["human-run",.18]] as const){
     await page.locator("#studio-animation-select").selectOption(id);
     await expect(page.locator("#studio-animation-play")).toBeEnabled();
     const neutral=await frame(page,id+"-neutral");
@@ -64,20 +64,20 @@ test("C6.2 clips visibly deform the existing skinned Studio human and restore C5
 test("C6.2 source playback survives a regenerated human",async({page})=>{
   test.setTimeout(240_000);
   await openStudio(page);
-  await page.locator("#studio-animation-select").selectOption("controlled-step");
+  await page.locator("#studio-animation-select").selectOption("human-walk");
   await seek(page,.5);
   await page.locator('[data-section="body"]').click();
   await page.locator("#studio-preset").selectOption("muscular");
   await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
   await page.locator('[data-section="pose"]').click();
-  await expect(page.locator("#studio-animation-select")).toHaveValue("controlled-step");
+  await expect(page.locator("#studio-animation-select")).toHaveValue("human-walk");
   await seek(page,1.25);
   await frame(page,"muscular-step");
   await page.locator('[data-section="body"]').click();
   await page.locator("#studio-preset").selectOption("short");
   await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:90_000});
   await page.locator('[data-section="pose"]').click();
-  await expect(page.locator("#studio-animation-select")).toHaveValue("controlled-step");
+  await expect(page.locator("#studio-animation-select")).toHaveValue("human-walk");
   await seek(page,.65);
   await frame(page,"compact-step");
   await page.locator('[data-section="body"]').click();
