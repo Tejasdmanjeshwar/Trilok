@@ -16,11 +16,35 @@ export function isShortTap(start:StudioTap,end:StudioTap):boolean {
     Math.hypot(end.x-start.x,end.y-start.y)<=12;
 }
 
-/** Two deliberate taps at the same screen location, on mouse, pen or touch. */
+/** Two deliberate taps at the same screen location, on mouse, pen or touch.
+ * Touch input can be delivered later than mouse input under a busy mobile
+ * WebGL frame. Allow a slightly longer human double-tap cadence while keeping
+ * movement and per-tap gesture rejection unchanged. */
 export function isDoubleTap(first:StudioTap,second:StudioTap):boolean {
+  const interval=first.pointerType==="touch"?650:380;
   return first.pointerType===second.pointerType &&
-    second.time>first.time && second.time-first.time<=380 &&
+    second.time>first.time && second.time-first.time<=interval &&
     Math.hypot(second.x-first.x,second.y-first.y)<=26;
+}
+
+/**
+ * A browser can authoritatively emit a trusted mouse dblclick even if its
+ * pointer-event delivery was delayed by WebGL/main-thread scheduling. Honor
+ * that explicit browser gesture only after TWO independently validated short
+ * mouse presses at the same surface location. Do not widen ordinary pointer
+ * intervals, accept script-dispatched events, or apply this to synthetic
+ * touch-generated clicks. The native event must immediately follow tap #2.
+ */
+export function isTrustedMouseDoubleClick(
+  first:StudioTap,second:StudioTap,
+  click:Pick<MouseEvent,"clientX"|"clientY"|"timeStamp"|"button"|"detail"|"isTrusted">,
+):boolean {
+  return click.isTrusted && click.button===0 && click.detail===2 &&
+    first.pointerType==="mouse" && second.pointerType==="mouse" &&
+    second.time>first.time &&
+    click.timeStamp>=second.time && click.timeStamp-second.time<=500 &&
+    Math.hypot(second.x-first.x,second.y-first.y)<=26 &&
+    Math.hypot(click.clientX-second.x,click.clientY-second.y)<=12;
 }
 
 /** Preserve the current orbit target and zoom when switching angle presets.

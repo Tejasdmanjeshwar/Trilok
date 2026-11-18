@@ -118,7 +118,7 @@ jobs:
           const cases=(xml.match(/<testcase\b/g)||[]).length;
           const failures=(xml.match(/<(?:failure|error)\b/g)||[]).length;
           const skipped=(xml.match(/<skipped\b/g)||[]).length;
-          const expected=Number(process.env.ITERATIONS)*(process.env.SUITE==='focus-repeat'?1:3);
+          const expected=Number(process.env.ITERATIONS)*(process.env.SUITE==='focus-repeat'?1:4);
           const result=[
             '## Studio interaction diagnostics ('+process.env.PROJECT+')',
             '- Workflow: '+process.env.RUN_URL,

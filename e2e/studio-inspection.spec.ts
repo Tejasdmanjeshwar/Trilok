@@ -1,6 +1,24 @@
 import {test,expect} from "@playwright/test";
 import {mkdirSync} from "node:fs";
 
+/**
+ * Generate both real touch presses as one Chromium compositor gesture. Two
+ * awaited Playwright touchscreen.tap() calls can be separated by >650ms while
+ * SwiftShader is busy, despite no intentional user pause. This CDP operation
+ * sends real browser touch input; it is not a script-dispatched DOM event or a
+ * mouse fallback. Keep the application's strict gesture/rejection rules.
+ */
+async function nativeTouchDoubleTap(page:import("@playwright/test").Page,x:number,y:number):Promise<void>{
+  const session=await page.context().newCDPSession(page);
+  try{
+    await session.send("Input.synthesizeTapGesture",{
+      x,y,duration:45,tapCount:2,gestureSourceType:"touch",
+    });
+  }finally{
+    await session.detach();
+  }
+}
+
 test("Studio focus, orthographic, pose and inspection preserve customization",async({page})=>{
   test.setTimeout(180_000);
   const errors:string[]=[];
@@ -57,8 +75,29 @@ test("Studio focus, orthographic, pose and inspection preserve customization",as
 });
 
 test("Double-tapping the rendered character focuses the hit anatomy and allows angle changes",async({page})=>{
+  // Collect stage-by-stage gesture/raycast diagnostics only for this test.
+  // On failure the attachment differentiates timing, skin misses and UI failures.
+  await page.addInitScript(()=>{
+    const stages:unknown[]=[];
+    (window as Window & {__studioFocusStages?:unknown[]}).__studioFocusStages=stages;
+    window.addEventListener("trilok:studio:surface-focus-diagnostic",event=>{
+      stages.push((event as CustomEvent).detail);
+    });
+    // Correlate gesture gaps with main-thread long tasks rather than
+    // assuming that every delayed CDP input was blocked by rendering.
+    const longTasks:{startTime:number;duration:number}[]=[];
+    (window as Window & {__studioFocusLongTasks?:unknown[]}).__studioFocusLongTasks=longTasks;
+    if(typeof PerformanceObserver!=="undefined"){
+      try{
+        new PerformanceObserver(entries=>{
+          for(const entry of entries.getEntries())
+            longTasks.push({startTime:entry.startTime,duration:entry.duration});
+        }).observe({type:"longtask",buffered:true});
+      }catch{/* Long-task entries are unsupported on some browsers. */}
+    }
+  });
   test.setTimeout(150_000);
-  await page.goto("/studio/");
+  await page.goto("/studio/?studio-focus-diagnostics=1");
   await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
   const canvas=page.locator("#studio-viewport canvas");
   await expect(canvas).toBeVisible();
@@ -70,13 +109,34 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
   expect(rect).not.toBeNull();
   const x=rect!.x+rect!.width/2,y=rect!.y+rect!.height/2;
   if(test.info().project.name.startsWith("touch")){
-    await page.touchscreen.tap(x,y);
-    await page.touchscreen.tap(x,y);
+    await nativeTouchDoubleTap(page,x,y);
   }else{
     // dblclick sends two complete pointer sequences, as does a physical double tap.
     await page.mouse.dblclick(x,y,{delay:70});
   }
-  await expect(page.locator("#studio-return-focus")).toBeEnabled({timeout:10_000});
+  try{
+    await expect(page.locator("#studio-return-focus")).toBeEnabled({timeout:10_000});
+  }catch(error){
+    const stages=await page.evaluate(()=>(
+      window as Window & {__studioFocusStages?:unknown[]}).__studioFocusStages??[]);
+    await test.info().attach("surface-focus-stages",{
+      body:Buffer.from(JSON.stringify(stages,null,2)),contentType:"application/json",
+    });
+    const longTasks=await page.evaluate(()=>
+      (window as Window & {__studioFocusLongTasks?:unknown[]}).__studioFocusLongTasks??[]);
+    await test.info().attach("surface-focus-long-tasks",{
+      body:Buffer.from(JSON.stringify(longTasks,null,2)),contentType:"application/json",
+    });
+    throw error;
+  }
+  if(test.info().project.name.startsWith("touch")){
+    const stages=await page.evaluate(()=>
+      (window as Window & {__studioFocusStages?:{stage:string;pointerType?:string}[]}).__studioFocusStages??[]);
+    expect(stages.filter(s=>s.stage==="tap-accepted"&&s.pointerType==="touch")).toHaveLength(2);
+    expect(stages.map(s=>s.stage)).toContain("double-tap-recognized");
+    expect(stages.map(s=>s.stage)).toContain("skin-hit");
+    expect(stages.map(s=>s.stage)).toContain("focus-committed");
+  }
   const chosen=await page.locator("#studio-focus-area").inputValue();
   expect(chosen).not.toBe("");
   await page.getByRole("button",{name:"View",exact:true}).click();
@@ -88,4 +148,68 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
   await page.locator("#studio-return-focus").click();
   await expect(page.locator("#studio-return-focus")).toBeDisabled();
   await page.locator("#studio-reset").click();
+});
+
+
+test("Studio gesture honors delayed trusted native mouse double-click without widening touch recognition",async({page})=>{
+  test.skip(test.info().project.name.startsWith("touch"),"Native mouse fallback is desktop-only");
+  test.setTimeout(150_000);
+  await page.addInitScript(()=>{
+    (window as Window & {__focusDiagnosticStages?:string[]}).__focusDiagnosticStages=[];
+    window.addEventListener("trilok:studio:surface-focus-diagnostic",event=>{
+      (window as Window & {__focusDiagnosticStages?:string[]}).__focusDiagnosticStages!
+        .push((event as CustomEvent<{stage:string}>).detail.stage);
+    });
+  });
+  await page.goto("/studio/?studio-focus-diagnostics=1");
+  await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
+  const rect=await page.locator("#studio-viewport canvas").boundingBox();
+  expect(rect).not.toBeNull();
+  const x=rect!.x+rect!.width/2,y=rect!.y+rect!.height/2;
+  await page.mouse.move(x,y);
+  await page.mouse.down({clickCount:1});
+  await page.mouse.up({clickCount:1});
+  // Deliberately exceed the 380ms pointer-only bound. Chromium still emits
+  // its native trusted dblclick for the second CDP clickCount=2 gesture.
+  await page.waitForTimeout(720);
+  await page.mouse.down({clickCount:2});
+  await page.mouse.up({clickCount:2});
+  await expect(page.locator("#studio-return-focus")).toBeEnabled({timeout:10_000});
+  const stages=await page.evaluate(()=>
+    (window as Window & {__focusDiagnosticStages?:string[]}).__focusDiagnosticStages??[]);
+  expect(stages).toContain("double-tap-rejected");
+  expect(stages).toContain("native-double-click-recognized");
+  expect(stages).toContain("skin-hit");
+  expect(stages).toContain("focus-committed");
+  await page.locator("#studio-return-focus").click();
+  await expect(page.locator("#studio-return-focus")).toBeDisabled();
+});
+
+test("Studio gesture rejects empty background taps without changing focus",async({page})=>{
+  test.setTimeout(150_000);
+  await page.goto("/studio/");
+  await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
+  const canvas=page.locator("#studio-viewport canvas");
+  await expect(canvas).toBeVisible();
+  await page.evaluate(()=>new Promise<void>(resolve=>
+    requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  const rect=await canvas.boundingBox();
+  expect(rect).not.toBeNull();
+  const x=rect!.x+Math.min(12,rect!.width*.025);
+  const y=rect!.y+Math.min(12,rect!.height*.025);
+  const returnButton=page.locator("#studio-return-focus");
+  await expect(returnButton).toBeDisabled();
+  if(test.info().project.name.startsWith("touch")){
+    await nativeTouchDoubleTap(page,x,y);
+  }else{
+    await page.mouse.dblclick(x,y,{delay:70});
+  }
+  await expect(returnButton).toBeDisabled();
+  // A background miss must leave a subsequent explicit anatomical Focus usable.
+  await page.getByRole("button",{name:"View",exact:true}).click();
+  await page.locator("#studio-focus-area").selectOption("face");
+  await page.locator("#studio-focus").click();
+  await expect(returnButton).toBeEnabled();
+  await returnButton.click();
+  await expect(returnButton).toBeDisabled();
 });
