@@ -8,8 +8,8 @@ import {MakeHumanFacialController,loadFacialAtlas,type FacialWeights} from
   "../characters/geometry/MakeHumanFacialTargets";
 import {validateStudioMorphState,type StudioMorphState} from "./StudioMorphCatalog";
 
-/** Owns only a single human instance. Both Studio and Lab use these exact
- * source controllers; never silently approximate native MakeHuman targets. */
+/** Owns one canonical Studio human. Reuses the exact pinned MakeHuman
+ * source controllers; never silently approximate native source targets. */
 export interface StudioHumanModel {
   readonly human:AnatomicalHuman;
   readonly sourceJawOpeningRadians:number;

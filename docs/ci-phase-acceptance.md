@@ -34,12 +34,13 @@ Retrospective C0–C5 acceptance remains valid under the policy in
 **Passing this check is not sufficient for acceptance:** all existing
 deterministic, desktop/touch visual and owner review gates remain.
 
-Normal production builds omit the historical `c2-lab.html` Vite entrypoint.
-The **manual Phase Acceptance** browser matrix temporarily opts in with
-`TRILOK_INCLUDE_LAB=1` to retain unique C2/C3 anatomical E2E tests while
-their assertions migrate to maintained Studio/headless coverage. The
-normal `Verify` workflow checks that the retired entrypoint is absent
-from default production output. This does not weaken the browser matrix.
+Production and manual Phase Acceptance both build the supported Game and
+Studio entrypoints. The old C2 Character Lab and `TRILOK_INCLUDE_LAB` switch
+were retired in the [test crosswalk and migration](cleanup-2026-11-18-lab-retirement.md).
+Numeric source/pose invariants stay in headless tests; browser checks use the
+actual maintained Studio, rather than a superseded research-only route.
+Normal `Verify` asserts the legacy HTML entrypoint is absent. Keep full
+desktop/touch Chromium and inspect rendered screenshots as usual.
 
 ## Manual browser acceptance
 

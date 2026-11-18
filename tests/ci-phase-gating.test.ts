@@ -14,9 +14,9 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
     const vite=readFileSync("apps/web/vite.config.mjs","utf8");
     const acceptance=readFileSync(join(dir,"phase-acceptance.yml"),"utf8");
     const verify=readFileSync(join(dir,"ci.yml"),"utf8");
-    expect(vite).toContain('process.env.TRILOK_INCLUDE_LAB === "1"');
-    expect(vite).toContain("...(includeDiagnosticLab ? {");
-    expect(acceptance.split("TRILOK_INCLUDE_LAB: '1'")).toHaveLength(3);
+    expect(vite).not.toContain("c2Lab:");
+    expect(vite).not.toContain("TRILOK_INCLUDE_LAB");
+    expect(acceptance).not.toContain("TRILOK_INCLUDE_LAB");
     expect(verify).toContain("test ! -e apps/web/dist/c2-lab.html");
     expect(verify).not.toContain("TRILOK_INCLUDE_LAB");
   });

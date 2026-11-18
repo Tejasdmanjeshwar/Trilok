@@ -65,13 +65,13 @@ before C3 or production-quality claims. See
 
 The playable Combat Arena links to the supported
 [`/studio/`](https://trilok.tejasdmjr996.workers.dev/studio/)
-Character Studio. The old C2 Character Lab is **not a production build
-entrypoint** and is no longer linked from the game; diagnostic CI may
-temporarily compile `/c2-lab.html` using `TRILOK_INCLUDE_LAB=1` to
-preserve specialized MakeHuman regression tests until their migration.
+Character Studio. The standalone historical C2 Character Lab was retired from the
+supported build (and its test-only diagnostic entrypoint is removed
+after migrating the remaining source/body/face checks to Studio).
 The historical C2/C3 notes below describe earlier acceptance evidence,
-not currently supported player-facing features. See
-[cleanup audit](../repository-cleanup-audit-2026-11-18.md).
+not currently supported player-facing features. See the
+[cleanup audit](../repository-cleanup-audit-2026-11-18.md) and
+[Lab retirement crosswalk](../cleanup-2026-11-18-lab-retirement.md).
 
 ## Character Studio roadmap (C0–C9)
 

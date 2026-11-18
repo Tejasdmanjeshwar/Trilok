@@ -20,7 +20,7 @@ Before any phase may be signed off:
 
 C0–C5 predate this policy. Do not retroactively erase historical evidence or rerun their entire manual Phase Acceptance just for documentation; the [retrospective audit](repository-cleanup-audit-2026-11-18.md) inventories their inherited debt, to be retired incrementally before C6 closure. C5 issue #81 remains separately tracked.
 
-Until C2/C3 dedicated Lab E2E checks are ported, `TRILOK_INCLUDE_LAB=1 pnpm build` intentionally retains the diagnostic page for manually dispatched full browser acceptance; default production builds must omit it. This separation is temporary and is **not** full Lab code retirement.
+PR #107 temporarily hid Lab from production but preserved `TRILOK_INCLUDE_LAB=1` for dedicated C2/C3 regression runs. The subsequent [full Lab retirement candidate](cleanup-2026-11-18-lab-retirement.md) removes that diagnostic entrypoint and migrates source-backed checks to Studio. The retirement is not verified until focused desktop/touch browser checks and the normal CI pass.
 
 C6.1 has already merged (PR #106). The owner requested retrospective cleanup **before C6.2**: complete and verify actual legacy Lab retirement, redundant workflow decisions and the audited hygiene debt (or explicitly record owner-approved narrow deferrals) before beginning animation ingestion work. Avoid speculative repository-wide refactoring. A **new C6 phase cleanup record** remains required before final C6 Phase Acceptance. Perform small code hygiene alongside appropriate work, with one focused change per PR.
 

@@ -33,12 +33,15 @@ test("Character Studio opens the shared human and supports camera, light and tou
   await page.screenshot({path:"test-results/studio/"+test.info().project.name+"-foundation.png",fullPage:true});
   expect(errors).toEqual([]);
 });
-test("Studio and Lab remain independently navigable",async({page})=>{
+test("Studio and game remain independently navigable without a duplicate Lab",async({page})=>{
   await page.goto("/");
   await expect(page.locator("#character-studio-link")).toHaveAttribute("href","/studio/");
+  await expect(page.locator("#character-lab-link")).toHaveCount(0);
   await page.goto("/studio/");
-  await expect(page.locator("#studio-viewport")).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
+  await expect(page.locator("#studio-viewport canvas")).toBeVisible();
   await expect(page.locator("#app")).toHaveCount(0);
-  await page.goto("/c2-lab.html");
+  await page.getByRole("link",{name:"Return to Trilok"}).click();
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.locator("#viewport")).toBeVisible();
 });

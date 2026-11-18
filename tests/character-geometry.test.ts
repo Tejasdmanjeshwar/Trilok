@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { createSkinningSpike, validateSkinningSpike } from
   "../apps/web/src/characters/geometry/SkinningSpike";
-import { createContinuousHumanPrototype } from
-  "../apps/web/src/characters/geometry/ContinuousHumanPrototype";
 
 describe("C2 genuine SkinnedMesh foundation",()=>{
   it("binds all canonical joints to normalized four-influence GPU attributes",()=>{
@@ -40,40 +38,4 @@ describe("C2 genuine SkinnedMesh foundation",()=>{
     expect(left.skeleton.boneInverses.every(m=>Number.isFinite(m.determinant()))).toBe(true);
     left.dispose();right.dispose();
   });
-});
-describe("C2 continuous implicit topology feasibility",()=>{
-  it("generates one indexed, normalized, finite SkinnedMesh with stable topology",()=>{
-    const p=createContinuousHumanPrototype({step:.06});
-    expect(p.mesh).toBeInstanceOf(THREE.SkinnedMesh);
-    expect(p.mesh.geometry.getIndex()?.count).toBeGreaterThan(600);
-    expect(p.vertexCount).toBeGreaterThan(100);
-    expect(p.triangleCount).toBeGreaterThan(200);
-    expect(p.mesh.geometry.getAttribute("position").count).toBe(p.vertexCount);
-    expect(p.mesh.geometry.getAttribute("uv").count).toBe(p.vertexCount);
-    expect(()=>validateSkinningSpike(p.spike)).not.toThrow();
-    const coordinates=Array.from(p.mesh.geometry.getAttribute("position").array);
-    const second=createContinuousHumanPrototype({step:.06});
-    expect(Array.from(second.mesh.geometry.getAttribute("position").array)).toEqual(coordinates);
-    expect(Array.from(second.mesh.geometry.getIndex()!.array)).toEqual(
-      Array.from(p.mesh.geometry.getIndex()!.array));
-    p.dispose();second.dispose();
-  },30_000);
-  it("maintains rig deformation, socket transforms and controlled resources",()=>{
-    const p=createContinuousHumanPrototype({step:.07});
-    const left=p.spike.graph.joints.find(j=>j.role==="shoulder_left")!;
-    const bone=p.spike.bones.get(left.id)!;
-    const before=p.spike.character.socketWorld(
-      p.spike.graph.sockets.find(s=>s.purpose==="primary_grip")!.id);
-    const beforePosition=new THREE.Vector3().setFromMatrixPosition(before);
-    bone.rotation.z=-1.0;
-    p.spike.character.root.updateWorldMatrix(true,true);
-    const afterPosition=new THREE.Vector3().setFromMatrixPosition(
-      p.spike.character.socketWorld(
-        p.spike.graph.sockets.find(s=>s.purpose==="primary_grip")!.id));
-    expect(afterPosition.distanceTo(beforePosition)).toBeGreaterThan(.02);
-    const geo=p.mesh.geometry;
-    let disposal=0;geo.addEventListener("dispose",()=>disposal++);
-    p.dispose();p.dispose();
-    expect(disposal).toBe(1);
-  },30_000);
 });

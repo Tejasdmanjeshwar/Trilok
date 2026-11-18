@@ -57,7 +57,11 @@
 
 ## Follow-up remediation (cleanup slice 2)
 
-[Workflow-retirement evidence and retained benchmark procedures](cleanup-2026-11-18-workflows.md) document retirement of the historical ref-pruning workflow/script and redundant automatic source-classification benchmark. This reduces the workflow definitions from nine to seven **upon merge** and does not affect the normal Verify, manual Phase Acceptance, source and combat regression suites, or production runtime. The remaining C55 paired comparison is retained while C5 issue #81 is open, and a subsequent focused dependency-lock PR converts it to manual exact-SHA dispatch rather than expensive PR-path automation.
+[Workflow-retirement evidence and retained benchmark procedures](cleanup-2026-11-18-workflows.md) document retirement of the historical ref-pruning workflow/script and redundant automatic source-classification benchmark. This reduces the workflow definitions from nine to seven **upon merge** and does not affect the normal Verify, manual Phase Acceptance, source and combat regression suites, or production runtime. The remaining C55 paired comparison is retained while C5 issue #81 is open.
+
+## Lab retirement candidate (cleanup slice 3)
+
+A dedicated follow-up `chore/retire-c2-character-lab-with-studio-parity` removes the old Lab route, Lab-only files and implicit prototype and migrates source-backed visual checks onto the maintained Studio; see [Lab retirement evidence and test crosswalk](cleanup-2026-11-18-lab-retirement.md). This is a **pending PR candidate until targeted desktop/touch Chromium validates the new renders**. Historic inventory in this audit records the initial state, not continued availability of those files after the candidate is merged.
 
 ## Dependency determinism follow-up
 

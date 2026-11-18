@@ -28,12 +28,13 @@ describe("Character Studio foundation",()=>{
     expect(copy).toContain("Character Studio");
     expect(copy).not.toMatch(/Save|Load character|Bake character/i);
   });
-  it("keeps separate bundler entries for Studio, Lab and game",()=>{
+  it("ships only the separate Game and canonical Studio entrypoints",()=>{
     const config=readFileSync("apps/web/vite.config.mjs","utf8");
     expect(config).toContain('"./studio/index.html"');
-    expect(config).toContain('"./c2-lab.html"');
+    expect(config).not.toContain('"./c2-lab.html"');
     expect(config).toContain('"./index.html"');
     expect(readFileSync("apps/web/src/main.ts","utf8")).toContain('href="/studio/"');
+    expect(readFileSync("apps/web/src/main.ts","utf8")).not.toContain('href="/c2-lab.html"');
     const source=readFileSync("apps/web/src/studio/StudioViewport.ts","utf8");
     const assembly=readFileSync("apps/web/src/studio/StudioHumanModel.ts","utf8");
     expect(assembly).toContain("loadAnatomicalHuman");
