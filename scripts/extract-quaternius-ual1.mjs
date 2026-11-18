@@ -7,6 +7,8 @@ import {readFile,writeFile,mkdir} from "node:fs/promises";
 import {createHash} from "node:crypto";
 import {dirname,resolve} from "node:path";
 const input=process.argv[2],output=process.argv[3];
+const includeSprint=process.argv.includes("--include-sprint");
+const includeBind=process.argv.includes("--include-bind");
 if(!input||!output)throw new Error("Usage: node scripts/extract-quaternius-ual1.mjs input.glb output.json");
 const bytes=await readFile(resolve(input));
 const sha256=buffer=>createHash("sha256").update(buffer).digest("hex");
@@ -23,7 +25,7 @@ while(at<bytes.length){
 if(!document||!bin)throw new Error("Incomplete GLB chunks");
 const gltf=document;
 if(gltf.accessors.some(a=>a.sparse))throw new Error("Sparse glTF accessors unsupported");
-const dimensions={SCALAR:1,VEC3:3,VEC4:4};
+const dimensions={SCALAR:1,VEC3:3,VEC4:4,MAT4:16};
 function accessor(index){
   const a=gltf.accessors[index],view=gltf.bufferViews[a.bufferView];
   if(!a||!view||a.componentType!==5126||!(a.type in dimensions)||view.buffer!==0)
@@ -61,6 +63,7 @@ const wanted={
   Idle_Loop:"human-idle",
   Walk_Loop:"human-walk",
   Jog_Fwd_Loop:"human-run",
+  ...(includeSprint?{Sprint_Loop:"human-sprint"}:{}),
 };
 const clips=[];
 for(const animation of gltf.animations){
@@ -91,7 +94,7 @@ for(const animation of gltf.animations){
   clips.push({id,sourceName:animation.name,
     durationSeconds:timesSeconds.at(-1),timesSeconds,tracks});
 }
-if(clips.length!==3)throw new Error("Expected exactly three source locomotion clips");
+if(clips.length!==(includeSprint?4:3))throw new Error("Missing selected source locomotion clips");
 const source={
   schemaVersion:1,
   creator:"Quaternius",license:"CC0-1.0",
@@ -101,6 +104,19 @@ const source={
   sourceFilename:"Unreal-Godot/UAL1_Standard.glb",
   importer:"scripts/extract-quaternius-ual1.mjs@1",
   nodes,clips,
+  ...(includeBind?{sourceSkin:(()=>{
+    const skin=(gltf.skins??[]).find(s=>s.joints?.length>=60&&
+      Number.isInteger(s.inverseBindMatrices));
+    if(!skin)throw new Error("No glTF skin with inverse bind matrices");
+    const inverses=accessor(skin.inverseBindMatrices);
+    if(inverses.length!==skin.joints.length||inverses.some(m=>
+      m.length!==16||m.some(v=>!Number.isFinite(v))))
+      throw new Error("Malformed source inverse bind matrices");
+    return {jointNames:skin.joints.map(i=>{
+      if(!Number.isSafeInteger(i)||!nodes[i])throw new Error("Invalid skin joint index");
+      return nodes[i].name;
+    }),inverseBindMatrices:inverses};
+  })()}:{}),
 };
 await mkdir(dirname(resolve(output)),{recursive:true});
 await writeFile(resolve(output),JSON.stringify(source)+"\n");
