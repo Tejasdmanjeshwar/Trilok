@@ -11,25 +11,25 @@
       "id": "human-idle",
       "label": "Natural idle · breathing and balance",
       "filename": "human-idle.clip.json",
-      "sourceSha256": "8d02c5d0bad2c442495b80c9fa56ff7dcff757b26871bb2bca996a49ba0f184c",
-      "artifactSha256": "93a614f0f1fe5fff9574c750f0a658c787312dd938a4613263a0230177a62ecb",
-      "bytes": 159373
+      "sourceSha256": "9caddcd9b250680e5032bbe774a90dcc0b3f523d659d4189168ffd8ad9335e26",
+      "artifactSha256": "410ea51c36d6b5170e7abd3df427c661285427f8bc7a6bb670991745f2ebead7",
+      "bytes": 159001
     },
     {
       "id": "human-walk",
       "label": "Walking · heel strike and toe-off",
       "filename": "human-walk.clip.json",
-      "sourceSha256": "d06249ac8590a7a2e1370abe963f6a9b83d8af5155536ebc745f5cf4712010ea",
-      "artifactSha256": "6ca52ad9b339dff4f9a5112494ce929274a09568e4213b341cb4ac0ec96f79c8",
-      "bytes": 129427
+      "sourceSha256": "e9bbde2ca986369f3f27d2639435a418913cb5c0b0d59171c4a421a67f9de562",
+      "artifactSha256": "0063be5586556718334be3f8b7bdc0c5642b3fe50bf0b80252bd928231cf09cb",
+      "bytes": 129288
     },
     {
       "id": "human-run",
       "label": "Running · flight, arm drive and recovery",
       "filename": "human-run.clip.json",
-      "sourceSha256": "aee107684aa17ac12f4ce0a269c9c0b580975fb766467d32f568d1625b539743",
-      "artifactSha256": "ca60ec0904c2419e8bfea253b334a755e6208359aa9db8b91e3cfd3ced470e20",
-      "bytes": 81195
+      "sourceSha256": "7df13b1d2b458c4a86959484af2a566b39241d16a2620fcd3eded6819377fb4f",
+      "artifactSha256": "ac18be41dfa05eada573e583c9dec89f36ef7c05d19e3bbc5215e70b1880a149",
+      "bytes": 81117
     }
   ]
 }
