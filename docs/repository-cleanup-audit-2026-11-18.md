@@ -55,6 +55,10 @@
 
 **Stage 4, end-of-C6 closeout:** Audit import graph and actual built chunks, test counts, paths/workflows/assets, ownership/disposal, source rights and exact SHA; produce `docs/character-studio-c6-cleanup.md` with literal `Phase: C6`. Run normal Verify and dedicated desktop/touch acceptance, then collect owner signoff. **Hold C6.2 until the retrospective Lab retirement and workflow cleanup are completed and verified, or the owner explicitly accepts a documented narrowly scoped deferral.** Full C6 phase acceptance remains gated on a signed cleanup record.
 
+## Follow-up remediation (cleanup slice 2)
+
+[Workflow-retirement evidence and retained benchmark procedures](cleanup-2026-11-18-workflows.md) document retirement of the historical ref-pruning workflow/script and redundant automatic source-classification benchmark. This reduces the workflow definitions from nine to seven **upon merge** and does not affect the normal Verify, manual Phase Acceptance, source and combat regression suites, or production runtime. The remaining C55 paired comparison is retained while C5 issue #81 is open.
+
 ## Lab retirement candidate (cleanup slice 3)
 
 A dedicated follow-up `chore/retire-c2-character-lab-with-studio-parity` removes the old Lab route, Lab-only files and implicit prototype and migrates source-backed visual checks onto the maintained Studio; see [Lab retirement evidence and test crosswalk](cleanup-2026-11-18-lab-retirement.md). This is a **pending PR candidate until targeted desktop/touch Chromium validates the new renders**. Historic inventory in this audit records the initial state, not continued availability of those files after the candidate is merged.
