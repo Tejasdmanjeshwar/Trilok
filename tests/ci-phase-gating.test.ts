@@ -10,6 +10,16 @@ import {join} from "node:path";
 describe("Trilok CI budget and phase acceptance policy",()=>{
   const dir=".github/workflows";
   const paths=readdirSync(dir).filter(name=>/\.ya?ml$/.test(name));
+  it("keeps the retired C2 Lab out of production while preserving full diagnostic E2E",()=>{
+    const vite=readFileSync("apps/web/vite.config.mjs","utf8");
+    const acceptance=readFileSync(join(dir,"phase-acceptance.yml"),"utf8");
+    const verify=readFileSync(join(dir,"ci.yml"),"utf8");
+    expect(vite).toContain('process.env.TRILOK_INCLUDE_LAB === "1"');
+    expect(vite).toContain("...(includeDiagnosticLab ? {");
+    expect(acceptance.split("TRILOK_INCLUDE_LAB: '1'")).toHaveLength(3);
+    expect(verify).toContain("test ! -e apps/web/dist/c2-lab.html");
+    expect(verify).not.toContain("TRILOK_INCLUDE_LAB");
+  });
   it("requires a committed cleanup report for C6+ acceptance without invalidating historical phases",()=>{
     const acceptance=readFileSync(join(dir,"phase-acceptance.yml"),"utf8");
     const policy=readFileSync("docs/phase-closeout-cleanup-policy.md","utf8");
