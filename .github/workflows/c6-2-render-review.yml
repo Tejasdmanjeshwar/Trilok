@@ -1,0 +1,45 @@
+name: C6.2 rendered source motion quality gate
+on:
+  push:
+    branches: [feat/c6-2-animation-baking-studio-playback]
+    paths: ['.github/workflows/c6-2-render-review.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chromium, touch-chromium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --frozen-lockfile
+      - name: Load pinned MakeHuman
+        run: node scripts/fetch-makehuman-core.mjs
+      - name: Load pinned MakeHuman body and facial sources
+        run: |
+          node scripts/fetch-makehuman-body.mjs
+          node scripts/fetch-makehuman-facial.mjs
+      - run: pnpm build
+      - run: node scripts/verify-build-identity.mjs
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Capture actual desktop/touch Studio playback
+        run: |
+          pnpm exec playwright test e2e/studio-animation-c6-2.spec.ts --project=${{ matrix.project }} --workers=1 --retries=0 --reporter=list --trace=retain-on-failure
+      - name: Upload inspected frames, traces and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c62-motion-render-${{ matrix.project }}-${{ github.sha }}
+          path: |
+            test-results/studio-c6-2/**
+            test-results/**
+          retention-days: 14
+          if-no-files-found: warn
