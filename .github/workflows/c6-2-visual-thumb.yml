@@ -20,10 +20,13 @@ jobs:
           mkdir -p /tmp/c62-visual
           gh run download 44367786386 -n c62-motion-render-touch-chromium-251dfcad73d9b3c38b9e2037dce2070f768d79e8 -D /tmp/c62-visual
           find /tmp/c62-visual -name '*.png' | head -30
-      - run: python3 -m pip -q install Pillow==11.2.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip -q install Pillow==11.2.1
       - name: Encode downsized actual character frames for reviewed evidence
         run: |
-          python3 - <<'PY'
+          python - <<'PY'
           import glob,os,io,base64
           from PIL import Image,ImageOps,ImageDraw
           paths=glob.glob('/tmp/c62-visual/**/studio-c6-2/*.png',recursive=True)
