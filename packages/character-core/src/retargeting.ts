@@ -196,7 +196,10 @@ export function retargetWorldPose(
   profile: RetargetProfileV1, target: RetargetRigDescriptorV1,
   sourceWorldRotations: ReadonlyMap<string,Quat>,
   sourceSha256: string,
+  poseMode: "rest-relative" | "source-anatomical" = "rest-relative",
 ): readonly RetargetSampleV1[] {
+  if(!["rest-relative","source-anatomical"].includes(poseMode))
+    fail("unsupported retarget pose mode");
   if(profile.schemaVersion!==1 || profile.sourceRigSha256!==sourceSha256 ||
       profile.targetRigSha256!==target.identitySha256 ||
       profile.unmappedTargetPolicy!=="inherit-rest")
@@ -224,8 +227,15 @@ export function retargetWorldPose(
       if(!now || !finite(now,4) || Math.abs(Math.hypot(...now)-1)>1e-5)
         fail("missing/nonunit animated source " + c.sourceId);
       const srcMotion=product(now,inverse(c.sourceRestWorldRotation));
-      desired=product(c.frameConversion,srcMotion,
-        inverse(c.frameConversion),c.targetRestWorldRotation);
+      desired=poseMode==="source-anatomical"
+        // Source rest T and target rest A are not the SAME auxiliary pose.
+        // Express absolute source segment orientation in the measured
+        // shaft+twist frame, rather than assuming their raw rest poses match.
+        // Consequently source rest T maps to physical T, not target rest A.
+        ? product(srcMotion,c.sourceAnatomicalFrameWorld,
+            inverse(c.targetAnatomicalFrameWorld),c.targetRestWorldRotation)
+        : product(c.frameConversion,srcMotion,
+            inverse(c.frameConversion),c.targetRestWorldRotation);
     }
     computed.set(id,desired);
     visiting.delete(id);
@@ -242,3 +252,13 @@ export function retargetWorldPose(
     return {jointId:joint.id,rotation:product(inverse(restLocal),local)};
   });
 }
+
+/**
+ * Retarget modes:
+ * - rest-relative: source and target rest are a matched auxiliary reference pose.
+ * - source-anatomical: rest poses differ (UAL1 T versus MakeHuman A).
+ *   Preserve source anatomical shaft AND signed twist frame in the canonical
+ *   target skeleton, including the original source rest's physical T posture.
+ * Both modes reconstruct target local rotations from the animated target
+ * parent and include all mapped rotational degrees of freedom.
+ */
