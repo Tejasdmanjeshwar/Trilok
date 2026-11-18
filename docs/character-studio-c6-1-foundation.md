@@ -1,6 +1,6 @@
 # C6.1 — Canonical animation contracts and reference motion
 
-**Status:** C6.1 implementation candidate; PR Verify and owner acceptance pending. This document does not imply C6 phase acceptance or deployed production animation.
+**Status:** C6.1 merged in [PR #106](https://github.com/Tejasdmanjeshwar/Trilok/pull/106), post-merge Verify [#44303429762](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44303429762) passed on `aaab465120f214337ba69db438925faf9f7bce67`. This does not imply full C6 phase acceptance or full animation playback UI.
 
 ## Source-truth audit (main `ee289934e7ad70e771665566f42d6b9f0adc720e`)
 
