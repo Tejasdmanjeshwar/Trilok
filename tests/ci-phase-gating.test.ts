@@ -85,6 +85,21 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
     expect(readFileSync(join(dir,"studio-solver-benchmark.yml"),"utf8"))
       .toMatch(/workflow_dispatch:/);
   });
+  it("uses committed and frozen pnpm dependency resolutions in all workflows",()=>{
+    const manifest=readFileSync("package.json","utf8");
+    const lock=readFileSync("pnpm-lock.yaml","utf8");
+    expect(manifest).toContain('"packageManager": "pnpm@10.20.0"');
+    expect(lock).toMatch(/^lockfileVersion: '9\.0'/);
+    expect(lock).toContain("importers:");
+    expect(lock).toContain("packages:");
+    for(const path of paths){
+      const source=readFileSync(join(dir,path),"utf8");
+      if(source.includes("pnpm install")){
+        expect(source,`${path} must use committed resolutions`).toContain("pnpm install --frozen-lockfile");
+        expect(source).not.toContain("pnpm install --no-frozen-lockfile");
+      }
+    }
+  });
   it("keeps fast Verify on PRs and main without browser setup",()=>{
     const ci=readFileSync(join(dir,"ci.yml"),"utf8");
     expect(ci).toMatch(/pull_request:/);
