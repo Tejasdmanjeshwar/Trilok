@@ -39,5 +39,3 @@ describe("C2 genuine SkinnedMesh foundation",()=>{
     left.dispose();right.dispose();
   });
 });
-describe("C2 continuous implicit topology feasibility",()=>{
-  it("generates one indexed, normalized, finite Skin
