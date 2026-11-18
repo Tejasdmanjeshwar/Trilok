@@ -1,5 +1,5 @@
 import {
-  createAnimationSampler, type AnimationClipV1,
+  createAnimationSampler, type AnimationClipV1, type SampledJointV1,
 } from "@trilok/character-core";
 import {CanonicalAnimationPose} from "../characters/runtime/CanonicalAnimationPose";
 import type {SemanticCharacter} from "../characters/runtime/SemanticCharacter";
@@ -17,10 +17,11 @@ export class StudioAnimationPlayback {
   private anchorMs:number|undefined;
   private anchorSeconds=0;
   private disposed=false;
-  constructor(character:SemanticCharacter,clip:AnimationClipV1){
+  constructor(character:SemanticCharacter,clip:AnimationClipV1,
+    applyCalibratedPose?: (samples: readonly SampledJointV1[]) => void){
     // Validate before creating a mutating adapter.
     createAnimationSampler(clip,character.graph);
-    this.pose=new CanonicalAnimationPose(character,clip);
+    this.pose=new CanonicalAnimationPose(character,clip,applyCalibratedPose);
     this.durationSeconds=clip.durationSeconds;
     this.clipId=clip.id;
     this.pose.apply(0);
