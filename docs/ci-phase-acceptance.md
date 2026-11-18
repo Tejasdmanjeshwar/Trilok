@@ -34,6 +34,13 @@ Retrospective C0–C5 acceptance remains valid under the policy in
 **Passing this check is not sufficient for acceptance:** all existing
 deterministic, desktop/touch visual and owner review gates remain.
 
+Normal production builds omit the historical `c2-lab.html` Vite entrypoint.
+The **manual Phase Acceptance** browser matrix temporarily opts in with
+`TRILOK_INCLUDE_LAB=1` to retain unique C2/C3 anatomical E2E tests while
+their assertions migrate to maintained Studio/headless coverage. The
+normal `Verify` workflow checks that the retired entrypoint is absent
+from default production output. This does not weaken the browser matrix.
+
 ## Manual browser acceptance
 
 Use **Actions → Phase Acceptance → Run workflow** and choose:
