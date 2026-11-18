@@ -107,3 +107,34 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
   await expect(page.locator("#studio-return-focus")).toBeDisabled();
   await page.locator("#studio-reset").click();
 });
+
+
+test("Studio gesture rejects empty background taps without changing focus",async({page})=>{
+  test.setTimeout(150_000);
+  await page.goto("/studio/");
+  await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
+  const canvas=page.locator("#studio-viewport canvas");
+  await expect(canvas).toBeVisible();
+  await page.evaluate(()=>new Promise<void>(resolve=>
+    requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  const rect=await canvas.boundingBox();
+  expect(rect).not.toBeNull();
+  const x=rect!.x+Math.min(12,rect!.width*.025);
+  const y=rect!.y+Math.min(12,rect!.height*.025);
+  const returnButton=page.locator("#studio-return-focus");
+  await expect(returnButton).toBeDisabled();
+  if(test.info().project.name.startsWith("touch")){
+    await page.touchscreen.tap(x,y);
+    await page.touchscreen.tap(x,y);
+  }else{
+    await page.mouse.dblclick(x,y,{delay:70});
+  }
+  await expect(returnButton).toBeDisabled();
+  // A background miss must leave a subsequent explicit anatomical Focus usable.
+  await page.getByRole("button",{name:"View",exact:true}).click();
+  await page.locator("#studio-focus-area").selectOption("face");
+  await page.locator("#studio-focus").click();
+  await expect(returnButton).toBeEnabled();
+  await returnButton.click();
+  await expect(returnButton).toBeDisabled();
+});
