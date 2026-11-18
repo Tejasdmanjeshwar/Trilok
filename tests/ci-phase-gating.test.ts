@@ -85,6 +85,15 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
     expect(readFileSync(join(dir,"studio-solver-benchmark.yml"),"utf8"))
       .toMatch(/workflow_dispatch:/);
   });
+  it("runs expensive C5 paired solver comparisons only by explicit SHA-pinned request",()=>{
+    const workflow=readFileSync(join(dir,"c55-controlled-solver-comparison.yml"),"utf8");
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).not.toContain("  pull_request:");
+    expect(workflow).toContain("baseline_sha:");
+    expect(workflow).toContain("candidate_sha:");
+    expect(workflow).toContain('[[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]]');
+    expect(workflow).toContain('[[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]');
+  });
   it("uses committed and frozen pnpm dependency resolutions in all workflows",()=>{
     const manifest=readFileSync("package.json","utf8");
     const lock=readFileSync("pnpm-lock.yaml","utf8");
