@@ -109,6 +109,40 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
 });
 
 
+test("Studio gesture honors delayed trusted native mouse double-click without widening touch recognition",async({page})=>{
+  test.skip(test.info().project.name.startsWith("touch"),"Native mouse fallback is desktop-only");
+  test.setTimeout(150_000);
+  await page.addInitScript(()=>{
+    (window as Window & {__focusDiagnosticStages?:string[]}).__focusDiagnosticStages=[];
+    window.addEventListener("trilok:studio:surface-focus-diagnostic",event=>{
+      (window as Window & {__focusDiagnosticStages?:string[]}).__focusDiagnosticStages!
+        .push((event as CustomEvent<{stage:string}>).detail.stage);
+    });
+  });
+  await page.goto("/studio/?studio-focus-diagnostics=1");
+  await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
+  const rect=await page.locator("#studio-viewport canvas").boundingBox();
+  expect(rect).not.toBeNull();
+  const x=rect!.x+rect!.width/2,y=rect!.y+rect!.height/2;
+  await page.mouse.move(x,y);
+  await page.mouse.down({clickCount:1});
+  await page.mouse.up({clickCount:1});
+  // Deliberately exceed the 380ms pointer-only bound. Chromium still emits
+  // its native trusted dblclick for the second CDP clickCount=2 gesture.
+  await page.waitForTimeout(720);
+  await page.mouse.down({clickCount:2});
+  await page.mouse.up({clickCount:2});
+  await expect(page.locator("#studio-return-focus")).toBeEnabled({timeout:10_000});
+  const stages=await page.evaluate(()=>
+    (window as Window & {__focusDiagnosticStages?:string[]}).__focusDiagnosticStages??[]);
+  expect(stages).toContain("double-tap-rejected");
+  expect(stages).toContain("native-double-click-recognized");
+  expect(stages).toContain("skin-hit");
+  expect(stages).toContain("focus-committed");
+  await page.locator("#studio-return-focus").click();
+  await expect(page.locator("#studio-return-focus")).toBeDisabled();
+});
+
 test("Studio gesture rejects empty background taps without changing focus",async({page})=>{
   test.setTimeout(150_000);
   await page.goto("/studio/");
