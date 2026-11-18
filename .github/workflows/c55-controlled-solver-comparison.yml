@@ -37,7 +37,7 @@ jobs:
       - name: Prepare candidate source corpus
         working-directory: ${{ runner.temp }}/c55-candidate
         run: |
-          pnpm install --no-frozen-lockfile
+          pnpm install --frozen-lockfile
           node scripts/fetch-makehuman-core.mjs
       - name: Measure candidate full source-skinned equipment matrix
         working-directory: ${{ runner.temp }}/c55-candidate
@@ -45,7 +45,7 @@ jobs:
       - name: Prepare baseline source corpus
         working-directory: ${{ runner.temp }}/c55-baseline
         run: |
-          pnpm install --no-frozen-lockfile
+          pnpm install --frozen-lockfile
           node scripts/fetch-makehuman-core.mjs
       - name: Measure baseline full source-skinned equipment matrix
         working-directory: ${{ runner.temp }}/c55-baseline
