@@ -16,7 +16,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -43,6 +43,20 @@ jobs:
       # Includes the existing 1,000-seed deterministic combat replay.
       - run: pnpm test
       - run: pnpm build
+      - name: Install focused animation browser
+        if: github.event_name == 'pull_request' && github.head_ref == 'feat/c6-2-animation-baking-studio-playback'
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Render C6.2 Studio desktop and touch motion
+        if: github.event_name == 'pull_request' && github.head_ref == 'feat/c6-2-animation-baking-studio-playback'
+        run: pnpm exec playwright test e2e/studio-animation-c6-2.spec.ts
+      - name: Preserve C6.2 rendered frames
+        if: always() && github.event_name == 'pull_request' && github.head_ref == 'feat/c6-2-animation-baking-studio-playback'
+        uses: actions/upload-artifact@v4
+        with:
+          name: c6-2-studio-rendered-${{ github.sha }}
+          path: test-results/studio-c6-2/
+          retention-days: 14
+          if-no-files-found: warn
       - name: Verify production build excludes retired diagnostic Lab
         run: test ! -e apps/web/dist/c2-lab.html
       - name: Verify compiled build identity
