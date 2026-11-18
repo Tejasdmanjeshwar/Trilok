@@ -20,6 +20,12 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         expect(source).not.toMatch(/^  push:/m);
         expect(source).toMatch(/pnpm test:e2e/);
         expect(source).toMatch(/playwright install/);
+        // Phase-only browser coverage is split by viewport, never skipped.
+        expect(source).toMatch(/needs:\s*acceptance/);
+        expect(source).toMatch(/fail-fast:\s*false/);
+        expect(source).toMatch(/project:\s*\[desktop-chromium,\s*touch-chromium\]/);
+        expect(source).toMatch(/pnpm test:e2e --project="\$PROJECT"/);
+        expect(source).toMatch(/phase-\$\{\{ inputs.phase \}\}-\$\{\{ matrix.project \}\}-evidence/);
         continue;
       }
       expect(source, `${path} must not install or execute browsers during subphases`)
