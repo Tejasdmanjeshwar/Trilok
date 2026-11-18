@@ -292,6 +292,79 @@ export class AnatomicalFK {
       });
     }
     this.frames = frames;
+    this.restRootPosition.copy(bones.get(graph.joints[0]!.id)!.position);
+  }
+
+  /**
+   * C6 rest-relative quaternion playback on the SAME calibrated C2/C5 bones.
+   * The external retargeter produces local deltas; this method owns both the
+   * semantic bones and their weighted skin-only siblings. Never animate vertices.
+   * Source deltas must be checked and normalized before mutating any bone.
+   */
+  applyRestDeltas(samples: readonly {
+    readonly jointId: string;
+    readonly rotation?: readonly [number, number, number, number];
+    readonly translation?: readonly [number, number, number];
+  }[]): void {
+    const updates = new Map<string, typeof samples[number]>();
+    for (const sample of samples) {
+      if (updates.has(sample.jointId) || !this.frames.has(sample.jointId))
+        throw new Error("Invalid animation joint " + sample.jointId);
+      if (sample.rotation) {
+        const q = sample.rotation;
+        if (!q.every(Number.isFinite) || Math.abs(Math.hypot(...q) - 1) > 1e-5)
+          throw new Error("Invalid animation quaternion " + sample.jointId);
+      }
+      if (sample.translation &&
+          (sample.jointId !== this.graph.joints[0]!.id ||
+           !sample.translation.every(Number.isFinite) ||
+           sample.translation.some(v => Math.abs(v) > .25)))
+        throw new Error("Invalid presentation pelvis offset " + sample.jointId);
+      updates.set(sample.jointId, sample);
+    }
+    for (const joint of this.graph.joints) {
+      const frame = this.frames.get(joint.id)!;
+      const bone = this.bones.get(joint.id)!;
+      const sample = updates.get(joint.id);
+      const delta = sample?.rotation ?
+        new THREE.Quaternion(...sample.rotation) : new THREE.Quaternion();
+      bone.quaternion.copy(frame.rest).multiply(delta);
+      if (joint.parentId === null) {
+        bone.position.copy(this.restRootPosition);
+        if (sample?.translation)
+          bone.position.add(new THREE.Vector3(...sample.translation));
+      }
+      const forearm = this.proximalForearmSkin.get(joint.id);
+      if (forearm) {
+        // Separate axial pronation from elbow swing in the calibrated local
+        // forearm basis: lowerarm01 weights must NOT inherit the full twist.
+        const axis = frame.freedoms.get("rotation")?.axis;
+        if (!axis) throw new Error("Missing calibrated forearm twist axis");
+        const projection = delta.x*axis.x + delta.y*axis.y + delta.z*axis.z;
+        const twist = new THREE.Quaternion(
+          axis.x*projection, axis.y*projection, axis.z*projection, delta.w);
+        if (twist.lengthSq() < 1e-10) throw new Error("Ambiguous forearm twist");
+        twist.normalize().invert();
+        const swing = delta.clone().multiply(twist).normalize();
+        forearm.quaternion.copy(frame.rest).multiply(swing);
+      }
+      this.syncShoulderConnector(joint.id, bone);
+    }
+    this.bones.get(this.graph.joints[0]!.id)!.updateWorldMatrix(true, true);
+  }
+
+  private readonly restRootPosition: THREE.Vector3 = new THREE.Vector3();
+
+  private syncShoulderConnector(id: string, shoulder: THREE.Bone): void {
+    const skin = this.shoulderConnectorSkin.get(id);
+    if (!skin) return;
+    const frame = this.frames.get(id)!;
+    const localDelta = frame.rest.clone().invert().multiply(shoulder.quaternion);
+    const partial = new THREE.Quaternion().slerp(localDelta, 0.5);
+    skin.bone.quaternion.copy(skin.rest).multiply(partial);
+    const offset = skin.shoulderRestPosition.clone().sub(skin.restPosition);
+    const rotated = offset.clone().applyQuaternion(partial);
+    skin.bone.position.copy(skin.restPosition).add(offset.sub(rotated));
   }
 
   /** Prevalidate the whole command before changing any bones. Fixed DOF order
@@ -315,6 +388,7 @@ export class AnatomicalFK {
       const frame = this.frames.get(joint.id)!;
       const bone = this.bones.get(joint.id)!;
       bone.quaternion.copy(frame.rest);
+      if (joint.parentId === null) bone.position.copy(this.restRootPosition);
       const helper = this.proximalForearmSkin.get(joint.id);
       if (helper) helper.quaternion.copy(frame.rest);
       const shoulderSkin = this.shoulderConnectorSkin.get(joint.id);
@@ -338,22 +412,7 @@ export class AnatomicalFK {
         // elbow bend (as before PR #26); omit only axial pronation here.
         if (helper && motion !== "rotation") helper.quaternion.multiply(delta);
       }
-      if (shoulderSkin) {
-        // The CC0 connector is calibrated at a DIFFERENT origin from upperarm01.
-        // Rotating that sibling about its own origin makes shoulder01-owned
-        // skin drift relative to the semantic upper-arm head and pinches the
-        // axilla. Preserve the source bind landmark and inverse bind, but
-        // transport the sibling so its partial turn pivots about the same
-        // canonical shoulder center. The connector remains render-only.
-        const localDelta = frame.rest.clone().invert().multiply(bone.quaternion);
-        const partial = new THREE.Quaternion().slerp(localDelta, 0.5);
-        shoulderSkin.bone.quaternion.copy(shoulderSkin.rest).multiply(partial);
-        const offset = shoulderSkin.shoulderRestPosition.clone()
-          .sub(shoulderSkin.restPosition);
-        const rotated = offset.clone().applyQuaternion(partial);
-        shoulderSkin.bone.position.copy(shoulderSkin.restPosition)
-          .add(offset.sub(rotated));
-      }
+      this.syncShoulderConnector(joint.id, bone);
     }
     this.bones.get(this.graph.joints[0]!.id)!.updateWorldMatrix(true, true);
   }
