@@ -1,6 +1,6 @@
 # C6.2 Quaternius motion recovery — implementation and acceptance hold
 
-**Status:** In progress on [draft PR #112](https://github.com/Tejasdmanjeshwar/Trilok/pull/112). NOT visually accepted, NOT merged and NOT deployed to production. This supersedes the rejected manually generated Euler/sine procedural gait prototype.
+**Status:** In progress on [draft PR #112](https://github.com/Tejasdmanjeshwar/Trilok/pull/112). NOT visually accepted, NOT merged and NOT deployed to production. This supersedes the rejected manually generated Euler/sine procedural gait prototype. A separate four-clip full-frame calibrated experimental library has been baked but is not approved, and the original three Studio entries remain available for comparison.
 
 ## Verified CC0 source
 
@@ -32,3 +32,32 @@ This is a first-pass rest-aware transfer, **not a proven visually acceptable ret
 ## Historical rejected implementation
 
 The original C6.2 `ReferenceMotionSourceV1` sine/Euler procedural authoring, its `human-idle`/`human-walk`/`human-run` source curves and the associated first-pass screenshots **failed owner quality review**. They are historical only; this recovery never treats those clips as an approved fallback. Earlier source-acquisition audit: [C6 animation source audit](character-studio-c6-animation-source-audit.md). C6 roadmap: [character-studio-c6-plan.md](character-studio-c6-plan.md).
+
+## Reusable full-frame candidate recovery (2026-11-19)
+
+The branch now includes a **separate** `assets/animations/candidate-c62-v1/`
+library for the source-backed UAL1 `Idle_Loop`, `Walk_Loop`,
+`Jog_Fwd_Loop` and previously untouched `Sprint_Loop`.
+The candidate is reproducibly created by
+`scripts/bake-c62-calibrated.mjs` through one validated anatomical rig
+profile. The original source glTF inverse bind data is independently
+checked, and the target uses actual calibrated MakeHuman bones.
+The candidates are labeled `EXPERIMENTAL` in Studio and do not overwrite
+the old three references.
+
+Source archive, GLB and target calibration hashes are pinned in
+`candidate-c62-v1/manifest.json`; the profile bytes have their own
+SHA-256. Deterministic four-clip proof
+[#44396449061](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44396449061)
+and corrected real browser evidence
+[#44396639705](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44396639705)
+are recorded in the [retargeting research and QA ledger](character-studio-c6-2-retargeting-research.md).
+The first iteration's detached-looking upper arms were rejected after
+inspecting its actual screenshots; the corrected source-anatomical frame
+mode substantially repaired the arms. This does not certify contact,
+natural gait, or final animation quality.
+
+The scoped one-shot browser workflow was deleted after capturing
+desktop/touch evidence to preserve repository CI budget gates; normal
+subphase checks must not run heavy browser suites automatically.
+**No current-SHA Cloudflare preview, owner acceptance or merge exists.**
