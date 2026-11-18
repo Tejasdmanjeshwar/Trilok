@@ -1,35 +1,42 @@
 {
   "schemaVersion": 1,
-  "creator": "trilok",
-  "license": "Trilok-Proprietary",
-  "generator": "packages/character-core/src/animation-library.ts",
-  "generatorRevision": "c6.2-gait-source-v2",
-  "toolchain": "Node.js 22 + Vite 6 (repo lockfile)",
-  "normalization": "rest_delta; radians; local XYZ quaternion",
+  "creator": "Quaternius",
+  "license": "CC0-1.0",
+  "origin": "https://quaternius.itch.io/universal-animation-library",
+  "sourceArchiveSha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
+  "sourceGlbSha256": "69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997",
+  "sourceInputSha256": "6b8515fd92c37bc11511a7f8204eaea87962e843cbb046b1ca83194df4b9a989",
+  "importer": "scripts/extract-quaternius-ual1.mjs@1",
+  "retargeter": "scripts/bake-reference-animations.mjs@ual1-rest-world-v1",
+  "generatorRevision": "c6.2-ual1-rest-world-v1",
+  "normalization": "source glTF world-rest delta to C1 calibrated local rest delta",
   "entries": [
     {
       "id": "human-idle",
-      "label": "Natural idle · breathing and balance",
+      "label": "Idle · Quaternius UAL1",
+      "sourceClip": "Idle_Loop",
       "filename": "human-idle.clip.json",
-      "sourceSha256": "9caddcd9b250680e5032bbe774a90dcc0b3f523d659d4189168ffd8ad9335e26",
-      "artifactSha256": "410ea51c36d6b5170e7abd3df427c661285427f8bc7a6bb670991745f2ebead7",
-      "bytes": 159001
-    },
-    {
-      "id": "human-walk",
-      "label": "Walking · heel strike and toe-off",
-      "filename": "human-walk.clip.json",
-      "sourceSha256": "e9bbde2ca986369f3f27d2639435a418913cb5c0b0d59171c4a421a67f9de562",
-      "artifactSha256": "0063be5586556718334be3f8b7bdc0c5642b3fe50bf0b80252bd928231cf09cb",
-      "bytes": 129288
+      "sourceSha256": "6b8515fd92c37bc11511a7f8204eaea87962e843cbb046b1ca83194df4b9a989",
+      "artifactSha256": "988e922102390dd16af361d1235f35382561d25e4ceb94946ade177ae03e1442",
+      "bytes": 165912
     },
     {
       "id": "human-run",
-      "label": "Running · flight, arm drive and recovery",
+      "label": "Run · Quaternius UAL1",
+      "sourceClip": "Jog_Fwd_Loop",
       "filename": "human-run.clip.json",
-      "sourceSha256": "7df13b1d2b458c4a86959484af2a566b39241d16a2620fcd3eded6819377fb4f",
-      "artifactSha256": "ac18be41dfa05eada573e583c9dec89f36ef7c05d19e3bbc5215e70b1880a149",
-      "bytes": 81117
+      "sourceSha256": "6b8515fd92c37bc11511a7f8204eaea87962e843cbb046b1ca83194df4b9a989",
+      "artifactSha256": "f0dca4895401ee1c4d18d9037d451ac5f0ef4157eae80ab200f759ae47c85362",
+      "bytes": 68013
+    },
+    {
+      "id": "human-walk",
+      "label": "Walk · Quaternius UAL1",
+      "sourceClip": "Walk_Loop",
+      "filename": "human-walk.clip.json",
+      "sourceSha256": "6b8515fd92c37bc11511a7f8204eaea87962e843cbb046b1ca83194df4b9a989",
+      "artifactSha256": "f4eb031a6c503a5f21dd91d286e5eac4fa53864894959c1fcd64d5ac117bf0d7",
+      "bytes": 94976
     }
   ]
 }
