@@ -75,6 +75,16 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
       expect(source).toMatch(/pnpm build/);
     }
   });
+  it("does not schedule retired historical branch pruning or redundant source benchmarks",()=>{
+    expect(paths).not.toContain("retire-verified-branches.yml");
+    expect(paths).not.toContain("studio-source-classification-compare.yml");
+    // Source contact benchmarks are preserved and can run via the existing
+    // bench:studio script without duplicate PR-triggered baseline checkouts.
+    const manifest=readFileSync("package.json","utf8");
+    expect(manifest).toContain("bench:studio");
+    expect(readFileSync(join(dir,"studio-solver-benchmark.yml"),"utf8"))
+      .toMatch(/workflow_dispatch:/);
+  });
   it("keeps fast Verify on PRs and main without browser setup",()=>{
     const ci=readFileSync(join(dir,"ci.yml"),"utf8");
     expect(ci).toMatch(/pull_request:/);
