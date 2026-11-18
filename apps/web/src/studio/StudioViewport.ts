@@ -24,7 +24,7 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
-import {isShortTap,isDoubleTap,focusAreaForSkinTriangle,positionForFocusedAngle,
+import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
 
 export interface StudioViewport {
@@ -69,6 +69,7 @@ export function createStudioViewport(
   const pointerNDC=new THREE.Vector2();
   let pointerStart:StudioTap|undefined;
   let previousTap:StudioTap|undefined;
+  let pendingNativeDoubleClick:{first:StudioTap;second:StudioTap}|undefined;
   const pointers=new Set<number>();
   // Opt-in browser diagnostic events distinguish gesture, skin hit, anatomy and UI
   // transitions without logging in normal production sessions.
@@ -84,7 +85,9 @@ export function createStudioViewport(
     // Preserve the physical event time when a busy render frame queues input.
     x:event.clientX,y:event.clientY,time:event.timeStamp,pointerType:event.pointerType,
   });
-  const clearTap=():void=>{pointerStart=undefined;previousTap=undefined;};
+  const clearTap=():void=>{
+    pointerStart=undefined;previousTap=undefined;pendingNativeDoubleClick=undefined;
+  };
   const onPointerDown=(event:PointerEvent):void=>{
     if(disposed||contextLost||event.button!==0)return;
     reportFocus("pointerdown",{pointerType:event.pointerType,pointerId:event.pointerId,time:event.timeStamp,x:event.clientX,y:event.clientY});
@@ -96,52 +99,75 @@ export function createStudioViewport(
     reportFocus("pointercancel",{pointerId:event.pointerId});
     pointers.delete(event.pointerId);clearTap();
   };
+  /** Always intersect the real posed skin at the triggering canvas coordinate. */
+  const focusRenderedSurface=(x:number,y:number):void=>{
+    const rect=renderer?.domElement.getBoundingClientRect();
+    if(!rect||rect.width<=0||rect.height<=0||!active){
+      reportFocus("scene-unavailable",{canvasWidth:rect?.width,canvasHeight:rect?.height,active:!!active});
+      return;
+    }
+    pointerNDC.set((x-rect.left)/rect.width*2-1,
+      1-(y-rect.top)/rect.height*2);
+    camera.updateMatrixWorld();
+    active.human.spike.character.root.updateWorldMatrix(true,true);
+    raycaster.setFromCamera(pointerNDC,camera);
+    const hit=raycaster.intersectObject(active.human.mesh,false)[0];
+    const area=hit?.face?focusAreaForSkinTriangle(active.human,hit.face):undefined;
+    reportFocus(!hit?"skin-miss":!area?"anatomy-miss":"skin-hit",{
+      ndcX:pointerNDC.x,ndcY:pointerNDC.y,canvasWidth:rect.width,canvasHeight:rect.height,
+      area:area??null,faceIndex:hit?.faceIndex??null,
+    });
+    if(area&&hit){
+      if(focusAt(area,hit.point)){
+        onSurfaceFocus?.(area);
+        reportFocus("focus-committed",{area});
+      }else reportFocus("focus-rejected",{area});
+    }
+  };
   const onPointerUp=(event:PointerEvent):void=>{
     const wasSingle=pointers.size===1&&pointers.has(event.pointerId);
     pointers.delete(event.pointerId);
-    if(!wasSingle||!pointerStart){reportFocus("pointer-sequence-rejected",{pointerId:event.pointerId,wasSingle});clearTap();return;}
+    if(!wasSingle||!pointerStart){
+      reportFocus("pointer-sequence-rejected",{pointerId:event.pointerId,wasSingle});
+      clearTap();return;
+    }
     const end=makeTap(event),start=pointerStart;
     pointerStart=undefined;
     if(!isShortTap(start,end)){
       reportFocus("tap-rejected",{duration:end.time-start.time,distance:Math.hypot(end.x-start.x,end.y-start.y)});
-      previousTap=undefined;return;
+      previousTap=undefined;pendingNativeDoubleClick=undefined;return;
     }
     reportFocus("tap-accepted",{pointerType:end.pointerType,time:end.time,elapsedSincePrior:previousTap?end.time-previousTap.time:null});
     if(previousTap&&isDoubleTap(previousTap,end)){
       reportFocus("double-tap-recognized",{pointerType:end.pointerType});
-      previousTap=undefined;
-      const rect=renderer?.domElement.getBoundingClientRect();
-      if(!rect||rect.width<=0||rect.height<=0||!active){
-        reportFocus("scene-unavailable",{canvasWidth:rect?.width,canvasHeight:rect?.height,active:!!active});
-        return;
-      }
-      pointerNDC.set((event.clientX-rect.left)/rect.width*2-1,
-        1-(event.clientY-rect.top)/rect.height*2);
-      // A pointer can arrive before the first post-load frame. Always
-      // raycast the actual posed surface with current camera/skin matrices.
-      camera.updateMatrixWorld();
-      active.human.spike.character.root.updateWorldMatrix(true,true);
-      raycaster.setFromCamera(pointerNDC,camera);
-      // Raycast exactly the current skinned, posed mesh, not the ground or overlays.
-      const hit=raycaster.intersectObject(active.human.mesh,false)[0];
-      const area=hit?.face?focusAreaForSkinTriangle(active.human,hit.face):undefined;
-      reportFocus(!hit?"skin-miss":!area?"anatomy-miss":"skin-hit",{
-        ndcX:pointerNDC.x,ndcY:pointerNDC.y,canvasWidth:rect.width,canvasHeight:rect.height,
-        area:area??null,faceIndex:hit?.faceIndex??null,
-      });
-      if(area&&hit){
-        if(focusAt(area,hit.point)){
-          onSurfaceFocus?.(area);
-          reportFocus("focus-committed",{area});
-        }else reportFocus("focus-rejected",{area});
-      }
-    }else {
-      if(previousTap)reportFocus("double-tap-rejected",{
-        delta:end.time-previousTap.time,distance:Math.hypot(end.x-previousTap.x,end.y-previousTap.y),
-        priorType:previousTap.pointerType,currentType:end.pointerType,
+      previousTap=undefined;pendingNativeDoubleClick=undefined;
+      focusRenderedSurface(event.clientX,event.clientY);
+    }else{
+      // The native dblclick event follows the second pointerup and is only
+      // used when browser mouse scheduling exceeded the strict pointer window.
+      const first=previousTap;
+      pendingNativeDoubleClick=first&&first.pointerType==="mouse"&&end.pointerType==="mouse"&&
+        Math.hypot(end.x-first.x,end.y-first.y)<=26?{first,second:end}:undefined;
+      if(first)reportFocus("double-tap-rejected",{
+        delta:end.time-first.time,distance:Math.hypot(end.x-first.x,end.y-first.y),
+        priorType:first.pointerType,currentType:end.pointerType,
       });
       previousTap=end;
     }
+  };
+  const onNativeDoubleClick=(event:MouseEvent):void=>{
+    const candidate=pendingNativeDoubleClick;
+    pendingNativeDoubleClick=undefined;
+    if(disposed||contextLost||pointers.size>0||!candidate)return;
+    if(isTrustedMouseDoubleClick(candidate.first,candidate.second,event)){
+      reportFocus("native-double-click-recognized",{
+        delta:candidate.second.time-candidate.first.time,
+      });
+      previousTap=undefined;
+      focusRenderedSurface(event.clientX,event.clientY);
+    }else reportFocus("native-double-click-rejected",{
+      trusted:event.isTrusted,detail:event.detail,pointerType:candidate.second.pointerType,
+    });
   };
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
@@ -723,6 +749,7 @@ export function createStudioViewport(
     renderer.domElement.addEventListener("pointerdown",onPointerDown);
     renderer.domElement.addEventListener("pointerup",onPointerUp);
     renderer.domElement.addEventListener("pointercancel",onPointerCancel);
+    renderer.domElement.addEventListener("dblclick",onNativeDoubleClick);
     // Native gestures and double-click focus are handled by the same pointer
     // recognizer, so touch devices do not depend on a synthetic dblclick event.
     element.append(renderer.domElement);
@@ -880,6 +907,7 @@ export function createStudioViewport(
       renderer.domElement.removeEventListener("pointerdown",onPointerDown);
       renderer.domElement.removeEventListener("pointerup",onPointerUp);
       renderer.domElement.removeEventListener("pointercancel",onPointerCancel);
+      renderer.domElement.removeEventListener("dblclick",onNativeDoubleClick);
       renderer.dispose();
       renderer.domElement.remove();
     }
