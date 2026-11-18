@@ -21,6 +21,19 @@ Repeated pushes to the same PR cancel superseded fast runs; after merging,
 the `main` verification still runs. Feature-branch push and pull-request events
 are no longer both scheduled for the same changes.
 
+## Mandatory major-phase cleanup before acceptance
+
+Starting with C6, `Phase Acceptance` requires a committed, phase-specific
+`docs/*.md` cleanup report path in the `cleanup_report` workflow input.
+The report must contain a standalone `Phase: C6` line (or the selected
+later phase), and must be present in the exact checkout being tested.
+The workflow validates this before expensive TypeScript/build/browser work.
+Retrospective C0–C5 acceptance remains valid under the policy in
+[phase closeout cleanup](phase-closeout-cleanup-policy.md) and the
+[November 2026 cleanup audit](repository-cleanup-audit-2026-11-18.md).
+**Passing this check is not sufficient for acceptance:** all existing
+deterministic, desktop/touch visual and owner review gates remain.
+
 ## Manual browser acceptance
 
 Use **Actions → Phase Acceptance → Run workflow** and choose:
