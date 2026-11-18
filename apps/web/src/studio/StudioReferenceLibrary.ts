@@ -3,6 +3,13 @@ import idle from "../../../../assets/animations/reference-v1/human-idle.clip.jso
 import step from "../../../../assets/animations/reference-v1/human-walk.clip.json";
 import gesture from "../../../../assets/animations/reference-v1/human-run.clip.json";
 
+/** Reviewed source-backed choices. The source mannequin is NOT loaded by Studio. */
+export const STUDIO_REFERENCE_ANIMATIONS = [
+  {id:"human-idle", label:"Idle · Quaternius UAL1"},
+  {id:"human-walk", label:"Walk · Quaternius UAL1"},
+  {id:"human-run", label:"Run · Quaternius UAL1"},
+] as const;
+
 /** Versioned, offline-baked assets are bundled by Vite; never generated at
  * playback time. Validation rejects morphology/topology bind drift. */
 const clips:Readonly<Record<string,unknown>>={
