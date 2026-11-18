@@ -106,6 +106,7 @@ describe("C6.1 canonical animation", () => {
     const clip = createReferenceBreathingClip(rig.graph);
     const root = rig.graph.joints.find(j=>j.parentId===null)!;
     const translated:AnimationClipV1 = {...clip,rootMotion:"visual_only",
+      layer:{...clip.layer,jointMask:[...clip.layer.jointMask,root.id]},
       tracks:[...clip.tracks,{channel:"translation",jointId:root.id,
         timesSeconds:[0,2],values:[[0,0,0],[0,.1,0]]}]};
     validateAnimationClip(translated,rig.graph);
