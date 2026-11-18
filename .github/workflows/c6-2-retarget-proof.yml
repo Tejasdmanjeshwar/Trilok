@@ -1,4 +1,5 @@
 name: C6.2 isolated full-frame retarget calibration proof
+# R2 re-evaluation: source-anatomical absolute T/A calibration after visual failure.
 on:
   push:
     branches: [feat/c6-2-animation-baking-studio-playback]
