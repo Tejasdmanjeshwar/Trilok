@@ -61,6 +61,11 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
   await page.goto("/studio/");
   await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
   const canvas=page.locator("#studio-viewport canvas");
+  await expect(canvas).toBeVisible();
+  // Studio-ready means the source human is loaded; also let its first
+  // browser frame paint before checking the real skinned-surface hit.
+  await page.evaluate(()=>new Promise<void>(resolve=>
+    requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   const rect=await canvas.boundingBox();
   expect(rect).not.toBeNull();
   const x=rect!.x+rect!.width/2,y=rect!.y+rect!.height/2;
@@ -68,7 +73,8 @@ test("Double-tapping the rendered character focuses the hit anatomy and allows a
     await page.touchscreen.tap(x,y);
     await page.touchscreen.tap(x,y);
   }else{
-    await page.mouse.click(x,y,{clickCount:2,delay:70});
+    // dblclick sends two complete pointer sequences, as does a physical double tap.
+    await page.mouse.dblclick(x,y,{delay:70});
   }
   await expect(page.locator("#studio-return-focus")).toBeEnabled({timeout:10_000});
   const chosen=await page.locator("#studio-focus-area").inputValue();
