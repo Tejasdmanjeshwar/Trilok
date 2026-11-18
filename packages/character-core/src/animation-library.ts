@@ -183,7 +183,7 @@ export function validateReferenceMotionSource(value:unknown):asserts value is Re
       s.rootTranslation.length!==s.timesSeconds.length||
       s.rootTranslation.some(v=>!Array.isArray(v)||v.length!==3||
         v.some(n=>!Number.isFinite(n)||Math.abs(n)>.1))||
-      s.rootTranslation[0]!.some((n,i)=>
+      s.rootTranslation[0]!.some((n:number,i:number)=>
         Math.abs(n-s.rootTranslation![s.rootTranslation!.length-1]![i]!)>1e-9)))
     throw new Error("Invalid presentation root offsets");
 }
