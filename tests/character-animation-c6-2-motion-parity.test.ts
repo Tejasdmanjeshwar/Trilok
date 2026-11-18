@@ -81,9 +81,9 @@ describe("C6.2 source-versus-real-MakeHuman anatomical trajectory",()=>{
         }
         console.log("C6.2 source/MakeHuman max primary segment direction gap",input.id,
           THREE.MathUtils.radToDeg(worst).toFixed(4),"degrees");
-        // Direct source/target anatomical comparison. Less than 6 degrees
+        // Direct source/target anatomical comparison. Less than 1 degree
         // across all source keys is required at this quality gate.
-        expect(worst).toBeLessThan(THREE.MathUtils.degToRad(6));
+        expect(worst).toBeLessThan(THREE.MathUtils.degToRad(1));
       }
     }finally{template.geometry.dispose();spike.dispose();}
   });
