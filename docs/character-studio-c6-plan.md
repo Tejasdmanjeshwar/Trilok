@@ -1,6 +1,6 @@
 # Trilok C6 — Hybrid Animation Production, Retargeting & Runtime Integration
 
-**Status:** C6 planning document; C6.1 contract/reference implementation merged in [PR #106](https://github.com/Tejasdmanjeshwar/Trilok/pull/106) with successful post-merge Verify on `aaab465120f214337ba69db438925faf9f7bce67` (see [C6.1 implementation audit](character-studio-c6-1-foundation.md)); C6.2–C6.6 and overall phase acceptance remain unimplemented. Created 2026-11-18 after owner explicitly authorized optional Blender/external animation software for **internal workflows**.
+**Status:** C6 planning document; C6.1 contract/reference implementation merged in [PR #106](https://github.com/Tejasdmanjeshwar/Trilok/pull/106) with successful post-merge Verify on `aaab465120f214337ba69db438925faf9f7bce67` (see [C6.1 implementation audit](character-studio-c6-1-foundation.md)); C6.2 implementation is under review in [draft PR #112](https://github.com/Tejasdmanjeshwar/Trilok/pull/112); C6.3–C6.6 and overall phase acceptance remain unimplemented. Created 2026-11-18 after owner explicitly authorized optional Blender/external animation software for **internal workflows**.
 
 **Parent roadmap:** [Character Studio C0–C9](character-studio-roadmap.md)  
 **Tracking:** [C6 Issue #104](https://github.com/Tejasdmanjeshwar/Trilok/issues/104)  

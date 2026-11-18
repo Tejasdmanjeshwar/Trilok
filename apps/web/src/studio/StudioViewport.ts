@@ -24,7 +24,8 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
-import {bakeReferenceMotion,REFERENCE_MOTION_SOURCES} from "@trilok/character-core";
+import {REFERENCE_MOTION_SOURCES} from "@trilok/character-core";
+import {loadBakedStudioAnimation} from "./StudioReferenceLibrary";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
 import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
@@ -231,7 +232,7 @@ export function createStudioViewport(
     // Retain Studio pose/equipment choices for restoring when animation stops.
     posePreview.setGrip("none");
     posePreview.setPose("neutral");
-    const clip=bakeReferenceMotion(source,active.human.spike.graph);
+    const clip=loadBakedStudioAnimation(source.id,active.human.spike.graph);
     animation=new StudioAnimationPlayback(active.human.spike.character,clip);
     animationId=id;
     updateMarkers();emitAnimation();

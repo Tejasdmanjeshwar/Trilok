@@ -37,8 +37,8 @@ jobs:
             apps/web/public/anatomy/makehuman-facial-v1.json
             assets/cache/makehuman-body-v1.json
           key: makehuman-pinned-v1-${{ runner.os }}-${{ hashFiles('assets/makehuman-core.json', 'assets/makehuman-body-v1.json', 'assets/makehuman-facial-v1.json', 'scripts/fetch-makehuman-*.mjs', 'scripts/fetch-pinned-source.mjs') }}
-      - name: Generate inspectable C6.2 reference bake (pre-manifest bootstrap)
-        run: node scripts/bake-reference-animations.mjs --emit
+      - name: Verify checked-in SHA-256 animation bake determinism
+        run: pnpm animation:verify
       - run: pnpm typecheck
       # Includes the existing 1,000-seed deterministic combat replay.
       - run: pnpm test

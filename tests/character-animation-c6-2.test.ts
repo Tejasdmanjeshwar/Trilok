@@ -1,14 +1,33 @@
 import {describe,expect,it} from "vitest";
-import * as THREE from "three";
+import {readFileSync} from "node:fs";
+import {createHash} from "node:crypto";
 import {
   createAnatomyPreset,createAnimationSampler,serializeAnimationClip,parseAnimationClip,
   REFERENCE_MOTION_SOURCES,bakeReferenceMotion,validateReferenceMotionSource,
 } from "../packages/character-core/src/index";
 import {createSkinningSpike} from "../apps/web/src/characters/geometry/SkinningSpike";
+import {loadBakedStudioAnimation} from "../apps/web/src/studio/StudioReferenceLibrary";
 import {StudioAnimationPlayback} from "../apps/web/src/studio/StudioAnimationPlayback";
 
 const graph=createAnatomyPreset({archetype:"human"});
 describe("C6.2 deterministic reference motions",()=>{
+  it("verifies actual baked JSON bytes against provenance and regenerated source",()=>{
+    const manifest=JSON.parse(readFileSync("assets/animations/reference-v1/manifest.json","utf8")) as {
+      entries:{id:string;filename:string;artifactSha256:string;sourceSha256:string;bytes:number}[]
+    };
+    expect(manifest.entries).toHaveLength(3);
+    for(const entry of manifest.entries){
+      const source=REFERENCE_MOTION_SOURCES.find(s=>s.id===entry.id)!;
+      const content=readFileSync("assets/animations/reference-v1/"+entry.filename,"utf8");
+      const hash=(input:string)=>createHash("sha256").update(input).digest("hex");
+      expect(hash(JSON.stringify(source))).toBe(entry.sourceSha256);
+      expect(hash(content)).toBe(entry.artifactSha256);
+      expect(Buffer.byteLength(content)).toBe(entry.bytes);
+      expect(content).toBe(serializeAnimationClip(bakeReferenceMotion(source,graph),graph)+"\n");
+      expect(loadBakedStudioAnimation(entry.id,graph)).toEqual(
+        parseAnimationClip(content,graph));
+    }
+  });
   it("bakes three distinct validated motions with exact rig and loop endpoints",()=>{
     expect(REFERENCE_MOTION_SOURCES.map(s=>s.id)).toEqual([
       "relaxed-idle","controlled-step","ready-gesture"]);

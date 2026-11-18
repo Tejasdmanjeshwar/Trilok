@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "creator": "trilok",
+  "license": "Trilok-Proprietary",
+  "generator": "packages/character-core/src/animation-library.ts",
+  "generatorRevision": "c6.2-motion-source-v1",
+  "toolchain": "Node.js 22 + Vite 6 (repo lockfile)",
+  "normalization": "rest_delta; radians; local XYZ quaternion",
+  "entries": [
+    {
+      "id": "relaxed-idle",
+      "label": "Relaxed breathing",
+      "filename": "relaxed-idle.clip.json",
+      "sourceSha256": "d25296c16a90b83077262ebe1befce6b92098d13258a5c80c7b6cdf01241d829",
+      "artifactSha256": "c9d1175a139b966e3f7f8aba7907b20fdaa0c60691776d342883d80f8fdb52e3",
+      "bytes": 2442
+    },
+    {
+      "id": "controlled-step",
+      "label": "Controlled forward step",
+      "filename": "controlled-step.clip.json",
+      "sourceSha256": "eb353adbba6d2ea656663c1f1621333f287675ecf358aeaccf6ddbfa42328cf3",
+      "artifactSha256": "48c5fa75474243bba7b7d85ecd9f53b767cbc383d7987460000bf5fbe5d9a9cb",
+      "bytes": 5941
+    },
+    {
+      "id": "ready-gesture",
+      "label": "Weapon-ready gesture",
+      "filename": "ready-gesture.clip.json",
+      "sourceSha256": "a825244b19fd90e3e1d3a0e5b844d8ab1aaeb4e7b6f9c237197bb4b72bf22e4a",
+      "artifactSha256": "2fe003e50b8ff76b60b7c5df7d94cf7391f33ac3dd1a79adec14ad3a362b8f82",
+      "bytes": 5143
+    }
+  ]
+}

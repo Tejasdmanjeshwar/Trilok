@@ -1,6 +1,6 @@
 # C6.2 reference animation baking and Studio playback
 
-**Status:** scoped feature branch implementation. This record does not assert browser visual acceptance or C6 phase acceptance.
+**Status:** Draft PR #112. Canonical JSON assets and SHA-256 manifest are generated and committed from a pinned GitHub Actions Node/Vite bake. This record does not assert browser visual acceptance, CI passage, or C6 phase acceptance.
 
 ## Production route
 The source of truth for all three original, proprietary Trilok reference motions is
@@ -50,3 +50,9 @@ are not proof of universal retargeting; foot-ground, hand contact, and source
 skin corrective behavior still require rendered audits. No inferred hit
 events, weapon layering, C7 topology retargeting, dismemberment, or C9 export.
 See C6.3 and C6.4 for grounded gait and weapon-aware layered IK.
+
+## Baked artifacts and audit
+
+Committed original motion clips at `assets/animations/reference-v1/` have respective byte sizes **2,442**, **5,941** and **5,143**. The exact output SHA-256 values are recorded in `manifest.json`; the ordinary PR Verify recomputes source/clip/manifest bytes and fails on differences. Studio's `StudioReferenceLibrary` imports the **baked JSON**, verifies the canonical rig before playback, and never needs Vite's SSR API in the browser. The existing C5.2 Blender workflow was inspected but not invoked or duplicated; no new third-party assets or packages were added.
+
+Rendered desktop/touch evidence is tracked by the focused `e2e/studio-animation-c6-2.spec.ts` test and the scoped PR run artifact. Until those have succeeded and been reviewed, claims about the quality of step grounding or deformation remain unverified.
