@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "c6.2-unapproved-candidate",
+  "sourceArchiveSha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
+  "sourceGlbSha256": "69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997",
+  "sourceInputSha256": "33ab1c9ddb830c25df3c7ff205d4713210a2c94d88b5a4fe609e5fa70a251ad6",
+  "targetCalibrationSha256": "66ecf6318f96d9bb2223969e09a9fa7ef09433b4022fc53fe7913c76cfc5ffc7",
+  "profileSha256": "159e7b77c3997364e7fed624a17f13be280c25a07d2fc913c2880627211834e2",
+  "profile": "profile.json",
+  "sourceBindMaxResidual": 6.383178585700477e-7,
+  "mappedJointCount": 49,
+  "engine": "packages/character-core/src/retargeting.ts@c6.2-full-frame-v1",
+  "entries": [
+    {
+      "id": "human-idle",
+      "sourceClip": "Idle_Loop",
+      "filename": "human-idle.clip.json",
+      "artifactSha256": "192484bb6bdd0aeaa73434ee0c4a1eb0044ecbcc2ff1d9e51f6b8eeb711c2035",
+      "bytes": 379759
+    },
+    {
+      "id": "human-run",
+      "sourceClip": "Jog_Fwd_Loop",
+      "filename": "human-run.clip.json",
+      "artifactSha256": "c3219b33ac44e36f5b04430e7f172a753f32665a2e8b819072508d258805472b",
+      "bytes": 152920
+    },
+    {
+      "id": "human-sprint",
+      "sourceClip": "Sprint_Loop",
+      "filename": "human-sprint.clip.json",
+      "artifactSha256": "c2f4f961f11f6b9a0ced6dc4186aec89cc189b68859ab27d918e3c5df41c83cd",
+      "bytes": 113029
+    },
+    {
+      "id": "human-walk",
+      "sourceClip": "Walk_Loop",
+      "filename": "human-walk.clip.json",
+      "artifactSha256": "d77f30cebe05961341fb9205fd97737791de2257b47514d2ec8768be58186ecf",
+      "bytes": 213064
+    }
+  ]
+}
