@@ -93,7 +93,7 @@ function idle():ReferenceMotionSourceV1 {
   for(const side of ["left","right"] as const) {
     const sign=side==="left"?-1:1;
     w.channel("shoulder_"+side,"x",p=>-.10-.012*breath(p-.05)+.006*sign*sway(p));
-    w.channel("shoulder_"+side,"z",p=>sign*(.065+.008*breath(p-.08)));
+    w.channel("shoulder_"+side,"z",p=>-sign*(.40+.008*breath(p-.08)));
     w.channel("elbow_"+side,"x",p=>-.16-.009*breath(p+.12));
     w.channel("wrist_"+side,"x",p=>-.035-.005*breath(p));
     w.channel("hip_"+side,"x",p=>-.012+.003*sign*sway(p));
@@ -137,9 +137,9 @@ function locomotion(kind:"walk"|"run"):ReferenceMotionSourceV1 {
     // Contralateral arm swing: the arm is behind its advancing leg.
     w.channel("shoulder_"+side,"x",p=>(running?-.03:-.055)+
       (running?.43:.22)*Math.cos(TWO_PI*(p+offset)));
-    w.channel("shoulder_"+side,"z",p=>sign*(running?.105:.075)+
-      sign*.01*Math.cos(TWO_PI*(p+offset)));
-    w.channel("elbow_"+side,"x",p=>(running?-.95:-.19)+
+    w.channel("shoulder_"+side,"z",p=>-sign*(running?.38:.40)+
+      sign*.014*Math.cos(TWO_PI*(p+offset)));
+    w.channel("elbow_"+side,"x",p=>(running?-.78:-.18)+
       (running?.13:.08)*Math.sin(TWO_PI*(p+offset)));
     w.channel("wrist_"+side,"x",p=>running?-.12:-.045);
     w.channel("clavicle_"+side,"x",p=>-.018*wave(p+offset));
