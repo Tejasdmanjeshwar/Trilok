@@ -1,0 +1,95 @@
+name: C6.2 Motion Source Acquisition Probe
+on:
+  push:
+    branches: [feat/c6-2-animation-baking-studio-playback]
+    paths: [.github/workflows/c6-2-motion-source-acquisition-once.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download public samples and inspect upstream archives
+        shell: bash
+        run: |
+          mkdir -p source-evidence
+          cat > /tmp/motion-probe.py <<'PY'
+          import json,zipfile,hashlib,urllib.request,urllib.parse
+          from pathlib import Path
+          base=Path("source-evidence")
+          report=[]
+          def get(name,url,filename=None,method="GET",expected=None,limit=70_000_000):
+              rec={"name":name,"url":url}
+              report.append(rec)
+              try:
+                  req=urllib.request.Request(url,method=method,
+                   data=b"" if method=="POST" else None,
+                   headers={"User-Agent":"Mozilla/5.0","Accept":"application/json, */*",
+                    "Referer":"https://quaternius.itch.io/"} if method=="POST" else
+                    {"User-Agent":"Trilok-public-source-audit/1.0"})
+                  with urllib.request.urlopen(req,timeout=90) as resp:
+                      rec["http_status"]=resp.status
+                      rec["host"]=urllib.parse.urlparse(resp.url).hostname
+                      rec["content_type"]=resp.headers.get("Content-Type")
+                      rec["content_length"]=resp.headers.get("Content-Length")
+                      if filename:
+                          total=0;digest=hashlib.sha256();dest=base/filename
+                          if resp.headers.get("Content-Length") and int(resp.headers["Content-Length"])>limit:raise ValueError("too large")
+                          with dest.open("wb") as f:
+                              while True:
+                                  chunk=resp.read(1<<19)
+                                  if not chunk:break
+                                  total+=len(chunk)
+                                  if total>limit:raise ValueError("too large")
+                                  f.write(chunk);digest.update(chunk)
+                          rec.update(bytes=total,sha256=digest.hexdigest())
+                          if expected and digest.hexdigest()!=expected:raise ValueError("source hash mismatch")
+                          if not zipfile.is_zipfile(dest):raise ValueError("not ZIP")
+                          with zipfile.ZipFile(dest) as z:
+                              names=z.namelist()
+                              rec["archive_entries"]=len(names)
+                              rec["sample_entries"]=names[:20]
+                              rec["glb_files"]=[n for n in names if n.lower().endswith(".glb")][:20]
+                              rec["bvh_files"]=[n for n in names if n.lower().endswith(".bvh")][:15]
+                          rec["file"]=filename
+                      else:
+                          obj=json.loads(resp.read(200000))
+                          if "url" in obj:rec["signed_url"]=obj["url"]
+                          if "files" in obj:rec["files"]=[{"key":f.get("key"),"size":f.get("size")} for f in obj["files"][:6]]
+                  rec["status"]="downloaded" if filename else "reachable"
+              except Exception as e:
+                  rec.update(status="failed",error=str(e)[:350])
+                  if filename:(base/filename).unlink(missing_ok=True)
+              return rec
+          for name,route,file,digest in [
+            ("Quaternius UAL1 Standard","universal-animation-library","UAL1-Standard.zip","cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724"),
+            ("Quaternius UAL2 Standard","universal-animation-library-2","UAL2-Standard.zip","4008ea208a604773a2b2177d965f0f5d3195498b5bf838c3f5785d68e95f2a68")]:
+              upload="17958403" if "UAL1" in name else "17958478"
+              metadata=get(name+" signed URL","https://quaternius.itch.io/"+route+"/file/"+upload+"?source=game_download&as_props=1",method="POST")
+              if metadata.get("signed_url"):get(name,metadata["signed_url"],file,expected=digest)
+          for name,url,file in [
+            ("ACCAD quickwalk BVH","https://accad.ohio-state.edu/sites/accad.osu.edu/files/quickwalk_BVH.ZIP","ACCAD-quickwalk.zip"),
+            ("ACCAD female BVH","https://accad.ohio-state.edu/sites/accad.osu.edu/files/Female1_bvh.zip","ACCAD-female.zip")]:
+              get(name,url,file,limit=40_000_000)
+          get("100STYLE Zenodo metadata","https://zenodo.org/api/records/8127870")
+          for name,url in [("100STYLE retarget full BVH","https://theorangeduck.com/media/uploads/Geno/100style-retarget/bvh.zip")]:
+              rec={"name":name,"url":url}
+              report.append(rec)
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(url,method="HEAD",headers={"User-Agent":"Mozilla/5.0"}),timeout=40) as resp:
+                      rec.update(status="reachable",bytes=resp.headers.get("Content-Length"),http_status=resp.status)
+              except Exception as e:rec.update(status="failed",error=str(e)[:350])
+          (base/"acquisition-report.json").write_text(json.dumps(report,indent=2)+"\n")
+          print(json.dumps([{k:v for k,v in r.items() if k!="signed_url"} for r in report],indent=2))
+          PY
+          python /tmp/motion-probe.py
+      - name: Attach source samples and provenance report without committing to Git
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c6-2-motion-source-probe
+          path: source-evidence/
+          retention-days: 7
+          if-no-files-found: warn
