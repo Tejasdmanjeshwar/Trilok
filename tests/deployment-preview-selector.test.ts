@@ -28,7 +28,7 @@ function runSelector(options:{
     repository:{full_name:repository},head_sha:head,head_branch:ref,
     pull_requests:[{number}],
   };
-  const paths=["pr.json","workflow.txt","runs.json"].map(name=>join(dir,name));
+  const paths = [join(dir,"pr.json"),join(dir,"workflow.txt"),join(dir,"runs.json")] as const;
   writeFileSync(paths[0],JSON.stringify(pr));
   writeFileSync(paths[1],"777");
   writeFileSync(paths[2],JSON.stringify({workflow_runs:options.runs??[valid]}));
