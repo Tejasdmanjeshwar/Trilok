@@ -104,7 +104,9 @@ export function captureC63SkinnedPose({
   for (let i = 0; i < position.count; i++) {
     local.fromBufferAttribute(position, i);
     rest.push(local.clone().applyMatrix4(mesh.matrixWorld));
-    const p = mesh.applyBoneTransform(i, local.clone()).applyMatrix4(mesh.matrixWorld);
+    // SkinnedMesh.getVertexPosition includes the actual C3 morph correctives
+    // BEFORE the same bone transform used by GPU skinned presentation.
+    const p = mesh.getVertexPosition(i, local.clone()).applyMatrix4(mesh.matrixWorld);
     if (!p.toArray().every(Number.isFinite)) throw Error("Nonfinite skinned vertex " + i);
     posed.push(p);
   }
