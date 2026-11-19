@@ -117,10 +117,17 @@ host.innerHTML=String.raw`
             <option value="">Static pose</option>
           </select>
           <div id="studio-movement-settings" hidden>
+            <label class="studio-field-label" for="studio-movement-direction">Movement direction</label>
+            <select id="studio-movement-direction" aria-label="Movement direction">
+              <option value="forward">Forward</option>
+              <option value="backward">Backward</option>
+              <option value="left">Step left</option>
+              <option value="right">Step right</option>
+            </select>
             <label class="studio-field-label" for="studio-movement-speed">Movement pace</label>
             <input id="studio-movement-speed" type="range" min="0" max="1" step=".01" value="0" />
             <output id="studio-movement-speed-value">Standing</output>
-            <p>Blend naturally between standing, walking, jogging and sprinting. Additional directions require verified authored motion.</p>
+            <p>Preview forward, backward and sideways movement. Side steps use authored running-strafe cycles.</p>
           </div>
           <div class="studio-action-pair studio-animation-actions">
             <button id="studio-animation-play" type="button" disabled aria-label="Play animation">Play</button>
@@ -296,6 +303,11 @@ const startOverButton=element<HTMLButtonElement>("#studio-start-over");
 const focusArea=element<HTMLSelectElement>("#studio-focus-area");
 const animationSelect=element<HTMLSelectElement>("#studio-animation-select");
 const movementSettings=element<HTMLElement>("#studio-movement-settings");
+const movementDirection=element<HTMLSelectElement>("#studio-movement-direction");
+movementDirection.addEventListener("change",()=>{
+  viewport.setMovementPreviewDirection(movementDirection.value as
+    "forward"|"backward"|"left"|"right");
+});
 const movementSpeed=element<HTMLInputElement>("#studio-movement-speed");
 const movementSpeedValue=element<HTMLOutputElement>("#studio-movement-speed-value");
 movementSpeed.addEventListener("input",()=>{
