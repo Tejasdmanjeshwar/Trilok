@@ -68,6 +68,17 @@ the Trilok proprietary notice.
 
 Quaternius's CC0 dedication does not confer exclusive Trilok ownership over the underlying motion data. Attribution is retained voluntarily.
 
+## 100STYLE Neutral recordings — CC BY 4.0 (C6.3 research only)
+
+- **Creator:** Ian Mason; publication: Mason, Starke and Komura (2022), *Real-Time Style Modelling of Human Locomotion via Feature-Wise Transformations and Local Motion Phases*, DOI 10.1145/3522618.
+- **Official download/index:** https://www.ianxmason.com/100style/ ; alternate archive https://zenodo.org/records/8127870
+- **License:** Creative Commons Attribution 4.0 International, https://creativecommons.org/licenses/by/4.0/ . Credit retained as: **“The 100STYLE Dataset - Ian Mason”**.
+- **Individually retrieved originals:** `Neutral_ID.bvh` SHA-256 `71aead2e3246bdb47a5b839cb3e60e0574e9a1a046c071cc147e2922a35f259f` (1,465,227 bytes); `Neutral_FW.bvh` SHA-256 `2f28800baa299547c42c257d1c926172542a1e69b46a3d3e6aa0aded0e9b40f6` (5,504,825 bytes); `Neutral_FR.bvh` SHA-256 `f46ca526027a3654c8939a0123413f6008906fb32125d5e885eafcaa830831cb` (3,262,894 bytes).
+- **Frame-cut metadata:** `Frame_Cuts.csv` SHA-256 `e3c1d2beab6486e083622cef6a5402fe9b20edc75a9963ea30675c67ec29ee82` (10,036 bytes).
+- **Verification:** GitHub Actions acquisition inspection run [#44563324901](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44563324901), with two-day **temporary** source artifact; these BVH bytes are not checked into Git or included in the shipped browser bundle.
+- **Status:** Source acquired and verified only. No 100STYLE-derived animation is yet visually approved or distributed in the Studio runtime. Any future redistributed derived clip retains this CC BY 4.0 attribution and source provenance.
+- **Exclusion:** No Geno character mesh or noncommercial research-only mesh is included.
+
 ## 2. Runtime dependency — Three.js
 
 | Component | Declared range | License | Source / license evidence |
