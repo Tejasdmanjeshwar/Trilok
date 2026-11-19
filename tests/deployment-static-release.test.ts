@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it} from "vitest";
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from "node:fs";
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,symlinkSync} from "node:fs";
 import {join,resolve} from "node:path";
 import {tmpdir} from "node:os";
 import {spawnSync} from "node:child_process";
@@ -50,7 +50,6 @@ describe("Immutable development release artifact gate",()=>{
   });
   it("refuses symlink artifacts",()=>{
     const dir=fixture();
-    const {symlinkSync}=require("node:fs") as typeof import("node:fs");
     symlinkSync(join(dir,"index.html"),join(dir,"link.html"));
     expect(check(dir,true).status).not.toBe(0);
   });
