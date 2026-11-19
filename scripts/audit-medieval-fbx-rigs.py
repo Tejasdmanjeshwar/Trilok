@@ -132,6 +132,7 @@ def parse_fbx(data):
         shape.append([m["name"],parent.get("name",""),m["kind"]])
     shape.sort()
     blob=json.dumps(shape,sort_keys=True).encode()
+    hierarchy_blob=json.dumps([[row[0],row[1]] for row in shape],sort_keys=True).encode()
     # Distinct from bind-pose matching: a signature means only naming/parent
     # topology matches, not guaranteed identical anatomical rest transforms.
     rest={}
@@ -142,35 +143,42 @@ def parse_fbx(data):
                if key in m["properties"]}}
     pose=json.dumps(rest,sort_keys=True).encode()
     names=set(x[0] for x in shape)
+    # Iglesias FBX uses "bShoulder_L", "bForearm_L" and "bIndexFinger01_L",
+    # not Mixamo-style LeftArm; normalize names for anatomical coverage only.
+    names_norm=set(n[1:] if n.startswith("b") else n for n in names)
     anchor_groups={
       "pelvis":["hips","pelvis"],
-      "spine":["spine","spine1","spine2"],
+      "spine":["spine","spineproxy","chest"],
       "head":["head"],
-      "left_shoulder":["leftarm","leftupperarm","lupperarm"],
-      "right_shoulder":["rightarm","rightupperarm","rupperarm"],
-      "left_elbow":["leftforearm","leftlowerarm","llowerarm"],
-      "right_elbow":["rightforearm","rightlowerarm","rlowerarm"],
-      "left_hand":["lefthand","lwrist","lefthandwrist"],
-      "right_hand":["righthand","rwrist","righthandwrist"],
-      "left_hip":["leftupleg","leftthigh"],
-      "right_hip":["rightupleg","rightthigh"],
-      "left_knee":["leftleg","leftcalf","leftshin"],
-      "right_knee":["rightleg","rightcalf","rightshin"],
-      "left_foot":["leftfoot"],"right_foot":["rightfoot"],
+      "left_shoulder":["shoulderl","upperarml"],
+      "right_shoulder":["shoulderr","upperarmr"],
+      "left_elbow":["forearml"],
+      "right_elbow":["forearmr"],
+      "left_hand":["handl"],
+      "right_hand":["handr"],
+      "left_hip":["thighl"],
+      "right_hip":["thighr"],
+      "left_knee":["shinl"],
+      "right_knee":["shinr"],
+      "left_foot":["footl"],
+      "right_foot":["footr"],
     }
-    anchors={k:any(n in names for n in vals) for k,vals in anchor_groups.items()}
-    fingers={side:sum(side in n and any(d in n for d in ("thumb","index","middle","ring","pinky","little"))
-        for n in names) for side in ("left","right")}
+    anchors={k:any(n in names_norm for n in vals) for k,vals in anchor_groups.items()}
+    fingers={side:sum(n.endswith(side) and any(
+        d in n for d in ("thumb","indexfinger","middlefinger","ringfinger","pinky"))
+        for n in names_norm) for side in ("l","r")}
     stacks=[n[1][1] if len(n[1])>1 else "unknown" for n in locate(objects,"AnimationStack")]
     return {
       "fbx_version":ver,"bone_count":len(limbs),"model_count":len(models),
       "topology_sha256":hashlib.sha256(blob).hexdigest(),
+      "hierarchy_sha256":hashlib.sha256(hierarchy_blob).hexdigest(),
+      "hierarchy_parent_pairs":[[n,p] for n,p,k in shape if n in ("bhips","bspine","bshoulderl","bupperarml","bforearml","bhandl","bthighl","bshinl","bfootl")],
       "rest_local_property_sha256":hashlib.sha256(pose).hexdigest(),
       "bone_names":[row[0] for row in shape],
       "anchors":anchors,"finger_bones":fingers,
       "animation_stacks_count":len(stacks),
       "animation_names":stacks[:3],
-      "source_local_sample":{k:rest[k] for k in ("hips","leftarm","leftforearm","lefthand","leftupleg","leftleg") if k in rest},
+      "source_local_sample":{k:rest[k] for k in ("bhips","bspine","bupperarml","bforearml","bhandl","bthighl","bshinl") if k in rest},
     }
 
 def enumerate_nested(z,files,depth=0):
@@ -202,9 +210,19 @@ def process(pack,filename):
                 2 if "run" in n or "walk" in n else 3,
                 len(x.filename),x.filename
             )
-        chosen=sorted(animation_files,key=priority)[:3]
-        if animation_files:
-            chosen.append(sorted(animation_files,key=lambda x:x.filename)[-1])
+        eligible=sorted(animation_files,key=lambda x:x.filename)
+        def take(pred):
+            return next((v for v in eligible if pred(v.filename.lower())),None)
+        chosen=[
+           take(lambda n:"/male/idles/" in n),
+           take(lambda n:"/female/idles/" in n),
+           take(lambda n:"/combat/" in n and
+               any(k in n for k in ("shoot","attack","throw","bow"))),
+           take(lambda n:"/movement/" in n and
+               ("walk" in n or "run" in n)),
+        ]
+        chosen=[x for x in chosen if x is not None]
+        if not chosen:chosen=sorted(animation_files,key=priority)[:3]
         chosen=list({x.filename:x for x in chosen}.values())
         diagnostics=[]
         for info in chosen:
