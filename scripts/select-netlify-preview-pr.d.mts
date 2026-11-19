@@ -6,6 +6,6 @@ export interface OpenPreviewPullRequest {
   head?: { sha?: string; ref?: string; repo?: { full_name?: string } };
 }
 export function selectPreviewPr(
-  input: OpenPreviewPullRequest[] | OpenPreviewPullRequest[][],
+  input: unknown,
   options: { repository: string; requested?: string | number },
 ): number;
