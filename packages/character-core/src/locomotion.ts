@@ -1,7 +1,8 @@
 import {
   createAnimationSampler, type AnimationClipV1, type AnimationSampler,
-  type AnatomicalGraphV1, type SampledJointV1,
+  type SampledJointV1,
 } from "./animation";
+import type {AnatomicalGraphV1} from "./schema";
 
 /** Presentation-only movement request. Gameplay decides displacement and heading. */
 export interface LocomotionIntent {
@@ -26,7 +27,7 @@ export interface LocomotionTuning {
   readonly blendSeconds: number;
 }
 export const DEFAULT_LOCOMOTION_TUNING: LocomotionTuning = Object.freeze({
-  speedBands: [.32, .65, 1],
+  speedBands: [.32, .65, 1] as const,
   blendSeconds: .18,
 });
 const clamp = (value: number, a: number, b: number) => Math.max(a, Math.min(b, value));
@@ -138,11 +139,11 @@ export class CanonicalLocomotionMixer {
       const keys=["idle","walk","jog","sprint"] as const;
       const thresholds=[0,...this.bands];
       for(let x=0;x<3;x++){
-        if(movement<=thresholds[x+1] || x===2){
-          const alpha=clamp((movement-thresholds[x])/
-            (thresholds[x+1]-thresholds[x]),0,1);
-          targetWeights.set(keys[x],1-alpha);
-          targetWeights.set(keys[x+1],alpha);
+        if(movement<=thresholds[x+1]! || x===2){
+          const alpha=clamp((movement-thresholds[x]!)/
+            (thresholds[x+1]!-thresholds[x]!),0,1);
+          targetWeights.set(keys[x]!,1-alpha);
+          targetWeights.set(keys[x+1]!,alpha);
           break;
         }
       }
@@ -191,14 +192,14 @@ export class CanonicalLocomotionMixer {
           if(!accum){accum=[0,0,0,0];sums[index]=accum;}
           // Hemisphere-aligned normalized quaternion blending.
           const sign=hasRotation[index] &&
-            (accum[0]*q[0]+accum[1]*q[1]+accum[2]*q[2]+accum[3]*q[3])<0?-1:1;
-          for(let k=0;k<4;k++)accum[k]+=sign*weight*q[k]!;
+            (accum[0]!*q[0]+accum[1]!*q[1]+accum[2]!*q[2]+accum[3]!*q[3])<0?-1:1;
+          for(let k=0;k<4;k++)accum[k]=accum[k]!+sign*weight*q[k]!;
           hasRotation[index]=true;
         }
         if(joint.translation){
           let p=positions[index];
           if(!p){p=[0,0,0];positions[index]=p;}
-          for(let k=0;k<3;k++)p[k]+=weight*joint.translation[k]!;
+          for(let k=0;k<3;k++)p[k]=p[k]!+weight*joint.translation[k]!;
           hasTranslation[index]=true;
         }
       }
@@ -207,11 +208,11 @@ export class CanonicalLocomotionMixer {
       const q=sums[j];
       if(hasRotation[j]&&q){
         const m=Math.hypot(...q);
-        this.rotations[j]=m>1e-10?[q[0]/m,q[1]/m,q[2]/m,q[3]/m]:[...neutral];
+        this.rotations[j]=m>1e-10?[q[0]!/m,q[1]!/m,q[2]!/m,q[3]!/m]:[...neutral];
       }else this.rotations[j]=undefined;
       const p=positions[j];
       this.translations[j]=hasTranslation[j]&&p?
-        [p[0],p[1],0]:undefined; // z is never authoritative actor travel
+        [p[0]!,p[1]!,0]:undefined; // z is never authoritative actor travel
       this.output[j]={
         jointId:this.ids[j]!,
         ...(this.rotations[j]?{rotation:this.rotations[j]}:{}),
