@@ -116,6 +116,12 @@ host.innerHTML=String.raw`
           <select id="studio-animation-select" aria-label="Studio animation">
             <option value="">Static pose</option>
           </select>
+          <div id="studio-movement-settings" hidden>
+            <label class="studio-field-label" for="studio-movement-speed">Movement pace</label>
+            <input id="studio-movement-speed" type="range" min="0" max="1" step=".01" value="0" />
+            <output id="studio-movement-speed-value">Standing</output>
+            <p>Blend naturally between standing, walking, jogging and sprinting. Additional directions require verified authored motion.</p>
+          </div>
           <div class="studio-action-pair studio-animation-actions">
             <button id="studio-animation-play" type="button" disabled aria-label="Play animation">Play</button>
             <button id="studio-animation-reset" type="button" disabled>Reset</button>
@@ -289,6 +295,14 @@ const redoButton=element<HTMLButtonElement>("#studio-redo");
 const startOverButton=element<HTMLButtonElement>("#studio-start-over");
 const focusArea=element<HTMLSelectElement>("#studio-focus-area");
 const animationSelect=element<HTMLSelectElement>("#studio-animation-select");
+const movementSettings=element<HTMLElement>("#studio-movement-settings");
+const movementSpeed=element<HTMLInputElement>("#studio-movement-speed");
+const movementSpeedValue=element<HTMLOutputElement>("#studio-movement-speed-value");
+movementSpeed.addEventListener("input",()=>{
+  const speed=Number(movementSpeed.value);
+  viewport.setMovementPreviewSpeed(speed);
+  movementSpeedValue.textContent=speed<.05?"Standing":speed<.32?"Walking":speed<.65?"Jogging":"Sprinting";
+});
 const animationTime=element<HTMLInputElement>("#studio-animation-time");
 const animationPlay=element<HTMLButtonElement>("#studio-animation-play");
 const animationReset=element<HTMLButtonElement>("#studio-animation-reset");
@@ -302,6 +316,7 @@ for(const clip of STUDIO_ANIMATIONS)animationSelect.add(new Option(clip.label,cl
 function syncAnimation(state:StudioAnimationState|undefined):void {
   const active=!!state;
   animationSelect.value=state?.clipId??"";
+  movementSettings.hidden=state?.clipId!=="locomotion-preview";
   for(const control of [animationTime,animationPlay,animationReset,animationBack,animationNext,animationStatic])
     control.disabled=!active;
   animationTime.max=String(state?.durationSeconds??1);
