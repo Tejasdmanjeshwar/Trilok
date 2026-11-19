@@ -98,6 +98,13 @@ export class CanonicalLocomotionMixer {
     return Object.fromEntries(this.weights);
   }
   get intent():LocomotionIntent {return {...this.target};}
+  /** Reinitialize without discarding samplers or rig-bound caches. */
+  reset():void {
+    this.live();
+    this.target={forward:0,lateral:0,turn:0,grounded:true};
+    this.phase=0;this.idleTime=0;
+    for(const key of this.weights.keys())this.weights.set(key,key==="idle"?1:0);
+  }
   setIntent(intent:LocomotionIntent):void {
     this.live();
     if(![intent.forward,intent.lateral,intent.turn].every(finite) ||
