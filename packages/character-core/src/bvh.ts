@@ -154,7 +154,7 @@ export function sampleBVHFrame(source:BVHSourceV1,frame:number):BVHSampleV1{
       const axis=channel[0] as Axis;
       const dimension=axis==="X"?0:axis==="Y"?1:2;
       if(channel.endsWith("position")){
-        p[dimension]+=value;
+        p[dimension]=(p[dimension]??0)+value;
         if(rotations.length===0)rawRoot[dimension]=value;
       }
       else q=product(q,axisQuat(axis,value));
