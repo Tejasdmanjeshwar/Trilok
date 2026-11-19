@@ -24,7 +24,7 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
-import {STUDIO_ANIMATIONS,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
+import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
 import {StudioLocomotionPlayback} from "./StudioLocomotionPlayback";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
 import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
@@ -246,7 +246,7 @@ export function createStudioViewport(
     posePreview.setPose("neutral");
     if(id==="locomotion-preview"){
       animation=new StudioLocomotionPlayback(active.human.spike.character,
-        loadStudioLocomotionLibrary(active.human.spike.graph),
+        loadStudioLocomotionLibrary(active.human.spike.graph,EXPERIMENTAL_KAYKIT_REVIEW),
         samples=>posePreview!.applyAnimationSamples(samples),
         posePreview.animationFrames);
       animation.setMovement(...currentMovementComponents());
