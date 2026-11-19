@@ -118,9 +118,10 @@ def main():
     with (OUT / "Frame_Cuts.csv").open(newline="", encoding="utf-8-sig") as f:
         rows = list(csv.reader(f))
     for row in rows:
-        if any("Neutral_" in cell for cell in row):
+        if any("Neutral" in cell for cell in row):
             report["frameCutsMatches"].append(row)
     if not report["frameCutsMatches"]:
+        print("FRAME CUTS SAMPLE", json.dumps(rows[:12]), flush=True)
         raise ValueError("Frame_Cuts.csv contains no Neutral entries; inspect schema")
     print("FRAME CUT ROWS", json.dumps(report["frameCutsMatches"][:20]), flush=True)
     (OUT / "report.json").write_text(json.dumps(report, indent=2) + "\n")
