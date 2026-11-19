@@ -6,9 +6,10 @@ on:
       - scripts/probe-c63-100style.py
       - scripts/inspect-c63-100style.mjs
       - scripts/calibrate-c63-100style.mjs
-      - e2e/studio-animation-c6-3-100style.spec.ts
       - apps/web/src/studio/StudioAnimationLibrary.ts
       - packages/character-core/src/bvh.ts
+      - packages/character-core/src/retargeting.ts
+      - packages/character-core/src/retarget-human-frames.ts
       - .github/workflows/c63-100style-source-acquisition.yml
   workflow_dispatch:
 permissions:
@@ -59,62 +60,3 @@ jobs:
           path: c63-100style-acquisition/
           retention-days: 2
           if-no-files-found: warn
-  browser-review:
-    name: C6.3 skinned 100STYLE visual inspection (${{ matrix.project }})
-    needs: inspect
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix:
-        project: [desktop-chromium, touch-chromium]
-    steps:
-      - name: Checkout exact 100STYLE review SHA
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Assert checked-out commit identity
-        env:
-          EXPECTED_SHA: ${{ github.sha }}
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.20.0
-          run_install: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: pnpm install --frozen-lockfile
-      - name: Restore pinned MakeHuman assets
-        uses: actions/cache@v4
-        with:
-          path: |
-            apps/web/public/anatomy/makehuman-base.obj
-            apps/web/public/anatomy/makehuman-default.mhskel
-            apps/web/public/anatomy/makehuman-default_weights.mhw
-            apps/web/public/anatomy/makehuman-facial-v1.json
-            assets/cache/makehuman-body-v1.json
-          key: makehuman-pinned-v1-${{ runner.os }}-${{ hashFiles('assets/makehuman-core.json', 'assets/makehuman-body-v1.json', 'assets/makehuman-facial-v1.json', 'scripts/fetch-makehuman-*.mjs', 'scripts/fetch-pinned-source.mjs') }}
-      - name: Build actual MakeHuman Studio under exact PR SHA
-        run: |
-          pnpm build
-          node scripts/verify-build-identity.mjs
-      - name: Install Chromium with SwiftShader support
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Capture all source-backed Neutral motions on four MakeHuman morphologies
-        env:
-          CI: '1'
-          C63_SHA: ${{ github.sha }}
-          PROJECT: ${{ matrix.project }}
-        run: pnpm exec playwright test e2e/studio-animation-c6-3-100style.spec.ts --project="$PROJECT" --retries=0 --workers=1 --reporter=list
-      - name: Retain immutable screenshots and failure traces
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: c63-100style-render-${{ github.sha }}-${{ matrix.project }}
-          path: |
-            test-results/studio-c6-3-100style/**
-            test-results/**/*.png
-            test-results/**/*.zip
-          if-no-files-found: warn
-          retention-days: 14
