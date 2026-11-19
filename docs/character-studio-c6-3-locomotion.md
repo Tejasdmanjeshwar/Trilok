@@ -53,3 +53,43 @@ The new `tests/character-animation-c6-3.test.ts` checks hash identity, determini
 ## Authority policy
 
 Animation root offsets are visual-only, with forward travel suppressed by the existing approved baker. Gameplay remains sole owner of actor position, velocity, collision and turn decisions. Studio has a zero-translation demonstration surface, not real navigation. This branch makes no modification to combat damage, projectiles, AI decisions or reaction windows. C6.4 weapon-aware moving contacts and C6.5 combat synchronization remain out of scope.
+
+
+## C6.3 100STYLE Neutral three-motion anatomical gate (2026-11-19)
+
+**Scope and review status:** This work stays on [PR #118](https://github.com/Tejasdmanjeshwar/Trilok/pull/118). The approved four UAL1/C6.2 clip assets remain the unmodified official library. The KayKit directional clips documented above are **unaccepted** and are not proof of anatomical fidelity; production promotion is blocked. Do not proceed to backward, strafe or transitions until the owner reviews the initial 100STYLE trio.
+
+### Confirmed acquisition (not animation acceptance)
+
+The publisher's [100STYLE dataset page](https://www.ianxmason.com/100style/) lists distinct BVH downloads and separate `Frame_Cuts.csv` under **CC BY 4.0**. Exact official Google Drive individual file URLs are resolved by `scripts/probe-c63-100style.py`; the offline CI probe uses pinned `gdown==5.2.0`, emits a temporary two-day artifact, and fails if any original bytes are missing or malformed.
+
+| Source | Download bytes | SHA-256 | Frames | Frame duration |
+| --- | ---: | --- | ---: | ---: |
+| Neutral_ID.bvh | 1,465,227 | `71aead2e3246bdb47a5b839cb3e60e0574e9a1a046c071cc147e2922a35f259f` | 2,103 | 0.016667 s |
+| Neutral_FW.bvh | 5,504,825 | `2f28800baa299547c42c257d1c926172542a1e69b46a3d3e6aa0aded0e9b40f6` | 7,896 | 0.016667 s |
+| Neutral_FR.bvh | 3,262,894 | `f46ca526027a3654c8939a0123413f6008906fb32125d5e885eafcaa830831cb` | 4,625 | 0.016667 s |
+| Frame_Cuts.csv | 10,036 | `e3c1d2beab6486e083622cef6a5402fe9b20edc75a9963ea30675c67ec29ee82` | N/A | N/A |
+
+Source verification: [GitHub Actions #44563324901](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44563324901). The original BVHs are a temporary workflow artifact **not committed** to the repository or browser application. This proves transfer and identity of the retrieved files, not calibrated motion quality.
+
+Observed BVH skeleton: **23 named joints**, plus end-site segments consistent with the publisher's 28-bone description; `Hips` → four `Chest*` joints → `Neck`/`Head`, paired `Collar` → `Shoulder` → `Elbow` → `Wrist`, and paired `Hip` → `Knee` → `Ankle` → `Toe`. Source root has X/Y/Z position channels followed by **Yrotation, Xrotation, Zrotation**. Other measured joints also use **Y-X-Z** Euler channels. The *actual* per-joint channel declaration—not a generic XYZ assumption—must drive quaternion conversion. The three sources have matching named-joint lists. There are no captured finger joints; do not invent finger motion.
+
+The Neutral row in `Frame_Cuts.csv` is `["Neutral", "338", "5481", "380", "8235", "357", "4227", "327", "7445", "655", "1555", "340", "3066", "354", "5730", "304", "6775", "N/A", "N/A", "N/A", "N/A"]`. **These values have NOT yet been paired with their CSV column labels** or validated for clip bounds; do not interpret them as Idle/Walk/Run cut indices based only on column order.
+
+### Implemented, unaccepted tooling
+
+- `packages/character-core/src/bvh.ts`: renderer-free strict BVH hierarchy/end-site parser, actual per-joint Euler channel order conversion, explicit frame duration and source-native root translation distinct from static offset. Invalid values, unsupported channels, duplicate names and inconsistent frame data throw errors. Coordinate normalization and target-frame interpretation are intentionally deferred rather than guessed.
+- `tests/character-bvh-c6-3.test.ts`: synthetic parsing, hierarchy, end-site, order-of-rotation, trajectory and invalid-data regressions. Verify green status against latest PR head before considering this complete.
+- `scripts/probe-c63-100style.py` and `.github/workflows/c63-100style-source-acquisition.yml`: source-only acquisition with hashes, independent from runtime and existing UAL1 bytes.
+- The official publication and CC BY 4.0 attribution are recorded in `THIRD_PARTY_NOTICES.md`.
+
+### Acceptance gates still outstanding (do not report as passed)
+
+1. Interpret frame-cut column headers and identify actual capture region boundaries, contact cycles and plausible short loop candidates; retain the full original world trajectories.
+2. Independently reconstruct a physically verified 100STYLE anatomical reference pose (without treating the first motion frame as a bind pose), source axis/scale and bilateral bend-plane/twist orientations.
+3. Create and persist **one** versioned source-to-MakeHuman calibration through `createRetargetProfile()` and `retargetWorldPose()`; use it unchanged for Idle, Walk and Run, with no per-clip Euler patches.
+4. Produce deterministic canonical clips and SHA manifest without modifying any UAL1/C6.2 bytes; confirm source and target bone-direction/angle residuals at identical timestamps and explicit numeric acceptance thresholds.
+5. Make a gated **source skeleton versus real skinned MakeHuman** visual comparison in Character Studio; inspect all four angles, frame stepping, default/short/tall/muscular, extremity deformation and grounding **without IK masking**.
+6. Run Chromium desktop/touch tests and relevant CI. Publish Netlify draft **only** from the exact passing PR Verify artifact via the main-branch workflow. Verify the build SHA separately, and obtain owner visual review before further C6.3 additions or merge.
+
+The current 100STYLE source is promising because it includes coherent multiple locomotion directions captured on one human skeleton, but **its suitability for Trilok remains unproven** until gates 2–5 are completed. A valid BVH file or a green SHA checksum is not proof of physical rig alignment.
