@@ -87,7 +87,7 @@ function bodyFrame(source,pose){
 const server=await createServer({root,server:{middlewareMode:true},appType:"custom",
   logLevel:"error",configFile:false});
 try{
-  const {parseBVH,evaluateBVHWorldPose}=await server.ssrLoadModule(
+  const {parseBVH,sampleBVHFrame,evaluateBVHWorldPose}=await server.ssrLoadModule(
     "/packages/character-core/src/bvh.ts");
   const {canonicalRigIdentity,serializeAnimationClip,parseAnimationClip}=await server.ssrLoadModule(
     "/packages/character-core/src/animation.ts");
@@ -351,52 +351,70 @@ try{
   const baked={};
   const bakeRecords=[];
   const chosen={
-    "Neutral_ID.bvh":{id:"human-100style-neutral-idle",lengths:[90,120,150]},
-    "Neutral_FW.bvh":{id:"human-100style-neutral-walk",lengths:[60,72,84,96]},
-    "Neutral_FR.bvh":{id:"human-100style-neutral-run",lengths:[36,45,54,63]},
+    "Neutral_ID.bvh":{id:"human-100style-neutral-idle",range:[90,160],minimumTravel:0},
+    "Neutral_FW.bvh":{id:"human-100style-neutral-walk",range:[55,110],minimumTravel:.30},
+    "Neutral_FR.bvh":{id:"human-100style-neutral-run",range:[35,80],minimumTravel:.50},
   };
   const identity=canonicalRigIdentity(graph);
   for(const [filename,{source,lookup,cut}] of sources){
-    const {id:clipId,lengths}=chosen[filename];
+    const {id:clipId,range,minimumTravel}=chosen[filename];
     const [cutStart,cutStop]=cut;
     const jointIndices=sourceMaps.map(m=>lookup.get(m.sourceId));
-    // Cache a bounded, evenly distributed search set. No inferred sine gaits,
-    // reversed frames, or synthetic IK/contact poses are introduced.
-    const starts=[];
-    const room=Math.max(...lengths);
-    const step=Math.max(1,Math.floor((cutStop-cutStart-room)/28));
-    for(let start=cutStart+6;start+room+6<cutStop;start+=step)
-      starts.push(start);
-    const sourceFrame=new Map();
+    const sourceFrame=new Map(),sourceLocal=new Map();
     const at=i=>{
       let found=sourceFrame.get(i);
       if(!found){
         const native=evaluateBVHWorldPose(source,i);
-        found={native,
-          normalized:norm(native,scale)};
+        found={native,normalized:norm(native,scale)};
         sourceFrame.set(i,found);
       }
       return found;
     };
+    const local=i=>{
+      let found=sourceLocal.get(i);
+      if(!found){
+        found=sampleBVHFrame(source,i);
+        sourceLocal.set(i,found);
+      }
+      return found;
+    };
+    const angleDeg=(a,b)=>{
+      const value=a[0]*b[0]+a[1]*b[1]+a[2]*b[2]+a[3]*b[3];
+      return (360/Math.PI)*Math.acos(Math.min(1,Math.abs(value)));
+    };
     let winner;
-    for(const start of starts){
-      for(const frameLength of lengths){
-        const last=start+frameLength;
-        if(last>=cutStop)continue;
-        const initial=at(start).normalized;
-        const terminal=at(last).normalized;
-        const angular=jointIndices.map(idx=>deg(
-          initial.rotations[idx].angleTo(terminal.rotations[idx])));
-        const rootDelta=initial.positions[0].distanceTo(terminal.positions[0]);
-        const average=angular.reduce((sum,v)=>sum+v,0)/angular.length;
-        // Root travel is expected in walk/run and remains authoritative-source
-        // metadata only; vertical seam is a visual-only constraint.
-        const vertical=Math.abs(initial.positions[0].y-terminal.positions[0].y);
-        const scored=average + .3*Math.max(...angular)+vertical*100;
-        if(!winner || scored<winner.score)
-          winner={start,last,frameLength,score:scored,
-            angularMeanDegrees:average,angularMaxDegrees:Math.max(...angular),
-            verticalSeamMeters:vertical,rootTravelMeters:rootDelta};
+    // Dense source-backed loop search considers all gait phases, rather than
+    // choosing among only 28 coarse starting frames. Compare declared-order
+    // LOCAL quaternions (invariant to the person's world travel), authored
+    // pelvis motion, AND angular-speed continuity across the potential seam.
+    for(let start=cutStart+6;start+range[1]+6<cutStop;start+=2){
+      const first=local(start),before=local(start-1),after=local(start+1);
+      for(let length=range[0];length<=range[1];length++){
+        const last=start+length;
+        const final=local(last),prior=local(last-1),following=local(last+1);
+        let sum=0,max=0,velocityMismatch=0;
+        for(const idx of jointIndices){
+          const a=angleDeg(first.rotations[idx],final.rotations[idx]);
+          const headSpeed=angleDeg(before.rotations[idx],after.rotations[idx]);
+          const tailSpeed=angleDeg(prior.rotations[idx],following.rotations[idx]);
+          sum+=a;max=Math.max(max,a);
+          velocityMismatch+=Math.abs(headSpeed-tailSpeed);
+        }
+        const mean=sum/jointIndices.length;
+        const angularSpeedSeam=velocityMismatch/jointIndices.length;
+        const firstRoot=first.sourceRootTranslation;
+        const finalRoot=final.sourceRootTranslation;
+        const rootDelta=firstRoot.map((x,i)=>x-finalRoot[i]);
+        const rootTravel= Math.hypot(...rootDelta)*scale;
+        const vertical=Math.abs(rootDelta[1])*scale;
+        const motionPenalty=Math.max(0,minimumTravel-rootTravel)*200;
+        const score=mean+.32*max+.2*angularSpeedSeam+
+          vertical*100+motionPenalty;
+        if(!winner||score<winner.score)
+          winner={start,last,frameLength:length,score,
+            angularMeanDegrees:mean,angularMaxDegrees:max,
+            angularVelocitySeamDegrees:angularSpeedSeam,
+            verticalSeamMeters:vertical,rootTravelMeters:rootTravel};
       }
     }
     if(!winner)throw Error("No source-backed loop candidate "+filename);
@@ -433,8 +451,10 @@ try{
       const start=q(track.values[0]),end=q(track.values.at(-1));
       return Math.max(max,deg(start.angleTo(end)));
     },0);
-    const severeSeam=winner.angularMaxDegrees>35||
-      maxRetargetSeam>35||winner.verticalSeamMeters>.035;
+    const maxTargetSeam=filename==="Neutral_ID.bvh"?2:
+      filename==="Neutral_FW.bvh"?9:18;
+    const severeSeam=winner.angularMaxDegrees>25||
+      maxRetargetSeam>maxTargetSeam||winner.verticalSeamMeters>.02;
     if(severeSeam)
       throw Error("Source-backed loop seam not suitable for baking "+clipId+
         ": "+JSON.stringify({...winner,maxRetargetSeam}));
@@ -468,6 +488,7 @@ try{
       durationSeconds:duration,sourceSamples:frames,
       sourceAngularSeamMeanDegrees:winner.angularMeanDegrees,
       sourceAngularSeamMaxDegrees:winner.angularMaxDegrees,
+      sourceAngularVelocitySeamDegrees:winner.angularVelocitySeamDegrees,
       targetAngularSeamMaxDegrees:maxRetargetSeam,
       verticalSeamMeters:winner.verticalSeamMeters,
       rootWorldTravelMeters:winner.rootTravelMeters,
