@@ -356,3 +356,6 @@ evidence is:
 
 This record supersedes older interim RED / draft warnings above for the
 accepted C5.2 scope, without erasing historical failure analysis.
+
+
+**Workflow retirement update (2026-11-19):** The `c52-blender-reference.yml` workflow above was a historical C5.2 research runner and has been removed during C6.2 workflow cleanup; this does not remove the original pinned scripts in `tools/blender-c52/` or invalidate recorded research evidence. The current four official Studio locomotion clips use the separate deterministic UAL1/MakeHuman anatomical retargeter, not the old Blender source-reference workflow.
