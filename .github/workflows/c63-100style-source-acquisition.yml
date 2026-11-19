@@ -6,6 +6,7 @@ on:
       - scripts/probe-c63-100style.py
       - scripts/inspect-c63-100style.mjs
       - scripts/calibrate-c63-100style.mjs
+      - scripts/c63-skinned-pose-evidence.mjs
       - apps/web/src/studio/StudioAnimationLibrary.ts
       - packages/character-core/src/bvh.ts
       - packages/character-core/src/retargeting.ts
@@ -50,8 +51,8 @@ jobs:
         run: node scripts/fetch-makehuman-core.mjs --anatomical-rig-only
       - name: Validate official BVHs through TypeScript source FK
         run: node scripts/inspect-c63-100style.mjs
-      - name: Measure one shared 100STYLE to MakeHuman anatomical calibration
-        run: node scripts/calibrate-c63-100style.mjs --emit-review-blobs
+      - name: Measure source family and capture both gauges on actual MakeHuman skinned vertices
+        run: node scripts/calibrate-c63-100style.mjs --capture-skinned-poses
       - name: Retain authenticated source inspection temporarily
         if: always()
         uses: actions/upload-artifact@v4
