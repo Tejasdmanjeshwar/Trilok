@@ -61,6 +61,39 @@ describe("private Netlify draft verification",()=>{
       expect(JSON.stringify(call.options)).not.toContain("redacted-test-token");
     }
   });
+  it("accepts the real Netlify API HTTP deploy_url with HTTPS CLI draft URL",async()=>{
+    const dir=fixture(),{fetcher}=mockFetch([401,401,401],{
+      deploy_url:origin.replace("https:","http:"),
+      deploy_ssl_url:origin,
+    });
+    expect((await verifyPreview(inputs(dir,fetcher))).status).toBe("private-api-ready");
+  });
+  it("accepts the API's HTTPS-only deploy_ssl_url for the same immutable draft",async()=>{
+    const dir=fixture(),{fetcher}=mockFetch([401,401,401],{
+      deploy_url:null,deploy_ssl_url:origin,
+    });
+    expect((await verifyPreview(inputs(dir,fetcher))).status).toBe("private-api-ready");
+  });
+  it("rejects misleading Netlify API URLs even when the deploy ID and site otherwise match",async()=>{
+    const dir=fixture();
+    for (const invalid of [
+      "http://other--zingy-buttercream-19a04c.netlify.app",
+      "http://"+deployId+"--another-site.netlify.app",
+      origin+"/studio/",
+      "ftp://"+deployId+"--zingy-buttercream-19a04c.netlify.app",
+      "http://username@"+deployId+"--zingy-buttercream-19a04c.netlify.app",
+    ]) {
+      await expect(verifyPreview(inputs(dir,mockFetch([401,401,401],{
+        deploy_url:invalid,deploy_ssl_url:origin,
+      }).fetcher))).rejects.toThrow("Netlify API deploy URL does not match draft URL");
+    }
+    await expect(verifyPreview(inputs(dir,mockFetch([401,401,401],{
+      deploy_ssl_url:origin.replace("https:","http:"),
+    }).fetcher))).rejects.toThrow("Netlify API deploy URL does not match draft URL");
+    await expect(verifyPreview(inputs(dir,mockFetch([401,401,401],{
+      deploy_url:null,deploy_ssl_url:null,
+    }).fetcher))).rejects.toThrow("omitted the deploy URLs");
+  });
   it("fully verifies public SHA and both HTML entries",async()=>{
     const dir=fixture(),{fetcher}=mockFetch([200,200,200]);
     expect((await verifyPreview(inputs(dir,fetcher))).status).toBe("public-content-verified");
