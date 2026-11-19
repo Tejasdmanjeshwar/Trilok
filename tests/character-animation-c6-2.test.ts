@@ -31,8 +31,9 @@ describe("C6.2 verified Quaternius source-backed motion",()=>{
     expect(manifest.sourceGlbSha256).toBe(source.sourceGlbSha256);
     expect(manifest.sourceInputSha256).toBe(hash(raw));
     expect(manifest.entries.map(e=>e.id).sort()).toEqual(["human-idle","human-walk","human-run","human-sprint"].sort());
-    expect(STUDIO_ANIMATIONS.map(e=>e.label)).toEqual(["Idle","Walk","Jog","Sprint"]);
-    expect(STUDIO_ANIMATIONS.map(e=>e.id)).toEqual([...expectedIds]);
+    expect(STUDIO_ANIMATIONS.slice(0,4).map(e=>e.label)).toEqual(["Idle","Walk","Jog","Sprint"]);
+    expect(STUDIO_ANIMATIONS.at(-1)).toEqual({id:"locomotion-preview",label:"Movement transitions"});
+    expect(STUDIO_ANIMATIONS.slice(0,4).map(e=>e.id)).toEqual([...expectedIds]);
     expect(resolveStudioAnimationId("human-run-calibrated")).toBe("human-jog");
     expect(resolveStudioAnimationId("human-walk-calibrated")).toBe("human-walk");
     expect(loadBakedStudioAnimation("human-run-calibrated",graph).id).toBe("human-jog");
