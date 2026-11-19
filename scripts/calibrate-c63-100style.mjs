@@ -125,10 +125,49 @@ try{
   const referencePose=evaluateBVHWorldPose(id.source,id.reference);
   const basis=bodyFrame(id.source,referencePose);
   const normQ=basis.correction;
-  // The source posture is a real recorded pre-cut T-like reference, not frame 0.
+  // Infer the 100STYLE FAMILY's signed anterior axis from the publisher's
+  // authored FW and FR root trajectories. A hip cross product is a geometric
+  // axis, not proof that the capture used the same forward-sign convention.
+  // The actual BVH recordings use the opposite sagittal sign from C1.
+  // A sagittal REFLECTION (conjugating rotations), not a guessed yaw offset,
+  // preserves physical left/right joint correspondence and handedness.
+  const familyTravelEvidence=[
+    ["Neutral_FW.bvh",601,682],["Neutral_FR.bvh",499,546],
+  ].map(([filename,first,last])=>{
+    const clip=sources.get(filename);
+    const initial=evaluateBVHWorldPose(clip.source,first);
+    const final=evaluateBVHWorldPose(clip.source,last);
+    const middle=evaluateBVHWorldPose(clip.source,Math.round((first+last)/2));
+    const face=bodyFrame(clip.source,middle).forward
+      .applyQuaternion(normQ).setY(0).normalize();
+    const displacement=v(final.positions[0]).sub(v(initial.positions[0]))
+      .applyQuaternion(normQ).setY(0);
+    if(displacement.lengthSq()<1e-8)throw Error("Forward reference travel is stationary");
+    return {filename,first,last,
+      travelMetersBeforeScale:displacement.length(),
+      directionDot:displacement.normalize().dot(face)};
+  });
+  if(familyTravelEvidence.some(x=>Math.abs(x.directionDot)<.9) ||
+     Math.sign(familyTravelEvidence[0].directionDot)!==
+       Math.sign(familyTravelEvidence[1].directionDot))
+    throw Error("100STYLE family anterior-sign evidence is inconsistent "+
+      JSON.stringify(familyTravelEvidence));
+  const mirrorSagittal=familyTravelEvidence[0].directionDot<0;
+  console.log("C63_100STYLE_FAMILY_FACING "+JSON.stringify({
+    mirrorSagittal,familyTravelEvidence,
+    interpretation:"Single source-family handedness conversion; no per-motion offset",
+  }));
+  const reflectPosition=p=>{if(mirrorSagittal)p.z=-p.z;return p;};
+  const reflectQuaternion=r=>mirrorSagittal?
+    // R' = diag(1,1,-1) * R * diag(1,1,-1) in SO(3).
+    new THREE.Quaternion(-r.x,-r.y,r.z,r.w):r;
+  // BVH channel order and original source quaternions remain unmodified.
+  // Reference T is measured before the publisher's official motion cut.
   const norm=(pose,scale)=>({
-    positions:pose.positions.map(p=>v(p).applyQuaternion(normQ).multiplyScalar(scale)),
-    rotations:pose.rotations.map(r=>normQ.clone().multiply(q(r)).normalize()),
+    positions:pose.positions.map(p=>reflectPosition(
+      v(p).applyQuaternion(normQ)).multiplyScalar(scale)),
+    rotations:pose.rotations.map(r=>reflectQuaternion(
+      normQ.clone().multiply(q(r)).normalize())),
   });
   const graph=createAnatomyPreset({archetype:"human"});
   const sourceMaps=pairs.map(([sourceId,role])=>{
