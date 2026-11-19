@@ -98,8 +98,13 @@ try{
     "/packages/character-core/src/retargeting.ts");
   const {createHumanRestDescriptor}=await server.ssrLoadModule(
     "/packages/character-core/src/retarget-human-frames.ts");
-  const {parseAnatomicalOBJ}=await server.ssrLoadModule(
+  const {parseAnatomicalOBJ,bindTemplateToSemanticRig}=await server.ssrLoadModule(
     "/apps/web/src/characters/geometry/AnatomicalTemplate.ts");
+  const {AnatomicalFK}=await server.ssrLoadModule(
+    "/apps/web/src/characters/geometry/AnatomicalFK.ts");
+  const {HumanPoseCorrectives}=await server.ssrLoadModule(
+    "/apps/web/src/characters/geometry/HumanPoseCorrectives.ts");
+  const {captureC63SkinnedPose}=await import("./c63-skinned-pose-evidence.mjs");
   const {makeSourceLandmarks,calibrateHumanBones}=await server.ssrLoadModule(
     "/apps/web/src/characters/geometry/OfficialHumanRig.ts");
   const {createSkinningSpike}=await server.ssrLoadModule(
@@ -748,6 +753,139 @@ try{
       artifactSha256:digest(encoded),bytes:Buffer.byteLength(encoded),
       acceptedForProduction:false});
   }
+
+  // This is deliberately NOT the browser acceptance gate. Capture the actual
+  // weighted MakeHuman surface through Three.js CPU skinning before deciding
+  // whether either fingerless-BVH forearm roll gauge may replace review clips.
+  // Execute against the same official OBJ, skeleton and weights as Studio.
+  if(process.argv.includes("--capture-skinned-poses")){
+    const weightBytes=await readFile(resolve(root,
+      "apps/web/public/anatomy/makehuman-default_weights.mhw"));
+    const poses=[
+      {key:"source-reference",filename:"Neutral_ID.bvh",frame:282},
+      {key:"neutral-idle",filename:"Neutral_ID.bvh",frame:1279},
+    ];
+    const sourcePose=(filename,frame)=>{
+      const {source}=sources.get(filename);
+      return norm(evaluateBVHWorldPose(source,frame),scale);
+    };
+    const armDynamics=(filename,frame)=>{
+      const {lookup}=sources.get(filename);
+      const pose=sourcePose(filename,frame);
+      const at=name=>pose.positions[lookup.get(name)];
+      const forward=new THREE.Vector3().subVectors(
+        at("RightHip"),at("LeftHip")).normalize()
+        .cross(new THREE.Vector3(0,1,0)).normalize();
+      const arm=name=>new THREE.Vector3().subVectors(
+        at(name+"Elbow"),at(name+"Shoulder")).normalize().dot(forward);
+      const bend=side=>{
+        const upper=new THREE.Vector3().subVectors(
+          at(side+"Elbow"),at(side+"Shoulder")).normalize();
+        const lower=new THREE.Vector3().subVectors(
+          at(side+"Wrist"),at(side+"Elbow")).normalize();
+        return Math.acos(THREE.MathUtils.clamp(upper.dot(lower),-1,1));
+      };
+      return {leftSwing:arm("Left"),oppositeSwing:arm("Left")-arm("Right"),
+        maxBend:Math.max(bend("Left"),bend("Right"))};
+    };
+    const pick=(filename,metric,extreme,exclude)=>{
+      const record=bakeRecords.find(x=>x.original===filename);
+      if(!record)throw Error("Missing original BVH cycle "+filename);
+      const entries=[];
+      for(let frame=record.loopRange[0];frame<=record.loopRange[1];frame++)
+        if(frame!==exclude)
+          entries.push({frame,value:armDynamics(filename,frame)[metric]});
+      entries.sort((a,b)=>extreme==="max"?b.value-a.value:a.value-b.value);
+      if(!entries.length)throw Error("Empty captured cycle "+filename);
+      return entries[0].frame;
+    };
+    const walkForward=pick("Neutral_FW.bvh","leftSwing","max");
+    const walkBack=pick("Neutral_FW.bvh","leftSwing","min",walkForward);
+    const runFlexion=pick("Neutral_FR.bvh","maxBend","max");
+    const runOpposite=pick("Neutral_FR.bvh","oppositeSwing","min",runFlexion);
+    poses.push(
+      {key:"walk-arm-forward",filename:"Neutral_FW.bvh",frame:walkForward},
+      {key:"walk-arm-back",filename:"Neutral_FW.bvh",frame:walkBack},
+      {key:"run-elbow-flexion",filename:"Neutral_FR.bvh",frame:runFlexion},
+      {key:"run-opposite-swing",filename:"Neutral_FR.bvh",frame:runOpposite},
+    );
+    const templateForSkin=parseAnatomicalOBJ(objBytes.toString("utf8"),
+      {includeGroups:["body"]});
+    const skinned=bindTemplateToSemanticRig(templateForSkin,{
+      rig:JSON.parse(rigBytes.toString("utf8")),
+      weights:JSON.parse(weightBytes.toString("utf8")),
+    });
+    let correctives;
+    const skinnedRecords=[];
+    const saved=new Set();
+    try{
+      const fk=new AnatomicalFK(skinned.spike.graph,skinned.spike.bones,{
+        jawTipWorldRest:skinned.jawTipWorldRest,
+        forearmSkinBones:skinned.spike.forearmSkinBones,
+        shoulderSkinBones:skinned.spike.shoulderSkinBones,
+      });
+      correctives=new HumanPoseCorrectives(skinned);
+      for(const pose of poses){
+        const {source,lookup}=sources.get(pose.filename);
+        const actual=sourcePose(pose.filename,pose.frame);
+        const rotations=new Map(source.joints.map((joint,i)=>
+          [joint.name,actual.rotations[i].toArray()]));
+        const gauges=[["body-forward",profile],
+          ["parallel-transport",minimalTwistProfile]];
+        for(const [gauge,calibration] of gauges){
+          const samples=retargetWorldPose(calibration,target,rotations,
+            fingerprint,"source-anatomical");
+          correctives.applyAnimationSamples(samples);
+          const result=captureC63SkinnedPose({
+            human:skinned,fk,samples,sourceJoints:source.joints,
+            sourcePositions:actual.positions,
+            label:pose.key+" · "+gauge+" · source frame "+pose.frame,
+          });
+          const prefix="100style-skin-"+pose.key+"-"+gauge;
+          for(const [view,content] of Object.entries(result.svg)){
+            const filename=prefix+"-"+view+".svg";
+            if(saved.has(filename))throw Error("Duplicate pose evidence "+filename);
+            saved.add(filename);
+            await writeFile(resolve(directory,filename),content);
+          }
+          skinnedRecords.push({
+            id:pose.key,filename:pose.filename,frame:pose.frame,
+            recordedSeconds:+(pose.frame*source.frameTimeSeconds).toFixed(6),
+            gauge,realMakeHumanMesh:true,screenProjection:"orthographic-cpu-skinned",
+            ...result.measurements,
+          });
+        }
+      }
+      const payload={schemaVersion:1,kind:"c6.3-real-skinned-arm-evidence",
+        sourceIdentitySha256:fingerprint,targetIdentitySha256:targetHash,
+        acceptedForProduction:false,
+        metadata:{body:"original pinned CC0 MakeHuman",sampleCount:poses.length,
+          gaugeCount:2,viewCount:4,svgFiles:saved.size,
+          originalSourceSha256:Object.fromEntries(
+            Object.entries(assets).map(([file,[hash]])=>[file,hash]))},
+        samples:skinnedRecords,
+        limitation:"Real Three.js CPU-weighted (and C3 morph-corrected) vertices, "+
+          "not material-shaded WebGL screenshots. Source finger/palm surfaces are "+
+          "unobservable. Does not satisfy Chromium, morphology or owner review.",
+      };
+      await writeFile(resolve(directory,"100style-skinned-pose-report.json"),
+        JSON.stringify(payload,null,2)+"\n");
+      console.log("C63_REAL_SKINNED_POSE_EVIDENCE "+JSON.stringify({
+        frames:poses,samples:skinnedRecords.length,svgFiles:saved.size,
+        summary:skinnedRecords.map(x=>({id:x.id,gauge:x.gauge,
+          leftElbowAxial:x.left.elbowSignedAxialDegrees,
+          rightElbowAxial:x.right.elbowSignedAxialDegrees,
+          leftHelperDelta:x.left.helperToElbowWorldDegrees,
+          rightHelperDelta:x.right.helperToElbowWorldDegrees,
+          vertexStretch:x.surfaceEdgeStretchSample})),
+        ownerAccepted:false,
+      }));
+    }finally{
+      correctives?.dispose();
+      skinned.dispose();
+    }
+  }
+
   const manifest={
     schemaVersion:1,kind:"c6.3-100style-neutral-experimental",
     acceptedForProduction:false,
