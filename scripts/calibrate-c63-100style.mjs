@@ -246,13 +246,47 @@ try{
     // Recorded setup T poses may face different compass headings even on the
     // same skeleton. Strip global heading only for *reference comparison*;
     // actual motion below retains the one ID-derived family conversion.
-    const referenceNative=evaluateBVHWorldPose(source,sourceRef);
-    const referenceFacing=bodyFrame(source,referenceNative);
-    const tPose={positions:referenceNative.positions.map(p=>
-      v(p).applyQuaternion(referenceFacing.correction).multiplyScalar(scale))};
-    const tResidual=measuredLinks.map(([a,b])=>angle(
-      tPose.positions[lookup.get(b)].clone().sub(tPose.positions[lookup.get(a)]).toArray(),
-      reference.positions[id.lookup.get(b)].clone().sub(reference.positions[id.lookup.get(a)]).toArray()));
+    const measureTPose=frame=>{
+      const native=evaluateBVHWorldPose(source,frame);
+      const facing=bodyFrame(source,native);
+      const positions=native.positions.map(p=>
+        v(p).applyQuaternion(facing.correction).multiplyScalar(scale));
+      const direction=(a,b)=>positions[lookup.get(b)].clone()
+        .sub(positions[lookup.get(a)]).normalize();
+      // Require actual bilateral extension: a forward-moving or relaxed
+      // motion frame is not interchangeable with a recorded T-like setup.
+      const leftUpper=direction("LeftShoulder","LeftElbow");
+      const rightUpper=direction("RightShoulder","RightElbow");
+      const leftLower=direction("LeftElbow","LeftWrist");
+      const rightLower=direction("RightElbow","RightWrist");
+      const horizontal=Math.min(-leftUpper.x,rightUpper.x,
+        -leftLower.x,rightLower.x);
+      const links=measuredLinks.map(([a,b])=>({
+        link:a+"->"+b,
+        degrees:angle(direction(a,b).toArray(),
+          reference.positions[id.lookup.get(b)].clone()
+            .sub(reference.positions[id.lookup.get(a)]).toArray()),
+      }));
+      return {frame,facing:facing.forward.toArray(),horizontal,
+        links,max:Math.max(...links.map(x=>x.degrees)),
+        average:links.reduce((sum,x)=>sum+x.degrees,0)/links.length};
+    };
+    // Publisher setup regions contain more than one T-like posture and
+    // compass headings. Find the best whole-body anatomical match, not
+    // merely the most horizontal arms. This diagnostic-only choice never
+    // changes the ONE family source-rest profile or animated clip rotations.
+    let selected=measureTPose(sourceRef);
+    if(filename!=="Neutral_ID.bvh"){
+      for(let frame=0;frame<cut[0];frame+=3){
+        const candidate=measureTPose(frame);
+        if(candidate.horizontal<.94)continue;
+        if(candidate.max<selected.max-1e-5||
+          (Math.abs(candidate.max-selected.max)<=1e-5&&
+            candidate.average<selected.average))
+          selected=candidate;
+      }
+    }
+    const tResidual=selected.links.map(x=>x.degrees);
     const probes=[cut[0]+10,Math.floor(cut[0]+(cut[1]-cut[0])*.25),
       Math.floor((cut[0]+cut[1])/2),
       Math.floor(cut[0]+(cut[1]-cut[0])*.75),cut[1]-10];
@@ -279,10 +313,12 @@ try{
       });
     }
     reports.push({filename,originalSha256:assets[filename][0],
-      tPoseReferenceFrame:sourceRef,
+      initialTPoseCandidateFrame:sourceRef,
+      measuredTPoseReferenceFrame:selected.frame,
+      measuredTPoseArmExtension:selected.horizontal,
+      measuredTPoseWorstLinks:selected.links.sort((a,b)=>b.degrees-a.degrees).slice(0,5),
       relativeTPoseMaximumDirectionDegrees:+Math.max(...tResidual).toFixed(4),
-      sourceFacingAtReference:
-        bodyFrame(source,evaluateBVHWorldPose(source,sourceRef)).forward.toArray(),
+      sourceFacingAtReference:selected.facing,
       sampledSourceToTargetLinks:byFrame});
   }
   const result={
