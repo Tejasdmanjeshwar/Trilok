@@ -165,3 +165,42 @@ export function sampleBVHFrame(source:BVHSourceV1,frame:number):BVHSampleV1{
   if(offset!==source.channelCount)invalid("channel count mismatch");
   return {rotations,translations,sourceRootTranslation:[rawRoot[0]!,rawRoot[1]!,rawRoot[2]!]};
 }
+
+/** Source-native world FK. Original trajectory is preserved, not zeroed or
+ * interpreted as gameplay displacement. Static end sites remain in source
+ * coordinates and can be transformed by the caller when inspecting soles. */
+export interface BVHWorldPoseV1 {
+  readonly positions: readonly Vec3[];
+  readonly rotations: readonly Quat[];
+  readonly sourceRootTranslation: Vec3;
+}
+function rotateBy(q:Quat,v:Vec3):Vec3{
+  const [x,y,z,w]=q;
+  const [vx,vy,vz]=v;
+  const tx=2*(y*vz-z*vy),ty=2*(z*vx-x*vz),tz=2*(x*vy-y*vx);
+  return [
+    vx+w*tx+(y*tz-z*ty),
+    vy+w*ty+(z*tx-x*tz),
+    vz+w*tz+(x*ty-y*tx),
+  ];
+}
+export function evaluateBVHWorldPose(source:BVHSourceV1,frame:number):BVHWorldPoseV1{
+  const local=sampleBVHFrame(source,frame);
+  const positions:Vec3[]=[],rotations:Quat[]=[];
+  source.joints.forEach((joint,i)=>{
+    const parent=joint.parent;
+    const rotation=local.rotations[i]!;
+    const translation=local.translations[i]!;
+    if(parent===null){
+      positions.push(translation);
+      rotations.push(rotation);
+    }else{
+      if(parent<0||parent>=i)invalid("non-topological BVH parent");
+      const q=rotations[parent]!,p=positions[parent]!;
+      const offset=rotateBy(q,translation);
+      positions.push([p[0]+offset[0],p[1]+offset[1],p[2]+offset[2]]);
+      rotations.push(unit(product(q,rotation)));
+    }
+  });
+  return {positions,rotations,sourceRootTranslation:local.sourceRootTranslation};
+}
