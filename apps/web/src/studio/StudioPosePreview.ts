@@ -91,6 +91,8 @@ export class StudioPosePreview {
       right:calibrateGripSpreads(h.spike.graph,h.spike.bones,this.fk.frames,"right"),
     };
   }
+  /** Contact constraints use this exact calibrated FK, never a duplicate rig. */
+  get animationFrames(){return this.fk.frames;}
   /** Shared C2/C5 anatomical pose owner during C6 base-clip playback. */
   applyAnimationSamples(samples: readonly {
     readonly jointId: string;
