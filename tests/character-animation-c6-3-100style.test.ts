@@ -88,7 +88,9 @@ describe("C6.3 genuine 100STYLE Neutral motion — unaccepted reviewer-only asse
       for(const toe of toeRoles){
         const track=clip.tracks.find(t=>t.jointId===toe.id&&t.channel==="rotation");
         expect(track,entry.id+" missing "+toe.role).toBeDefined();
-        for(const value of track!.values){
+        if(!track||track.channel!=="rotation")
+          throw new Error("Missing toe rotation " + toe.role);
+        for(const value of track.values){
           const radians=2*Math.acos(Math.min(1,Math.abs(value[3]!)));
           expect(radians,entry.id+" inverted "+toe.role).toBeLessThan(Math.PI/2);
         }
