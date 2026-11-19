@@ -1,3 +1,43 @@
+## 2026-11-19 — Anatomical revalidation and CI policy repair (PR #118, still blocked)
+
+**Scope remains one C6.3 PR. Do not merge or promote these clips.** The owner's
+specific negative visual findings (backward run lean and malformed arms) supersede
+any earlier numeric-only claims of believable animation.
+
+- Removed the browser-review job from the push-triggered
+  `c63-100style-source-acquisition.yml`. Official SHA-pinned BVH acquisition,
+  typed source FK, calibration/bake diagnostics and temporary artifact retention
+  remain. Desktop/touch Chromium review has been routed into the existing
+  **manually dispatched** `studio-interaction-diagnostics.yml` suite
+  `100style-review`; a CI policy regression test protects both sides.
+- Expanded opt-in rendered evidence for the actual skinned MakeHuman character
+  to default/short/tall/muscular, front/side/rear/three-quarter, quarter-cycle
+  samples, plus explicit beginning/end seam captures. This is **capture coverage**,
+  not a perceptual quality validator. Browser dispatch and human screenshot
+  evaluation are separately required.
+- Extended the offline source/target diagnostic with independently reconstructed
+  torso-facing/up vectors, signed torso pitch, and bilateral elbow/knee bend-plane
+  normals at matched BVH timestamps. Reports retain undefined/degenerate bend
+  planes as null, not a false zero-degree success.
+- **Investigation status:** the existing source adapter uses a generic facing
+  vector as the non-collinear secondary cue for the arms, with no recorded BVH
+  palm/finger references. The shared profile thus cannot independently certify
+  forearm pronation, wrist orientation, or the correct elbow bend plane.
+  Moreover, sampled link-direction residuals exclude axial twist; they do not
+  prove that the displayed torso and arms match authored 100STYLE poses.
+  These are evidenced **validation gaps / plausible defect contributors**,
+  not yet a proven primary root cause.
+- **Blocking correction:** compare the new signed source/target evidence and
+  actual source/target skinned renders throughout each loop, determine whether
+  the backward lean is source-authored or retarget-induced, then repair the
+  one common anatomical calibration. The three previously baked 100STYLE clips
+  are intentionally unchanged until that diagnosis is measured. No per-clip
+  Euler correction or weaker test tolerance is acceptable.
+- **Unperformed acceptance:** no owner-approved visuals, no demonstrated wrist
+  twist calibration, no accepted full-cycle skinned sole/slip measurements,
+  no regenerated/visually accepted 100STYLE assets, no SHA-verified Netlify
+  preview. Do not conflate CI workflow success with C6.3 acceptance.
+
 # C6.3 — Grounded locomotion integration (engineering work in progress)
 
 **Status:** Incomplete; this branch is NOT C6.3 acceptance and must not be merged as a finished phase.
