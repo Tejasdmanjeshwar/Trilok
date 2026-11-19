@@ -93,7 +93,8 @@ try{
     "/packages/character-core/src/animation.ts");
   const {createAnatomyPreset}=await server.ssrLoadModule(
     "/packages/character-core/src/presets.ts");
-  const {createRetargetProfile,retargetWorldPose}=await server.ssrLoadModule(
+  const {createRetargetProfile,retargetWorldPose,
+    parallelTransportAnatomicalCue}=await server.ssrLoadModule(
     "/packages/character-core/src/retargeting.ts");
   const {createHumanRestDescriptor}=await server.ssrLoadModule(
     "/packages/character-core/src/retarget-human-frames.ts");
@@ -247,6 +248,24 @@ try{
   const profile=createRetargetProfile(sourceRig,target,sourceMaps);
   if(profile.calibrations.length!==sourceMaps.length)
     throw Error("100STYLE anatomical mapping incomplete");
+  // A separate diagnostic profile tests an underdetermined BVH source roll
+  // gauge WITHOUT overwriting the original, source-backed production profile.
+  // The target cue is measured on actual C1 MakeHuman anatomy, not guessed
+  // from a nonexistent BVH finger/palm landmark. Preserve source-supported
+  // BVH world-motion deltas exactly; only the source REFERENCE cue differs.
+  const sourceToTarget=new Map(sourceMaps.map(m=>[m.sourceId,m.targetId]));
+  const candidateJoints=sourceRig.joints.map(j=>{
+    if(!/^(Left|Right)(Elbow|Wrist)$/.test(j.id))return j;
+    const counterpart=target.joints.find(t=>t.id===sourceToTarget.get(j.id));
+    if(!counterpart)throw Error("Missing target for fingerless source "+j.id);
+    return {...j,secondaryWorld:parallelTransportAnatomicalCue(
+      counterpart.shaftWorld,counterpart.secondaryWorld,j.shaftWorld)};
+  });
+  const minimalTwistRig={...sourceRig,joints:candidateJoints};
+  const minimalTwistProfile=createRetargetProfile(minimalTwistRig,target,sourceMaps);
+  // Do not change this script's official review-clip baking profile until
+  // the candidate is visually confirmed on the skinned MakeHuman runtime.
+  const minimalTwistProbes=[];
   const targetById=new Map(target.joints.map(j=>[j.id,j]));
   const mappedBySource=new Map(sourceMaps.map(m=>[m.sourceId,m.targetId]));
   const mappedJointIds=new Set(sourceMaps.map(m=>m.targetId));
@@ -370,6 +389,49 @@ try{
     }
     return comparisons;
   };
+  const axisTwist=(rotation,targetId)=>{
+    const t=targetById.get(targetId);
+    if(!t)throw Error("Unknown target axial probe "+targetId);
+    const axis=v(t.shaftWorld).applyQuaternion(q(t.restWorldRotation).invert()).normalize();
+    const delta=q(rotation);
+    const projection=axis.x*delta.x+axis.y*delta.y+axis.z*delta.z;
+    const angle=2*Math.atan2(projection,delta.w)*180/Math.PI;
+    return +(((angle+180)%360+360)%360-180).toFixed(4);
+  };
+  const sampleMinimalTwist=(filename,source,frame)=>{
+    const actual=norm(evaluateBVHWorldPose(source,frame),scale);
+    const rotations=new Map(source.joints.map((j,i)=>[j.name,actual.rotations[i].toArray()]));
+    const baseline=retargetWorldPose(profile,target,rotations,fingerprint,"source-anatomical");
+    const candidate=retargetWorldPose(minimalTwistProfile,target,rotations,
+      fingerprint,"source-anatomical");
+    const a=new Map(baseline.map(s=>[s.jointId,s.rotation]));
+    const b=new Map(candidate.map(s=>[s.jointId,s.rotation]));
+    const afk=targetFK(baseline),bfk=targetFK(candidate);
+    const joints=[];
+    for(const side of ["Left","Right"]){
+      for(const part of ["Shoulder","Elbow","Wrist"]){
+        const sourceId=side+part;
+        const tId=sourceToTarget.get(sourceId);
+        const current=a.get(tId),next=b.get(tId);
+        const parent=part==="Shoulder"?"Collar":part==="Elbow"?"Shoulder":"Elbow";
+        const sourceParent=side+parent;
+        const linkStart=sourceToTarget.get(sourceParent);
+        const deviation=linkStart?angle(
+          v(afk.positions.get(tId)).sub(v(afk.positions.get(linkStart))).toArray(),
+          v(bfk.positions.get(tId)).sub(v(bfk.positions.get(linkStart))).toArray()):0;
+        if(deviation>0.05)throw Error("Reference gauge altered physical link direction "+
+          filename+"/"+frame+"/"+sourceId+": "+deviation);
+        joints.push({sourceId,baselineAxialDegrees:axisTwist(current,tId),
+          candidateAxialDegrees:axisTwist(next,tId),
+          referenceGaugeWorldDeltaDegrees:deg(
+            q(afk.rotations.get(tId)).angleTo(q(bfk.rotations.get(tId)))),
+          linkDirectionChangeDegrees:deviation});
+      }
+    }
+    minimalTwistProbes.push({filename,frame,joints,
+      note:"Absolute source palmar orientation is UNOBSERVABLE; this is a zero-roll gauge, not recovered hand anatomy"});
+  };
+  sampleMinimalTwist("Neutral_ID.bvh",id.source,id.reference);
   const reports=[];
   for(const [filename,{source,lookup,reference:sourceRef,cut}] of sources){
     // Recorded setup T poses may face different compass headings even on the
@@ -553,6 +615,10 @@ try{
     if(!winner)throw Error("No source-backed loop candidate "+filename);
     const {start,last}=winner;
     const frames=last-start+1;
+    for(const phase of [0,.25,.5,.75,1]){
+      const frame=Math.round(start+(last-start)*phase);
+      sampleMinimalTwist(filename,source,frame);
+    }
     if(sourceMaps.length*frames>8192)
       throw Error("Clip would violate canonical total-key limit "+clipId);
     const times=Array.from({length:frames},(_,i)=>
@@ -672,6 +738,20 @@ try{
     await writeFile(resolve(directory,name),data);
   await writeFile(resolve(directory,"100style-experimental-manifest.json"),
     JSON.stringify(manifest,null,2)+"\n");
+  await writeFile(resolve(directory,"100style-minimal-twist-probe.json"),
+    JSON.stringify({schemaVersion:1,kind:"100style-unobservable-arm-roll-research",
+      acceptedForProduction:false,sourceIdentitySha256:fingerprint,
+      targetIdentitySha256:targetHash,
+      originalProfileSha256:digest(JSON.stringify(profile,null,2)+"\n"),
+      candidateProfileSha256:digest(JSON.stringify(minimalTwistProfile,null,2)+"\n"),
+      tested: minimalTwistProbes,
+      warning:"No skinned Chromium validation; do not promote or rebake using this candidate"},null,2)+"\n");
+  console.log("C63_MINIMAL_TWIST_DIAGNOSTIC "+JSON.stringify({
+    probes:minimalTwistProbes.length,
+    elbowSamples:minimalTwistProbes.map(p=>({
+      filename:p.filename,frame:p.frame,elbows:p.joints.filter(j=>j.sourceId.endsWith("Elbow")),
+    })),
+  }));
   console.log("C63_100STYLE_EXPERIMENTAL_BAKE "+JSON.stringify(
     {count:bakeRecords.length,clips:bakeRecords}));
   // Do not claim the reference is accepted based on unit quaternions alone.
