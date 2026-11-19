@@ -1,5 +1,5 @@
 import {getBuildIdentity} from "../build-info";
-import {STUDIO_ANIMATIONS} from "./StudioAnimationLibrary";
+import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW} from "./StudioAnimationLibrary";
 import type {StudioAnimationState} from "./StudioViewport";
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
@@ -120,14 +120,14 @@ host.innerHTML=String.raw`
             <label class="studio-field-label" for="studio-movement-direction">Movement direction</label>
             <select id="studio-movement-direction" aria-label="Movement direction">
               <option value="forward">Forward</option>
-              <option value="backward">Backward</option>
-              <option value="left">Step left</option>
-              <option value="right">Step right</option>
+              ${EXPERIMENTAL_KAYKIT_REVIEW?String.raw`<option value="backward">Backward (unaccepted KayKit)</option>
+              <option value="left">Strafe left (unaccepted KayKit)</option>
+              <option value="right">Strafe right (unaccepted KayKit)</option>`:""}
             </select>
             <label class="studio-field-label" for="studio-movement-speed">Movement pace</label>
             <input id="studio-movement-speed" type="range" min="0" max="1" step=".01" value="0" />
             <output id="studio-movement-speed-value">Standing</output>
-            <p>Preview forward, backward and sideways movement. Side steps use authored running-strafe cycles.</p>
+            <p>${EXPERIMENTAL_KAYKIT_REVIEW?"Experimental KayKit directional source is unaccepted; anatomical fidelity is not proven.":"Approved UAL1 forward speed transitions only; 100STYLE calibration is still under review."}</p>
           </div>
           <div class="studio-action-pair studio-animation-actions">
             <button id="studio-animation-play" type="button" disabled aria-label="Play animation">Play</button>
