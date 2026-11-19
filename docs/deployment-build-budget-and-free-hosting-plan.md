@@ -1,8 +1,8 @@
 # Trilok — Build-budget, deployment-gating and free-preview hosting policy
 
-**Decision state:** PROPOSED for review on a dedicated documentation PR. This document does **not** change Cloudflare account settings, GitHub workflow triggers, credentials, deployments or hosting providers. It becomes normative only after owner approval, CI verification and merge to main.
+**Decision state:** DEVELOPMENT-ONLY policy implementation in PR #113. The owner confirms Cloudflare GitHub integration has been disconnected. We have not independently verified the Cloudflare dashboard, deployed Netlify or modified production; validate the zero-build containment gate separately. The GitHub artifact and manual Netlify development-preview workflows are being implemented/tested, not deployed before approval, environment secrets and merge to main.
 
-**Review date:** 2026-11-19. **Scope:** Game and Character Studio, current C6.x work and later phases. **Priority:** Protect deterministic correctness and visual verification while ending repeated cloud builds on intermediate commits.
+**Review date:** 2026-11-19. **Scope:** Development and visual review of Game and Character Studio through C6.x and later implementation phases. **Production stays on Cloudflare**, with an optional Cloudflare Paid upgrade after game completion based on measured user traffic. This plan does NOT migrate long-term hosting to Netlify. **Priority:** Preserve deterministic correctness and visual verification while stopping repeated cloud builds on intermediate commits.
 
 ## 1. Observed source-of-truth baseline
 
@@ -20,7 +20,7 @@
 ## 2. Non-negotiable operating rules
 
 1. **Development pushes do not deploy.** No automatic Cloudflare Workers Builds for feature branches, docs, experimental assets, source audits or PR updates. A red CI check never triggers deployment.
-2. **Main does not auto-publish on every push.** Merging is not authorization for a network release. Release occurs once, after required checks and the designated approval gate.
+2. **Main does not auto-publish on every push during development.** Merging is not authorization for a network release. Current Cloudflare production remains unchanged. Post-development Cloudflare production release cadence and a possible Paid tier are a separate decision.
 3. **One immutable SHA, one checked artifact, one authorized deployment.** Reuse a previously verified build for that SHA; do not rebuild it in every provider. Record artifact SHA-256 and /build-info.json.
 4. **Never publish an old preview as current.** An exposed preview requires a successful HTTP GET of that origin's /build-info.json whose commitSha equals the selected commit. Check both / and /studio/ routes and browser-console errors.
 5. **No loss of tests.** Existing TypeScript, deterministic replays, model/skin tests, smoke checks and manually gated full desktop/touch Phase Acceptance remain. Optimize duplicate preparation, not correctness.
@@ -72,9 +72,9 @@ Cloudflare official docs:
 - Every preview must be tied to its exact SHA, and annotated experimental when motion quality has not been approved. Publish the verified /build-info.json and expose both / and /studio/.
 - **Gate:** desktop and touch open the actual deployed Game/Studio origin, assets load, SHA matches, no unauthorized secrets leak, and old URLs are not mistaken for fresh commits.
 
-### G3 — Protected staging and production
+### G3 — Protected staging and production (POST-DEVELOPMENT / DEFERRED)
 
-- Introduce a **workflow_dispatch-only** deployment job (a narrow CI adapter, not a second build system). Inputs: exact 40-character SHA, destination (staging/production), existing artifact ID and a documented reason.
+- At production-readiness, separately approve and implement a **workflow_dispatch-only** Cloudflare release job (a narrow CI adapter, not a second build system). Inputs: exact 40-character SHA, destination (staging/production), existing artifact ID and a documented reason. **Do not create or run the production deployment workflow during the development Netlify pilot.**
 - Require existing Verify success on that exact SHA and an immutable artifact manifest. Production additionally requires SHA equals current protected main HEAD and explicit reviewer approval via a protected GitHub Environment.
 - Deploy with least-privilege provider credentials stored as GitHub Environment secrets. A staging Worker (if used) has a different name/configuration, token scope and URL than production. Never mutate the production Worker while testing staging.
 - Prefer uploading already verified static output via an external CI/CD route (e.g. Wrangler from GitHub Actions with account ID and token), not building a second time in Workers Builds. Cloudflare officially supports external CI; verify account permissions before enabling.
@@ -142,7 +142,7 @@ For every hosted feature preview:
 ## 8. Responsibility and evidence
 
 - **Engineering partner (GitHub-connected):** make focused implementation PRs for G1–G4, add tests, validate exact SHAs, capture browser evidence and record every cost-related decision in this document/release ledger.
-- **Cloudflare account owner:** inspect and change Workers Builds dashboard configuration and quotas (G0) if no account connector is available, and approve creation of narrowly scoped deploy tokens and protected environment use.
+- **Cloudflare account owner:** GitHub build integration disconnection is reported complete. Verify that documentation/test pushes produce zero Cloudflare builds and active production still serves; Cloudflare remains the planned post-development production provider, potentially Paid.
 - **Alternate provider owner:** explicitly connect/provision Netlify/Pages/GitHub Pages as selected. No credentials are inferred from a URL.
 - **Review owner:** accept actual animation quality and any production promotion. CI success is not visual approval.
 - **Release ledger:** one row per intentional deployment: purpose, branch, exact SHA, artifact SHA-256, provider/destination, live URL, observed deploy identity, test run URL, approval and usage counter/delta.
@@ -150,3 +150,25 @@ For every hosted feature preview:
 **Implementation order:** G0 → G1 → G2 → G3 → G4 → G5. If a prerequisite is blocked, continue independently verifiable engineering but do **not** claim a deployed preview. Preserve the existing production site and PR #112 draft/visual hold throughout.
 
 **Sign-off required before changing provider or production behaviour.**
+
+## 9. Implemented development-only GitHub workflow and Netlify account setup
+
+**Implementation scope:** `ci.yml` creates a signed-by-SHA static artifact **only after existing required checks pass**. `scripts/verify-static-release.mjs` validates both Game and Studio, notices and `/build-info.json`, then creates a deterministic file-hash ledger. A separate `netlify-development-preview.yml` can be **manually** dispatched from `main`, validates the successful Verify run and exact checkout SHA, downloads the existing artifact, verifies every file, and uploads a **draft only** with a pinned Netlify CLI (`--no-build`, no `--prod`). It fetches live `/build-info.json`, `/` and `/studio/` before reporting the URL. It never deploys to Cloudflare.
+
+**Important GitHub detail:** `pull_request` Verify normally checks out a synthetic PR merge ref, so its `github.sha` and generated artifact commit SHA may differ from the PR head SHA. The manual deploy **must use the exact Verify job's checked-out SHA and run ID**, not blindly paste the feature branch head. Its URL is marked as a *tested merge candidate*, not an assertion that feature HEAD was deployed. For exact feature-HEAD identity, first test that exact checkout in an approved workflow that captures its own artifact; do not change `build-info.json` without building the corresponding bytes.
+
+**Netlify one-time owner setup (not connected here):**
+
+1. Create a **Netlify Free** account at https://app.netlify.com/ and confirm the **credit-based Free** plan, 300 credits/month, hard zero-spend limit. Netlify may require identity/anti-abuse verification; it is an external account action.
+2. Create a **development-only Netlify site** without enabling automatic Git builds. Use Netlify's **Add new project → Deploy manually** UI (a one-time minimal HTML folder upload may be needed to initialize the site) or create an empty site with the CLI. Name it clearly, e.g. `trilok-development-preview`. Do not connect the main Cloudflare production domain.
+3. Open the Netlify site configuration and copy its **Site ID**. Generate a short-scoped **personal access token** from Netlify user settings; protect it as a secret, never paste it into a chat, PR, issue or file.
+4. In GitHub repository Settings → Environments, create the `trilok-netlify-preview` environment. Where plan/permission settings allow, require an approver before deployment; restrict the environment to `main`. Add environment secrets `NETLIFY_SITE_ID` and `NETLIFY_AUTH_TOKEN`. Protect against forked PR secret access.
+5. Once the plan implementation is verified and merged to `main`, find a successful `Verify` run that uploaded artifact `trilok-static-<40-hex-checkout-SHA>`. Choose **Actions → Manual Netlify development preview → Run workflow**, select `main`, fill its `source_sha` with that **exact Verify checkout SHA**, its `verify_run_id` and a short `reason`.
+6. Review the run summary and click its draft Netlify URL ending in `/studio/`. The workflow must report that the HTTP-served `build-info.json` SHA matches the selected Verify SHA and both entrypoints are served. Approval of final animation visual quality is a separate review.
+7. **Budget discipline:** use short-lived preview reviews, stop sharing public previews beyond intended testers, check Netlify Usage after each session. The free credits are shared by bandwidth (20 credits per GB), requests (2 per 10,000), and any production deploys (15 each). Draft deploy creation consumes no deploy credits, **not** zero bandwidth/request credits. If paused, wait for renewal; do not silently upgrade or auto-recharge.
+
+**Not required:** installing Blender, cloning Trilok locally, changing Cloudflare DNS, running any Netlify Functions, attaching a credit card beyond a provider's own account requirements, or upgrading Cloudflare during development.
+
+**Production policy:** continue to host existing production on Cloudflare. After development and owner acceptance, decide separately whether to use Cloudflare Paid (and a scalable production release pipeline); the Netlify development preview may be retired without changing app architecture.
+
+**Current unresolved actions:** netlify site + credentials + protected GitHub environment are not provisioned with the available connector; the draft workflow cannot deploy until those owner actions and a successful post-merge Verify are complete. The Cloudflare disconnect was reported by the owner but has not been independently checked through the Cloudflare dashboard.
