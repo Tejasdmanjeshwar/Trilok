@@ -59,7 +59,7 @@ describe("C6.3 genuine 100STYLE Neutral motion — unaccepted reviewer-only asse
       expect(clip.source.sha256).toBe(entry.originalSha256);
       expect(clip.rootMotion).toBe(entry.id.endsWith("idle")?"locked":"visual_only");
       expect(clip.tracks.filter(t=>t.channel==="rotation")).toHaveLength(21);
-      expect(entry.loopRange[1]).toBeGreaterThan(entry.loopRange[0]);
+      expect(entry.loopRange[1]!).toBeGreaterThan(entry.loopRange[0]!);
       expect(entry.targetAngularSeamMaxDegrees).toBeLessThan(
         entry.id.endsWith("idle")?2:entry.id.endsWith("walk")?9:18);
     }
