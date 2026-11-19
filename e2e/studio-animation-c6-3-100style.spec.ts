@@ -39,6 +39,7 @@ test("C6.3 100STYLE Neutral owner review: true skinned ID/FW/FR across viewpoint
   await expect(page.locator("#studio-animation-select option")).toHaveText([
     "Static pose","Idle","Walk","Jog","Sprint",
     "100STYLE Idle · review","100STYLE Walk · review","100STYLE Run · review",
+    "Movement transitions",
   ]);
   // The skinned source render, not a skeletal stick diagram, is checked.
   for(const [clip,time] of clips){
