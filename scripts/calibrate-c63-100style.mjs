@@ -257,7 +257,14 @@ try{
     const right=direction("LeftHip","RightHip");
     const facing=new THREE.Vector3().crossVectors(right,up).normalize();
     const signedPitch=deg(Math.atan2(up.z,up.y));
-    return {facing,up,signedPitch,
+    const planarFacing=facing.clone().setY(0);
+    if(planarFacing.lengthSq()<1e-8)
+      throw Error("Degenerate source/target planar facing");
+    planarFacing.normalize();
+    // Positive is forward lean relative to the actor's OWN heading,
+    // regardless of whether this captured frame points toward +Z or -Z.
+    const forwardLean=deg(Math.atan2(up.dot(planarFacing),up.y));
+    return {facing,up,signedPitch,forwardLean,
       leftElbow:plane("LeftShoulder","LeftElbow","LeftWrist"),
       rightElbow:plane("RightShoulder","RightElbow","RightWrist"),
       leftKnee:plane("LeftHip","LeftKnee","LeftAnkle"),
@@ -277,6 +284,9 @@ try{
     const normalError=name=>native[name]&&targetCues[name]
       ?angle(native[name].toArray(),targetCues[name].toArray()):null;
     return {
+      sourceForwardLeanDegrees:native.forwardLean,
+      targetForwardLeanDegrees:targetCues.forwardLean,
+      forwardLeanDifferenceDegrees:+(targetCues.forwardLean-native.forwardLean).toFixed(4),
       sourceTorsoPitchDegrees:native.signedPitch,
       targetTorsoPitchDegrees:targetCues.signedPitch,
       torsoPitchDifferenceDegrees:deg((targetCues.signedPitch-native.signedPitch)*Math.PI/180),
@@ -534,6 +544,19 @@ try{
     const encoded=serializeAnimationClip(clip,graph)+"\n";
     parseAnimationClip(encoded,graph);
     baked[clipId+".clip.json"]=encoded;
+    const reviewedFrames=[start,Math.round(start+(last-start)*.25),
+      Math.round((start+last)*.5),Math.round(start+(last-start)*.75),last];
+    const fullCyclePoseEvidence=reviewedFrames.map(frame=>{
+      const actual=at(frame).normalized;
+      const rotations=new Map(source.joints.map((j,i)=>[
+        j.name,actual.rotations[i].toArray()]));
+      const samples=retargetWorldPose(profile,target,rotations,
+        fingerprint,"source-anatomical");
+      return {frame,seconds:+((frame-start)*source.frameTimeSeconds).toFixed(6),
+        ...comparativeCues(actual,targetFK(samples),lookup)};
+    });
+    console.log("C63_100STYLE_GAIT_POSTURE "+JSON.stringify({
+      id:clipId,loopRange:[start,last],fullCyclePoseEvidence}));
     bakeRecords.push({id:clipId,original:filename,
       originalSha256:assets[filename][0],
       captureRange:cut,loopRange:[start,last],
