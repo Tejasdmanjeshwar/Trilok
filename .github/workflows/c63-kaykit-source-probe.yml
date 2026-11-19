@@ -4,28 +4,49 @@ on:
     branches: [feat/c6-3-grounded-locomotion]
     paths: [.github/workflows/c63-kaykit-source-probe.yml]
 permissions:
-  contents: read
+  contents: write
 jobs:
   inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Verify and extract pinned KayKit CC0 motion curves
+      - run: pnpm install --frozen-lockfile
+      - name: Reuse pinned MakeHuman assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/web/public/anatomy/makehuman-base.obj
+            apps/web/public/anatomy/makehuman-default.mhskel
+            apps/web/public/anatomy/makehuman-default_weights.mhw
+            apps/web/public/anatomy/makehuman-facial-v1.json
+            assets/cache/makehuman-body-v1.json
+          key: makehuman-pinned-v1-${{ runner.os }}-${{ hashFiles('assets/makehuman-core.json', 'assets/makehuman-body-v1.json', 'assets/makehuman-facial-v1.json', 'scripts/fetch-makehuman-*.mjs', 'scripts/fetch-pinned-source.mjs') }}
+      - name: Verify approved C6.2 source and original assets unchanged
+        run: pnpm animation:verify
+      - name: Produce deterministic CC0 KayKit directional bake
         run: |
           set -euo pipefail
           curl -fLsS --retry 3 --max-time 60 -o /tmp/kaykit.glb \
             https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/672074b73ba276876a19e8816ecdc5241817ab47/addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb
-          node scripts/extract-kaykit-c63.mjs /tmp/kaykit.glb /tmp/kaykit-extracted.json
-          python3 - <<'PY'
-          import json
-          d=json.load(open("/tmp/kaykit-extracted.json"))
-          for c in d["clips"]:
-            print("SOURCE_CLIP",c["sourceName"],"duration",c["durationSeconds"],"frames",len(c["timesSeconds"]),"nodes",len(c["tracks"]))
-            for j in ("root","hips","upperleg.l","upperleg.r","foot.l","foot.r"):
-              if j in c["tracks"]:
-                print("TRACK",c["sourceName"],j,list(c["tracks"][j]))
-          PY
+          node scripts/extract-kaykit-c63.mjs /tmp/kaykit.glb assets/animations/sources/kaykit-adventurers-locomotion-v1.json
+          node scripts/bake-c63-kaykit.mjs --write
+      - name: Commit source-backed outputs to C6.3 review branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/animations/sources/kaykit-adventurers-locomotion-v1.json \
+            assets/animations/studio-v1/kaykit-profile.json \
+            assets/animations/studio-v1/kaykit-manifest.json \
+            assets/animations/studio-v1/human-backward.clip.json \
+            assets/animations/studio-v1/human-strafe-left.clip.json \
+            assets/animations/studio-v1/human-strafe-right.clip.json
+          if ! git diff --cached --quiet; then
+            git commit -m "feat(c6.3): pin and bake three CC0 KayKit directional motions"
+            git push origin HEAD:feat/c6-3-grounded-locomotion
+          fi
