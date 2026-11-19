@@ -4,6 +4,8 @@ on:
     branches: [feat/c6-3-grounded-locomotion]
     paths:
       - scripts/probe-c63-100style.py
+      - scripts/inspect-c63-100style.mjs
+      - packages/character-core/src/bvh.ts
       - .github/workflows/c63-100style-source-acquisition.yml
   workflow_dispatch:
 permissions:
@@ -23,6 +25,17 @@ jobs:
         run: python -m pip install --disable-pip-version-check 'gdown==5.2.0'
       - name: Acquire three official Neutral BVHs and frame cut metadata
         run: python -u scripts/probe-c63-100style.py
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install workspace for typed BVH inspection
+        run: pnpm install --frozen-lockfile
+      - name: Validate official BVHs through TypeScript source FK
+        run: node scripts/inspect-c63-100style.mjs
       - name: Retain authenticated source inspection temporarily
         if: success()
         uses: actions/upload-artifact@v4
