@@ -221,7 +221,12 @@ try{
     if(child)axis=refPos(child).clone().sub(start);
     else if(joint.endSites.length){
       // BVH End Site is a real measured distal endpoint, not a fake finger bone.
-      axis=v(joint.endSites[0]).applyQuaternion(reference.rotations[i]);
+      // End Site is a LOCAL BVH vector. Reflect that local vector too:
+      // R' = S R S only maps it correctly when the input offset is S * v.
+      // Omitting this flips toe tip geometry (~180 degrees) despite small
+      // ankle-to-toe link residuals; fingerless wrists have X-only offsets.
+      axis=reflectPosition(v(joint.endSites[0]))
+        .applyQuaternion(reference.rotations[i]);
     }else if(joint.parent!==null){
       axis=start.clone().sub(reference.positions[joint.parent]);
     }else throw Error("No anatomical shaft for "+joint.name);
@@ -340,6 +345,31 @@ try{
       note:"A near-straight limb can have an undefined or noisy bend plane; null is preserved, not interpreted as zero error",
     };
   };
+  // Distal End Sites do not have a corresponding C1 joint position.
+  // Their orientation is independently checked against the target's measured
+  // forward toe shaft, exposing axial flips invisible to link-only metrics.
+  const toeTipResiduals=(source,lookup,sourcePose,targetPose)=>{
+    const comparisons={};
+    for(const side of ["Left","Right"]){
+      const name=side+"Toe";
+      const sourceIndex=lookup.get(name);
+      const local=source.joints[sourceIndex].endSites[0];
+      if(!local)throw Error("Missing authentic BVH toe End Site "+name);
+      const transformed=reflectPosition(v(local))
+        .applyQuaternion(sourcePose.rotations[sourceIndex]).normalize();
+      const targetId=mappedBySource.get(name);
+      const rest=targetById.get(targetId);
+      if(!rest)throw Error("Missing target toe "+targetId);
+      const relative=q(targetPose.rotations.get(targetId))
+        .multiply(q(rest.restWorldRotation).invert());
+      const desired=v(rest.shaftWorld).applyQuaternion(relative).normalize();
+      comparisons[side.toLowerCase()]={
+        degrees:angle(transformed.toArray(),desired.toArray()),
+        signedDot:+transformed.dot(desired).toFixed(6),
+      };
+    }
+    return comparisons;
+  };
   const reports=[];
   for(const [filename,{source,lookup,reference:sourceRef,cut}] of sources){
     // Recorded setup T poses may face different compass headings even on the
@@ -410,6 +440,7 @@ try{
         maxDegrees:sorted.at(-1),worst:errors.sort((a,b)=>b.angleDegrees-a.angleDegrees).slice(0,4),
         authoredRoot:actual.positions[0].toArray(),
         wholeBodyCues:comparativeCues(actual,targetPose,lookup),
+        sourceToTargetToeTips:toeTipResiduals(source,lookup,actual,targetPose),
       });
     }
     reports.push({filename,originalSha256:assets[filename][0],
@@ -444,7 +475,8 @@ try{
       tPoseMax:r.relativeTPoseMaximumDirectionDegrees,
       probes:r.sampledSourceToTargetLinks.map(x=>({frame:x.frame,
         mean:x.meanDegrees,p95:x.p95Degrees,max:x.maxDegrees,worst:x.worst,
-        wholeBodyCues:x.wholeBodyCues}))})),
+        wholeBodyCues:x.wholeBodyCues,
+        toeTips:x.sourceToTargetToeTips}))})),
   }));
   // Experimental three-motion source-backed bake is confined to the CI artifact.
   // Cut bounds are publisher-defined; no loop is called seamless without measurement.
@@ -592,7 +624,8 @@ try{
       const samples=retargetWorldPose(profile,target,rotations,
         fingerprint,"source-anatomical");
       return {frame,seconds:+((frame-start)*source.frameTimeSeconds).toFixed(6),
-        ...comparativeCues(actual,targetFK(samples),lookup)};
+        ...comparativeCues(actual,targetFK(samples),lookup),
+        sourceToTargetToeTips:toeTipResiduals(source,lookup,actual,targetFK(samples))};
     });
     const startRoot=at(start).normalized.positions[0];
     const endRoot=at(last).normalized.positions[0];
@@ -644,6 +677,9 @@ try{
   // Do not claim the reference is accepted based on unit quaternions alone.
   if(reports.some(r=>r.relativeTPoseMaximumDirectionDegrees>25))
     throw Error("The three recorded source T candidates are not yet one physically consistent reference");
+  if(reports.some(r=>r.sampledSourceToTargetLinks.some(p=>
+    Object.values(p.sourceToTargetToeTips).some(t=>t.signedDot<=0))))
+    throw Error("Anatomically inverted source-to-target BVH End Site toe direction");
   if(reports.some(r=>r.sampledSourceToTargetLinks.some(p=>p.p95Degrees>50)))
     throw Error("100STYLE skeletal direction residual exceeds diagnostic gate; do not bake/promote");
   // Local review-only import bridge: output SHA-verifiable text blobs through
