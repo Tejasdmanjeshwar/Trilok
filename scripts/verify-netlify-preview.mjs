@@ -32,10 +32,33 @@ export function confirmDeploy(deploy, { deployId, siteId, origin }) {
       deploy.state !== "ready" || deploy.locked === true) {
     throw Error("Netlify API did not confirm the exact ready draft deploy and site");
   }
-  if (typeof deploy.deploy_url !== "string" ||
-      new URL(deploy.deploy_url).origin !== origin) {
-    throw Error("Netlify API deploy URL does not match draft URL");
+  // Netlify's API exposes both an HTTP deploy_url and an HTTPS
+  // deploy_ssl_url for the *same* draft. CLI returns the HTTPS URL.
+  // Compare the exact hostname (which contains the immutable deploy ID),
+  // not the origin with its transport scheme. Never accept a different
+  // hostname/site, credentials, redirect path, or unexpected protocol.
+  const expectedHost = new URL(origin).hostname;
+  let urlCount = 0;
+  for (const [field, protocols] of [
+    ["deploy_url", ["http:", "https:"]],
+    ["deploy_ssl_url", ["https:"]],
+  ]) {
+    const raw = deploy[field];
+    if (raw === undefined || raw === null) continue;
+    if (typeof raw !== "string") {
+      throw Error("Malformed Netlify API " + field);
+    }
+    let url;
+    try { url = new URL(raw); }
+    catch { throw Error("Malformed Netlify API " + field); }
+    if (!protocols.includes(url.protocol) || url.hostname !== expectedHost ||
+        url.pathname !== "/" || url.search || url.hash ||
+        url.username || url.password || url.port) {
+      throw Error("Netlify API deploy URL does not match draft URL");
+    }
+    urlCount++;
   }
+  if (!urlCount) throw Error("Netlify API omitted the deploy URLs");
   if (deploy.published_at && deploy.published_at !== null) {
     throw Error("Expected a non-published draft, not a published deployment");
   }

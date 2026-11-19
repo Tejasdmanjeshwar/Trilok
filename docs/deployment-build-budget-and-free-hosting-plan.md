@@ -202,3 +202,30 @@ Verification gates: focused uploader tests stub the CLI without network access a
 The post-deploy verifier now supports **public** and **private** sites without relaxing access control. It checks the exact Netlify draft URL and deployment ID, fetches immutable deployment state via the existing `NETLIFY_AUTH_TOKEN` at the management API, requires the exact configured `NETLIFY_SITE_ID` and `ready` state, and checks the already-verified artifact's local build SHA and Game/Studio HTML entrypoints. For public URLs, it additionally checks live `/build-info.json` SHA and both HTTP-served entrypoints. For protected URLs responding to all three requests with HTTP 401/403, it instead records **private-api-ready**, and explicitly states **live HTML and content identity are not independently inspected by CI**. Any mixed/unexpected HTTP statuses fail closed. The token is sent **only** to Netlify's management API, never to the preview CDN.
 
 **Acceptance distinction:** `private-api-ready` means Netlify authenticated deployment metadata says the exact draft is ready and the CDN requires authentication. It is a narrower verification than `public-content-verified` and does not certify browser rendering, content transfer, animation quality or independent deployed SHA identity. Browser acceptance remains a separate manual review. The permanent Netlify test landing page and Cloudflare production remain unchanged; no automatic deploy triggers are introduced. Only a fresh manually dispatched run can verify this change in the real private hosting environment.
+
+## 2026-11-19 — private preview deploy URL verification correction
+
+[Manual Netlify draft run #44517667901](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44517667901)
+successfully resolved and verified the immutable GitHub static artifact, uploaded
+it with Netlify CLI, and received a unique HTTPS draft URL. The subsequent
+verification step failed with `Netlify API deploy URL does not match draft URL`.
+The verifier compared the *entire origin* of Netlify's `deploy_url` to the
+CLI's HTTPS URL, whereas Netlify may expose an HTTP `deploy_url` and an HTTPS
+`deploy_ssl_url` for the **same** immutable draft. This is a failure of
+our metadata comparison, not evidence that the CLI upload failed.
+
+The corrected verifier accepts only the expected unique draft hostname on
+`http:` or `https:` for `deploy_url`, and only `https:` for
+`deploy_ssl_url`. It still requires the exact authenticated deploy ID,
+site ID, `ready` draft status, no production publication, local sealed build
+SHA, and either matching public served SHA+HTML or authenticated API readiness
+plus 401/403 on **all three** protected CDN paths. Unexpected URLs, redirects,
+mixed response statuses, or wrong deployment identity fail closed. A private
+preview may pass `private-api-ready` without claiming actual browser
+rendering, which requires separate reviewer inspection.
+
+This deployment verifier is executed on the `main` checkout by the manually
+dispatched workflow. A fix only in a feature branch cannot change the manual
+workflow until a dedicated verified PR merges into `main`. No Netlify
+re-deployment, Cloudflare production release, or change to credentials/access
+protection is implied by correcting this code.

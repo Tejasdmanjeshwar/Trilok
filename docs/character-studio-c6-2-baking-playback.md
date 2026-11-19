@@ -53,3 +53,38 @@ C6.3+ owns foot planting/grounding, contact preservation, foot sliding, motion t
 
 The earlier 3-clip shaft-only Quaternius retarget in `reference-v1`, and the still earlier procedural Euler/sine gait prototype, failed owner quality review. Historical analysis remains in [retargeting research](character-studio-c6-2-retargeting-research.md). Neither is retained as a runtime fallback or selectable option.
 
+
+## C6.2 integration closeout decision (2026-11-19)
+
+The owner accepted the deployed, corrected four-clip visual motion and explicitly
+authorized merging the C6.2 implementation after the exact-commit deterministic
+tests/typecheck/build, with the **full desktop/touch Chromium acceptance deferred
+to the final phase acceptance gate**. This is a deliberate merge-gate decision,
+**not** a claim that Playwright was executed or that every documented visual
+assertion was satisfied.
+
+- Approved, byte-preserved four-clip/source/profile integration on PR #112:
+  [Verify #44504963667](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44504963667)
+  passed all deterministic clip hashes, typecheck, full tests/replays, build and
+  static artifact identity for pre-Netlify-fix feature head `6de90880642e8c2a8df24b373344a247ab26c497`.
+- [Netlify manual preview #44521671373](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44521671373)
+  succeeded for **that** feature head, deployed SHA-locked synthetic PR build
+  `fea8f0055f7a1d858ea4b8c3b9f936d4f44480d7`. The private Netlify API
+  confirmed a ready draft; access-protected CDN prevents automatic live HTML
+  smoke-test claims. The owner previously visually accepted the calibrated
+  motions on a real browser preview.
+- PR #117 fixed an over-strict Netlify private draft URL comparison. Its main
+  merge commit `e602595009b175b249f2233098fc8df918a4e60a` and its own
+  [post-merge Verify #44520911281](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44520911281)
+  were green; its exact three modified source/doc/test files are incorporated
+  into the final C6.2 integration tree. No Cloudflare release is authorized.
+- Final merge still requires a **fresh successful Verify** on the integrated
+  C6.2 PR commit (including the latest main changes). Record this exact run
+  in the PR discussion, then merge; independently confirm `main` and post-merge
+  Verify. Browser acceptance remains an explicit **OPEN** item: launch the
+  manual desktop/touch animation diagnostics at the final source SHA and
+  inspect normal player controls, morphology and multi-angle actual skin renders.
+  Any resulting issues require follow-up fixes before broader C6 acceptance.
+
+The four approved clip blobs remain immutable. Full C6 phase acceptance and
+C6.3+ animation features are not implied by merging the C6.2 implementation.
