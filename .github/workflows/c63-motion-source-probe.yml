@@ -1,0 +1,38 @@
+name: C6.3 Authoring Source Rig Probe
+on:
+  push:
+    branches: [feat/c6-3-grounded-locomotion]
+    paths: [.github/workflows/c63-motion-source-probe.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify official ACCAD BVH source and inspect motion hierarchy
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 --max-time 70             https://accad.osu.edu/sites/accad.osu.edu/files/Female1_bvh.zip             -o /tmp/accad-female.zip
+          echo "84543297a24fe9900449675837b5b7758c5208d0f56b699d10a3eb362a46530a  /tmp/accad-female.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import zipfile
+          z=zipfile.ZipFile("/tmp/accad-female.zip")
+          choices=["Female1_B05_WalkBackwards","Female1_B09_WalkTurnLeft90","Female1_B12_WalkTurnRight90","Female1_B01_StandToWalk","Female1_B02_WalkToStand","Female1_B03_Walk1","Female1_C07_RunBackwards"]
+          names=z.namelist()
+          for choice in choices:
+              matched=[n for n in names if n.rsplit("/",1)[-1].startswith(choice+".")]
+              if not matched:
+                  print("NOT FOUND",choice)
+                  continue
+              body=z.read(matched[0]).decode("ascii","replace")
+              lines=body.splitlines()
+              motion=next((i for i,l in enumerate(lines) if l.strip()=="MOTION"),None)
+              print("CLIP",choice,"bytes",len(body),"motion_at",motion)
+              print("HIERARCHY", "\\n".join(lines[:min(motion or 0,90)]))
+              print("TIMELINE",lines[motion:motion+4] if motion is not None else "NONE")
+              if motion is not None:
+                  print("FIRSTFRAME",lines[motion+3][:500])
+          PY
