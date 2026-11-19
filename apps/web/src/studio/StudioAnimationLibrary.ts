@@ -12,7 +12,20 @@ const library = [
   {id:"human-sprint",label:"Sprint",clip:sprint},
 ] as const;
 
-export const STUDIO_ANIMATIONS = library.map(({id,label})=>({id,label}));
+export const STUDIO_ANIMATIONS = [
+  ...library.map(({id,label})=>({id,label})),
+  {id:"locomotion-preview",label:"Movement transitions"},
+];
+
+/** Immutable C6.2 assets are shared with the runtime mixer without rebaking. */
+export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1){
+  return {
+    idle:loadBakedStudioAnimation("human-idle",graph),
+    walk:loadBakedStudioAnimation("human-walk",graph),
+    jog:loadBakedStudioAnimation("human-jog",graph),
+    sprint:loadBakedStudioAnimation("human-sprint",graph),
+  };
+}
 const clips: Readonly<Record<string,unknown>> =
   Object.fromEntries(library.map(({id,clip})=>[id,clip]));
 
@@ -27,7 +40,7 @@ const previousIds: Readonly<Record<string,string>> = {
 };
 export function resolveStudioAnimationId(id:string):string {
   const resolved=previousIds[id]??id;
-  if(!Object.hasOwn(clips,resolved))throw new Error("Unknown Studio animation");
+  if(resolved!=="locomotion-preview"&&!Object.hasOwn(clips,resolved))throw new Error("Unknown Studio animation");
   return resolved;
 }
 
