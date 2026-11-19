@@ -24,7 +24,8 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
-import {STUDIO_ANIMATIONS,loadBakedStudioAnimation,resolveStudioAnimationId} from "./StudioAnimationLibrary";
+import {STUDIO_ANIMATIONS,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
+import {StudioLocomotionPlayback} from "./StudioLocomotionPlayback";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
 import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
@@ -52,6 +53,7 @@ export interface StudioViewport {
   seekAnimation(seconds:number):void;
   setAnimationSpeed(speed:number):void;
   setAnimationLoop(loop:boolean):void;
+  setMovementPreviewSpeed(speed:number):void;
   stepAnimation(direction:-1|1):void;
   resetAnimation():void;
   dispose():void;
@@ -190,7 +192,8 @@ export function createStudioViewport(
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
-  let animation:StudioAnimationPlayback|undefined;
+  let animation:StudioAnimationPlayback|StudioLocomotionPlayback|undefined;
+  let previewMovementSpeed=0;
   let animationId:string|null=null;
   let equipment:EquipmentChoice="none";
   let bowProfile:BowProfile="recurve";
@@ -231,9 +234,16 @@ export function createStudioViewport(
     // Retain Studio pose/equipment choices for restoring when animation stops.
     posePreview.setGrip("none");
     posePreview.setPose("neutral");
-    const clip=loadBakedStudioAnimation(source.id,active.human.spike.graph);
-    animation=new StudioAnimationPlayback(active.human.spike.character,clip,
-      samples=>posePreview!.applyAnimationSamples(samples));
+    if(id==="locomotion-preview"){
+      animation=new StudioLocomotionPlayback(active.human.spike.character,
+        loadStudioLocomotionLibrary(active.human.spike.graph),
+        samples=>posePreview!.applyAnimationSamples(samples));
+      animation.setMovement(previewMovementSpeed);
+    }else{
+      const clip=loadBakedStudioAnimation(source.id,active.human.spike.graph);
+      animation=new StudioAnimationPlayback(active.human.spike.character,clip,
+        samples=>posePreview!.applyAnimationSamples(samples));
+    }
     animationId=id;
     updateMarkers();emitAnimation();
   }
@@ -247,6 +257,12 @@ export function createStudioViewport(
   function seekAnimation(seconds:number):void{animation?.seek(seconds);updateMarkers();emitAnimation();}
   function setAnimationSpeed(speed:number):void{animation?.setSpeed(speed);emitAnimation();}
   function setAnimationLoop(loop:boolean):void{animation?.setLoop(loop);emitAnimation();}
+  function setMovementPreviewSpeed(speed:number):void{
+    if(!Number.isFinite(speed)||speed<0||speed>1)throw Error("Invalid movement preview speed");
+    previewMovementSpeed=speed;
+    if(animation instanceof StudioLocomotionPlayback)animation.setMovement(speed);
+    updateMarkers();emitAnimation();
+  }
   function stepAnimation(direction:-1|1):void{animation?.step(direction);updateMarkers();emitAnimation();}
   function resetAnimation():void{animation?.reset();updateMarkers();emitAnimation();}
   function clearSword():void{
@@ -990,5 +1006,5 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,selectAnimation,playAnimation,seekAnimation,setAnimationSpeed,setAnimationLoop,stepAnimation,resetAnimation,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,selectAnimation,playAnimation,seekAnimation,setAnimationSpeed,setAnimationLoop,setMovementPreviewSpeed,stepAnimation,resetAnimation,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
 }
