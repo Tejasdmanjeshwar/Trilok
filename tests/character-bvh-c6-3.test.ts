@@ -30,10 +30,11 @@ describe("C6.3 deterministic BVH importer",()=>{
     expect(source.frameTimeSeconds).toBeCloseTo(1/60,10);
     expect(source.values[0]).toEqual([1,2,3,90,0,0,0,0,0]);
     const first=sampleBVHFrame(source,0);
-    expect(first.sourceRootTranslation).toEqual([1,7,3]);
+    expect(first.sourceRootTranslation).toEqual([1,2,3]);
+    expect(first.translations[0]).toEqual([1,7,3]);
     expect(first.translations[1]).toEqual([2,-1,0]);
     expect(first.rotations[0]![1]).toBeCloseTo(Math.SQRT1_2,8);
-    expect(sampleBVHFrame(source,1).sourceRootTranslation).toEqual([4,10,6]);
+    expect(sampleBVHFrame(source,1).sourceRootTranslation).toEqual([4,5,6]);
   });
   it("respects declared intrinsic Euler order rather than XYZ assumptions",()=>{
     const a=sampleBVHFrame(parseBVH(sample("Xrotation Yrotation Zrotation",[
