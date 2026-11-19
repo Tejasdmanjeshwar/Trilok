@@ -241,6 +241,56 @@ try{
       [s+"Knee",s+"Ankle"],[s+"Ankle",s+"Toe"],
     ]),
   ];
+  // Signed anatomical pose diagnostics: link angles alone ignore facing
+  // direction and bend-plane normal, so record both in source and target.
+  // No synthetic correction or acceptance threshold is applied here.
+  const anatomicalCues=(at,sourceNames)=>{
+    const point=name=>v(at(sourceNames(name)));
+    const direction=(a,b)=>point(b).sub(point(a)).normalize();
+    const plane=(a,b,c)=>{
+      const first=point(b).sub(point(a));
+      const second=point(c).sub(point(b));
+      const cross=new THREE.Vector3().crossVectors(first,second);
+      return cross.lengthSq()<1e-8?null:cross.normalize();
+    };
+    const up=direction("Hips","Chest4");
+    const right=direction("LeftHip","RightHip");
+    const facing=new THREE.Vector3().crossVectors(right,up).normalize();
+    const signedPitch=deg(Math.atan2(up.z,up.y));
+    return {facing,up,signedPitch,
+      leftElbow:plane("LeftShoulder","LeftElbow","LeftWrist"),
+      rightElbow:plane("RightShoulder","RightElbow","RightWrist"),
+      leftKnee:plane("LeftHip","LeftKnee","LeftAnkle"),
+      rightKnee:plane("RightHip","RightKnee","RightAnkle")};
+  };
+  const comparativeCues=(sourcePose,targetPose,lookup)=>{
+    const native=anatomicalCues(name=>sourcePose.positions[lookup.get(name)],
+      name=>name);
+    const roleFor=name=>{
+      const role=Object.fromEntries(pairs)[name];
+      const node=graph.joints.find(j=>j.role===role);
+      if(!node)throw Error("Unknown mapped role for anatomical cue "+name);
+      return node.id;
+    };
+    const targetCues=anatomicalCues(
+      name=>targetPose.positions.get(roleFor(name)),name=>name);
+    const normalError=name=>native[name]&&targetCues[name]
+      ?angle(native[name].toArray(),targetCues[name].toArray()):null;
+    return {
+      sourceTorsoPitchDegrees:native.signedPitch,
+      targetTorsoPitchDegrees:targetCues.signedPitch,
+      torsoPitchDifferenceDegrees:deg((targetCues.signedPitch-native.signedPitch)*Math.PI/180),
+      sourceFacing:native.facing.toArray(),
+      targetFacing:targetCues.facing.toArray(),
+      facingResidualDegrees:angle(native.facing.toArray(),targetCues.facing.toArray()),
+      torsoUpResidualDegrees:angle(native.up.toArray(),targetCues.up.toArray()),
+      signedBendPlaneResidualDegrees:{
+        leftElbow:normalError("leftElbow"),rightElbow:normalError("rightElbow"),
+        leftKnee:normalError("leftKnee"),rightKnee:normalError("rightKnee"),
+      },
+      note:"A near-straight limb can have an undefined or noisy bend plane; null is preserved, not interpreted as zero error",
+    };
+  };
   const reports=[];
   for(const [filename,{source,lookup,reference:sourceRef,cut}] of sources){
     // Recorded setup T poses may face different compass headings even on the
@@ -310,6 +360,7 @@ try{
         p95Degrees:sorted[Math.ceil(sorted.length*.95)-1],
         maxDegrees:sorted.at(-1),worst:errors.sort((a,b)=>b.angleDegrees-a.angleDegrees).slice(0,4),
         authoredRoot:actual.positions[0].toArray(),
+        wholeBodyCues:comparativeCues(actual,targetPose,lookup),
       });
     }
     reports.push({filename,originalSha256:assets[filename][0],
@@ -343,7 +394,8 @@ try{
     diagnostic:reports.map(r=>({file:r.filename,
       tPoseMax:r.relativeTPoseMaximumDirectionDegrees,
       probes:r.sampledSourceToTargetLinks.map(x=>({frame:x.frame,
-        mean:x.meanDegrees,p95:x.p95Degrees,max:x.maxDegrees,worst:x.worst}))})),
+        mean:x.meanDegrees,p95:x.p95Degrees,max:x.maxDegrees,worst:x.worst,
+        wholeBodyCues:x.wholeBodyCues}))})),
   }));
   // Experimental three-motion source-backed bake is confined to the CI artifact.
   // Cut bounds are publisher-defined; no loop is called seamless without measurement.
