@@ -1,4 +1,5 @@
 import {afterEach,describe,expect,it} from "vitest";
+import { selectPreviewPr } from "../scripts/select-netlify-preview-pr.mjs";
 import {mkdtempSync,writeFileSync,readFileSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join,resolve} from "node:path";
@@ -79,5 +80,60 @@ describe("Netlify latest-verified PR auto-selection",()=>{
     const result=runSelector({runs:[matching(201,7),matching(302,10),matching(102,5)]});
     expect(result.status).toBe(0);
     expect(result.output).toContain("APPROVED_VERIFY_RUN=302\n");
+  });
+});
+
+describe("Netlify automatic preview PR discovery",()=>{
+  const makePr=(number:number, updatedAt:string, overrides:Record<string,unknown>={})=>({
+    number,state:"open",updated_at:updatedAt,
+    base:{ref:"main",repo:{full_name:repository}},
+    head:{sha:sha,ref:"feat/example-"+number,repo:{full_name:repository}},
+    ...overrides,
+  });
+  const recent="2026-11-19T13:46:33Z";
+  const older="2026-11-15T17:23:11Z";
+  it("automatically selects C6.3 #118 over an old, inactive draft",()=>{
+    expect(selectPreviewPr([[makePr(118,recent),makePr(85,older)]],{
+      repository,
+    })).toBe(118);
+  });
+  it("does not silently pick a PR when two were updated within a day",()=>{
+    expect(()=>selectPreviewPr([makePr(118,recent),
+      makePr(119,"2026-11-19T12:46:33Z")],{repository})).toThrow(/Multiple recently active PRs/);
+  });
+  it("accepts an explicit override, even when active candidates are ambiguous",()=>{
+    expect(selectPreviewPr([], {repository,requested:"119"})).toBe(119);
+    expect(selectPreviewPr([], {repository,requested:" 118 "})).toBe(118);
+    expect(()=>selectPreviewPr([], {repository,requested:"0"})).toThrow(/positive integer/);
+    expect(()=>selectPreviewPr([], {repository,requested:"1; rm -rf ."})).toThrow(/positive integer/);
+  });
+  it("filters closed, forked and non-main PRs, including across pages",()=>{
+    expect(selectPreviewPr([
+      [makePr(150,"2026-11-20T00:00:00Z",{state:"closed"})],
+      [makePr(151,"2026-11-20T00:00:00Z",{
+        head:{sha,ref:"foreign",repo:{full_name:"untrusted/repo"}},
+      }),makePr(152,"2026-11-20T00:00:00Z",{
+        base:{ref:"other",repo:{full_name:repository}},
+      }),makePr(118,recent)],
+    ],{repository})).toBe(118);
+  });
+  it("fails closed on zero valid PRs, duplicate listings or bad JSON shape",()=>{
+    expect(()=>selectPreviewPr([], {repository})).toThrow(/No open/);
+    expect(()=>selectPreviewPr([[makePr(118,recent)],[makePr(118,recent)]],{
+      repository,
+    })).toThrow(/Duplicate/);
+    expect(()=>selectPreviewPr({items:[]}, {repository})).toThrow(/listing is missing/);
+    expect(()=>selectPreviewPr([{}], {repository})).toThrow(/No open/);
+  });
+  it("keeps the preview workflow manual, main-only, and opt-in for selection",()=>{
+    const source=readFileSync(resolve(".github/workflows/netlify-development-preview.yml"),"utf8");
+    expect(source).toContain('default: ""');
+    expect(source).toContain('required: false');
+    expect(source).toContain('scripts/select-netlify-preview-pr.mjs');
+    expect(source).toContain('gh api --paginate --slurp');
+    expect(source).toContain('PREVIEW_PR_NUMBER="$(node scripts/select-netlify-preview-pr.mjs');
+    expect(source).toContain("if: github.ref == 'refs/heads/main'");
+    expect(source).not.toMatch(/^  push:/m);
+    expect(source).not.toMatch(/^  pull_request:/m);
   });
 });
