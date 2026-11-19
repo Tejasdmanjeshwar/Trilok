@@ -1,3 +1,45 @@
+## 2026-11-19 — BVH End Site anatomical-axis repair and unapproved visual status
+
+**Second measured calibration defect:** after applying the common sagittal
+source-coordinate reflection, the baker had still evaluated the BVH toe End
+Site in the original unreflected *local* space. This is inconsistent with
+`R' = S R S`: an offset `v` must be transformed to `S v` when applying
+the converted rotation. Ankle-to-toe bone-link residuals missed the
+distal toe-tip reversal because the source End Site is not a mapped joint.
+The corrected family calibration reflects local End Site offsets before
+applying the recorded world quaternion. It does not adjust a particular
+animation or manually rewrite the target toe joints.
+
+**Reproduction and results:** the official pinned source and typed
+source-target calibration succeeded in
+[source acquisition #44587045292](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44587045292).
+On the same authored loops, previously near-180-degree canonical toe rest
+rotations (about 165°–174° on Walk) became approximately 13°–36° on
+Walk, 13°–27° on Run, and about 16° on Idle. An explicit sampled toe
+End Site / mapped target toe-tip direction diagnostic now reports
+agreement, and a separate canonical-clip regression rejects inverted toes.
+**These checks share a mathematical skeleton model; they are not independent
+skinned-sole contact, skin deformation, or rendered animation acceptance.**
+The approved C6.2 assets remain untouched.
+
+**Visual execution limitation:** the current exact-head GitHub Verify
+workflow can validate types/tests/build. The required
+`studio-interaction-diagnostics.yml` suite `100style-review` is
+`workflow_dispatch`-only; the connected GitHub integration does not
+expose creation of new dispatch events. A previous Chromium screenshot
+artifact from SHA `451ebf1e0476fcb5ca9e7550f0958f9e78a02532`
+was inspected for historical context only; it predates both anatomical
+corrections. An attempted local Chromium inspection of the newer
+SHA-pinned static build was blocked by the container's WebGL/browser
+navigation restrictions (no valid WebGL context). No rendered quality
+improvement, touch acceptance or deployment is claimed.
+
+**Still blocked:** verify arm/wrist skinning and run swing in the corrected
+render, validate true skinned toe/sole contact and toe orientation over all
+morphologies, address the ~13.96° source-backed Run seam, manually dispatch
+desktop/touch Chromium on the exact PR commit, and produce a SHA-matched
+Netlify preview for the owner's approval. Do not merge or deploy production.
+
 ## C6.3 measured 100STYLE source-family anterior-axis correction (2026-11-19)
 
 **Confirmed root cause of the apparent backward Run lean:** the original
