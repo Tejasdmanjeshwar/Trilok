@@ -142,7 +142,14 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
     expect(uploader).not.toContain("--filter");
     expect(uploader).not.toContain("--prod");
     expect(preview).toContain("verify-static-release.mjs");
-    expect(preview).toContain('build.commitSha!==process.env.APPROVED_CHECKOUT_SHA');
+    expect(preview).toContain("scripts/verify-netlify-preview.mjs");
+    const verifier=readFileSync("scripts/verify-netlify-preview.mjs","utf8");
+    expect(verifier).toContain("https://api.netlify.com/api/v1/deploys/");
+    expect(verifier).toContain("deploy.site_id !== siteId");
+    expect(verifier).toContain("deploy.state !== \"ready\"");
+    expect(verifier).toContain("identity.commitSha !== expectedSha");
+    expect(verifier).toContain("private-api-ready");
+    expect(verifier).not.toContain("NETLIFY_SITE_PROTECTION_BYPASS");
     expect(preview).not.toMatch(/--prod(?:\\s|$)/m);
     expect(preview).not.toContain("wrangler deploy");
     expect(preview).not.toContain("pnpm build");
