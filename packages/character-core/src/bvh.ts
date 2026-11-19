@@ -144,6 +144,7 @@ export function sampleBVHFrame(source:BVHSourceV1,frame:number):BVHSampleV1{
   const values=source.values[frame]!;
   let offset=0;
   const rotations:Quat[]=[],translations:Vec3[]=[];
+  const rawRoot=[0,0,0];
   for(const joint of source.joints){
     let q:Quat=[0,0,0,1];
     const p=[...joint.offset];
@@ -152,12 +153,15 @@ export function sampleBVHFrame(source:BVHSourceV1,frame:number):BVHSampleV1{
       if(!finite(value))invalid("nonfinite frame channel");
       const axis=channel[0] as Axis;
       const dimension=axis==="X"?0:axis==="Y"?1:2;
-      if(channel.endsWith("position"))p[dimension]+=value;
+      if(channel.endsWith("position")){
+        p[dimension]+=value;
+        if(rotations.length===0)rawRoot[dimension]=value;
+      }
       else q=product(q,axisQuat(axis,value));
     }
     rotations.push(unit(q));
     translations.push([p[0]!,p[1]!,p[2]!]);
   }
   if(offset!==source.channelCount)invalid("channel count mismatch");
-  return {rotations,translations,sourceRootTranslation:translations[0]!};
+  return {rotations,translations,sourceRootTranslation:[rawRoot[0]!,rawRoot[1]!,rawRoot[2]!]};
 }
