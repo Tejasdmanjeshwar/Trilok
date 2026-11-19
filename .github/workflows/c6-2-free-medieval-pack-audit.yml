@@ -1,0 +1,31 @@
+name: C6.2 four free medieval pack audit
+on:
+  push:
+    branches: [feat/c6-2-animation-baking-studio-playback]
+    paths: ['.github/workflows/c6-2-free-medieval-pack-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the four $0 packs into temporary private runner space
+        run: |
+          python3 scripts/audit-free-medieval-motion.py --output /tmp/trilok-free-motion --report /tmp/trilok-free-motion-report.json
+      - name: Print sanitized archive and license diagnostics only
+        run: |
+          python3 - <<'PY'
+          import json
+          p=json.load(open("/tmp/trilok-free-motion-report.json"))
+          for name,result in p["packs"].items():
+            print(name, "status:",result["status"],
+              "bytes:",result.get("archive_bytes"),"SHA:",result.get("archive_sha256"),
+              "file types:",result.get("file_types",{}),
+              "blocked:",result.get("reason","none"))
+          PY
+      - name: Remove source bytes; no assets uploaded, published or committed
+        if: always()
+        run: rm -rf /tmp/trilok-free-motion
