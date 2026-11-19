@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "kind": "c6.3-100style-neutral-experimental",
+  "acceptedForProduction": false,
+  "sourceFamilySha256": "6e04c8293605f3e1d3f2599141922ffc9872c07f7339f97422fa2e56de9db4d9",
+  "sourceReferenceFrame": 282,
+  "sourceToTargetScale": 0.011590607340570977,
+  "sourceFrameCorrectionQuaternion": [
+    0,
+    -0.9945172067069279,
+    0,
+    -0.10457306328041553
+  ],
+  "targetIdentitySha256": "66ecf6318f96d9bb2223969e09a9fa7ef09433b4022fc53fe7913c76cfc5ffc7",
+  "profileSha256": "d3e442858d3168505a3aab954384280817c376dfb8b25c810f07fa4f8e376deb",
+  "license": "CC-BY-4.0",
+  "origin": "https://www.ianxmason.com/100style/",
+  "clips": [
+    {
+      "id": "human-100style-neutral-idle",
+      "original": "Neutral_ID.bvh",
+      "originalSha256": "71aead2e3246bdb47a5b839cb3e60e0574e9a1a046c071cc147e2922a35f259f",
+      "captureRange": [
+        655,
+        1555
+      ],
+      "loopRange": [
+        1279,
+        1372
+      ],
+      "durationSeconds": 1.550031,
+      "sourceSamples": 94,
+      "sourceAngularSeamMeanDegrees": 0.13280030638570495,
+      "sourceAngularSeamMaxDegrees": 0.26833594940000277,
+      "sourceAngularVelocitySeamDegrees": 0.012784770778980561,
+      "targetAngularSeamMaxDegrees": 0.2683,
+      "verticalSeamMeters": 0.00002744655818252011,
+      "rootWorldTravelMeters": 0.0019171336415121126,
+      "artifactSha256": "796e707afd170fa75ef58f3a4c75c00fe47ef8e34b29ef0d4045ae379c6f14fc",
+      "bytes": 186256,
+      "acceptedForProduction": false
+    },
+    {
+      "id": "human-100style-neutral-walk",
+      "original": "Neutral_FW.bvh",
+      "originalSha256": "2f28800baa299547c42c257d1c926172542a1e69b46a3d3e6aa0aded0e9b40f6",
+      "captureRange": [
+        327,
+        7445
+      ],
+      "loopRange": [
+        601,
+        682
+      ],
+      "durationSeconds": 1.350027,
+      "sourceSamples": 82,
+      "sourceAngularSeamMeanDegrees": 1.56207507400951,
+      "sourceAngularSeamMaxDegrees": 3.522147009919902,
+      "sourceAngularVelocitySeamDegrees": 0.22198179596310322,
+      "targetAngularSeamMaxDegrees": 3.5221,
+      "verticalSeamMeters": 0.00038753195643212305,
+      "rootWorldTravelMeters": 1.3631284996875914,
+      "artifactSha256": "60666a3d9e530fd4db6e082f76dc2d409a0f54260f4b7d79f4ceea334ec580c6",
+      "bytes": 165420,
+      "acceptedForProduction": false
+    },
+    {
+      "id": "human-100style-neutral-run",
+      "original": "Neutral_FR.bvh",
+      "originalSha256": "f46ca526027a3654c8939a0123413f6008906fb32125d5e885eafcaa830831cb",
+      "captureRange": [
+        357,
+        4227
+      ],
+      "loopRange": [
+        499,
+        546
+      ],
+      "durationSeconds": 0.783349,
+      "sourceSamples": 48,
+      "sourceAngularSeamMeanDegrees": 3.908108253312029,
+      "sourceAngularSeamMaxDegrees": 13.958405178537735,
+      "sourceAngularVelocitySeamDegrees": 1.1046186153682291,
+      "targetAngularSeamMaxDegrees": 13.9584,
+      "verticalSeamMeters": 0.004337958656318728,
+      "rootWorldTravelMeters": 1.699746851941093,
+      "artifactSha256": "c959623919c958fcb21f679fbd4686e4edca7a2eb8cef0ec1d746606cf2f5969",
+      "bytes": 98016,
+      "acceptedForProduction": false
+    }
+  ],
+  "warning": "Requires skinned target/browser multi-angle quality gate; not promoted to Studio"
+}
