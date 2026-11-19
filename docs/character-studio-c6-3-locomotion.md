@@ -1,3 +1,47 @@
+## 2026-11-20 — UAL1/100STYLE source-frame research and safely isolated diagnostic
+
+**Status: partial diagnostic implementation only. No new source calibration, 100STYLE clip rebake, Chromium visual acceptance, Netlify preview or owner sign-off is claimed.** This is the existing draft PR #118; UAL1 approved assets are not modified.
+
+### Reproduced reference-frame comparison
+
+Compared the committed `assets/animations/studio-v1/profile.json` (UAL1) and `100style-neutral-profile.json` by exact matching C1 target ID. All selected target rest-world rotations and target anatomical frames were **identical (0° quaternion difference)**. For each matched source anatomical frame, the angular difference UAL1 versus 100STYLE was:
+
+| Role | Left | Right |
+| --- | ---: | ---: |
+| Shoulder | 11.703° | 16.264° |
+| Elbow | 90.395° | 90.727° |
+| Wrist | 92.043° | 91.632° |
+| Hip | 5.850° | 2.580° |
+| Knee | 4.687° | 2.763° |
+| Ankle | 1.874° | 11.258° |
+
+**Interpretation caveat:** these are differences between distinct *source* reference-frame quaternions, **not** pose errors or proof of an exactly 90° forearm twist. Their joint distribution flags that the current arm calibration is qualitatively unlike the legs and requires physical cue validation before making another bake.
+
+The UAL1 source descriptor uses `createHumanRestDescriptor()` with actual signed source finger/knuckle/thumb landmarks for an independently oriented elbow/wrist palm-normal cue. Its glTF inverse skin bind matrices were independently checked (recorded maximum consistency residual `6.383178585700477e-7`). The 100STYLE BVH carries 23 named joints, no finger/palm landmarks, and **no source skinned inverse bind matrices**. `scripts/calibrate-c63-100style.mjs` instead passes the *global torso forward vector* as the elbow and wrist secondary reference. Although this creates formally orthonormal `anatomicalFrame()` quaternions, it does not establish the source's volar/palmar roll reference, and the frame cannot legitimately be treated as equivalent to UAL1's measured palm cue. A body-forward secondary can rotate by ~90° relative to the physical palm plane even when shoulder–elbow–wrist shaft directions coincide.
+
+The existing `source-anatomical` branch computes `Qdesired = (QsourceNow × inverse(QsourceRest)) × Fsource × inverse(Ftarget) × QtargetRest`. Its correctness requires `Fsource` and `Ftarget` to be anatomically homologous reference orientations. If the BVH arm cue is an arbitrary torso-forward reference, the retargeter transfers a well-defined **numerical** rotation but not a justified anatomical forearm/palm frame. Link-direction residuals cannot detect the axial error because rotation around a shaft preserves its endpoints.
+
+Another independent check is needed: `AnatomicalFK.applyRestDeltas()` decomposes elbow rotation into swing and twist about the target-local `rotation` freedom and applies *swing alone* to the proximal lowerarm01 helper; a false source-derived twist is therefore partly excluded from proximal skin while the full delta reaches the elbow, lowerarm02/wrist and fingers. This is a plausible deformation amplifier, **not yet isolated as the independently proven root cause**. Do not remove helper twist distribution or change approved UAL1 presentation based solely on these profile measurements.
+
+### Mathematical reference and research
+
+- [UPF-GTI retargeting-threejs algorithm](https://github.com/upf-gti/retargeting-threejs/blob/main/docs/Algorithm.md): world-space quaternion offset transfer assumes a **shared anatomically equivalent auxiliary pose**; using dissimilar T/A or roll cues violates that premise.
+- [100STYLE official dataset](https://www.ianxmason.com/100style/) and [Zenodo archive](https://zenodo.org/records/8127870): original fingerless BVHs and published locomotion data; a separate processed set contains rotations/velocities but does not by itself supply source palm-surface ground truth.
+- [Mason, Starke, Komura, Real-Time Style Modelling of Human Locomotion](https://arxiv.org/abs/2201.04439): capture provenance and intended locomotion context.
+- [A Kinematic Consistency-Based Method for Refining Axial Twist Errors](https://jsstec.org/_PR/view/?aidx=48265&bidx=4342): distinguish axial twist from swing and check parent/child kinematic compensation; its paper does **not** imply that missing palm orientation can be reconstructed uniquely.
+- [KITRO, CVPR 2024 supplemental](https://openaccess.thecvf.com/content/CVPR2024/supplemental/Yang_KITRO_Refining_Human_CVPR_2024_supplemental.pdf): swing/twist decomposition as a way to separate joint-direction constraints from independently underdetermined axial rotations.
+- [orangeduck/100style-retarget](https://github.com/orangeduck/100style-retarget): an independent skin-attached 100STYLE transfer for visual/algorithmic comparison. Verify redistribution and character licensing before using any assets.
+
+### Safe reference-frame policy candidate
+
+Added `parallelTransportAnatomicalCue()` to the existing pure C6.2 retargeting module and a focused test file. It is **not yet connected to the baker** and does **not** alter UAL1 or experimental 100STYLE clip bytes. The optional helper takes the real, calibrated target anatomical shaft and secondary cue, carries the transverse cue into the BVH's measured source shaft by the shortest possible quaternion swing, and returns a deterministic *zero-additional-roll convention*. It explicitly rejects degenerate/parallel transverse cues and antiparallel shafts. It does **not** assert this gauge equals the original motion-capture artist's palm bind frame or that all observed BVH axial channels are meaningless. It makes the missing absolute source surface frame an explicit, testable family calibration policy rather than silently claiming a measured palm.
+
+**Next mandatory experiment before promotion:** Compare the actual source reference, idle, forward/back Walk and both Run arm phases with real MakeHuman skinned renders. Benchmark the original torso-forward cue versus this zero-roll gauge; measure shoulder/elbow/wrist full orientations, elbow axis, signed twist, source-supported wrist relative motion, proximal lowerarm helper versus semantic elbow, and visual skin volume at all four views. Require geometry/pose evidence before changing the shared profile or baking. For straight reference elbows, bend-plane normals are unstable; evaluate multiple nondegenerate frames and do not repeat the failed single-pose cross-product trial. If source quaternions and actual source joint behavior give a reproducible stronger reference, prefer that over the minimum-roll fallback.
+
+**Remaining acceptance blockers:** official BVH-to-target source-vs-skinned visual reference, full-cycle deformation and foot ground checks, Run ~13.96° seam analysis, complete UAL regression and Verify, manually dispatched SHA-pinned desktop/touch Chromium captures, and a separately verified Netlify preview. No merge and no Cloudflare production deploy.
+
+---
+
 ## 2026-11-19 — Forearm axial-roll investigation: failed calibration rejected
 
 A source-versus-target audit of the **current, unaccepted** 100STYLE clips
