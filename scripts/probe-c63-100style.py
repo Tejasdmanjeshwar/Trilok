@@ -125,6 +125,25 @@ def main():
         print("FRAME CUTS SAMPLE", json.dumps(rows[:12]), flush=True)
         raise ValueError("Frame_Cuts.csv contains no Neutral entries; inspect schema")
     print("FRAME CUT ROWS", json.dumps(report["frameCutsMatches"][:20]), flush=True)
+    if len(report["frameCutsMatches"]) != 1:
+        raise ValueError("Expected exactly one Neutral frame-cuts row")
+    cut = dict(zip(rows[0], report["frameCutsMatches"][0]))
+    report["usableFrameRanges"] = {}
+    for name, suffix in (("Neutral_ID.bvh", "ID"),
+                         ("Neutral_FW.bvh", "FW"),
+                         ("Neutral_FR.bvh", "FR")):
+        start = int(cut[suffix + "_START"])
+        stop = int(cut[suffix + "_STOP"])
+        length = report["motion"][name]["frames"]
+        if not (0 <= start < stop < length):
+            raise ValueError("Invalid official frame-cut bounds " + name)
+        report["usableFrameRanges"][name] = {
+            "startInclusive": start,
+            "stopInclusive": stop,
+            "totalFrames": length,
+            "indexBase": "publisher-unspecified; requires visual confirmation",
+        }
+    print("VERIFIED FRAME CUT RANGES", json.dumps(report["usableFrameRanges"]), flush=True)
     (OUT / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print("ACQUISITION VERIFIED", json.dumps({
         "files": {k: {"bytes": v["bytes"], "sha256": v["sha256"]}
