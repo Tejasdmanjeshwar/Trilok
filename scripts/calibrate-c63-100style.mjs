@@ -348,8 +348,8 @@ try{
     const measureTPose=frame=>{
       const native=evaluateBVHWorldPose(source,frame);
       const facing=bodyFrame(source,native);
-      const positions=native.positions.map(p=>
-        v(p).applyQuaternion(facing.correction).multiplyScalar(scale));
+      const positions=native.positions.map(p=>reflectPosition(
+        v(p).applyQuaternion(facing.correction)).multiplyScalar(scale));
       const direction=(a,b)=>positions[lookup.get(b)].clone()
         .sub(positions[lookup.get(a)]).normalize();
       // Require actual bilateral extension: a forward-moving or relaxed
