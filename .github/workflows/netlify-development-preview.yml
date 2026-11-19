@@ -112,13 +112,11 @@ jobs:
           if [[ -z "$NETLIFY_AUTH_TOKEN" || -z "$NETLIFY_SITE_ID" ]]; then
             echo "::error::Configure two Netlify secrets in protected preview Environment"; exit 1
           fi
-          # CLI uploads the exact CI-built bytes; it does not compile remotely.
-          # Required for the pnpm monorepo: prevent interactive workspace selection.
-          # Netlify CLI's --filter selects the web package; --site selects the site.
-          npx --yes netlify-cli@27.10.1 deploy \
-            --no-build --dir "$RUNNER_TEMP/trilok-static" \
-            --site "$NETLIFY_SITE_ID" --filter "@trilok/web" \
-            --json > "$RUNNER_TEMP/netlify-result.json"
+          # Launch Netlify in a clean temp working directory instead of the
+          # Trilok pnpm monorepo. This avoids workspace auto-discovery and
+          # bounds both CLI startup and draft upload independently.
+          bash scripts/deploy-netlify-static.sh \
+            "$RUNNER_TEMP/trilok-static" "$RUNNER_TEMP/netlify-result.json"
           node -e '
             const fs=require("node:fs");
             const o=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
