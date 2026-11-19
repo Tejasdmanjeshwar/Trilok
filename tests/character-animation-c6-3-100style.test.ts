@@ -75,6 +75,26 @@ describe("C6.3 genuine 100STYLE Neutral motion — unaccepted reviewer-only asse
         entry.id.endsWith("idle")?2:entry.id.endsWith("walk")?9:18);
     }
   });
+  it("does not invert the BVH End Site toe direction after source-frame reflection",()=>{
+    // The published BVH distal toe tip points ahead in local source space.
+    // A missing reflection of the End Site *offset* leaves a near-180-degree
+    // toe delta, even when all ankle-to-toe shaft errors are close to zero.
+    // A right-angle test detects reversed toe axes; it does NOT claim
+    // satisfactory sole contact or aesthetically credible foot animation.
+    const toeRoles=graph.joints.filter(j=>j.role==="toe_left"||j.role==="toe_right");
+    expect(toeRoles).toHaveLength(2);
+    for(const entry of manifest.clips){
+      const clip=parseAnimationClip(readFileSync(base+entry.id+".clip.json","utf8"),graph);
+      for(const toe of toeRoles){
+        const track=clip.tracks.find(t=>t.jointId===toe.id&&t.channel==="rotation");
+        expect(track,entry.id+" missing "+toe.role).toBeDefined();
+        for(const value of track!.values){
+          const radians=2*Math.acos(Math.min(1,Math.abs(value[3]!)));
+          expect(radians,entry.id+" inverted "+toe.role).toBeLessThan(Math.PI/2);
+        }
+      }
+    }
+  });
   it("samples deterministically and restores the same C1 skinned runtime representation",()=>{
     const model=createSkinningSpike();
     try{
