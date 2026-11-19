@@ -503,10 +503,10 @@ try{
     sourceToTargetScale:scale,
     sourceFrameCorrectionQuaternion:normQ.toArray(),
     targetIdentitySha256:targetHash,
-    profileSha256:digest(JSON.stringify(profile)+"\n"),
+    profileSha256:digest(JSON.stringify(profile,null,2)+"\n"),
     license:"CC-BY-4.0",origin:"https://www.ianxmason.com/100style/",
     clips:bakeRecords,
-    warning:"Requires skinned target/browser multi-angle quality gate; not promoted to Studio",
+    warning:"Opt-in owner-review Studio only; requires skinned target/browser multi-angle quality acceptance",
   };
   for(const [name,data] of Object.entries(baked))
     await writeFile(resolve(directory,name),data);
