@@ -176,6 +176,7 @@ def parse_fbx(data):
       "hierarchy_parent_pairs":[[n,p] for n,p,k in shape if n in ("bhips","bspine","bshoulderl","bupperarml","bforearml","bhandl","bthighl","bshinl","bfootl")],
       "rest_local_property_sha256":hashlib.sha256(pose).hexdigest(),
       "joint_local_transform_sha256":hashlib.sha256(only_properties).hexdigest(),
+      "_joint_local_hashes":{k:hashlib.sha256(json.dumps({p:v for p,v in d.items() if p!="parent"},sort_keys=True).encode()).hexdigest() for k,d in rest.items()},
       "hierarchy_links":[[n,p] for n,p,k in shape],
       "bone_names":[row[0] for row in shape],
       "anchors":anchors,"finger_bones":fingers,
@@ -270,9 +271,25 @@ def main():
                 "only_in_candidate":sorted(set(cp)-set(bp)),
                 "parent_link_differences":diff,
                 "same_local_transform_properties":
-                  base["joint_local_transform_sha256"]==candidate["joint_local_transform_sha256"]
+                  base["joint_local_transform_sha256"]==candidate["joint_local_transform_sha256"],
+                "local_property_mismatch_bones":[k for k in sorted(set(bp)&set(cp))
+                  if base["_joint_local_hashes"].get(k)!=candidate["_joint_local_hashes"].get(k)]
             }
     report["cross_pack_hierarchy_comparison"]=compare
+    for name,pack in report["packs"].items():
+        male=first.get(name)
+        female=next((x for x in pack.get("sampled",[])
+          if x.get("bone_count") and "/Female/" in x["path"]),None)
+        if male and female:
+            p1=dict(male["hierarchy_links"]);p2=dict(female["hierarchy_links"])
+            pack["male_vs_female"]={
+              "joint_names_equal":set(p1)==set(p2),
+              "parent_mismatches":[k for k in sorted(set(p1)|set(p2)) if p1.get(k)!=p2.get(k)],
+              "rest_local_mismatch_bones":[k for k in sorted(set(p1)&set(p2))
+                if male["_joint_local_hashes"].get(k)!=female["_joint_local_hashes"].get(k)]
+            }
+        for sample in pack.get("sampled",[]):
+            sample.pop("_joint_local_hashes",None)
     for k,v in report["packs"].items():
         print("PACK",k,"fbx",v.get("fbx_file_count"),"sampled:",
             [(x.get("path"),x.get("status"),x.get("bone_count"),x.get("topology_sha256","")[:12])
