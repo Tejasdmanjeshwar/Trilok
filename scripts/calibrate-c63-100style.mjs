@@ -243,7 +243,13 @@ try{
   ];
   const reports=[];
   for(const [filename,{source,lookup,reference:sourceRef,cut}] of sources){
-    const tPose=norm(evaluateBVHWorldPose(source,sourceRef),scale);
+    // Recorded setup T poses may face different compass headings even on the
+    // same skeleton. Strip global heading only for *reference comparison*;
+    // actual motion below retains the one ID-derived family conversion.
+    const referenceNative=evaluateBVHWorldPose(source,sourceRef);
+    const referenceFacing=bodyFrame(source,referenceNative);
+    const tPose={positions:referenceNative.positions.map(p=>
+      v(p).applyQuaternion(referenceFacing.correction).multiplyScalar(scale))};
     const tResidual=measuredLinks.map(([a,b])=>angle(
       tPose.positions[lookup.get(b)].clone().sub(tPose.positions[lookup.get(a)]).toArray(),
       reference.positions[id.lookup.get(b)].clone().sub(reference.positions[id.lookup.get(a)]).toArray()));
