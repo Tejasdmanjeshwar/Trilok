@@ -1,4 +1,5 @@
 name: C6.2 four free medieval pack audit
+# Requires the original FBX ZIP variant; analyzes only private temporary bytes.
 on:
   push:
     branches: [feat/c6-2-animation-baking-studio-playback]
