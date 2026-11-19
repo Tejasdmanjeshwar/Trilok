@@ -117,6 +117,7 @@ def main():
         raise ValueError("100STYLE neutral motions use different skeletons")
     with (OUT / "Frame_Cuts.csv").open(newline="", encoding="utf-8-sig") as f:
         rows = list(csv.reader(f))
+    print("FRAME_CUTS_HEADER", json.dumps(rows[0]), flush=True)
     for row in rows:
         if any("Neutral" in cell for cell in row):
             report["frameCutsMatches"].append(row)
