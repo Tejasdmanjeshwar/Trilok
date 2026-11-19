@@ -11,6 +11,23 @@
     0,
     -0.10457306328041553
   ],
+  "sourceSagittalReflection": true,
+  "sourceAnteriorSignEvidence": [
+    {
+      "filename": "Neutral_FW.bvh",
+      "first": 601,
+      "last": 682,
+      "travelMetersBeforeScale": 117.60630004514942,
+      "directionDot": -0.998902692766759
+    },
+    {
+      "filename": "Neutral_FR.bvh",
+      "first": 499,
+      "last": 546,
+      "travelMetersBeforeScale": 146.64816661383895,
+      "directionDot": -0.9999720690758913
+    }
+  ],
   "targetIdentitySha256": "66ecf6318f96d9bb2223969e09a9fa7ef09433b4022fc53fe7913c76cfc5ffc7",
   "profileSha256": "4662883947ab42cd56896af3f2c2fa0a2f66045dbac4c6e61d171f587698bfb9",
   "license": "CC-BY-4.0",
