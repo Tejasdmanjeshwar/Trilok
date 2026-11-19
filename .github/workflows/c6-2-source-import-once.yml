@@ -1,0 +1,50 @@
+name: C6.2 one-time pinned UAL1 source extraction
+on:
+  push:
+    branches: [feat/c6-2-animation-baking-studio-playback]
+    paths: ['.github/workflows/c6-2-source-import-once.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Retrieve previously SHA-pinned UAL1 archive (temporary runner only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/c62-source
+          gh run download 44360056543 -n c6-2-motion-source-probe -D /tmp/c62-source
+          echo "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724  /tmp/c62-source/UAL1-Standard.zip" | sha256sum -c
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          with ZipFile("/tmp/c62-source/UAL1-Standard.zip") as z:
+            paths=[p for p in z.namelist() if p.endswith("/Unreal-Godot/UAL1_Standard.glb")]
+            if len(paths)!=1:raise SystemExit("Expected exactly one GLB")
+            Path("/tmp/c62-source/UAL1_Standard.glb").write_bytes(z.read(paths[0]))
+          PY
+          echo "69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997  /tmp/c62-source/UAL1_Standard.glb" | sha256sum -c
+      - name: Re-extract four original motions and source inverse bind data exactly
+        run: |
+          node scripts/extract-quaternius-ual1.mjs /tmp/c62-source/UAL1_Standard.glb assets/animations/sources/ual1-standard-locomotion-v1.json --include-bind --include-sprint
+          echo "33ab1c9ddb830c25df3c7ff205d4713210a2c94d88b5a4fe609e5fa70a251ad6  assets/animations/sources/ual1-standard-locomotion-v1.json" | sha256sum -c
+          git status --short
+      - name: Commit reviewed immutable source input once
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/animations/sources/ual1-standard-locomotion-v1.json
+          git diff --cached --quiet && { echo "Expected source expansion missing"; exit 1; }
+          git commit -m "assets(c6.2): pin complete four-clip UAL1 source and bind data"
+          git fetch origin feat/c6-2-animation-baking-studio-playback
+          git rebase origin/feat/c6-2-animation-baking-studio-playback
+          git push origin HEAD:feat/c6-2-animation-baking-studio-playback
