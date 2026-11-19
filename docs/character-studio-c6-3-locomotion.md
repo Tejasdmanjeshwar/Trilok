@@ -74,7 +74,7 @@ Source verification: [GitHub Actions #44563324901](https://github.com/Tejasdmanj
 
 Observed BVH skeleton: **23 named joints**, plus end-site segments consistent with the publisher's 28-bone description; `Hips` → four `Chest*` joints → `Neck`/`Head`, paired `Collar` → `Shoulder` → `Elbow` → `Wrist`, and paired `Hip` → `Knee` → `Ankle` → `Toe`. Source root has X/Y/Z position channels followed by **Yrotation, Xrotation, Zrotation**. Other measured joints also use **Y-X-Z** Euler channels. The *actual* per-joint channel declaration—not a generic XYZ assumption—must drive quaternion conversion. The three sources have matching named-joint lists. There are no captured finger joints; do not invent finger motion.
 
-The Neutral row in `Frame_Cuts.csv` is `["Neutral", "338", "5481", "380", "8235", "357", "4227", "327", "7445", "655", "1555", "340", "3066", "354", "5730", "304", "6775", "N/A", "N/A", "N/A", "N/A"]`. **These values have NOT yet been paired with their CSV column labels** or validated for clip bounds; do not interpret them as Idle/Walk/Run cut indices based only on column order.
+The Neutral row in `Frame_Cuts.csv` is `["Neutral", "338", "5481", "380", "8235", "357", "4227", "327", "7445", "655", "1555", "340", "3066", "354", "5730", "304", "6775", "N/A", "N/A", "N/A", "N/A"]`. The header has now been verified as `STYLE_NAME, BR_START, BR_STOP, BW_START, BW_STOP, FR_START, FR_STOP, FW_START, FW_STOP, ID_START, ID_STOP, SR_START, SR_STOP, SW_START, SW_STOP, TR1_START, TR1_STOP, TR2_START, TR2_STOP, TR3_START, TR3_STOP`. Therefore source-recorded usable ranges are **ID 655–1555**, **FW 327–7445**, **FR 357–4227** (subject to final 0/1 index-base and pose-timing checks). The source probe validates these are inside their respective clip bounds. These are capture-region bounds, **not automatically seamless loops**.
 
 ### Implemented, unaccepted tooling
 
@@ -85,7 +85,7 @@ The Neutral row in `Frame_Cuts.csv` is `["Neutral", "338", "5481", "380", "8235"
 
 ### Acceptance gates still outstanding (do not report as passed)
 
-1. Interpret frame-cut column headers and identify actual capture region boundaries, contact cycles and plausible short loop candidates; retain the full original world trajectories.
+1. Verify the publisher frame-cut index base against actual capture T-pose boundaries; identify foot-contact cycles and physically plausible short loop candidates while retaining full source-world trajectories.
 2. Independently reconstruct a physically verified 100STYLE anatomical reference pose (without treating the first motion frame as a bind pose), source axis/scale and bilateral bend-plane/twist orientations.
 3. Create and persist **one** versioned source-to-MakeHuman calibration through `createRetargetProfile()` and `retargetWorldPose()`; use it unchanged for Idle, Walk and Run, with no per-clip Euler patches.
 4. Produce deterministic canonical clips and SHA manifest without modifying any UAL1/C6.2 bytes; confirm source and target bone-direction/angle residuals at identical timestamps and explicit numeric acceptance thresholds.
