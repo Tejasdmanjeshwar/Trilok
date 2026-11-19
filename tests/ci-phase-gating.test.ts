@@ -130,6 +130,7 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
     expect(preview).toContain("APPROVED_CHECKOUT_SHA");
     expect(preview).toContain("--no-build");
     expect(preview).toContain("netlify-cli@27.10.1");
+    expect(preview).toContain('--filter "@trilok/web"');
     expect(preview).toContain("verify-static-release.mjs");
     expect(preview).toContain('build.commitSha!==process.env.APPROVED_CHECKOUT_SHA');
     expect(preview).not.toMatch(/--prod(?:\\s|$)/m);
