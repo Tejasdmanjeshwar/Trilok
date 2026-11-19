@@ -106,7 +106,7 @@ def acquire(pack,url,folder):
                     skipped+=1;continue
                 with open_url(opener,cdn,referer=next_url,timeout=90) as response:
                     head=response.read(4)
-                    if head not in (b"PK\\x03\\x04", b"PK\\x05\\x06"):
+                    if not head.startswith(b"PK"):
                         skipped+=1;continue
                     folder.mkdir(parents=True,exist_ok=True)
                     out=folder/(pack+".download")
