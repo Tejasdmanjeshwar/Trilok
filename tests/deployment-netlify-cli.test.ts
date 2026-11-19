@@ -20,7 +20,7 @@ if [[ "$*" == *"--version"* ]]; then
 fi
 printf '%s\\n' "$PWD" > "$TEST_CWD"
 printf '%s\\n' "$@" > "$TEST_ARGS"
-if [[ "${TEST_FAIL:-}" == "1" ]]; then exit 7; fi
+if [[ "\${TEST_FAIL:-}" == "1" ]]; then exit 7; fi
 echo '{"deploy_url":"https://draft--example.netlify.app"}'
 `);
   chmodSync(stub,0o755);
