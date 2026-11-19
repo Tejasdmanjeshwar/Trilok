@@ -6,13 +6,11 @@ on:
       - scripts/probe-c63-100style.py
       - scripts/inspect-c63-100style.mjs
       - scripts/calibrate-c63-100style.mjs
-      - scripts/report-c63-100style.py
       - packages/character-core/src/bvh.ts
       - .github/workflows/c63-100style-source-acquisition.yml
   workflow_dispatch:
 permissions:
   contents: read
-  issues: write
 jobs:
   inspect:
     runs-on: ubuntu-latest
@@ -59,8 +57,3 @@ jobs:
           path: c63-100style-acquisition/
           retention-days: 2
           if-no-files-found: warn
-      - name: Update one PR diagnostic status comment
-        if: always()
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python scripts/report-c63-100style.py
