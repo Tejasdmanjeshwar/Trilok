@@ -171,4 +171,6 @@ For every hosted feature preview:
 
 **Production policy:** continue to host existing production on Cloudflare. After development and owner acceptance, decide separately whether to use Cloudflare Paid (and a scalable production release pipeline); the Netlify development preview may be retired without changing app architecture.
 
+**Implementation note:** The development-only workflow is deliberately restricted to the trusted \`main\` ref and GitHub Environment; this is a configuration safeguard, not an automatic Netlify deployment. The owner has confirmed disconnection of Cloudflare GitHub builds; no Cloudflare dashboard readback is available in the connected tools.
+
 **Current unresolved actions:** netlify site + credentials + protected GitHub environment are not provisioned with the available connector; the draft workflow cannot deploy until those owner actions and a successful post-merge Verify are complete. The Cloudflare disconnect was reported by the owner but has not been independently checked through the Cloudflare dashboard.
