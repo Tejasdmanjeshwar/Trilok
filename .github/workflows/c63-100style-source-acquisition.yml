@@ -48,7 +48,7 @@ jobs:
       - name: Validate official BVHs through TypeScript source FK
         run: node scripts/inspect-c63-100style.mjs
       - name: Measure one shared 100STYLE to MakeHuman anatomical calibration
-        run: node scripts/calibrate-c63-100style.mjs
+        run: node scripts/calibrate-c63-100style.mjs --emit-review-blobs
       - name: Retain authenticated source inspection temporarily
         if: always()
         uses: actions/upload-artifact@v4
