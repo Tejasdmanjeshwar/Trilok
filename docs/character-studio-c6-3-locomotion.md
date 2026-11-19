@@ -23,6 +23,23 @@ In the measured samples, the semantic-elbow-versus-proximal-helper **world orien
 
 The original `scripts/c63-skinned-pose-evidence.mjs` diagnostic has been made morph-aware by using `getVertexPosition()`, so CPU-skin positions follow the same existing corrective morphs rather than skinning uncorrected base vertices.
 
+### Anatomically localized skin deformation and observable *target* palm
+
+The first CPU surface measurements were global. A follow-up [successful original-BVH source run #44611399654](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44611399654) and [target-palmar-direction run #44611737354](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44611737354) additionally measure **1,590 actual source-geometry triangle edges per forearm** with at least 50% original weighted arm influence at both endpoints. The `fractionBelow80Percent` column reports edges compressed below 80% of original length; it is **a descriptive stress metric, not a production acceptance threshold**. The existing and parallel-transport gauges were measured on the same actual skin/pose/morph state:
+
+| Source pose | Left forearm severe compression: current → candidate | Right forearm severe compression: current → candidate |
+| --- | ---: | ---: |
+| Source T-like reference | 11.57% → 1.76% | 12.08% → 2.14% |
+| Idle | 14.72% → 1.01% | 2.89% → 1.13% |
+| Walk arm forward | 14.34% → 0.75% | 1.89% → 1.01% |
+| Walk arm back | 14.21% → 1.01% | 2.26% → 0.88% |
+| Run elbow flexion | 10.69% → 2.77% | 1.64% → 1.01% |
+| Run opposite arm swing | 3.02% → 2.26% | 2.01% → 1.89% |
+
+**This is the first reproducible real-skinned quantitative evidence favoring the candidate gauge** in both forearms across these six poses, beyond merely lowering a quaternion axial angle. It does not fix every edge: source Run frame 543 still has extreme localized contractions, including a right forearm edge length ratio ~0.085 under **both** calibrations, and some maximum stretch ratios worsen. The candidate does not qualify as distortion-free or production-ready.
+
+The same source-backed measurement transfers the **independently observed MakeHuman palm normal** through each candidate's actual target wrist quaternion. It never invents a source palm. Relative to the character's measured body-right and body-forward directions, Idle frame 1279 palm-medial dot products change **L 0.3975 → 0.9841** and **R 0.8887 → 0.7115**. Run flexion frame 512 changes **L 0.1669 → 0.9722**, **R 0.4597 → 0.9238**. Thus the candidate often faces the target palms more medially in recognizable locomotion poses, but is not uniformly an improvement at each wrist; a natural target palm normal is not necessarily the unknown source performer's absolute orientation. The visible CPU projections are not a replacement for owner-reviewed shaded GPU skin renders and thumb/knuckle examination.
+
 ### Real-source full-cycle weighted-sole/contact diagnostic
 
 The same run now evaluates **all 224 source frames** (Idle 94, Walk 82, Run 48), on actual MakeHuman weighted foot/ankle/toe vertices. For **measurement only**, world-space X/Z includes original source-authored BVH travel; the clips and Studio presentation remain unchanged. Vertical motion follows the existing baked source bob. `100style-skinned-foot-cycles.json` retains per-frame low-sole height and candidates for ground contact (within 3 cm of the unchanged MakeHuman rest floor). A stance-height candidate is **not** a measured planted contact or ground-reaction force.
