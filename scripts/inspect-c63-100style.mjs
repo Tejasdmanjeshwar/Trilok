@@ -69,6 +69,34 @@ try{
         rootWorld:pose.positions[0],
         pelvisRotation:pose.rotations[0]};
     });
+    const tPoseCandidates=[];
+    const jointIndex=new Map(source.joints.map((joint,index)=>[joint.name,index]));
+    const locate=(pose,name)=>pose.positions[jointIndex.get(name)];
+    const direction=(pose,from,to)=>{
+      const a=locate(pose,from),b=locate(pose,to);
+      const d=b.map((v,i)=>v-a[i]),length=Math.hypot(...d);
+      if(length<1e-9)throw Error("Degenerate 100STYLE physical segment");
+      return d.map(v=>v/length);
+    };
+    const dot=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0);
+    for(let frame=0;frame<first;frame+=3){
+      const pose=evaluateBVHWorldPose(source,frame);
+      const right=direction(pose,"LeftHip","RightHip");
+      const l=direction(pose,"LeftShoulder","LeftElbow");
+      const r=direction(pose,"RightShoulder","RightElbow");
+      const l2=direction(pose,"LeftElbow","LeftWrist");
+      const r2=direction(pose,"RightElbow","RightWrist");
+      const outward=Math.min(-dot(l,right),dot(r,right));
+      const forearm=Math.min(-dot(l2,right),dot(r2,right));
+      const score=Math.min(outward,forearm);
+      tPoseCandidates.push({frame,score:+score.toFixed(6),
+        upperArmOutward:+outward.toFixed(6),
+        forearmOutward:+forearm.toFixed(6)});
+    }
+    tPoseCandidates.sort((a,b)=>b.score-a.score||a.frame-b.frame);
+    const referenceSearch={bestCandidates:tPoseCandidates.slice(0,8),
+      referencePoseVerified:false,
+      note:"Candidate extension alone does NOT verify a true rest/bind reference"};
     const samples=probes.map(index=>{
       const pose=evaluateBVHWorldPose(source,index);
       const root=pose.positions[0],leftHip=pose.positions[19],rightHip=pose.positions[15];
@@ -80,7 +108,7 @@ try{
     });
     reports.push({name,sha256:pin,frames:source.frames,
       frameTimeSeconds:source.frameTimeSeconds,structureSha256:fingerprint,
-      captureStart:first,captureStop:last,sourceProbes:samples,sourceReferenceProbes});
+      captureStart:first,captureStop:last,sourceProbes:samples,sourceReferenceProbes,referenceSearch});
   }
   if(new Set(structure).size!==1)
     throw Error("100STYLE Neutral source family hierarchy/offsets diverge");
@@ -93,6 +121,6 @@ try{
     files:reports.map(r=>({name:r.name,frames:r.frames,
       frameTimeSeconds:r.frameTimeSeconds,range:[r.captureStart,r.captureStop],
       firstProbe:r.sourceProbes[0],lastProbe:r.sourceProbes.at(-1),
-      referenceProbes:r.sourceReferenceProbes})),
+      referenceProbes:r.sourceReferenceProbes,referenceSearch:r.referenceSearch})),
   }));
 }finally{await server.close();}
