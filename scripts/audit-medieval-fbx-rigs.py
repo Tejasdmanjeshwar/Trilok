@@ -142,6 +142,7 @@ def parse_fbx(data):
                for key in ("Lcl Translation","Lcl Rotation","PreRotation","PostRotation")
                if key in m["properties"]}}
     pose=json.dumps(rest,sort_keys=True).encode()
+    only_properties=json.dumps({k:{p:v for p,v in d.items() if p!="parent"} for k,d in rest.items()},sort_keys=True).encode()
     names=set(x[0] for x in shape)
     # Iglesias FBX uses "bShoulder_L", "bForearm_L" and "bIndexFinger01_L",
     # not Mixamo-style LeftArm; normalize names for anatomical coverage only.
@@ -174,6 +175,8 @@ def parse_fbx(data):
       "hierarchy_sha256":hashlib.sha256(hierarchy_blob).hexdigest(),
       "hierarchy_parent_pairs":[[n,p] for n,p,k in shape if n in ("bhips","bspine","bshoulderl","bupperarml","bforearml","bhandl","bthighl","bshinl","bfootl")],
       "rest_local_property_sha256":hashlib.sha256(pose).hexdigest(),
+      "joint_local_transform_sha256":hashlib.sha256(only_properties).hexdigest(),
+      "hierarchy_links":[[n,p] for n,p,k in shape],
       "bone_names":[row[0] for row in shape],
       "anchors":anchors,"finger_bones":fingers,
       "animation_stacks_count":len(stacks),
@@ -246,6 +249,30 @@ def main():
         path=folder/(pack+".download")
         try:report["packs"][pack]=process(pack,path)
         except Exception as exc:report["packs"][pack]={"status":"failed","error":str(exc)}
+    first={}
+    for name,pack in report["packs"].items():
+        first[name]=next((x for x in pack.get("sampled",[])
+          if x.get("bone_count") and "/Male/" in x["path"]),None)
+    base=first.get("human-archer")
+    compare={}
+    if base:
+        for name,candidate in first.items():
+            if name=="human-archer" or not candidate:continue
+            bp=dict(base["hierarchy_links"])
+            cp=dict(candidate["hierarchy_links"])
+            all_bones=set(bp)|set(cp)
+            diff=[{"bone":bone,"base_parent":bp.get(bone),
+                   "other_parent":cp.get(bone)}
+                for bone in sorted(all_bones) if bp.get(bone)!=cp.get(bone)]
+            compare[name]={
+                "shared_joint_names":len(set(bp)&set(cp)),
+                "only_in_base":sorted(set(bp)-set(cp)),
+                "only_in_candidate":sorted(set(cp)-set(bp)),
+                "parent_link_differences":diff,
+                "same_local_transform_properties":
+                  base["joint_local_transform_sha256"]==candidate["joint_local_transform_sha256"]
+            }
+    report["cross_pack_hierarchy_comparison"]=compare
     for k,v in report["packs"].items():
         print("PACK",k,"fbx",v.get("fbx_file_count"),"sampled:",
             [(x.get("path"),x.get("status"),x.get("bone_count"),x.get("topology_sha256","")[:12])
