@@ -1,3 +1,30 @@
+## 2026-11-19 — Forearm axial-roll investigation: failed calibration rejected
+
+A source-versus-target audit of the **current, unaccepted** 100STYLE clips
+revealed substantial canonical elbow local axial rotations during Idle:
+approximately **105° left, 66° right**, despite the original source elbow
+shaft chains being nearly straight (about **3.7° left, 4.3° right** at
+source Idle frame 1279). The wrist's distal direction alone does not
+measure source palm roll; this source BVH has no fingers or palm surface
+bind orientation. The existing target descriptor uses a palm-derived elbow
+cue while the source adapter uses an approximate forward cue, so low shaft
+residuals cannot certify forearm pronation or hand deformation.
+
+A common-family, measured shoulder–elbow–wrist bend-plane experiment was
+baked and numerically compared **without promoting its generated assets**.
+It increased the Idle elbow axial component to approximately
+**133° left, 109° right**, and likewise worsened Walk/Run. It was
+**reverted**. No isolated elbow Euler offsets, fake source palm geometry,
+or changes to approved C6.2 retargeting or clip bytes were introduced.
+
+**Consequence:** the current 100STYLE arm twist and Run presentation remain
+unaccepted. An observable source anatomical roll cue (or demonstrated
+source-to-target skin/bend-plane validation) is necessary before claiming
+high-fidelity elbows/forearms. The source data and diagnostic trial are
+reproducible from the pinned source acquisition workflow. Rejecting this
+trial was intentional; a passing directional or bone-shaft numeric test
+was not treated as sufficient evidence of anatomical realism.
+
 ## 2026-11-19 — BVH End Site anatomical-axis repair and unapproved visual status
 
 **Second measured calibration defect:** after applying the common sagittal
