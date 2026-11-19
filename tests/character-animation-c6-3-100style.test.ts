@@ -15,7 +15,8 @@ const digest=(bytes:Buffer|string)=>createHash("sha256").update(bytes).digest("h
 const graph=createAnatomyPreset({archetype:"human"});
 const manifest=JSON.parse(readFileSync(base+"100style-neutral-manifest.json","utf8")) as {
   kind:string;license:string;acceptedForProduction:boolean;
-  profileSha256:string;sourceFamilySha256:string;
+  profileSha256:string;sourceFamilySha256:string;sourceSagittalReflection:boolean;
+  sourceAnteriorSignEvidence:{filename:string;directionDot:number}[];
   clips:{id:string;originalSha256:string;artifactSha256:string;bytes:number;
     targetAngularSeamMaxDegrees:number;loopRange:number[]}[];
 };
@@ -34,6 +35,16 @@ describe("C6.3 genuine 100STYLE Neutral motion — unaccepted reviewer-only asse
     expect(manifest.license).toBe("CC-BY-4.0");
     expect(manifest.acceptedForProduction).toBe(false);
     expect(manifest.clips).toHaveLength(3);
+    // Measured official authored *forward* travel must be opposite the
+    // publisher's geometric hip-cross convention before the shared
+    // conversion. A coordinate regression must not be patched clip-by-clip.
+    expect(manifest.sourceSagittalReflection).toBe(true);
+    expect(manifest.sourceAnteriorSignEvidence.map(p=>p.filename)).toEqual([
+      "Neutral_FW.bvh","Neutral_FR.bvh",
+    ]);
+    for(const evidence of manifest.sourceAnteriorSignEvidence){
+      expect(evidence.directionDot).toBeLessThan(-.99);
+    }
     expect(manifest.sourceFamilySha256).toBe(
       "6e04c8293605f3e1d3f2599141922ffc9872c07f7339f97422fa2e56de9db4d9");
     const profile=readFileSync(base+"100style-neutral-profile.json");
