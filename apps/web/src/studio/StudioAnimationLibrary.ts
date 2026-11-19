@@ -6,6 +6,9 @@ import sprint from "../../../../assets/animations/studio-v1/human-sprint.clip.js
 import backward from "../../../../assets/animations/studio-v1/human-backward.clip.json";
 import strafeLeft from "../../../../assets/animations/studio-v1/human-strafe-left.clip.json";
 import strafeRight from "../../../../assets/animations/studio-v1/human-strafe-right.clip.json";
+import neutralIdle from "../../../../assets/animations/studio-v1/human-100style-neutral-idle.clip.json";
+import neutralWalk from "../../../../assets/animations/studio-v1/human-100style-neutral-walk.clip.json";
+import neutralRun from "../../../../assets/animations/studio-v1/human-100style-neutral-run.clip.json";
 
 /** Approved source-backed motions, independent of Studio controls or playback. */
 const library = [
@@ -21,9 +24,20 @@ const library = [
 /** KayKit directional motion failed owner review. Keep it accessible only in an\n * explicitly opted-in PR diagnostic, not the accepted animation menu. */
 export const EXPERIMENTAL_KAYKIT_REVIEW = typeof location !== "undefined" &&
   new URLSearchParams(location.search).has("c63-kaykit-review");
+/** C6.3 Neutral motions are unaccepted. Explicit owner-only opt-in keeps the
+ * approved four UAL1 choices and default locomotion mixer unchanged. */
+export const EXPERIMENTAL_100STYLE_REVIEW = typeof location !== "undefined" &&
+  new URLSearchParams(location.search).has("c63-100style-review");
+const neutralReview = [
+  {id:"human-100style-neutral-idle",label:"100STYLE Idle · review",clip:neutralIdle},
+  {id:"human-100style-neutral-walk",label:"100STYLE Walk · review",clip:neutralWalk},
+  {id:"human-100style-neutral-run",label:"100STYLE Run · review",clip:neutralRun},
+] as const;
+
 export const STUDIO_ANIMATIONS = [
   ...library.slice(0,EXPERIMENTAL_KAYKIT_REVIEW?library.length:4)
     .map(({id,label})=>({id,label})),
+  ...(EXPERIMENTAL_100STYLE_REVIEW?neutralReview.map(({id,label})=>({id,label})):[]),
   {id:"locomotion-preview",label:"Movement transitions"},
 ];
 
@@ -43,7 +57,7 @@ export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1,
   };
 }
 const clips: Readonly<Record<string,unknown>> =
-  Object.fromEntries(library.map(({id,clip})=>[id,clip]));
+  Object.fromEntries([...library,...neutralReview].map(({id,clip})=>[id,clip]));
 
 /** Legacy names are input-only migrations, never extra playback choices.
  * This also migrates a previously selected "human-run" to semantic "Jog". */
@@ -56,7 +70,9 @@ const previousIds: Readonly<Record<string,string>> = {
 };
 export function resolveStudioAnimationId(id:string):string {
   const resolved=previousIds[id]??id;
-  if(resolved!=="locomotion-preview"&&!Object.hasOwn(clips,resolved))throw new Error("Unknown Studio animation");
+  if(resolved!=="locomotion-preview"&&(!Object.hasOwn(clips,resolved)||
+    (resolved.startsWith("human-100style-neutral-")&&!EXPERIMENTAL_100STYLE_REVIEW)))
+    throw new Error("Unknown or unaccepted Studio animation");
   return resolved;
 }
 
