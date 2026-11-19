@@ -555,8 +555,19 @@ try{
       return {frame,seconds:+((frame-start)*source.frameTimeSeconds).toFixed(6),
         ...comparativeCues(actual,targetFK(samples),lookup)};
     });
+    const startRoot=at(start).normalized.positions[0];
+    const endRoot=at(last).normalized.positions[0];
+    const travel=endRoot.clone().sub(startRoot).setY(0);
+    const facing=v(fullCyclePoseEvidence[Math.floor(fullCyclePoseEvidence.length/2)].sourceFacing)
+      .setY(0).normalize();
+    const forwardTravel=travel.dot(facing);
     console.log("C63_100STYLE_GAIT_POSTURE "+JSON.stringify({
-      id:clipId,loopRange:[start,last],fullCyclePoseEvidence}));
+      id:clipId,loopRange:[start,last],fullCyclePoseEvidence,
+      horizontalTravelMeters:travel.length(),
+      travelAlongBodyFacingMeters:forwardTravel,
+      relativeTravelDirection:Math.abs(forwardTravel)<.001?"near-stationary":
+        forwardTravel>0?"along-facing":"against-facing",
+    }));
     bakeRecords.push({id:clipId,original:filename,
       originalSha256:assets[filename][0],
       captureRange:cut,loopRange:[start,last],
