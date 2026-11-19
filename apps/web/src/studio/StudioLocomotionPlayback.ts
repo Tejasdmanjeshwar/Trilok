@@ -3,6 +3,7 @@ import {
   type SampledJointV1,
 } from "@trilok/character-core";
 import type {SemanticCharacter} from "../characters/runtime/SemanticCharacter";
+import type {JointFrame} from "../characters/geometry/AnatomicalFK";
 import {GroundedFootContacts,type GroundContactMetrics} from "./GroundedFootContacts";
 
 /** Studio-only presentation adapter; same canonical sampled-pose/FK path as C6.2. */
@@ -22,9 +23,10 @@ export class StudioLocomotionPlayback {
     plantedFeet:0,maxAnchorSlipMeters:0,maxPenetrationMeters:0,unreachableFeet:0,
   };
   constructor(character:SemanticCharacter,library:LocomotionLibrary,
-    private readonly applyPose:(samples:readonly SampledJointV1[])=>void){
+    private readonly applyPose:(samples:readonly SampledJointV1[])=>void,
+    frames?:ReadonlyMap<string,JointFrame>){
     this.mixer=new CanonicalLocomotionMixer(character.graph,library);
-    this.contacts=new GroundedFootContacts(character);
+    this.contacts=new GroundedFootContacts(character,undefined,frames);
     this.paint(this.mixer.seek(0),0);
   }
   private live():void{if(this.disposed)throw new Error("Locomotion playback disposed");}
