@@ -17,6 +17,24 @@ const assets={
   "Neutral_FW.bvh":["2f28800baa299547c42c257d1c926172542a1e69b46a3d3e6aa0aded0e9b40f6",195,[327,7445]],
   "Neutral_FR.bvh":["f46ca526027a3654c8939a0123413f6008906fb32125d5e885eafcaa830831cb",192,[357,4227]],
 };
+// Frame_Cuts is part of the official motion contract: do not silently use
+// remembered boundaries or accidentally ingest calibration/setup movements.
+const cutBytes=await readFile(resolve(directory,"Frame_Cuts.csv"));
+if(digest(cutBytes)!=="e3c1d2beab6486e083622cef6a5402fe9b20edc75a9963ea30675c67ec29ee82")
+  throw Error("Official 100STYLE frame-cut metadata SHA mismatch");
+const csvLines=cutBytes.toString("utf8").replace(/^\uFEFF/,"").trim().split(/\r?\n/);
+const columns=csvLines[0].split(",").map(x=>x.trim());
+const neutralRows=csvLines.slice(1).map(line=>line.split(",").map(s=>s.trim()))
+  .filter(row=>row[0]==="Neutral");
+if(neutralRows.length!==1)throw Error("Expected exactly one official Neutral style row");
+const cutValues=Object.fromEntries(columns.map((name,i)=>[name,neutralRows[0][i]]));
+for(const [name,suffix] of [["Neutral_ID.bvh","ID"],
+  ["Neutral_FW.bvh","FW"],["Neutral_FR.bvh","FR"]]){
+  const declared=[Number(cutValues[suffix+"_START"]),Number(cutValues[suffix+"_STOP"])];
+  if(!declared.every(Number.isInteger)||
+     declared.some((n,i)=>n!==assets[name][2][i]))
+    throw Error("100STYLE Neutral cut mismatch "+name);
+}
 const pairs=[
   ["Hips","pelvis"],["Chest2","spine_lower"],["Chest4","chest"],
   ["Neck","neck"],["Head","head"],
