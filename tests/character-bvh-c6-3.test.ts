@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {parseBVH,sampleBVHFrame} from "../packages/character-core/src/bvh";
+import {parseBVH,sampleBVHFrame,evaluateBVHWorldPose} from "../packages/character-core/src/bvh";
 
 const sample=(rotations:string,frames:string[])=>
   `HIERARCHY
@@ -35,6 +35,11 @@ describe("C6.3 deterministic BVH importer",()=>{
     expect(first.translations[1]).toEqual([2,-1,0]);
     expect(first.rotations[0]![1]).toBeCloseTo(Math.SQRT1_2,8);
     expect(sampleBVHFrame(source,1).sourceRootTranslation).toEqual([4,5,6]);
+    const world=evaluateBVHWorldPose(source,0);
+    expect(world.positions[0]).toEqual([1,7,3]);
+    expect(world.positions[1]![0]).toBeCloseTo(1,8);
+    expect(world.positions[1]![1]).toBeCloseTo(6,8);
+    expect(world.positions[1]![2]).toBeCloseTo(1,8);
   });
   it("respects declared intrinsic Euler order rather than XYZ assumptions",()=>{
     const a=sampleBVHFrame(parseBVH(sample("Xrotation Yrotation Zrotation",[
