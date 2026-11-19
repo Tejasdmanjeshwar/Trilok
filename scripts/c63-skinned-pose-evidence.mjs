@@ -142,6 +142,23 @@ export function captureC63SkinnedPose({
       j.role === "elbow_" + side).id).rest.clone().invert().multiply(elbow.quaternion);
     const signed = delta.x * twistAxis.x + delta.y * twistAxis.y + delta.z * twistAxis.z;
     const signedTwist = 2 * Math.atan2(signed, delta.w) * 180 / Math.PI;
+    // Unlike the fingerless BVH, the actual target HAS independent finger and
+    // thumb landmarks. Report its genuinely measured palm-normal direction;
+    // do not pretend this reconstructs the source performer’s palm surface.
+    const palmarRest = fk.palmarNormals.get(side);
+    const restWristRotation = fk.restWorldQuaternions.get(
+      human.spike.graph.joints.find(j=>j.role==="wrist_"+side).id);
+    if(!palmarRest||!restWristRotation)
+      throw Error("Missing measured MakeHuman palm normal "+side);
+    const palmarNow=palmarRest.clone().applyQuaternion(
+      wrist.getWorldQuaternion(new THREE.Quaternion())
+        .multiply(restWristRotation.clone().invert())).normalize();
+    const leftHip=byRole.get("hip_left").getWorldPosition(new THREE.Vector3());
+    const rightHip=byRole.get("hip_right").getWorldPosition(new THREE.Vector3());
+    const bodyRight=rightHip.sub(leftHip).normalize();
+    const bodyUp=byRole.get("neck").getWorldPosition(new THREE.Vector3())
+      .sub(byRole.get("pelvis").getWorldPosition(new THREE.Vector3())).normalize();
+    const bodyForward=bodyRight.clone().cross(bodyUp).normalize();
     const helperWeightIndex = indices.get(helper);
     const connectorWeightIndex = indices.get(connector);
     const assigned = {forearm: 0, shoulder: 0};
@@ -159,6 +176,11 @@ export function captureC63SkinnedPose({
       wrist: pick(wrist), shoulderConnectorSkin: pick(connector),
       elbowBendDegrees: bendDegrees,
       elbowSignedAxialDegrees: round(((signedTwist + 540) % 360) - 180),
+      measuredMakeHumanPalmNormalWorld: palmarNow.toArray().map(round),
+      measuredPalmMedialDot: round(palmarNow.dot(
+        side==="left"?bodyRight:bodyRight.clone().negate())),
+      measuredPalmAnteriorDot: round(palmarNow.dot(bodyForward)),
+      sourcePalmIndependentlyObservable: false,
       helperToElbowWorldDegrees: degrees(
         helper.getWorldQuaternion(new THREE.Quaternion()).angleTo(
           elbow.getWorldQuaternion(new THREE.Quaternion()))),
