@@ -35,7 +35,7 @@ def comment():
            f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
     lines = [MARKER, "**C6.3 100STYLE source-to-MakeHuman diagnostic**", "",
              f"Run: {url}",
-             f"Commit: \`{os.environ['GITHUB_SHA']}\`", ""]
+             f"Commit: `{os.environ['GITHUB_SHA']}`", ""]
     if report_path.exists():
         report = json.loads(report_path.read_text())
         lines += [f"Mapped canonical joints: {report['calibrationJointCount']}",
