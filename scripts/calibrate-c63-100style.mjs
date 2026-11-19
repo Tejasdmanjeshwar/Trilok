@@ -71,6 +71,8 @@ const server=await createServer({root,server:{middlewareMode:true},appType:"cust
 try{
   const {parseBVH,evaluateBVHWorldPose}=await server.ssrLoadModule(
     "/packages/character-core/src/bvh.ts");
+  const {canonicalRigIdentity,serializeAnimationClip,parseAnimationClip}=await server.ssrLoadModule(
+    "/packages/character-core/src/animation.ts");
   const {createAnatomyPreset}=await server.ssrLoadModule(
     "/packages/character-core/src/presets.ts");
   const {createRetargetProfile,retargetWorldPose}=await server.ssrLoadModule(
@@ -283,6 +285,154 @@ try{
       probes:r.sampledSourceToTargetLinks.map(x=>({frame:x.frame,
         mean:x.meanDegrees,p95:x.p95Degrees,max:x.maxDegrees,worst:x.worst}))})),
   }));
+  // Experimental three-motion source-backed bake is confined to the CI artifact.
+  // Cut bounds are publisher-defined; no loop is called seamless without measurement.
+  // Frame-count and total-key budgets are evaluated against the canonical clip schema.
+  const baked={};
+  const bakeRecords=[];
+  const chosen={
+    "Neutral_ID.bvh":{id:"human-100style-neutral-idle",lengths:[90,120,150]},
+    "Neutral_FW.bvh":{id:"human-100style-neutral-walk",lengths:[60,72,84,96]},
+    "Neutral_FR.bvh":{id:"human-100style-neutral-run",lengths:[36,45,54,63]},
+  };
+  const identity=canonicalRigIdentity(graph);
+  for(const [filename,{source,lookup,cut}] of sources){
+    const {id:clipId,lengths}=chosen[filename];
+    const [cutStart,cutStop]=cut;
+    const jointIndices=sourceMaps.map(m=>lookup.get(m.sourceId));
+    // Cache a bounded, evenly distributed search set. No inferred sine gaits,
+    // reversed frames, or synthetic IK/contact poses are introduced.
+    const starts=[];
+    const room=Math.max(...lengths);
+    const step=Math.max(1,Math.floor((cutStop-cutStart-room)/28));
+    for(let start=cutStart+6;start+room+6<cutStop;start+=step)
+      starts.push(start);
+    const sourceFrame=new Map();
+    const at=i=>{
+      let found=sourceFrame.get(i);
+      if(!found){
+        const native=evaluateBVHWorldPose(source,i);
+        found={native,
+          normalized:norm(native,scale)};
+        sourceFrame.set(i,found);
+      }
+      return found;
+    };
+    let winner;
+    for(const start of starts){
+      for(const frameLength of lengths){
+        const last=start+frameLength;
+        if(last>=cutStop)continue;
+        const initial=at(start).normalized;
+        const terminal=at(last).normalized;
+        const angular=jointIndices.map(idx=>deg(
+          initial.rotations[idx].angleTo(terminal.rotations[idx])));
+        const rootDelta=initial.positions[0].distanceTo(terminal.positions[0]);
+        const average=angular.reduce((sum,v)=>sum+v,0)/angular.length;
+        // Root travel is expected in walk/run and remains authoritative-source
+        // metadata only; vertical seam is a visual-only constraint.
+        const vertical=Math.abs(initial.positions[0].y-terminal.positions[0].y);
+        const scored=average + .3*Math.max(...angular)+vertical*100;
+        if(!winner || scored<winner.score)
+          winner={start,last,frameLength,score:scored,
+            angularMeanDegrees:average,angularMaxDegrees:Math.max(...angular),
+            verticalSeamMeters:vertical,rootTravelMeters:rootDelta};
+      }
+    }
+    if(!winner)throw Error("No source-backed loop candidate "+filename);
+    const {start,last}=winner;
+    const frames=last-start+1;
+    if(sourceMaps.length*frames>8192)
+      throw Error("Clip would violate canonical total-key limit "+clipId);
+    const times=Array.from({length:frames},(_,i)=>
+      +(i*source.frameTimeSeconds).toFixed(7));
+    const duration=times.at(-1);
+    const buffers=new Map(sourceMaps.map(m=>[m.targetId,[]]));
+    const bob=[];
+    const firstRoot=at(start).normalized.positions[0];
+    for(let frame=start;frame<=last;frame++){
+      const pose=at(frame).normalized;
+      const rotations=new Map(source.joints.map((j,i)=>[
+        j.name,pose.rotations[i].toArray()]));
+      const retarget=retargetWorldPose(profile,target,rotations,
+        fingerprint,"source-anatomical");
+      for(const sample of retarget)
+        buffers.get(sample.jointId).push([...sample.rotation]);
+      const root=pose.positions[0];
+      bob.push([0,root.y-firstRoot.y,0]);
+    }
+    const rotationTracks=sourceMaps.map(mapping=>{
+      const values=buffers.get(mapping.targetId);
+      for(let i=1;i<values.length;i++)
+        if(values[i-1].reduce((sum,x,k)=>sum+x*values[i][k],0)<0)
+          values[i]=values[i].map(x=>-x);
+      return {jointId:mapping.targetId,channel:"rotation",
+        timesSeconds:times,values};
+    });
+    const maxRetargetSeam=rotationTracks.reduce((max,track)=>{
+      const start=q(track.values[0]),end=q(track.values.at(-1));
+      return Math.max(max,deg(start.angleTo(end)));
+    },0);
+    const severeSeam=winner.angularMaxDegrees>35||
+      maxRetargetSeam>35||winner.verticalSeamMeters>.035;
+    if(severeSeam)
+      throw Error("Source-backed loop seam not suitable for baking "+clipId+
+        ": "+JSON.stringify({...winner,maxRetargetSeam}));
+    // A nearly closed input can be interpolated by the runtime sampler at the
+    // wrap; never overwrite the last authored pose to manufacture a perfect seam.
+    const locked=filename==="Neutral_ID.bvh";
+    const tracks=[...rotationTracks];
+    if(!locked){
+      // World-space forward travel is recorded in diagnostics, never applied to
+      // the visual root on top of gameplay displacement.
+      tracks.push({jointId:identity.rootJointId,channel:"translation",
+        timesSeconds:times,values:bob});
+    }
+    const clip={
+      schemaVersion:1,id:clipId,rig:identity,durationSeconds:duration,
+      source:{kind:"external",creator:"100style",
+        revision:"neutral-original-bvh-c63-experimental",
+        license:"CC-BY-4.0",origin:"https://www.ianxmason.com/100style/",
+        sha256:assets[filename][0]},
+      rootMotion:locked?"locked":"visual_only",
+      layer:{mode:"base",jointMask:[...new Set(tracks.map(t=>t.jointId))]},
+      retarget:{mode:"rest_delta",authoredBindPoseId:identity.bindPoseId},
+      tracks,contacts:[],
+    };
+    const encoded=serializeAnimationClip(clip,graph)+"\n";
+    parseAnimationClip(encoded,graph);
+    baked[clipId+".clip.json"]=encoded;
+    bakeRecords.push({id:clipId,original:filename,
+      originalSha256:assets[filename][0],
+      captureRange:cut,loopRange:[start,last],
+      durationSeconds:duration,sourceSamples:frames,
+      sourceAngularSeamMeanDegrees:winner.angularMeanDegrees,
+      sourceAngularSeamMaxDegrees:winner.angularMaxDegrees,
+      targetAngularSeamMaxDegrees:maxRetargetSeam,
+      verticalSeamMeters:winner.verticalSeamMeters,
+      rootWorldTravelMeters:winner.rootTravelMeters,
+      artifactSha256:digest(encoded),bytes:Buffer.byteLength(encoded),
+      acceptedForProduction:false});
+  }
+  const manifest={
+    schemaVersion:1,kind:"c6.3-100style-neutral-experimental",
+    acceptedForProduction:false,
+    sourceFamilySha256:fingerprint,
+    sourceReferenceFrame:assets["Neutral_ID.bvh"][1],
+    sourceToTargetScale:scale,
+    sourceFrameCorrectionQuaternion:normQ.toArray(),
+    targetIdentitySha256:targetHash,
+    profileSha256:digest(JSON.stringify(profile)+"\n"),
+    license:"CC-BY-4.0",origin:"https://www.ianxmason.com/100style/",
+    clips:bakeRecords,
+    warning:"Requires skinned target/browser multi-angle quality gate; not promoted to Studio",
+  };
+  for(const [name,data] of Object.entries(baked))
+    await writeFile(resolve(directory,name),data);
+  await writeFile(resolve(directory,"100style-experimental-manifest.json"),
+    JSON.stringify(manifest,null,2)+"\n");
+  console.log("C63_100STYLE_EXPERIMENTAL_BAKE "+JSON.stringify(
+    {count:bakeRecords.length,clips:bakeRecords}));
   // Do not claim the reference is accepted based on unit quaternions alone.
   if(reports.some(r=>r.relativeTPoseMaximumDirectionDegrees>25))
     throw Error("The three recorded source T candidates are not yet one physically consistent reference");
