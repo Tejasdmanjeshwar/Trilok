@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "Studio tests to run (never all E2E tests)"
+        description: "Studio tests to run (never all E2E tests); 100style-review runs once per project"
         required: true
         type: choice
-        options: [focus-repeat, related, animation]
+        options: [focus-repeat, related, animation, 100style-review]
         default: focus-repeat
       iterations:
         description: "First-attempt repetitions per Chromium project"
@@ -89,6 +89,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p test-results/studio-diagnostics
+          if [ "$SUITE" = "100style-review" ]; then
+            pnpm exec playwright test e2e/studio-animation-c6-3-100style.spec.ts \
+              --project="$PROJECT" --retries=0 --workers=1 \
+              --reporter=list,junit --trace=retain-on-failure \
+              --output=test-results/studio-diagnostics/e2e
+            exit $?
+          fi
           if [ "$SUITE" = "animation" ]; then
             pnpm exec playwright test e2e/studio-animation-c6-2.spec.ts \
               --project="$PROJECT" --repeat-each="$ITERATIONS" --retries=0 --workers=1 \
@@ -125,7 +132,7 @@ jobs:
           const cases=(xml.match(/<testcase\b/g)||[]).length;
           const failures=(xml.match(/<(?:failure|error)\b/g)||[]).length;
           const skipped=(xml.match(/<skipped\b/g)||[]).length;
-          const expected=Number(process.env.ITERATIONS)*(process.env.SUITE==='focus-repeat'?1:process.env.SUITE==='animation'?2:4);
+          const expected=(process.env.SUITE==='100style-review'?1:Number(process.env.ITERATIONS))*(process.env.SUITE==='focus-repeat'?1:process.env.SUITE==='100style-review'?1:process.env.SUITE==='animation'?2:4);
           const result=[
             '## Studio interaction diagnostics ('+process.env.PROJECT+')',
             '- Workflow: '+process.env.RUN_URL,
@@ -153,5 +160,6 @@ jobs:
             test-results/studio-diagnostics/**
             test-results/studio/**
             test-results/studio-c6-2/**
+            test-results/studio-c6-3-100style/**
           if-no-files-found: warn
           retention-days: 14
