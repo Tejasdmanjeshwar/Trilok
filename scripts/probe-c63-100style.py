@@ -90,9 +90,9 @@ def inspect_bvh(name):
         raise ValueError("invalid motion header in " + name)
     joints = re.findall(r"(?m)^\s*(?:ROOT|JOINT)\s+(\S+)\s*$", text)
     channels = re.findall(r"(?m)^\s*CHANNELS\s+(.+)$", text)
-    if len(joints) != 28 or len(channels) != len(joints):
+    if len(joints) != 23 or len(channels) != len(joints):
         raise ValueError("unexpected 100STYLE hierarchy: " + name + " " + str(joints))
-    print("BVH", name, "joints", joints, "frames", frames.group(1),
+    print("BVH", name, "namedJoints", joints, "frames", frames.group(1),
           "secondsPerFrame", dt.group(1), "firstChannels", channels[:4], flush=True)
     return {"frames": int(frames.group(1)), "frameTime": float(dt.group(1)),
             "joints": joints, "channels": channels}
