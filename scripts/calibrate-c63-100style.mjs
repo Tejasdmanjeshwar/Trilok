@@ -10,7 +10,7 @@ import {resolve} from "node:path";
 import {createServer} from "vite";
 
 const root=resolve(import.meta.dirname,"..");
-const directory=resolve(root,process.argv[2]??"c63-100style-acquisition");
+const directory=resolve(root,process.argv.find((arg,i)=>i>1&&!arg.startsWith("--"))??"c63-100style-acquisition");
 const digest=x=>createHash("sha256").update(x).digest("hex");
 const assets={
   "Neutral_ID.bvh":["71aead2e3246bdb47a5b839cb3e60e0574e9a1a046c071cc147e2922a35f259f",282,[655,1555]],
@@ -519,4 +519,22 @@ try{
     throw Error("The three recorded source T candidates are not yet one physically consistent reference");
   if(reports.some(r=>r.sampledSourceToTargetLinks.some(p=>p.p95Degrees>50)))
     throw Error("100STYLE skeletal direction residual exceeds diagnostic gate; do not bake/promote");
+  // Local review-only import bridge: output SHA-verifiable text blobs through
+  // ephemeral CI job logs, never the original multi-MB licensed BVH recordings.
+  // The GitHub connector imports these reviewed artifacts onto PR #118;
+  // without this explicit flag, source files stay exclusively in CI artifacts.
+  if(process.argv.includes("--emit-review-blobs")){
+    const reviewFiles={
+      ...baked,
+      "100style-neutral-profile.json":JSON.stringify(profile,null,2)+"\n",
+      "100style-neutral-manifest.json":JSON.stringify(manifest,null,2)+"\n",
+    };
+    for(const [name,content] of Object.entries(reviewFiles)){
+      const base64=Buffer.from(content,"utf8").toString("base64");
+      const chunks=base64.match(/.{1,6000}/g)??[];
+      console.log("C63_REVIEW_FILE "+name+" "+digest(content)+" "+chunks.length);
+      for(let i=0;i<chunks.length;i++)
+        console.log("C63_REVIEW_CHUNK "+name+" "+i+" "+chunks[i]);
+    }
+  }
 }finally{await server.close();}
