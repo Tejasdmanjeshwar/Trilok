@@ -247,7 +247,8 @@ export function createStudioViewport(
     if(id==="locomotion-preview"){
       animation=new StudioLocomotionPlayback(active.human.spike.character,
         loadStudioLocomotionLibrary(active.human.spike.graph),
-        samples=>posePreview!.applyAnimationSamples(samples));
+        samples=>posePreview!.applyAnimationSamples(samples),
+        posePreview.animationFrames);
       animation.setMovement(...currentMovementComponents());
     }else{
       const clip=loadBakedStudioAnimation(source.id,active.human.spike.graph);
