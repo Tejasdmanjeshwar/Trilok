@@ -30,7 +30,10 @@ async function snapshot(page:Page,id:string,view:string,body:string,frame:string
   });
 }
 test("C6.3 100STYLE Neutral owner review: true skinned ID/FW/FR across viewpoints and body shapes",async({page})=>{
-  test.setTimeout(360_000);
+  // 240 real WebGL captures (4 bodies × 3 motions × 5 phases × 4 views),
+  // plus explicit wrap-boundary evidence. Allow the full diagnostic to run
+  // on CPU SwiftShader without weakening a single visual/numeric assertion.
+  test.setTimeout(1_200_000);
   const errors:string[]=[];
   page.on("pageerror",e=>errors.push(e.message));
   await page.emulateMedia({reducedMotion:"reduce"});
