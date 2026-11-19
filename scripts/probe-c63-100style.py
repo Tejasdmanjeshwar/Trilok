@@ -45,8 +45,10 @@ class Links(HTMLParser):
             label = html.unescape(self.label).strip()
             if label in FILES:
                 if label in self.matches:
-                    raise ValueError("duplicate official link " + label)
-                self.matches[label] = html.unescape(self.href)
+                    if self.matches[label] != html.unescape(self.href):
+                        raise ValueError("conflicting official links " + label)
+                else:
+                    self.matches[label] = html.unescape(self.href)
             self.href = None
 
 def drive_id(url):
