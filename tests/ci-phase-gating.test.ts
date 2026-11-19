@@ -109,6 +109,33 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
       }
     }
   });
+  it("only manually deploys a verified SHA to the development-only Netlify preview",()=>{
+    const ci=readFileSync(join(dir,"ci.yml"),"utf8");
+    const preview=readFileSync(join(dir,"netlify-development-preview.yml"),"utf8");
+    expect(ci).toContain("pnpm build");
+    expect(ci).toContain("node scripts/verify-build-identity.mjs");
+    expect(ci).toContain("verify-static-release.mjs");
+    expect(ci).toContain("trilok-static-");
+    expect(ci).toContain("actions/upload-artifact@v4");
+    expect(preview).toMatch(/^  workflow_dispatch:/m);
+    expect(preview).not.toMatch(/^  push:/m);
+    expect(preview).not.toMatch(/^  pull_request:/m);
+    expect(preview).toContain("if: github.ref == 'refs/heads/main'");
+    expect(preview).toContain("environment: trilok-netlify-preview");
+    expect(preview).toContain('run.conclusion!=="success"');
+    expect(preview).toContain("run.workflow_id!==expectedWorkflowId");
+    expect(preview).toContain("run.head_sha!==process.env.SOURCE_SHA");
+    expect(preview).toContain("trilok-static-$APPROVED_CHECKOUT_SHA");
+    expect(preview).toContain("APPROVED_SOURCE_SHA");
+    expect(preview).toContain("APPROVED_CHECKOUT_SHA");
+    expect(preview).toContain("--no-build");
+    expect(preview).toContain("netlify-cli@27.10.1");
+    expect(preview).toContain("verify-static-release.mjs");
+    expect(preview).toContain('build.commitSha!==process.env.APPROVED_CHECKOUT_SHA');
+    expect(preview).not.toMatch(/--prod(?:\\s|$)/m);
+    expect(preview).not.toContain("wrangler deploy");
+    expect(preview).not.toContain("pnpm build");
+  });
   it("keeps fast Verify on PRs and main without browser setup",()=>{
     const ci=readFileSync(join(dir,"ci.yml"),"utf8");
     expect(ci).toMatch(/pull_request:/);

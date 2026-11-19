@@ -47,3 +47,14 @@ jobs:
         run: test ! -e apps/web/dist/c2-lab.html
       - name: Verify compiled build identity
         run: node scripts/verify-build-identity.mjs
+      - name: Seal exact verified static assets for manual previews
+        run: node scripts/verify-static-release.mjs --dir apps/web/dist --sha "${{ github.sha }}" --write
+      - name: Upload immutable static release artifact for manual deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: trilok-static-${{ github.sha }}
+          path: apps/web/dist/
+          include-hidden-files: false
+          retention-days: 7
+          if-no-files-found: error
+
