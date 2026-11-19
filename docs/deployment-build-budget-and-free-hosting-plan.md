@@ -174,3 +174,15 @@ For every hosted feature preview:
 **Implementation note:** The development-only workflow is deliberately restricted to the trusted \`main\` ref and GitHub Environment; this is a configuration safeguard, not an automatic Netlify deployment. The owner has confirmed disconnection of Cloudflare GitHub builds; no Cloudflare dashboard readback is available in the connected tools.
 
 **Current unresolved actions:** netlify site + credentials + protected GitHub environment are not provisioned with the available connector; the draft workflow cannot deploy until those owner actions and a successful post-merge Verify are complete. The Cloudflare disconnect was reported by the owner but has not been independently checked through the Cloudflare dashboard.
+
+### C6.2 first preview troubleshooting: Netlify CLI monorepo selection
+
+The first manual Netlify preview run [#44474743713](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44474743713) downloaded and cryptographically verified the intended C6.2 artifact (source PR head `2f01c3c9fc8bcacbde554ed6e00572d8790b8c55`, build merge checkout `a9c307b9a81b11c7c457efee2d5a3817782ba599`) but failed at Netlify CLI before any confirmed upload with `Projects detected` for several pnpm workspaces. Netlify's supported solution is selecting the project with `--filter "@trilok/web"`. This does not trigger a build or replace the main Netlify landing page. A fresh manual run must pass the upload and live-identity checks before claiming a preview exists.
+
+Reference: https://docs.netlify.com/api-and-cli-guides/cli-guides/get-started-with-cli/#work-with-monorepos
+
+### One-field on-demand PR previews (November 2026)
+
+The first C6.2 preview attempt revealed a second usability problem: the owner should not copy a full `source_sha` and GitHub `verify_run_id` after every PR commit. The manual action now accepts only a **pull request number** (default `112` for the current C6.2 phase) and an optional reason. The workflow reads the PR's **current** source SHA and branch, looks up a successful `Verify` run for the same PR/current SHA, selects its immutable SHA-named build artifact, and checks the full artifact hash. It also rechecks the PR head before uploading. If the commit moved, verification is still running, failed, or its artifact expired, it refuses the preview and does **not** deploy an older build. It never merges a PR, builds on Netlify, replaces the Netlify site's primary URL, or changes Cloudflare production. The input PR number is the only intended future choice when another feature needs review.
+
+**Owner workflow:** Actions → Manual Netlify development preview → Run workflow on `main` → optionally change the pull request number → Run. GitHub then handles the exact SHA, Verify run ID, artifact hash and output URL automatically. Latest *verified* means latest **successful exact-head PR check**; it must not silently downgrade to a preceding commit when CI is pending.
