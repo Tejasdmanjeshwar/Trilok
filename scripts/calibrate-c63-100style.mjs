@@ -266,6 +266,7 @@ try{
   // Do not change this script's official review-clip baking profile until
   // the candidate is visually confirmed on the skinned MakeHuman runtime.
   const minimalTwistProbes=[];
+  const fullCycleArmTwist=[];
   const targetById=new Map(target.joints.map(j=>[j.id,j]));
   const mappedBySource=new Map(sourceMaps.map(m=>[m.sourceId,m.targetId]));
   const mappedJointIds=new Set(sourceMaps.map(m=>m.targetId));
@@ -625,6 +626,8 @@ try{
       +(i*source.frameTimeSeconds).toFixed(7));
     const duration=times.at(-1);
     const buffers=new Map(sourceMaps.map(m=>[m.targetId,[]]));
+    const armCycles=new Map(["Left","Right"].flatMap(side=>
+      ["Elbow","Wrist"].map(part=>[side+part,{baseline:[],candidate:[]}])));
     const bob=[];
     const firstRoot=at(start).normalized.positions[0];
     for(let frame=start;frame<=last;frame++){
@@ -633,11 +636,37 @@ try{
         j.name,pose.rotations[i].toArray()]));
       const retarget=retargetWorldPose(profile,target,rotations,
         fingerprint,"source-anatomical");
+      const candidate=retargetWorldPose(minimalTwistProfile,target,rotations,
+        fingerprint,"source-anatomical");
+      const originalById=new Map(retarget.map(s=>[s.jointId,s.rotation]));
+      const candidateById=new Map(candidate.map(s=>[s.jointId,s.rotation]));
+      for(const [name,record] of armCycles){
+        const targetId=sourceToTarget.get(name);
+        record.baseline.push(axisTwist(originalById.get(targetId),targetId));
+        record.candidate.push(axisTwist(candidateById.get(targetId),targetId));
+      }
       for(const sample of retarget)
         buffers.get(sample.jointId).push([...sample.rotation]);
       const root=pose.positions[0];
       bob.push([0,root.y-firstRoot.y,0]);
     }
+    const measuredJointCycles=[...armCycles].map(([name,record])=>{
+      const metrics=values=>{
+        const maximum=values.reduce((best,v,index)=>
+          Math.abs(v)>Math.abs(best.degrees)?{frame:start+index,degrees:v}:best,
+          {frame:start,degrees:0});
+        const rate=values.slice(1).map((value,index)=>{
+          const preceding=values[index];
+          return {frame:start+index+1,degreesPerFrame:
+            +((((value-preceding)+180)%360+360)%360-180).toFixed(4)};
+        }).sort((a,b)=>Math.abs(b.degreesPerFrame)-Math.abs(a.degreesPerFrame));
+        return {worstAbsoluteTwist:maximum,worstTwistStep:rate[0]};
+      };
+      return {joint:name,baseline:metrics(record.baseline),
+        candidate:metrics(record.candidate)};
+    });
+    fullCycleArmTwist.push({filename,range:[start,last],jointMetrics:measuredJointCycles,
+      note:"Samples every genuine BVH source frame; no source-authored twist is altered"});
     const rotationTracks=sourceMaps.map(mapping=>{
       const values=buffers.get(mapping.targetId);
       for(let i=1;i<values.length;i++)
@@ -744,10 +773,12 @@ try{
       targetIdentitySha256:targetHash,
       originalProfileSha256:digest(JSON.stringify(profile,null,2)+"\n"),
       candidateProfileSha256:digest(JSON.stringify(minimalTwistProfile,null,2)+"\n"),
-      tested: minimalTwistProbes,
+      tested: minimalTwistProbes,fullCycleArmTwist,
       warning:"No skinned Chromium validation; do not promote or rebake using this candidate"},null,2)+"\n");
   console.log("C63_MINIMAL_TWIST_DIAGNOSTIC "+JSON.stringify({
-    probes:minimalTwistProbes.length,
+    probes:minimalTwistProbes.length,fullCycles:fullCycleArmTwist.map(x=>({
+      source:x.filename,range:x.range,jointMetrics:x.jointMetrics,
+    })),
     elbowSamples:minimalTwistProbes.map(p=>({
       filename:p.filename,frame:p.frame,elbows:p.joints.filter(j=>j.sourceId.endsWith("Elbow")),
     })),
