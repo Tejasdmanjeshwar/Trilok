@@ -12,7 +12,7 @@
     -0.10457306328041553
   ],
   "targetIdentitySha256": "66ecf6318f96d9bb2223969e09a9fa7ef09433b4022fc53fe7913c76cfc5ffc7",
-  "profileSha256": "d3e442858d3168505a3aab954384280817c376dfb8b25c810f07fa4f8e376deb",
+  "profileSha256": "b549e392cf5fa38cbd29493265ba3060d2dd899204a34d2f9a9698c931744eb3",
   "license": "CC-BY-4.0",
   "origin": "https://www.ianxmason.com/100style/",
   "clips": [
@@ -89,5 +89,5 @@
       "acceptedForProduction": false
     }
   ],
-  "warning": "Requires skinned target/browser multi-angle quality gate; not promoted to Studio"
+  "warning": "Opt-in owner-review Studio only; requires skinned target/browser multi-angle quality acceptance"
 }
