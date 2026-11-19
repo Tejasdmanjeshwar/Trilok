@@ -1,3 +1,5 @@
+> **C6.2 update (2026-11-19):** Owner accepted the corrected four UAL1 calibrated motions in the private Netlify preview; their unchanged samples are promoted to the official Studio library on PR #112, subject to final verification and merge. See [C6.2 record](character-studio-c6-2-baking-playback.md). Other C6 phases remain open.
+
 # Trilok Character Studio — Browser-Native Character System Roadmap (C0–C9)
 
 **Mandatory phase closeout hygiene (2026-11-18):** At the end of each major C0–C9 phase and subsequent engine milestone, audit and remove genuinely retired code, routes, duplicate implementations, workflows and dependencies **without weakening regression coverage**. Retroactive C0–C5 debt is tracked in the [repository audit](repository-cleanup-audit-2026-11-18.md); C6 closure is gated on a committed phase cleanup report under the [phase-closeout policy](phase-closeout-cleanup-policy.md). This is separate from formal browser Phase Acceptance. C6.1 is merged; C6.2 motion baking and Studio playback are under review in [PR #112](https://github.com/Tejasdmanjeshwar/Trilok/pull/112), not yet accepted; C6.3–C6.6 remain planned.

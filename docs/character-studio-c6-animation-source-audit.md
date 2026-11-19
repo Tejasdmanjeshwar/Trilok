@@ -25,3 +25,6 @@ Source URLs: [UAL1](https://quaternius.itch.io/universal-animation-library), [UA
 6. Update THIRD_PARTY_NOTICES.md when real third-party clips are redistributed. Keep all current C5 pose, equipment, weapon/contact and combat authority invariants unchanged.
 
 **Current release status:** Assets **acquired and hashes inspected**, **not retargeted, rendered or integrated**. C6.2 remains draft, visual acceptance failed; no PR merge or Cloudflare production deployment is implied.
+
+
+**2026-11-19 status:** The formerly experimental UAL1 full-frame `source-anatomical` retarget is now the official four-clip Studio set after owner preview acceptance. Historical investigation of alternate source packs remains research, not an active dependency. See [C6.2 official library](character-studio-c6-2-baking-playback.md).

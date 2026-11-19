@@ -1,6 +1,6 @@
 # C6.2 — Reusable rig-level motion retargeting: research, architecture and decision
 
-**Status: rig-level retargeting implemented and exercised in quarantined four-clip candidates; final visual approval and Cloudflare preview pending.** Prepared for draft PR #112; do not confuse a documented algorithm with verified motion. Source of truth remains C1/C5/C6.1 runtime code and the C6 roadmap. Current PR source-fit audit: [character-studio-c6-2-source-fit-audit.md](character-studio-c6-2-source-fit-audit.md). The live Cloudflare branch preview is stale until its build identity is independently verified.
+**Status: corrected `source-anatomical` 49-joint retarget profile approved visually by owner (2026-11-19), promoted to official Studio library on PR #112; final-SHA CI/merge gates still pending.** Prepared for draft PR #112; do not confuse a documented algorithm with verified motion. Source of truth remains C1/C5/C6.1 runtime code and the C6 roadmap. Current PR source-fit audit: [character-studio-c6-2-source-fit-audit.md](character-studio-c6-2-source-fit-audit.md). The live Cloudflare branch preview is stale until its build identity is independently verified.
 
 ## Goal and what “works for any bone movement” means
 
@@ -205,3 +205,9 @@ quantitative feet/hand/twist and C5 equipment contact review across
 morphologies, owner visual approval, Cloudflare Workers Builds diagnosis,
 a safe current-SHA branch deployment and SHA-verified preview. PR #112
 remains draft; production deployment and merge are not authorized.
+
+## Owner-reviewed promotion (2026-11-19)
+
+The owner's private Netlify preview review **accepted the corrected source-anatomical four-clip output on several human proportions**. The historical paragraphs above record the earlier research decisions and rejected prototypes, **not the current selectable runtime state**. The accepted four motion blobs have moved without modification to `assets/animations/studio-v1/` and the existing calibrated baker is now `scripts/bake-studio-animations.mjs`. The prior `reference-v1` shaft-only assets and baker were removed from the ordinary runtime, while the pinned input samples, 49-joint calibration profile, source hash and target MakeHuman measurements remain. Jog is labeled `human-jog` at the registry boundary but preserves the `human-run` baked track bytes and SHA.
+
+Use `pnpm animation:bake` to regenerate the official outputs and `pnpm animation:verify` to verify every byte against the committed manifest. New clips on the same source skeleton use the existing retarget profile; a new skeleton needs another validated source adapter/profile. This signoff covers the **reviewed visual appearance only**, not automatic foot-ground locking, layered weapon contact, nonhuman deformation, future motion naturalness, or end-to-end C6 acceptance. Final CI and merge evidence must be recorded separately.
