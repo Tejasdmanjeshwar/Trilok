@@ -35,7 +35,7 @@ try{
     const source=parseBVH(bytes.toString("utf8"));
     const fingerprint=sha(JSON.stringify(source.joints));
     structure.push(fingerprint);
-    if(source.joints.length!==23||source.channelCount!==75||
+    if(source.joints.length!==23||source.channelCount!==72||
        source.joints[0].name!=="Hips" ||
        JSON.stringify(source.joints[0].channels)!==
        JSON.stringify(["Xposition","Yposition","Zposition","Yrotation","Xrotation","Zrotation"]))
