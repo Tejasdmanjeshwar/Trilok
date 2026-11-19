@@ -127,31 +127,11 @@ jobs:
               throw Error("Netlify returned no valid unique draft preview URL");
             fs.appendFileSync(process.env.GITHUB_ENV,"PREVIEW_URL="+url.origin+"\n");
           ' "$RUNNER_TEMP/netlify-result.json"
-      - name: Verify deployed identity and both actual browser entrypoints
+      - name: Verify private or public Netlify draft without disabling access protection
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail-with-body --location --retry 4 --retry-delay 2 \
-            --max-time 30 "$PREVIEW_URL/build-info.json" \
-            --output "$RUNNER_TEMP/live-build-info.json"
-          node -e '
-            const fs=require("node:fs");
-            const build=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
-            if(build.commitSha!==process.env.APPROVED_CHECKOUT_SHA)
-              throw Error("Deployed SHA does not match reviewed source SHA");
-          ' "$RUNNER_TEMP/live-build-info.json"
-          for path in "/" "/studio/"; do
-            curl --fail-with-body --location --retry 3 --max-time 30 \
-              "$PREVIEW_URL$path" --output "$RUNNER_TEMP/page.html"
-            grep -qi '<html' "$RUNNER_TEMP/page.html" ||
-              { echo "::error::Missing HTML entrypoint $path"; exit 1; }
-          done
-          {
-            echo "## Verified Trilok development preview"
-            echo "- PR #$APPROVED_PR_NUMBER source SHA: \`$APPROVED_SOURCE_SHA\`"
-            echo "- Actual tested build checkout SHA: \`$APPROVED_CHECKOUT_SHA\`"
-            echo "- Verify run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$APPROVED_VERIFY_RUN"
-            echo "- Preview: $PREVIEW_URL/studio/"
-            echo "- Environment: development draft only; no production publication"
-            echo "- Visual acceptance remains separate from deployed identity."
-          } >> "$GITHUB_STEP_SUMMARY"
+          node scripts/verify-netlify-preview.mjs "$RUNNER_TEMP/trilok-static"
