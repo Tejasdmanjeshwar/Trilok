@@ -54,6 +54,7 @@ export interface StudioViewport {
   setAnimationSpeed(speed:number):void;
   setAnimationLoop(loop:boolean):void;
   setMovementPreviewSpeed(speed:number):void;
+  setMovementPreviewDirection(direction:"forward"|"backward"|"left"|"right"):void;
   stepAnimation(direction:-1|1):void;
   resetAnimation():void;
   dispose():void;
@@ -194,6 +195,15 @@ export function createStudioViewport(
   let posePreview:StudioPosePreview|undefined;
   let animation:StudioAnimationPlayback|StudioLocomotionPlayback|undefined;
   let previewMovementSpeed=0;
+  let previewMovementDirection:"forward"|"backward"|"left"|"right"="forward";
+  function currentMovementComponents():readonly [number,number]{
+    switch(previewMovementDirection){
+      case "forward":return [previewMovementSpeed,0];
+      case "backward":return [-previewMovementSpeed,0];
+      case "left":return [0,-previewMovementSpeed];
+      case "right":return [0,previewMovementSpeed];
+    }
+  }
   let animationId:string|null=null;
   let equipment:EquipmentChoice="none";
   let bowProfile:BowProfile="recurve";
@@ -238,7 +248,7 @@ export function createStudioViewport(
       animation=new StudioLocomotionPlayback(active.human.spike.character,
         loadStudioLocomotionLibrary(active.human.spike.graph),
         samples=>posePreview!.applyAnimationSamples(samples));
-      animation.setMovement(previewMovementSpeed);
+      animation.setMovement(...currentMovementComponents());
     }else{
       const clip=loadBakedStudioAnimation(source.id,active.human.spike.graph);
       animation=new StudioAnimationPlayback(active.human.spike.character,clip,
@@ -257,10 +267,19 @@ export function createStudioViewport(
   function seekAnimation(seconds:number):void{animation?.seek(seconds);updateMarkers();emitAnimation();}
   function setAnimationSpeed(speed:number):void{animation?.setSpeed(speed);emitAnimation();}
   function setAnimationLoop(loop:boolean):void{animation?.setLoop(loop);emitAnimation();}
+  function setMovementPreviewDirection(direction:"forward"|"backward"|"left"|"right"):void{
+    if(!["forward","backward","left","right"].includes(direction))
+      throw Error("Unsupported movement preview direction");
+    previewMovementDirection=direction;
+    if(animation instanceof StudioLocomotionPlayback)
+      animation.setMovement(...currentMovementComponents());
+    updateMarkers();emitAnimation();
+  }
   function setMovementPreviewSpeed(speed:number):void{
     if(!Number.isFinite(speed)||speed<0||speed>1)throw Error("Invalid movement preview speed");
     previewMovementSpeed=speed;
-    if(animation instanceof StudioLocomotionPlayback)animation.setMovement(speed);
+    if(animation instanceof StudioLocomotionPlayback)
+      animation.setMovement(...currentMovementComponents());
     updateMarkers();emitAnimation();
   }
   function stepAnimation(direction:-1|1):void{animation?.step(direction);updateMarkers();emitAnimation();}
@@ -1006,5 +1025,6 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,selectAnimation,playAnimation,seekAnimation,setAnimationSpeed,setAnimationLoop,setMovementPreviewSpeed,stepAnimation,resetAnimation,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
+    focus,returnFromFocus,setPose,selectAnimation,playAnimation,seekAnimation,setAnimationSpeed,setAnimationLoop,setMovementPreviewSpeed,
+    setMovementPreviewDirection,stepAnimation,resetAnimation,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
 }
