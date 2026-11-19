@@ -4,6 +4,16 @@ Trilok distinguishes **intermediate implementation slices** from **phase closure
 This policy is for Character Studio C0–C9 and can be extended to later gameplay
 milestones without changing deterministic combat authority.
 
+## Cloud build-budget and release gating
+
+The durable release/preview policy is documented in
+[build-budget, deployment gating and free preview hosting](deployment-build-budget-and-free-hosting-plan.md).
+Cloudflare and alternate hosting deployments are **not** automatic consequences
+of passing Verify or merging a PR. Only exact-SHA approved deployments may
+publish, and the hosted /build-info.json SHA must be independently checked.
+Do not weaken existing Verify, deterministic replays or manual desktop/touch
+Phase Acceptance to save hosting minutes.
+
 ## Automatic fast checks
 
 `.github/workflows/ci.yml` runs on pull requests and pushes to `main`.

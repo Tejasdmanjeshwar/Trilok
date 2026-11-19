@@ -1,0 +1,158 @@
+name: Manual Netlify development preview
+
+# No push or pull_request trigger. This consumes a previously checked GitHub
+# Verify artifact, never builds in Netlify and never publishes to Cloudflare.
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Exact 40-character commit SHA to preview (from approved PR)"
+        required: true
+        type: string
+      verify_run_id:
+        description: "Successful GitHub Verify run ID for the same exact SHA"
+        required: true
+        type: string
+      reason:
+        description: "Visual-review reason and PR/phase"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: trilok-netlify-preview
+  cancel-in-progress: false
+
+jobs:
+  publish-preview:
+    name: SHA-locked Netlify draft preview
+    # Deploy secrets are available only to the reviewed main workflow.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: trilok-netlify-preview
+    steps:
+      - name: Verify approval, source run and immutable SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          VERIFY_RUN_ID: ${{ inputs.verify_run_id }}
+          REASON: ${{ inputs.reason }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Must supply exact 40-character source SHA"; exit 1
+          fi
+          if [[ ! "$VERIFY_RUN_ID" =~ ^[1-9][0-9]{0,15}$ ]]; then
+            echo "::error::Must supply existing Verify run ID"; exit 1
+          fi
+          if [[ -z "${REASON//[[:space:]]/}" ]]; then
+            echo "::error::Review reason is mandatory"; exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFY_RUN_ID" > "$RUNNER_TEMP/verify-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml" --jq .id > "$RUNNER_TEMP/verify-workflow-id"
+          node -e '
+            const fs=require("node:fs");
+            const run=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+            const expectedWorkflowId=Number(fs.readFileSync(process.env.RUNNER_TEMP+"/verify-workflow-id","utf8"));
+            if(run.name!=="Verify" || run.workflow_id!==expectedWorkflowId || run.status!=="completed" || run.conclusion!=="success" ||
+              run.head_sha!==process.env.SOURCE_SHA ||
+              !["pull_request","push"].includes(run.event) ||
+              run.repository?.full_name!==process.env.GITHUB_REPOSITORY)
+              throw Error("Verify run does not prove exact source SHA");
+          ' "$RUNNER_TEMP/verify-run.json"
+          echo "APPROVED_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "APPROVED_VERIFY_RUN=$VERIFY_RUN_ID" >> "$GITHUB_ENV"
+      - name: Resolve the unique immutable artifact of this Verify run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPROVED_VERIFY_RUN/artifacts" > "$RUNNER_TEMP/verify-artifacts.json"
+          node -e '
+            const fs=require("node:fs");
+            const artifacts=JSON.parse(fs.readFileSync(process.argv[1],"utf8")).artifacts;
+            const matches=artifacts.filter(a=>/^trilok-static-[0-9a-f]{40}$/.test(a.name) && !a.expired);
+            if(matches.length!==1)throw Error("Expected exactly one unexpired SHA-named artifact from this Verify run");
+            const sha=matches[0].name.slice("trilok-static-".length);
+            fs.appendFileSync(process.env.GITHUB_ENV,"APPROVED_CHECKOUT_SHA="+sha+"\n");
+            console.log("Reviewed PR/source SHA:",process.env.APPROVED_SOURCE_SHA);
+            console.log("Build checkout SHA (may be PR merge SHA):",sha);
+          ' "$RUNNER_TEMP/verify-artifacts.json"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Node (no application rebuild)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Retrieve successful verified static artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/trilok-static"
+          gh run download "$APPROVED_VERIFY_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "trilok-static-$APPROVED_CHECKOUT_SHA" \
+            --dir "$RUNNER_TEMP/trilok-static"
+          node scripts/verify-static-release.mjs \
+            --dir "$RUNNER_TEMP/trilok-static" \
+            --sha "$APPROVED_CHECKOUT_SHA"
+      - name: Deploy development draft only (never --prod)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$NETLIFY_AUTH_TOKEN" || -z "$NETLIFY_SITE_ID" ]]; then
+            echo "::error::Configure two Netlify secrets in protected preview Environment"; exit 1
+          fi
+          # CLI uploads the exact CI-built bytes; it does not compile remotely.
+          npx --yes netlify-cli@27.10.1 deploy \
+            --no-build --dir "$RUNNER_TEMP/trilok-static" \
+            --site "$NETLIFY_SITE_ID" --json > "$RUNNER_TEMP/netlify-result.json"
+          node -e '
+            const fs=require("node:fs");
+            const o=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+            const raw=o.deploy_url||o.deployUrl||o.url;
+            const url=new URL(raw);
+            if(url.protocol!=="https:" || !/\.netlify\.app$/.test(url.hostname) ||
+              !url.hostname.includes("--"))
+              throw Error("Netlify returned no valid unique draft preview URL");
+            fs.appendFileSync(process.env.GITHUB_ENV,"PREVIEW_URL="+url.origin+"\n");
+          ' "$RUNNER_TEMP/netlify-result.json"
+      - name: Verify deployed identity and both actual browser entrypoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --location --retry 4 --retry-delay 2 \
+            --max-time 30 "$PREVIEW_URL/build-info.json" \
+            --output "$RUNNER_TEMP/live-build-info.json"
+          node -e '
+            const fs=require("node:fs");
+            const build=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+            if(build.commitSha!==process.env.APPROVED_CHECKOUT_SHA)
+              throw Error("Deployed SHA does not match reviewed source SHA");
+          ' "$RUNNER_TEMP/live-build-info.json"
+          for path in "/" "/studio/"; do
+            curl --fail-with-body --location --retry 3 --max-time 30 \
+              "$PREVIEW_URL$path" --output "$RUNNER_TEMP/page.html"
+            grep -qi '<html' "$RUNNER_TEMP/page.html" ||
+              { echo "::error::Missing HTML entrypoint $path"; exit 1; }
+          done
+          {
+            echo "## Verified Trilok development preview"
+            echo "- Reviewed source/PR SHA: \`$APPROVED_SOURCE_SHA\`"\n            echo "- Actual tested build checkout SHA: \`$APPROVED_CHECKOUT_SHA\`"
+            echo "- Verify run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$APPROVED_VERIFY_RUN"
+            echo "- Preview: $PREVIEW_URL/studio/"
+            echo "- Environment: development draft only; no production publication"
+            echo "- Visual acceptance remains separate from deployed identity."
+          } >> "$GITHUB_STEP_SUMMARY"
