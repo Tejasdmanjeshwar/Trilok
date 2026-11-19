@@ -118,6 +118,55 @@ export function anatomicalFrame(shaft: Vec3, secondary: Vec3): Quat {
   const x=unitVector(cross(y,z),"anatomical lateral");
   return fromBasis(x,y,cross(x,y));
 }
+/**
+ * Minimal-twist reference gauge for a source shaft without a trustworthy
+ * secondary anatomical landmark (for example a fingerless BVH forearm).
+ *
+ * Transport the TARGET's independently measured secondary cue into source
+ * reference space using only the shortest swing between measured shafts.
+ * This fixes the otherwise arbitrary reference roll at ZERO; it does NOT
+ * infer a source palm normal, pronation or an absolute source bone bind basis.
+ * Callers must record that axial orientation remains underdetermined and
+ * inspect actual skinned motion before using the candidate for baking.
+ *
+ * Reject antiparallel shafts: a shortest swing has no unique axis there.
+ * Keep this opt-in; existing UAL1 profiles and retargetWorldPose are unchanged.
+ */
+export function parallelTransportAnatomicalCue(
+  targetShaft: Vec3, targetSecondary: Vec3, sourceShaft: Vec3,
+): Vec3 {
+  const targetAxis=unitVector(targetShaft,"target transported shaft");
+  const sourceAxis=unitVector(sourceShaft,"source transported shaft");
+  const secondary=unitVector(targetSecondary,"target transported cue");
+  const projection=dot(targetAxis,secondary);
+  const transverse:Vec3=[
+    secondary[0]-projection*targetAxis[0],
+    secondary[1]-projection*targetAxis[1],
+    secondary[2]-projection*targetAxis[2],
+  ];
+  if (Math.hypot(...transverse)<1e-4)
+    fail("target has no independently observable transverse cue");
+  const cue=unitVector(transverse,"transported transverse cue");
+  const cosine=dot(targetAxis,sourceAxis);
+  if(cosine<-1+1e-6)
+    fail("antiparallel reference shafts have ambiguous minimal swing");
+  // Shoemake shortest-arc quaternion: [cross(a,b), 1+dot(a,b)].
+  // It has no arbitrary roll about the mapped bone shaft.
+  const axial=cross(targetAxis,sourceAxis);
+  const swing=normalize(
+    [axial[0],axial[1],axial[2],1+cosine],
+    "minimal-twist shaft transport",
+  );
+  const rotated=multiply(multiply(swing,[...cue,0]),inverse(swing));
+  const along=rotated[0]*sourceAxis[0]+rotated[1]*sourceAxis[1]+
+    rotated[2]*sourceAxis[2];
+  return unitVector([
+    rotated[0]-along*sourceAxis[0],
+    rotated[1]-along*sourceAxis[1],
+    rotated[2]-along*sourceAxis[2],
+  ],"source transported secondary");
+}
+
 function validatedRig(rig: RetargetRigDescriptorV1): Map<string,RetargetRigJointV1> {
   if (rig.schemaVersion!==1 || rig.coordinates!==CHARACTER_COORDINATES ||
       !/^[a-f0-9]{64}$/.test(rig.identitySha256) ||
