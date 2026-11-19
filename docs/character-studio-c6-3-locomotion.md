@@ -93,3 +93,22 @@ The Neutral row in `Frame_Cuts.csv` is `["Neutral", "338", "5481", "380", "8235"
 6. Run Chromium desktop/touch tests and relevant CI. Publish Netlify draft **only** from the exact passing PR Verify artifact via the main-branch workflow. Verify the build SHA separately, and obtain owner visual review before further C6.3 additions or merge.
 
 The current 100STYLE source is promising because it includes coherent multiple locomotion directions captured on one human skeleton, but **its suitability for Trilok remains unproven** until gates 2–5 are completed. A valid BVH file or a green SHA checksum is not proof of physical rig alignment.
+
+
+### Actual recorded reference-pose investigation (source-side only)
+
+The typed offline BVH/FK inspector reproduced all three official motion files under one identical 23-joint structure fingerprint: `6e04c8293605f3e1d3f2599141922ffc9872c07f7339f97422fa2e56de9db4d9`. The successful [source-family inspection #44566158596](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44566158596) measured 7 source-pose landmarks and searched the **pre-cut** frames for bilateral horizontal arm extension rather than treating an arbitrary motion frame as the rest pose.
+
+| Recording | Best pre-cut T-like candidate | Minimum signed upper/forearm lateral alignment |
+| --- | ---: | ---: |
+| Neutral_ID | Frame 282 | 0.967630 |
+| Neutral_FW | Frame 195 | 0.967050 |
+| Neutral_FR | Frame 192 | 0.973835 |
+
+This demonstrates genuine T-like extension in the captured setup regions of the three recordings, absent at frame zero or in the trimmed Idle segment. **The candidate search is evidence, not independently confirmed skinned bind matrices.** Only a single family-level reference may be calibrated after checking candidate consistency, joint bend planes, joint-space twist, facing and handedness. No clip-specific calibration is allowed.
+
+At official Idle cut start, the source pelvis-to-upper-spine points approximately up and the two arms hang downward, while the signed source-body facing estimate is roughly toward **negative Z** (`[-0.15, -0.03, -0.99]` in source-world coordinates). The target C1 contract is **positive Z forward**. A full rig-family coordinate-frame conversion is required; this is precisely the kind of 180-degree facing mismatch that the rejected KayKit conversion did not adequately validate. The source knee/hip separation is about **21.491498 source units** across files, strongly suggesting centimeter-scale data; neither meters conversion nor source-facing normalization is yet certified by a target-side physical measurement.
+
+The source data can now be inspected repeatably without replacing approved UAL1 motion. **No 100STYLE-to-MakeHuman profile or retargeted clip has yet been certified**, and no source/target angular or skinned-morph visual quality acceptance should be inferred from these observations.
+
+The rejected KayKit direction clips remain retained for regression and explicitly opt-in research (`?c63-kaykit-review`) but are no longer selectable in normal Character Studio. Default Studio animation choices remain the four approved UAL1 clips and their forward-only transition preview.
