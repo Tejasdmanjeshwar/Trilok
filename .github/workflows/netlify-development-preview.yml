@@ -29,6 +29,8 @@ concurrency:
 jobs:
   publish-preview:
     name: SHA-locked Netlify draft preview
+    # Deploy secrets are available only to the reviewed main workflow.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     environment: trilok-netlify-preview
@@ -52,10 +54,12 @@ jobs:
             echo "::error::Review reason is mandatory"; exit 1
           fi
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFY_RUN_ID" > "$RUNNER_TEMP/verify-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml" --jq .id > "$RUNNER_TEMP/verify-workflow-id"
           node -e '
             const fs=require("node:fs");
             const run=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
-            if(run.name!=="Verify" || run.conclusion!=="success" ||
+            const expectedWorkflowId=Number(fs.readFileSync(process.env.RUNNER_TEMP+"/verify-workflow-id","utf8"));
+            if(run.name!=="Verify" || run.workflow_id!==expectedWorkflowId || run.status!=="completed" || run.conclusion!=="success" ||
               run.head_sha!==process.env.SOURCE_SHA ||
               !["pull_request","push"].includes(run.event) ||
               run.repository?.full_name!==process.env.GITHUB_REPOSITORY)
@@ -95,7 +99,7 @@ jobs:
             echo "::error::Configure two Netlify secrets in protected preview Environment"; exit 1
           fi
           # CLI uploads the exact CI-built bytes; it does not compile remotely.
-          npx --yes netlify-cli@latest deploy \
+          npx --yes netlify-cli@27.10.1 deploy \
             --no-build --dir "$RUNNER_TEMP/trilok-static" \
             --site "$NETLIFY_SITE_ID" --json > "$RUNNER_TEMP/netlify-result.json"
           node -e '
