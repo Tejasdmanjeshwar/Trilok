@@ -424,7 +424,7 @@ try{
         joints.push({sourceId,baselineAxialDegrees:axisTwist(current,tId),
           candidateAxialDegrees:axisTwist(next,tId),
           referenceGaugeWorldDeltaDegrees:deg(
-            q(afk.rotations.get(tId)).angleTo(q(bfk.rotations.get(tId)))),
+            afk.rotations.get(tId).angleTo(bfk.rotations.get(tId))),
           linkDirectionChangeDegrees:deviation});
       }
     }
