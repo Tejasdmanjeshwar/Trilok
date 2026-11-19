@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "kind": "c6.2-official-studio-library",
+  "sourceArchiveSha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
+  "sourceGlbSha256": "69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997",
+  "sourceInputSha256": "33ab1c9ddb830c25df3c7ff205d4713210a2c94d88b5a4fe609e5fa70a251ad6",
+  "targetCalibrationSha256": "66ecf6318f96d9bb2223969e09a9fa7ef09433b4022fc53fe7913c76cfc5ffc7",
+  "profileSha256": "159e7b77c3997364e7fed624a17f13be280c25a07d2fc913c2880627211834e2",
+  "profile": "profile.json",
+  "sourceBindMaxResidual": 6.383178585700477e-7,
+  "mappedJointCount": 49,
+  "engine": "packages/character-core/src/retargeting.ts@c6.2-anatomical-absolute-v2",
+  "poseMode": "source-anatomical",
+  "entries": [
+    {
+      "id": "human-idle",
+      "sourceClip": "Idle_Loop",
+      "filename": "human-idle.clip.json",
+      "artifactSha256": "72bd194b75aa1c372b604fe2d8df9453d229bce7bf504b842959744553b8db5b",
+      "bytes": 380297
+    },
+    {
+      "id": "human-run",
+      "sourceClip": "Jog_Fwd_Loop",
+      "filename": "human-run.clip.json",
+      "artifactSha256": "ab5baf19623d33c8d83a10d2bf12c5dad6e6f047c4812c56cddc18b3803ba29b",
+      "bytes": 152754
+    },
+    {
+      "id": "human-sprint",
+      "sourceClip": "Sprint_Loop",
+      "filename": "human-sprint.clip.json",
+      "artifactSha256": "0878fb44d74190874509fc4d2434e3bcfb358a13356c123f628ccdbb518e815b",
+      "bytes": 112918
+    },
+    {
+      "id": "human-walk",
+      "sourceClip": "Walk_Loop",
+      "filename": "human-walk.clip.json",
+      "artifactSha256": "d3192156d73ec9c3c780238b1c7b28ecd35cf181ac7eae4b3ce1b336cb048a21",
+      "bytes": 212374
+    }
+  ]
+}

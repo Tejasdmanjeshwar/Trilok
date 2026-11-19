@@ -1,4 +1,6 @@
 import {getBuildIdentity} from "../build-info";
+import {STUDIO_ANIMATIONS} from "./StudioAnimationLibrary";
+import type {StudioAnimationState} from "./StudioViewport";
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
 import {createStudioViewport} from "./StudioViewport";
@@ -107,6 +109,36 @@ host.innerHTML=String.raw`
         </fieldset>
       </div>
       <div id="studio-pose-panel" class="studio-extra-panel" hidden>
+        <fieldset class="studio-fieldset studio-animation-panel">
+          <legend>Animations</legend>
+          <p>Preview motion on your character. Shape and equipment settings are preserved.</p>
+          <label class="studio-field-label" for="studio-animation-select">Animation</label>
+          <select id="studio-animation-select" aria-label="Studio animation">
+            <option value="">Static pose</option>
+          </select>
+          <div class="studio-action-pair studio-animation-actions">
+            <button id="studio-animation-play" type="button" disabled aria-label="Play animation">Play</button>
+            <button id="studio-animation-reset" type="button" disabled>Reset</button>
+          </div>
+          <label class="studio-field-label" for="studio-animation-time">Timeline</label>
+          <input id="studio-animation-time" type="range" min="0" max="1" step=".001" value="0"
+            aria-label="Animation timeline in seconds" disabled />
+          <output id="studio-animation-clock" for="studio-animation-time">0.00 / 0.00 s</output>
+          <div class="studio-action-pair studio-animation-actions">
+            <button id="studio-animation-back" type="button" disabled aria-label="Previous animation frame">Previous frame</button>
+            <button id="studio-animation-next" type="button" disabled aria-label="Next animation frame">Next frame</button>
+          </div>
+          <label class="studio-field-label" for="studio-animation-speed">Playback speed</label>
+          <select id="studio-animation-speed" aria-label="Animation playback speed">
+            <option value=".5">Half speed</option>
+            <option value="1" selected>Normal</option>
+            <option value="1.5">1.5× faster</option>
+            <option value="2">Double speed</option>
+          </select>
+          <label class="studio-switch"><input type="checkbox" id="studio-animation-loop" checked /> Loop animation</label>
+          <button id="studio-animation-static" type="button" disabled>Return to static pose</button>
+        </fieldset>
+        <div class="studio-rule"></div>
         <fieldset class="studio-fieldset">
           <legend>Body pose</legend>
           <p>Preview how the character moves without changing your design.</p>
@@ -251,11 +283,53 @@ const viewport=createStudioViewport(element("#studio-viewport"),()=>{
   copyGripReport.hidden=!report;
   copyGripReport.textContent="Copy grip issue details";
   if(report)console.warn("[Trilok Studio Grip Failure]",serializeStudioGripFailure(report));
-});
+},state=>syncAnimation(state));
 const undoButton=element<HTMLButtonElement>("#studio-undo");
 const redoButton=element<HTMLButtonElement>("#studio-redo");
 const startOverButton=element<HTMLButtonElement>("#studio-start-over");
 const focusArea=element<HTMLSelectElement>("#studio-focus-area");
+const animationSelect=element<HTMLSelectElement>("#studio-animation-select");
+const animationTime=element<HTMLInputElement>("#studio-animation-time");
+const animationPlay=element<HTMLButtonElement>("#studio-animation-play");
+const animationReset=element<HTMLButtonElement>("#studio-animation-reset");
+const animationBack=element<HTMLButtonElement>("#studio-animation-back");
+const animationNext=element<HTMLButtonElement>("#studio-animation-next");
+const animationStatic=element<HTMLButtonElement>("#studio-animation-static");
+const animationClock=element<HTMLOutputElement>("#studio-animation-clock");
+const animationSpeed=element<HTMLSelectElement>("#studio-animation-speed");
+const animationLoop=element<HTMLInputElement>("#studio-animation-loop");
+for(const clip of STUDIO_ANIMATIONS)animationSelect.add(new Option(clip.label,clip.id));
+function syncAnimation(state:StudioAnimationState|undefined):void {
+  const active=!!state;
+  animationSelect.value=state?.clipId??"";
+  for(const control of [animationTime,animationPlay,animationReset,animationBack,animationNext,animationStatic])
+    control.disabled=!active;
+  animationTime.max=String(state?.durationSeconds??1);
+  animationTime.value=String(state?.timeSeconds??0);
+  animationClock.textContent=(state?.timeSeconds??0).toFixed(2)+" / "+
+    (state?.durationSeconds??0).toFixed(2)+" s";
+  animationPlay.textContent=state?.playing?"Pause":"Play";
+  animationPlay.setAttribute("aria-label",state?.playing?"Pause animation":"Play animation");
+  if(state){
+    animationSpeed.value=String(state.speed);
+    animationLoop.checked=state.loop;
+  }
+}
+animationSelect.addEventListener("change",()=>{
+  try{viewport.selectAnimation(animationSelect.value||null);}
+  catch(error){
+    console.error("Studio animation unavailable",error);
+    viewport.selectAnimation(null);
+  }
+});
+animationPlay.addEventListener("click",()=>viewport.playAnimation(animationPlay.textContent==="Play"));
+animationTime.addEventListener("input",()=>viewport.seekAnimation(Number(animationTime.value)));
+animationReset.addEventListener("click",()=>viewport.resetAnimation());
+animationBack.addEventListener("click",()=>viewport.stepAnimation(-1));
+animationNext.addEventListener("click",()=>viewport.stepAnimation(1));
+animationStatic.addEventListener("click",()=>viewport.selectAnimation(null));
+animationSpeed.addEventListener("change",()=>viewport.setAnimationSpeed(Number(animationSpeed.value)));
+animationLoop.addEventListener("change",()=>viewport.setAnimationLoop(animationLoop.checked));
 const poseSelect=element<HTMLSelectElement>("#studio-pose-select");
 const expressionSelect=element<HTMLSelectElement>("#studio-expression-select");
 const swordSelect=element<HTMLSelectElement>("#studio-sword-hand");

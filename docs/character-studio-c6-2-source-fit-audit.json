@@ -1,0 +1,755 @@
+{
+  "accad": {
+    "ACCAD-female.zip": {
+      "candidate_clips": [
+        "Female1_C21_S2_RunToPickUpBox.bvh",
+        "Female1_C22_RunWithBox.bvh",
+        "Female1_C23_PutDownBoxToRun.bvh",
+        "Female1_C26_RunToCrouch.bvh",
+        "Female1_C27_CrouchToRun1.bvh",
+        "Female1_D2_Wait.bvh",
+        "Female1_A01_Stand.bvh",
+        "Female1_A02_Sway.bvh",
+        "Female1_A02_SwayT2.bvh",
+        "Female1_A14_StandToSkip.bvh",
+        "Female1_A15_SkipToStand.bvh",
+        "Female1_B01_StandToWalk.bvh",
+        "Female1_B02_WalkToStand.bvh",
+        "Female1_B02_WalkToStandT2.bvh",
+        "Female1_B03_Walk1.bvh",
+        "Female1_B04_StandToWalkBack.bvh",
+        "Female1_B05_WalkBackwards.bvh",
+        "Female1_B06_WalkBackwardsToStand.bvh",
+        "Female1_B07_WalkBackwardsTurnForwards.bvh",
+        "Female1_B08_WalkBackwardsStopForwards.bvh",
+        "Female1_B09_WalkTurnLeft90.bvh",
+        "Female1_B10_WalkTurnLeft45.bvh",
+        "Female1_B11_WalkTurnLeft135.bvh",
+        "Female1_B12_WalkTurnRight90.bvh",
+        "Female1_B13_WalkTurnRight45.bvh",
+        "Female1_B14_WalkTurnRight135.bvh",
+        "Female1_B15_WalkTurnAround180.bvh",
+        "Female1_B16_WalkTurnChangeDirection.bvh",
+        "Female1_B17_WalkToHopToWalk1.bvh",
+        "Female1_B18_WalkToLeapToWalk.bvh",
+        "Female1_B19_WalkToPickUpBox.bvh",
+        "Female1_B20_WalkWithBox.bvh",
+        "Female1_B21_PutDownBoxToWalk.bvh",
+        "Female1_B21_S2_PutDownBoxToWalk.bvh",
+        "Female1_B21_S3_PutDownBoxToWalk.bvh",
+        "Female1_B24_WalkToCrouch.bvh",
+        "Female1_B25_CrouchToWalk.bvh",
+        "Female1_B26_WalkToSkip.bvh",
+        "Female1_B27_SkipToWalk1.bvh",
+        "Female1_C02_RunToStand.bvh",
+        "Female1_C03_Run.bvh",
+        "Female1_C04_RunToWalk1.bvh",
+        "Female1_C05_WalkToRun.bvh",
+        "Female1_C06_StandToRunBackwards.bvh",
+        "Female1_C07_RunBackwards.bvh",
+        "Female1_C08_RunBackwardsToStand.bvh",
+        "Female1_C09_RunBackwardsTurnRunForward.bvh",
+        "Female1_C10_RunBackwardsStopRunForward.bvh",
+        "Female1_C11_RunTurnLeft90.bvh",
+        "Female1_C12_RunTurnLeft45.bvh",
+        "Female1_C13_RunTurnLeft135.bvh",
+        "Female1_C14_RunTurnRight90.bvh",
+        "Female1_C15_RunTurnRight45.bvh",
+        "Female1_C16_RunTurnRight135.bvh",
+        "Female1_C17_RunTurnAround.bvh",
+        "Female1_C18_RunChangeDirection.bvh",
+        "Female1_C19_RunToHopToWalk.bvh",
+        "Female1_C20_RunToJumpToWalk.bvh",
+        "Female1_C21_RunToPickUpBox.bvh"
+      ],
+      "clip_count": 81,
+      "skeleton_samples": {
+        "Female1_C21_S2_RunToPickUpBox.bvh": {
+          "animated_joints": 22,
+          "fingers": 0,
+          "frames": 64,
+          "joint_names": [
+            "Hips",
+            "ToSpine",
+            "Spine",
+            "Spine1",
+            "Neck",
+            "Head",
+            "LeftShoulder",
+            "LeftArm",
+            "LeftForeArm",
+            "LeftHand",
+            "RightShoulder",
+            "RightArm",
+            "RightForeArm",
+            "RightHand",
+            "LeftUpLeg",
+            "LeftLeg",
+            "LeftFoot",
+            "LeftToeBase",
+            "RightUpLeg",
+            "RightLeg",
+            "RightFoot",
+            "RightToeBase"
+          ],
+          "joints": 22,
+          "seconds": 2.1
+        },
+        "Female1_C22_RunWithBox.bvh": {
+          "animated_joints": 22,
+          "fingers": 0,
+          "frames": 52,
+          "joint_names": [
+            "Hips",
+            "ToSpine",
+            "Spine",
+            "Spine1",
+            "Neck",
+            "Head",
+            "LeftShoulder",
+            "LeftArm",
+            "LeftForeArm",
+            "LeftHand",
+            "RightShoulder",
+            "RightArm",
+            "RightForeArm",
+            "RightHand",
+            "LeftUpLeg",
+            "LeftLeg",
+            "LeftFoot",
+            "LeftToeBase",
+            "RightUpLeg",
+            "RightLeg",
+            "RightFoot",
+            "RightToeBase"
+          ],
+          "joints": 22,
+          "seconds": 1.7
+        },
+        "Female1_C23_PutDownBoxToRun.bvh": {
+          "animated_joints": 22,
+          "fingers": 0,
+          "frames": 87,
+          "joint_names": [
+            "Hips",
+            "ToSpine",
+            "Spine",
+            "Spine1",
+            "Neck",
+            "Head",
+            "LeftShoulder",
+            "LeftArm",
+            "LeftForeArm",
+            "LeftHand",
+            "RightShoulder",
+            "RightArm",
+            "RightForeArm",
+            "RightHand",
+            "LeftUpLeg",
+            "LeftLeg",
+            "LeftFoot",
+            "LeftToeBase",
+            "RightUpLeg",
+            "RightLeg",
+            "RightFoot",
+            "RightToeBase"
+          ],
+          "joints": 22,
+          "seconds": 2.867
+        },
+        "Female1_C26_RunToCrouch.bvh": {
+          "animated_joints": 22,
+          "fingers": 0,
+          "frames": 86,
+          "joint_names": [
+            "Hips",
+            "ToSpine",
+            "Spine",
+            "Spine1",
+            "Neck",
+            "Head",
+            "LeftShoulder",
+            "LeftArm",
+            "LeftForeArm",
+            "LeftHand",
+            "RightShoulder",
+            "RightArm",
+            "RightForeArm",
+            "RightHand",
+            "LeftUpLeg",
+            "LeftLeg",
+            "LeftFoot",
+            "LeftToeBase",
+            "RightUpLeg",
+            "RightLeg",
+            "RightFoot",
+            "RightToeBase"
+          ],
+          "joints": 22,
+          "seconds": 2.833
+        },
+        "Female1_C27_CrouchToRun1.bvh": {
+          "animated_joints": 22,
+          "fingers": 0,
+          "frames": 88,
+          "joint_names": [
+            "Hips",
+            "ToSpine",
+            "Spine",
+            "Spine1",
+            "Neck",
+            "Head",
+            "LeftShoulder",
+            "LeftArm",
+            "LeftForeArm",
+            "LeftHand",
+            "RightShoulder",
+            "RightArm",
+            "RightForeArm",
+            "RightHand",
+            "LeftUpLeg",
+            "LeftLeg",
+            "LeftFoot",
+            "LeftToeBase",
+            "RightUpLeg",
+            "RightLeg",
+            "RightFoot",
+            "RightToeBase"
+          ],
+          "joints": 22,
+          "seconds": 2.9
+        },
+        "Female1_D2_Wait.bvh": {
+          "animated_joints": 22,
+          "fingers": 0,
+          "frames": 1157,
+          "joint_names": [
+            "Hips",
+            "ToSpine",
+            "Spine",
+            "Spine1",
+            "Neck",
+            "Head",
+            "LeftShoulder",
+            "LeftArm",
+            "LeftForeArm",
+            "LeftHand",
+            "RightShoulder",
+            "RightArm",
+            "RightForeArm",
+            "RightHand",
+            "LeftUpLeg",
+            "LeftLeg",
+            "LeftFoot",
+            "LeftToeBase",
+            "RightUpLeg",
+            "RightLeg",
+            "RightFoot",
+            "RightToeBase"
+          ],
+          "joints": 22,
+          "seconds": 38.533
+        }
+      }
+    },
+    "ACCAD-quickwalk.zip": {
+      "candidate_clips": [],
+      "clip_count": 1,
+      "skeleton_samples": {
+        "eric1.bvh": {
+          "animated_joints": 22,
+          "fingers": 0,
+          "frames": 7200,
+          "joint_names": [
+            "root",
+            "lowerback",
+            "upperback",
+            "thorax",
+            "neck",
+            "head",
+            "lshoulderjoint",
+            "lhumerus",
+            "lradius",
+            "lhand",
+            "rshoulderjoint",
+            "rhumerus",
+            "rradius",
+            "rhand",
+            "rfemur",
+            "rtibia",
+            "rfoot",
+            "rtoes",
+            "lfemur",
+            "ltibia",
+            "lfoot",
+            "ltoes"
+          ],
+          "joints": 22,
+          "seconds": 59.989
+        }
+      }
+    }
+  },
+  "comparisonNotes": [
+    "Rest axis differences are not a perceptual animation quality score",
+    "BVH uses a different skeleton and conventions; no direct orientation comparison is valid without BVH coordinate conversion",
+    "MakeHuman landmarks come from pinned default.mhskel and original OBJ vertices"
+  ],
+  "libraries": {
+    "UAL1-Standard.zip": {
+      "all_clip_names": [
+        "A_TPose",
+        "Crouch_Fwd_Loop",
+        "Crouch_Idle_Loop",
+        "Dance_Loop",
+        "Death01",
+        "Driving_Loop",
+        "Fixing_Kneeling",
+        "Hit_Chest",
+        "Hit_Head",
+        "Idle_Loop",
+        "Idle_Talking_Loop",
+        "Idle_Torch_Loop",
+        "Interact",
+        "Jog_Fwd_Loop",
+        "Jump_Land",
+        "Jump_Loop",
+        "Jump_Start",
+        "PickUp_Table",
+        "Pistol_Aim_Down",
+        "Pistol_Aim_Neutral",
+        "Pistol_Aim_Up",
+        "Pistol_Idle_Loop",
+        "Pistol_Reload",
+        "Pistol_Shoot",
+        "Punch_Cross",
+        "Punch_Jab",
+        "Push_Loop",
+        "Roll",
+        "Sitting_Enter",
+        "Sitting_Exit",
+        "Sitting_Idle_Loop",
+        "Sitting_Talking_Loop",
+        "Spell_Simple_Enter",
+        "Spell_Simple_Exit",
+        "Spell_Simple_Idle_Loop",
+        "Spell_Simple_Shoot",
+        "Sprint_Loop",
+        "Swim_Fwd_Loop",
+        "Swim_Idle_Loop",
+        "Sword_Attack",
+        "Sword_Idle",
+        "Walk_Formal_Loop",
+        "Walk_Loop"
+      ],
+      "clips_count": 43,
+      "locomotion_clips": [
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 89,
+          "name": "Crouch_Idle_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.933,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 76,
+          "name": "Idle_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.5,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 89,
+          "name": "Idle_Talking_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.933,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 39,
+          "name": "Idle_Torch_Loop",
+          "rotation_bones": 65,
+          "seconds": 1.267,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 29,
+          "name": "Jog_Fwd_Loop",
+          "rotation_bones": 65,
+          "seconds": 0.933,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 51,
+          "name": "Pistol_Idle_Loop",
+          "rotation_bones": 65,
+          "seconds": 1.667,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 51,
+          "name": "Sitting_Idle_Loop",
+          "rotation_bones": 65,
+          "seconds": 1.667,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 64,
+          "name": "Spell_Simple_Idle_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.1,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 21,
+          "name": "Sprint_Loop",
+          "rotation_bones": 65,
+          "seconds": 0.667,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 101,
+          "name": "Swim_Idle_Loop",
+          "rotation_bones": 65,
+          "seconds": 3.333,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 51,
+          "name": "Sword_Idle",
+          "rotation_bones": 65,
+          "seconds": 1.667,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 41,
+          "name": "Walk_Formal_Loop",
+          "rotation_bones": 65,
+          "seconds": 1.333,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 41,
+          "name": "Walk_Loop",
+          "rotation_bones": 65,
+          "seconds": 1.333,
+          "translation_tracks": 65
+        }
+      ],
+      "node_count": 67,
+      "rest_fit": {
+        "mean_rest_segment_axis_gap_degrees": 31.2,
+        "segments": [
+          {
+            "angle_degrees": 50.4,
+            "makehuman_length_source_units": 2.27615,
+            "segment": "upperarm-lowerarm",
+            "source_length": 0.27444,
+            "source_side": "l",
+            "target_side": "L"
+          },
+          {
+            "angle_degrees": 57.7,
+            "makehuman_length_source_units": 2.26315,
+            "segment": "lowerarm-hand",
+            "source_length": 0.27264,
+            "source_side": "l",
+            "target_side": "L"
+          },
+          {
+            "angle_degrees": 7.2,
+            "makehuman_length_source_units": 4.21278,
+            "segment": "thigh-calf",
+            "source_length": 0.40031,
+            "source_side": "l",
+            "target_side": "L"
+          },
+          {
+            "angle_degrees": 9.3,
+            "makehuman_length_source_units": 3.81732,
+            "segment": "calf-foot",
+            "source_length": 0.42948,
+            "source_side": "l",
+            "target_side": "L"
+          },
+          {
+            "angle_degrees": 50.4,
+            "makehuman_length_source_units": 2.27615,
+            "segment": "upperarm-lowerarm",
+            "source_length": 0.27444,
+            "source_side": "r",
+            "target_side": "R"
+          },
+          {
+            "angle_degrees": 57.7,
+            "makehuman_length_source_units": 2.26315,
+            "segment": "lowerarm-hand",
+            "source_length": 0.27264,
+            "source_side": "r",
+            "target_side": "R"
+          },
+          {
+            "angle_degrees": 7.2,
+            "makehuman_length_source_units": 4.21278,
+            "segment": "thigh-calf",
+            "source_length": 0.40031,
+            "source_side": "r",
+            "target_side": "R"
+          },
+          {
+            "angle_degrees": 9.3,
+            "makehuman_length_source_units": 3.81732,
+            "segment": "calf-foot",
+            "source_length": 0.42948,
+            "source_side": "r",
+            "target_side": "R"
+          }
+        ],
+        "source_to_makehuman_side_swapped": false
+      },
+      "skin_joint_count": 65,
+      "source_glb_sha256": "69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997"
+    },
+    "UAL2-Standard.zip": {
+      "all_clip_names": [
+        "A_TPose",
+        "Chest_Open",
+        "ClimbUp_1m",
+        "Consume",
+        "Farm_Harvest",
+        "Farm_PlantSeed",
+        "Farm_Watering",
+        "Hit_Knockback",
+        "Idle_FoldArms_Loop",
+        "Idle_Lantern_Loop",
+        "Idle_No_Loop",
+        "Idle_Rail_Call",
+        "Idle_Rail_Loop",
+        "Idle_Shield_Break",
+        "Idle_Shield_Loop",
+        "Idle_TalkingPhone_Loop",
+        "LayToIdle",
+        "Melee_Hook",
+        "Melee_Hook_Rec",
+        "NinjaJump_Idle_Loop",
+        "NinjaJump_Land",
+        "NinjaJump_Start",
+        "OverhandThrow",
+        "Shield_Dash",
+        "Shield_OneShot",
+        "Slide_Exit",
+        "Slide_Loop",
+        "Slide_Start",
+        "Sword_Block",
+        "Sword_Dash",
+        "Sword_Heavy_Combo",
+        "Sword_Regular_A",
+        "Sword_Regular_A_Rec",
+        "Sword_Regular_B",
+        "Sword_Regular_B_Rec",
+        "Sword_Regular_C",
+        "Sword_Regular_Combo",
+        "TreeChopping_Loop",
+        "Walk_Carry_Loop",
+        "Yes",
+        "Zombie_Idle_Loop",
+        "Zombie_Scratch",
+        "Zombie_Walk_Fwd_Loop"
+      ],
+      "clips_count": 43,
+      "locomotion_clips": [
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 76,
+          "name": "Idle_FoldArms_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.5,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 76,
+          "name": "Idle_Lantern_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.5,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 76,
+          "name": "Idle_No_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.5,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 76,
+          "name": "Idle_Rail_Call",
+          "rotation_bones": 65,
+          "seconds": 2.5,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 76,
+          "name": "Idle_Rail_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.5,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 33,
+          "name": "Idle_Shield_Break",
+          "rotation_bones": 65,
+          "seconds": 1.067,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 76,
+          "name": "Idle_Shield_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.5,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 89,
+          "name": "Idle_TalkingPhone_Loop",
+          "rotation_bones": 65,
+          "seconds": 2.933,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 47,
+          "name": "LayToIdle",
+          "rotation_bones": 65,
+          "seconds": 1.533,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 61,
+          "name": "NinjaJump_Idle_Loop",
+          "rotation_bones": 65,
+          "seconds": 2,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 61,
+          "name": "Walk_Carry_Loop",
+          "rotation_bones": 65,
+          "seconds": 2,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 41,
+          "name": "Zombie_Idle_Loop",
+          "rotation_bones": 65,
+          "seconds": 1.333,
+          "translation_tracks": 65
+        },
+        {
+          "finger_rotation_bones": 40,
+          "keyframes": 41,
+          "name": "Zombie_Walk_Fwd_Loop",
+          "rotation_bones": 65,
+          "seconds": 1.333,
+          "translation_tracks": 65
+        }
+      ],
+      "node_count": 67,
+      "rest_fit": {
+        "mean_rest_segment_axis_gap_degrees": 31.2,
+        "segments": [
+          {
+            "angle_degrees": 50.4,
+            "makehuman_length_source_units": 2.27615,
+            "segment": "upperarm-lowerarm",
+            "source_length": 0.27444,
+            "source_side": "l",
+            "target_side": "L"
+          },
+          {
+            "angle_degrees": 57.7,
+            "makehuman_length_source_units": 2.26315,
+            "segment": "lowerarm-hand",
+            "source_length": 0.27264,
+            "source_side": "l",
+            "target_side": "L"
+          },
+          {
+            "angle_degrees": 7.2,
+            "makehuman_length_source_units": 4.21278,
+            "segment": "thigh-calf",
+            "source_length": 0.40031,
+            "source_side": "l",
+            "target_side": "L"
+          },
+          {
+            "angle_degrees": 9.3,
+            "makehuman_length_source_units": 3.81732,
+            "segment": "calf-foot",
+            "source_length": 0.42948,
+            "source_side": "l",
+            "target_side": "L"
+          },
+          {
+            "angle_degrees": 50.4,
+            "makehuman_length_source_units": 2.27615,
+            "segment": "upperarm-lowerarm",
+            "source_length": 0.27444,
+            "source_side": "r",
+            "target_side": "R"
+          },
+          {
+            "angle_degrees": 57.7,
+            "makehuman_length_source_units": 2.26315,
+            "segment": "lowerarm-hand",
+            "source_length": 0.27264,
+            "source_side": "r",
+            "target_side": "R"
+          },
+          {
+            "angle_degrees": 7.2,
+            "makehuman_length_source_units": 4.21278,
+            "segment": "thigh-calf",
+            "source_length": 0.40031,
+            "source_side": "r",
+            "target_side": "R"
+          },
+          {
+            "angle_degrees": 9.3,
+            "makehuman_length_source_units": 3.81732,
+            "segment": "calf-foot",
+            "source_length": 0.42948,
+            "source_side": "r",
+            "target_side": "R"
+          }
+        ],
+        "source_to_makehuman_side_swapped": false
+      },
+      "skin_joint_count": 65,
+      "source_glb_sha256": "8cee20ab1bc55130092447e810e26df22dd2803eccc54f52137a7d54d7ab88a8"
+    }
+  },
+  "schemaVersion": 1
+}

@@ -122,6 +122,28 @@ export class HumanPoseCorrectives {
     for (let i = 0; i < ROLES.length; i++)
       influences[i] = strength.get(this.roleJointIds.get(ROLES[i]!)!) ?? 0;
   }
+  /** React to sampled skeletal motion through the existing C3 morph targets.
+   * This is driven by actual retargeted quaternion displacement, not guessed
+   * procedural FK angles. Only shoulder/hip regions own these morph targets. */
+  applyAnimationSamples(samples: readonly {
+    readonly jointId: string;
+    readonly rotation?: readonly [number, number, number, number];
+  }[]): void {
+    if (this.disposed) throw new Error("Disposed C3.3 pose correctives");
+    const strengths = new Map<string, number>();
+    for (const sample of samples) {
+      if (!sample.rotation) continue;
+      const q = sample.rotation;
+      if (!q.every(Number.isFinite)) throw new Error("Nonfinite animation quaternion");
+      const angle = 2 * Math.acos(THREE.MathUtils.clamp(Math.abs(q[3]), 0, 1));
+      strengths.set(sample.jointId, THREE.MathUtils.clamp(angle / 1.45, 0, 1));
+    }
+    const influences = this.mesh.morphTargetInfluences;
+    if (!influences || influences.length !== ROLES.length)
+      throw new Error("Missing C3.3 morph influences");
+    for (let i = 0; i < ROLES.length; i++)
+      influences[i] = strengths.get(this.roleJointIds.get(ROLES[i]!)!) ?? 0;
+  }
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;

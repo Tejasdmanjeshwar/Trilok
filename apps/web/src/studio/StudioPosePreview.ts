@@ -91,6 +91,17 @@ export class StudioPosePreview {
       right:calibrateGripSpreads(h.spike.graph,h.spike.bones,this.fk.frames,"right"),
     };
   }
+  /** Shared C2/C5 anatomical pose owner during C6 base-clip playback. */
+  applyAnimationSamples(samples: readonly {
+    readonly jointId: string;
+    readonly rotation?: readonly [number, number, number, number];
+    readonly translation?: readonly [number, number, number];
+  }[]): void {
+    if (!this.correctives) this.correctives = new HumanPoseCorrectives(this.model.human);
+    this.fk.applyRestDeltas(samples);
+    this.correctives.applyAnimationSamples(samples);
+    this.model.human.spike.character.root.updateWorldMatrix(true, true);
+  }
   setPose(id:StudioPose):void{
     if(!Object.hasOwn(STUDIO_POSES,id))throw new Error("Unknown preview pose");
     if(id!==this.current){

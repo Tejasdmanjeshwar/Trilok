@@ -20,7 +20,8 @@ export class CanonicalAnimationPose {
   }>();
   private disposed = false;
 
-  constructor(character: SemanticCharacter, clip: AnimationClipV1) {
+  constructor(character: SemanticCharacter, clip: AnimationClipV1,
+    private readonly applyCalibratedPose?: (samples: readonly SampledJointV1[]) => void) {
     this.sampler = createAnimationSampler(clip, character.graph);
     for (const id of this.sampler.jointIds) {
       const joint = character.joint(id);
@@ -39,6 +40,10 @@ export class CanonicalAnimationPose {
   apply(seconds: number): void {
     if (this.disposed) throw new Error("Animation pose disposed");
     const poses = this.sampler.sample(seconds);
+    if (this.applyCalibratedPose) {
+      this.applyCalibratedPose(poses);
+      return;
+    }
     // All samples are validated and calculated before any scene mutation.
     for (const pose of poses) {
       const rest = this.rest.get(pose.jointId)!;
@@ -55,6 +60,10 @@ export class CanonicalAnimationPose {
 
   reset(): void {
     if (this.disposed) throw new Error("Animation pose disposed");
+    if (this.applyCalibratedPose) {
+      this.applyCalibratedPose([]);
+      return;
+    }
     for (const rest of this.rest.values()) {
       rest.joint.quaternion.copy(rest.quaternion);
       rest.joint.position.copy(rest.position);
