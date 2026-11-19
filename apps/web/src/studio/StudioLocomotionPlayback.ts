@@ -39,8 +39,9 @@ export class StudioLocomotionPlayback {
     this.live();
     this.input={forward,lateral,turn,grounded};
     this.mixer.setIntent(this.input);
-    this.contacts.reset();
-    this.paint(this.mixer.seek(this.seconds),0);
+    // Do not discard world-space stance anchors on velocity transitions.
+    // Advance one deterministic preview tick for an immediately visible slider response.
+    this.paint(this.mixer.advance(1/60),1/60);
   }
   private paint(samples:readonly SampledJointV1[],dt:number):void {
     this.applyPose(samples);
@@ -84,7 +85,7 @@ export class StudioLocomotionPlayback {
   }
   reset():void{
     this.live();this.setPlaying(false);
-    this.mixer.setIntent({forward:0,lateral:0,turn:0,grounded:true});
+    this.mixer.reset();
     this.input={forward:0,lateral:0,turn:0,grounded:true};
     this.contacts.reset();this.seek(0);
   }
