@@ -18,23 +18,28 @@ const library = [
   {id:"human-strafe-right",label:"Strafe Right",clip:strafeRight},
 ] as const;
 
+/** KayKit directional motion failed owner review. Keep it accessible only in an\n * explicitly opted-in PR diagnostic, not the accepted animation menu. */
+export const EXPERIMENTAL_KAYKIT_REVIEW = typeof location !== "undefined" &&
+  new URLSearchParams(location.search).has("c63-kaykit-review");
 export const STUDIO_ANIMATIONS = [
-  ...library.map(({id,label})=>({id,label})),
+  ...library.slice(0,EXPERIMENTAL_KAYKIT_REVIEW?library.length:4)
+    .map(({id,label})=>({id,label})),
   {id:"locomotion-preview",label:"Movement transitions"},
 ];
 
 /** Immutable C6.2 assets are shared with the runtime mixer without rebaking. */
-export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1){
+export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1,
+  includeUnacceptedKayKit=false){
   return {
     idle:loadBakedStudioAnimation("human-idle",graph),
     walk:loadBakedStudioAnimation("human-walk",graph),
     jog:loadBakedStudioAnimation("human-jog",graph),
     sprint:loadBakedStudioAnimation("human-sprint",graph),
-    directional:{
+    directional:includeUnacceptedKayKit?{
       backward:loadBakedStudioAnimation("human-backward",graph),
       left:loadBakedStudioAnimation("human-strafe-left",graph),
       right:loadBakedStudioAnimation("human-strafe-right",graph),
-    },
+    }:undefined,
   };
 }
 const clips: Readonly<Record<string,unknown>> =
