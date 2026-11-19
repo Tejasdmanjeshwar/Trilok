@@ -28,6 +28,8 @@ jobs:
               "bytes:",result.get("archive_bytes"),"SHA:",result.get("archive_sha256"),
               "file types:",result.get("file_types",{}),
               "blocked:",result.get("reason","none"))
+          if any(result["status"]!="acquired" for result in p["packs"].values()):
+            raise SystemExit("Acquisition incomplete; audit cannot claim all four packs")
           PY
       - name: Remove source bytes; no assets uploaded, published or committed
         if: always()
