@@ -1,3 +1,46 @@
+## 2026-11-20 — Original SHA-pinned BVH arm-gauge and Run-loop measurements (in-progress)
+
+**Experiment status:** Original BVHs recovered from the previously successful [C6.3 acquisition #44587045292](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44587045292) (artifact `c63-100style-neutral-source-inspection`). Verified exact original SHA-256 directly against the retrieved files:
+
+| Source | SHA-256 |
+| --- | --- |
+| `Neutral_ID.bvh` | `71aead2e3246bdb47a5b839cb3e60e0574e9a1a046c071cc147e2922a35f259f` |
+| `Neutral_FW.bvh` | `2f28800baa299547c42c257d1c926172542a1e69b46a3d3e6aa0aded0e9b40f6` |
+| `Neutral_FR.bvh` | `f46ca526027a3654c8939a0123413f6008906fb32125d5e885eafcaa830831cb` |
+
+A separate offline numerical reconstruction decoded **declared Y-X-Z BVH rotation channels**, accumulated parent world orientations, applied the stored family correction and sagittal reflection, then evaluated both the committed 100STYLE profile and a *candidate only* zero-additional-roll source elbow/wrist reference (computed from the real MakeHuman shafts and independently observed target palm-normal cue). At source ID reference frame **282**, decoded source elbow/wrist world orientations matched the committed source rest quaternions to 0° numerical residual.
+
+For the first source Idle cycle frame **1279**, the target elbow rest-local signed axial components (shaft-axis quaternion decomposition) were:
+
+| Side | Current 100STYLE gauge | Candidate minimal-twist gauge |
+| --- | ---: | ---: |
+| Left elbow | +104.90° | +42.31° |
+| Right elbow | −65.91° | +4.05° |
+
+Across the five original Idle samples 1279, quarter, midpoint, three-quarter, 1372, the candidate reduced the left-elbow component by **62.59°** and shifted the right by **69.96°**, with no re-authored BVH Euler keys. Similar constant gauge differences occurred in Walk and Run. Source-to-target shoulder–elbow and elbow–wrist *link directions remained unchanged to numerical precision* in the independent offline FK calculation. **These are not ground-truth skin/hand orientation comparisons.** The remaining left-elbow 42° is not proven correct or incorrect; BVH has no independent source palm surface to resolve the reference roll. Note that local signed twist is measured in the actual target rest-axis convention, not the Euler channel basis.
+
+The committed `scripts/calibrate-c63-100style.mjs` now includes a **diagnostic-only** candidate profile using `parallelTransportAnatomicalCue()`, measures original versus candidate source-backed shoulder/elbow/wrist poses at the reference, plus five phase samples per canonical source cycle, and emits `100style-minimal-twist-probe.json` in the existing temporary source-acquisition artifact. It does **not** rebake, replace, or promote any 100STYLE clips, or alter the official approved UAL1 profile/assets. The existing source-acquisition workflow's push trigger covers this amended script. Actual CI job success and resulting probe artifact must be inspected rather than assumed.
+
+### Run seam source-authored diagnosis
+
+Reconstructed the exact published source FR channel quaternions for the selected capture loop **499–546**. Source local quaternion angular differences at the wrap are:
+
+| Joint | Angular difference |
+| --- | ---: |
+| LeftWrist | 13.9584° |
+| RightAnkle | 11.768° |
+| LeftElbow | 11.278° |
+| RightElbow | 10.478° |
+| Hips | 6.551° |
+
+The worst difference in local *two-sample angular-speed magnitude* across the boundary is **LeftWrist 7.544°**; other prominent contributions are LeftAnkle **3.066°** and RightHip **2.374°**. This indicates the seam is present in the **source recording**, before target anatomical calibration. The original search's best overall loop score 499–546 has worst 13.9584°, mean 3.9081°, velocity mismatch 1.1046°, and vertical root seam ~0.00434 m. A nearby 501–547 source-backed candidate improves worst-joint angular difference to **12.6374°**, but worsens mean to **4.8299°** and velocity mismatch to **1.3977°**. No better physically acceptable candidate is established by this comparison; do not overwrite authoring keys or describe Run as seamless.
+
+### Render and CI restrictions
+
+Retrieved the previous successful Verify's static artifact, but its embedded `build-info.json` identifies commit `c3ce3a25a0ec6153f20428f17bdeaa41855f840f`, **not** the new diagnostic PR HEAD. It cannot validate subsequent code changes. Locally, Chromium could be launched through Playwright, but attempts to navigate HTTP, HTTPS, and `file:` Studio documents returned `ERR_BLOCKED_BY_ADMINISTRATOR`; standalone canvas `getContext("webgl2")` returned null. Consequently, **zero skinned MakeHuman visual screenshots have been validated** on this candidate. No authorized workflow_dispatch tool is available to start the repository's manually dispatched `studio-interaction-diagnostics.yml` / `100style-review` suite. Manual-only CI browser policy remains intact. No Netlify preview was deployed. Owner sign-off remains mandatory.
+
+---
+
 ## 2026-11-20 — UAL1/100STYLE source-frame research and safely isolated diagnostic
 
 **Status: partial diagnostic implementation only. No new source calibration, 100STYLE clip rebake, Chromium visual acceptance, Netlify preview or owner sign-off is claimed.** This is the existing draft PR #118; UAL1 approved assets are not modified.
