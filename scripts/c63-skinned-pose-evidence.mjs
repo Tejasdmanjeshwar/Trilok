@@ -179,6 +179,63 @@ export function captureC63SkinnedPose({
     if (!Number.isFinite(ratio)) throw Error("Nonfinite skinned edge deformation");
     measures.push(ratio);
   }
+  // A global mesh mean hides the wrist-to-proximal-forearm skin transition.
+  // Measure real original-geometry edge deformation in weighted ARM regions,
+  // using the SAME bound mesh and skin indices as the actual Studio character.
+  const regions={};
+  for(const side of ["left","right"]){
+    const armId=role=>{
+      const bone=byRole.get(role+"_"+side);
+      if(!bone)throw Error("Missing calibrated arm region bone "+role+"/"+side);
+      const id=indices.get(bone);
+      if(id===undefined)throw Error("Missing skin index for "+role+"/"+side);
+      return id;
+    };
+    const armRegions={
+      forearm:[indices.get(human.spike.forearmSkinBones.get(side)),
+        armId("elbow"),armId("wrist")],
+      shoulder:[indices.get(human.spike.shoulderSkinBones.get(side)),
+        armId("clavicle"),armId("shoulder")],
+    };
+    for(const [name,bones] of Object.entries(armRegions)){
+      if(bones.some(id=>id===undefined))
+        throw Error("Missing real weighted arm helper "+side+"/"+name);
+      const boneSet=new Set(bones);
+      const mass=new Float32Array(position.count);
+      for(let i=0;i<position.count;i++)
+        for(let k=0;k<4;k++)
+          if(boneSet.has(skinIndex.getComponent(i,k)))
+            mass[i]+=skinWeight.getComponent(i,k);
+      const ratios=[];
+      for(let i=0;i<triangles.count;i+=3){
+        const a=triangles.getX(i),b=triangles.getX(i+1),d=triangles.getX(i+2);
+        for(const [first,second] of [[a,b],[b,d],[d,a]]){
+          if(mass[first]<.5||mass[second]<.5)continue;
+          const initial=rest[first].distanceTo(rest[second]);
+          if(initial<1e-4)continue;
+          const value=posed[first].distanceTo(posed[second])/initial;
+          if(!Number.isFinite(value))
+            throw Error("Nonfinite official "+side+" "+name+" weighted edge");
+          ratios.push(value);
+        }
+      }
+      if(ratios.length<24)
+        throw Error("Missing real weighted skin edges "+side+"/"+name);
+      ratios.sort((a,b)=>a-b);
+      regions[side+"_"+name]={
+        edgeCount:ratios.length,min:round(ratios[0]),p05:round(
+          ratios[Math.ceil(ratios.length*.05)-1]),
+        p95:round(ratios[Math.ceil(ratios.length*.95)-1]),
+        max:round(ratios.at(-1)),
+        // Descriptive only: no arbitrary numeric acceptance threshold is
+        // weakened or silently converted into a pass.
+        fractionBelow80Percent:round(
+          ratios.filter(x=>x<.8).length/ratios.length),
+        fractionAbove120Percent:round(
+          ratios.filter(x=>x>1.2).length/ratios.length),
+      };
+    }
+  }
   const svg = {};
   for (const view of Object.keys(viewAxes))
     svg[view] = makeSvg({title: label, view, sourceJoints,
@@ -186,6 +243,7 @@ export function captureC63SkinnedPose({
   return {measurements: {
     label, sourceVertexCount: position.count, weightedMesh: mesh.name,
     surfaceEdgeStretchSample: stats(measures),
+    armRegionEdgeStretch: regions,
     left: perSide.left, right: perSide.right,
     note: "True CPU-skinned MakeHuman vertex positions and real helper transforms. " +
       "No independent source palm surface, no shadow/material rendering, no visual acceptance.",
