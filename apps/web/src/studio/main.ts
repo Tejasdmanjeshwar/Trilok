@@ -298,7 +298,7 @@ const animationStatic=element<HTMLButtonElement>("#studio-animation-static");
 const animationClock=element<HTMLOutputElement>("#studio-animation-clock");
 const animationSpeed=element<HTMLSelectElement>("#studio-animation-speed");
 const animationLoop=element<HTMLInputElement>("#studio-animation-loop");
-for(const clip of STUDIO_REFERENCE_ANIMATIONS)animationSelect.add(new Option(clip.label,clip.id));
+for(const clip of STUDIO_ANIMATIONS)animationSelect.add(new Option(clip.label,clip.id));
 function syncAnimation(state:StudioAnimationState|undefined):void {
   const active=!!state;
   animationSelect.value=state?.clipId??"";
