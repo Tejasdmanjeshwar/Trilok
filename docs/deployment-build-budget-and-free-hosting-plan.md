@@ -229,3 +229,14 @@ dispatched workflow. A fix only in a feature branch cannot change the manual
 workflow until a dedicated verified PR merges into `main`. No Netlify
 re-deployment, Cloudflare production release, or change to credentials/access
 protection is implied by correcting this code.
+
+
+### Automatic PR selection for manual Netlify previews (2026-11-19)
+
+The manually dispatched Netlify workflow now has an **optional blank PR input**. When blank, `scripts/select-netlify-preview-pr.mjs` requests all pages of open PRs and selects the uniquely latest-updated same-repository PR targeting `main`. If a second eligible PR was also updated within 24 hours of the newest, selection **fails closed** with the PR numbers and requires explicit input rather than risk deploying unrelated work. Explicit input remains available for historical or parallel previews.
+
+Selection is independent of the mandatory existing exact-head verification gate: `scripts/resolve-netlify-preview.mjs` still requires a successful `Verify` workflow run linked to the selected PR and its **current** SHA, then checks the immutable artifact and revalidates the PR head immediately before uploading. No failed, pending, moved or stale commit is silently substituted. Choosing a PR never starts a Netlify deployment by itself—deployment remains manual, main-only, development-draft-only, with protected environment credentials and no Cloudflare production impact.
+
+At implementation time, #118 (C6.3) was the latest-updated open PR and #85 was last updated several days earlier; thus blank selection selects #118 *if the repository remains in that state*. New activity or two concurrently active PRs can change selection or force explicit disambiguation. The old C6.2-specific default #112 is removed. The selector and ambiguity branches have regression tests in `tests/deployment-preview-selector.test.ts`.
+
+**Owner action after this workflow update merges into `main`:** Actions → Manual Netlify development preview → Run workflow, leave PR number blank, run. Inspect the selected PR/SHA and unique draft URL in the run log/summary before visual acceptance. This does not automatically trigger a deployment.
