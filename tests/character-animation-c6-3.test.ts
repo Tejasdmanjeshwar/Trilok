@@ -11,7 +11,7 @@ import {readFileSync} from "node:fs";
 import {createHash} from "node:crypto";
 
 const graph=createAnatomyPreset({archetype:"human"});
-const library=loadStudioLocomotionLibrary(graph);
+const library=loadStudioLocomotionLibrary(graph,true);
 describe("C6.3 locomotion foundation",()=>{
   it("keeps all four C6.2 baked motion assets and manifest hash identities immutable",()=>{
     const manifest=JSON.parse(readFileSync("assets/animations/studio-v1/manifest.json","utf8")) as
