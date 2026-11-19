@@ -1,3 +1,54 @@
+## 2026-11-20 — Real weighted-MakeHuman arm-gauge comparison and complete source-backed foot cycles (unaccepted)
+
+**Execution scope:** Continue draft [PR #118](https://github.com/Tejasdmanjeshwar/Trilok/pull/118), branch `feat/c6-3-grounded-locomotion`. No merge, no Cloudflare production deploy, no new accepted clips, and no changes to the four C6.2/UAL1 assets. This evidence is an engineering diagnostic, **not** an owner-approved render.
+
+### Root-cause evidence and what is still unobservable
+
+UAL1 calibrates elbow/wrist roll from true source finger/knuckle/thumb landmarks plus verified glTF inverse bind matrices. The 100STYLE Neutral BVHs contain 23 joints with no palm/finger surface or source skinned bind matrices. The existing source adapter uses a torso-facing secondary cue at the elbow/wrist, which is *not homologous* to the measured MakeHuman palm-normal cue. The C6.2 `source-anatomical` transfer is mathematically deterministic but inherits that physically unconstrained source-roll gauge.
+
+On the **real calibrated MakeHuman skeleton**, `AnatomicalFK.applyRestDeltas()` applies the semantic elbow's full rotation to the distal forearm and wrist, but intentionally strips the calibrated axial component from the sibling proximal `lowerarm01` skin helper. This is correct behavior for genuine forearm pronation; with the 100STYLE body-forward gauge it exposes an unusually large divergence across weighted proximal versus distal forearm regions. This is a **measured deformation mechanism**, not independently recovered BVH palm ground truth. Source shaft endpoints and elbow bend angles do not detect it.
+
+A reproducible, opt-in source-acquisition diagnostic now constructs the **actual official weighted MakeHuman body** via `bindTemplateToSemanticRig()`, the same C1/C2 calibration and `AnatomicalFK`, applies C3 morph correctives, and captures actual Three.js `SkinnedMesh.getVertexPosition()` positions, shoulder connector and proximal forearm helper transforms. It evaluates **six genuine BVH poses** (reference ID 282, Idle 1279, Walk 609/649, Run 512/543) under **two source-family gauges**: the original torso-forward cue and the previously defined target-anatomy `parallelTransportAnatomicalCue()` convention. It emits 48 four-view (front/side/rear/three-quarter) source-BVH-versus-weighted-MakeHuman SVG projections and `100style-skinned-pose-report.json` in the temporary source artifact. These are true skinned vertices and original source joints, but **not shaded WebGL/Chromium screenshots**.
+
+| Source pose | Existing L/R elbow axial delta | Parallel-transport L/R axial delta |
+| --- | --- | --- |
+| Reference ID 282 | +82.07° / −82.42° | +19.48° / −12.46° |
+| Idle ID 1279 | +104.90° / −65.91° | +42.31° / +4.05° |
+| Walk FW 609 | +101.87° / −60.25° | +39.29° / +9.70° |
+| Walk FW 649 | +97.69° / −61.74° | +35.10° / +8.22° |
+| Run FR 512 | +75.42° / −53.08° | +12.83° / +16.88° |
+| Run FR 543 | +58.73° / −46.48° | −3.85° / +23.48° |
+
+In the measured samples, the semantic-elbow-versus-proximal-helper **world orientation** separation equals the **magnitude of the listed axial component** to reporting precision. The helper swing axis is calibrated correctly in the target rest basis; it is not an accidental decomposition around global Y. At the same time, unchanged shoulder/clavicle/connector behavior and preserved shaft directions isolate the effect to missing source-roll calibration and its downstream skin distribution, rather than a demonstrated bind-matrix corruption. **The remaining candidate twist is not automatically an error.** Neither gauge can be called source-palm-accurate without palm surface observations.
+
+The original `scripts/c63-skinned-pose-evidence.mjs` diagnostic has been made morph-aware by using `getVertexPosition()`, so CPU-skin positions follow the same existing corrective morphs rather than skinning uncorrected base vertices.
+
+### Real-source full-cycle weighted-sole/contact diagnostic
+
+The same run now evaluates **all 224 source frames** (Idle 94, Walk 82, Run 48), on actual MakeHuman weighted foot/ankle/toe vertices. For **measurement only**, world-space X/Z includes original source-authored BVH travel; the clips and Studio presentation remain unchanged. Vertical motion follows the existing baked source bob. `100style-skinned-foot-cycles.json` retains per-frame low-sole height and candidates for ground contact (within 3 cm of the unchanged MakeHuman rest floor). A stance-height candidate is **not** a measured planted contact or ground-reaction force.
+
+| Clip | Weighted vertices per foot | Candidate-contact fraction L/R | Max below rest ground L/R | P95 per-frame world-space low-sole-vertex slip L/R |
+| --- | ---: | --- | --- | --- |
+| Idle | 988 | 100% / 100% | 4.41 / 4.40 cm | 0.0012 / 0.0013 cm |
+| Walk | 988 | 100% / 100% | 4.99 / 4.32 cm | 5.99 / 5.67 cm |
+| Run | 988 | 68.75% / 64.58% | 0.83 / 0.83 cm | 9.22 / 1.10 cm |
+
+**Interpretation:** Idle has a stable root but its apparent soles penetrate the bind-rest floor by ~4.4 cm; Walk has *both* foot-height candidates continuously flagged, significant ~4–5 cm penetration, and up to ~6 cm per-frame surface slip when original source root travel is reconstructed. Therefore the 3 cm height rule does **not** uniquely identify true stance in Walk. Run's contact windows and large frame-to-frame slip also fail physical grounding acceptance; these observations are not evidence that the experimental clips meet contact-quality criteria. The source-authored Run angular seam remains **13.9584°** worst (LeftWrist), with the original 499–546 loop retained; no fabricated keys, phase changes or seam blending were introduced.
+
+### Reproduction, hashes, and acceptance blockers
+
+- [Pinned-source acquisition and real weighted-arm evidence #44608289104](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44608289104): success on `d9c374d4f70a165c56767621e53f9d74a4acf946`, six poses × two gauges × four SVG views.
+- [Pinned-source acquisition including every-frame weighted feet #44609790023](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44609790023): success on `5061a8bc820f68733ffb4321d0ff23f476e28c91`.
+- [Acquisition with preserved original review-blob emission #44610335088](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44610335088): success on `375131160978de2e380694ac33746f5e1500a508`. The source workflow stays numeric/CPU-only and retains the original SHA-pinned emitted review-blob contract.
+- Original source SHA-256: ID `71aead2e3246bdb47a5b839cb3e60e0574e9a1a046c071cc147e2922a35f259f`, FW `2f28800baa299547c42c257d1c926172542a1e69b46a3d3e6aa0aded0e9b40f6`, FR `f46ca526027a3654c8939a0123413f6008906fb32125d5e885eafcaa830831cb`. Source-family fingerprint `6e04c8293605f3e1d3f2599141922ffc9872c07f7339f97422fa2e56de9db4d9`.
+- Committed **unaccepted baseline** derived clip SHA-256: Idle `a974a91f632a6e5f0d64d3c1027c0572ecf22142a3ba171ff1fd6ca2a57dd63a`; Walk `cd7f9cd2b4d6b564dfe894c28e12b5f1e2c32081d182d9fd8c8f667beefb5804`; Run `38bd58daab8347c2308b7c0b0c9bb5b03c103c24d3101ca03e892bb5243a62a`; baseline profile `887a588f9c69ea009e444ff29843e571d0eaac01d9bb4c5780b202f5070fc0eb`. These bytes are *not* newly accepted calibrations.
+- An intermediate Verify failed because the previous patch had inadvertently changed the exact source-acquisition command required by `tests/ci-phase-gating.test.ts`. The original `--emit-review-blobs` contract has been **restored**, and the CPU-skin flag is additive. This is a CI contract repair, not a weakened test. Re-evaluate final exact-head Verify for completion.
+- **Still blocked:** explicit manual `studio-interaction-diagnostics.yml` `100style-review` desktop/touch Chromium dispatch, shaded skinned screenshot inspection at default/short/tall/muscular, real palm roll validation and foot contact correction, visually accepted gauge, and manual main-only SHA-verified Netlify draft deployment. This GitHub connection cannot create workflow_dispatch events. Replacing the manual policy with automatic dispatch would violate the established repository gate, so no browser success or Netlify URL is claimed.
+
+**Decision:** do **not** rebake or promote the candidate to the Studio review assets until the physical wrist/palm and actual rendered deformation acceptance gate passes. Maintain `?c63-100style-review`, `acceptedForProduction:false`, original C6.2 assets byte-identical, and draft PR #118. Owner visual approval remains required.
+
+---
+
 ## 2026-11-20 — Original SHA-pinned BVH arm-gauge and Run-loop measurements (in-progress)
 
 **Experiment status:** Original BVHs recovered from the previously successful [C6.3 acquisition #44587045292](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44587045292) (artifact `c63-100style-neutral-source-inspection`). Verified exact original SHA-256 directly against the retrieved files:
