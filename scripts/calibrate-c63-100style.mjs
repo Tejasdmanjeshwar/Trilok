@@ -105,6 +105,7 @@ try{
   const {HumanPoseCorrectives}=await server.ssrLoadModule(
     "/apps/web/src/characters/geometry/HumanPoseCorrectives.ts");
   const {captureC63SkinnedPose}=await import("./c63-skinned-pose-evidence.mjs");
+  const {captureC63SkinnedFootCycle}=await import("./c63-skinned-foot-evidence.mjs");
   const {makeSourceLandmarks,calibrateHumanBones}=await server.ssrLoadModule(
     "/apps/web/src/characters/geometry/OfficialHumanRig.ts");
   const {createSkinningSpike}=await server.ssrLoadModule(
@@ -856,6 +857,39 @@ try{
           });
         }
       }
+
+      const gaitContact=[];
+      for(const record of bakeRecords){
+        const {source}=sources.get(record.original);
+        const first=record.loopRange[0];
+        const frameData=[];
+        for(let frame=first;frame<=record.loopRange[1];frame++){
+          const actual=sourcePose(record.original,frame);
+          const rotations=new Map(source.joints.map((joint,i)=>
+            [joint.name,actual.rotations[i].toArray()]));
+          frameData.push({frame,
+            seconds:(frame-first)*source.frameTimeSeconds,
+            sourceRoot:actual.positions[0].toArray(),
+            samples:retargetWorldPose(profile,target,rotations,
+              fingerprint,"source-anatomical")});
+        }
+        const result=captureC63SkinnedFootCycle({
+          human:skinned,fk,correctives,frames:frameData,
+          clipId:record.id,pelvisId:targetRole("pelvis").id,
+          originalSourceSha256:record.originalSha256,
+          lockedRoot:record.id.endsWith("idle"),
+        });
+        gaitContact.push(result);
+      }
+      await writeFile(resolve(directory,"100style-skinned-foot-cycles.json"),
+        JSON.stringify({schemaVersion:1,
+          kind:"c6.3-real-skinned-locomotion-full-cycle",
+          acceptedForProduction:false,cycles:gaitContact},null,2)+"\n");
+      console.log("C63_REAL_SKINNED_FOOT_CONTACT "+JSON.stringify(gaitContact.map(
+        cycle=>({clipId:cycle.clipId,frameWindow:cycle.sourceFrameWindow,
+          frames:cycle.frames,groundY:cycle.unposedSoleGroundYMeters,
+          feet:cycle.feet}))));
+
       const payload={schemaVersion:1,kind:"c6.3-real-skinned-arm-evidence",
         sourceIdentitySha256:fingerprint,targetIdentitySha256:targetHash,
         acceptedForProduction:false,
