@@ -1,0 +1,40 @@
+name: C6.3 KayKit CC0 Rig Probe
+on:
+  push:
+    branches: [feat/c6-3-grounded-locomotion]
+    paths: [.github/workflows/c63-kaykit-source-probe.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect commit-pinned CC0 KayKit GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 --max-time 60 -o /tmp/kaykit.glb \
+            https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/672074b73ba276876a19e8816ecdc5241817ab47/addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb
+          sha256sum /tmp/kaykit.glb
+          python3 - <<'PY'
+          import json,struct
+          b=open("/tmp/kaykit.glb","rb").read()
+          magic,version,length=struct.unpack_from("<III",b,0)
+          assert magic==0x46546c67 and version==2 and length==len(b)
+          jsonlen,kind=struct.unpack_from("<II",b,12)
+          assert kind==0x4e4f534a
+          gltf=json.loads(b[20:20+jsonlen].decode("utf8"))
+          print("ANIMATION_COUNT",len(gltf.get("animations",[])))
+          for a in gltf.get("animations",[]):
+            print("ANIMATION",a.get("name"),len(a.get("channels",[])),len(a.get("samplers",[])))
+          nodes=gltf.get("nodes",[])
+          parents={i:None for i in range(len(nodes))}
+          for idx,n in enumerate(nodes):
+            for c in n.get("children",[]):
+              parents[c]=idx
+          for i,n in enumerate(nodes):
+            if n.get("name") and ("rig" in n["name"].lower() or any(k in n["name"].lower() for k in ["root","hip","spine","head","leg","foot","toe","arm","hand","shoulder","neck","finger"])):
+              print("NODE",i,n["name"],"parent",nodes[parents[i]].get("name") if parents[i] is not None else None,"T",n.get("translation"),"R",n.get("rotation"))
+          print("SKINS",[(s.get("name"),len(s.get("joints",[]))) for s in gltf.get("skins",[])])
+          PY
