@@ -88,32 +88,46 @@ def acquire(pack,url,folder):
         print(pack,"DOWNLOAD_PAGE_OK","uploads",len(uploads2),"csrf",bool(csrf2),flush=True)
         if not uploads2:
             return {"status":"blocked","reason":"no downloadable uploads in free page"}
-        # Select the Godot/Unreal version, not a Unity-specific asset package,
-        # when listing descriptions reveal engine choice.
-        choices=sorted(uploads2,key=lambda x:(0 if "Godot" in x["desc"] or "Unreal" in x["desc"] else 1,x["id"]))
-        chosen=choices[0]
-        fileurl=url+"/file/"+chosen["id"]
-        try:
-            answer=json.loads(fetch_bytes(opener,fileurl,
-                data=urllib.parse.urlencode({"csrf_token":csrf2}).encode(),
-                referer=next_url).decode())
-        except (ValueError,urllib.error.HTTPError) as e:
-            return {"status":"blocked","reason":"file endpoint "+type(e).__name__+" "+str(getattr(e,"code",""))}
-        cdn=answer.get("url")
-        if not isinstance(cdn,str) or not cdn.startswith("https://"):
-            return {"status":"blocked","reason":"file endpoint gave no signed URL"}
-        folder.mkdir(parents=True,exist_ok=True)
-        out=folder/(pack+".download")
-        digest=hashlib.sha256()
-        n=0
-        with open_url(opener,cdn,referer=next_url,timeout=90) as response,open(out,"wb") as f:
-            while True:
-                chunk=response.read(2*1024*1024)
-                if not chunk:break
-                n+=len(chunk)
-                if n>MAX_BYTES:raise RuntimeError("free archive exceeds cap")
-                digest.update(chunk)
-                f.write(chunk)
+        # itch.io provides more than one variant (often a Godot/FBX zip
+        # and a Unity .unitypackage). Upload order can change between runs.
+        # Require an actual ZIP magic header, not "first available upload".
+        choices=sorted(uploads2,key=lambda x:(
+            0 if "Godot" in x["desc"] or "Unreal" in x["desc"] else 1,x["id"]))
+        chosen=None;out=None;n=0;digest=hashlib.sha256()
+        skipped=0
+        for candidate in choices:
+            fileurl=url+"/file/"+candidate["id"]
+            try:
+                answer=json.loads(fetch_bytes(opener,fileurl,
+                    data=urllib.parse.urlencode({"csrf_token":csrf2}).encode(),
+                    referer=next_url).decode())
+                cdn=answer.get("url")
+                if not isinstance(cdn,str) or not cdn.startswith("https://"):
+                    skipped+=1;continue
+                with open_url(opener,cdn,referer=next_url,timeout=90) as response:
+                    head=response.read(4)
+                    if head not in (b"PK\\x03\\x04", b"PK\\x05\\x06"):
+                        skipped+=1;continue
+                    folder.mkdir(parents=True,exist_ok=True)
+                    out=folder/(pack+".download")
+                    digest=hashlib.sha256()
+                    n=4;digest.update(head)
+                    with open(out,"wb") as f:
+                        f.write(head)
+                        while True:
+                            chunk=response.read(2*1024*1024)
+                            if not chunk:break
+                            n+=len(chunk)
+                            if n>MAX_BYTES:raise RuntimeError("free archive exceeds cap")
+                            digest.update(chunk)
+                            f.write(chunk)
+                chosen=candidate
+                break
+            except (ValueError,urllib.error.HTTPError) as exc:
+                skipped+=1
+        if chosen is None:
+            return {"status":"blocked","reason":"no free ZIP variant accessible",
+              "variants_skipped":skipped}
         report={"status":"acquired","archive_sha256":digest.hexdigest(),"archive_bytes":n,
             "upload_id":chosen["id"]}
         if zipfile.is_zipfile(out):
