@@ -6,11 +6,11 @@ import {
   parseAnimationClip,validateAnimationClip,
 } from "../packages/character-core/src/index";
 import {createSkinningSpike} from "../apps/web/src/characters/geometry/SkinningSpike";
-import {loadBakedStudioAnimation} from "../apps/web/src/studio/StudioReferenceLibrary";
+import {STUDIO_ANIMATIONS,loadBakedStudioAnimation,resolveStudioAnimationId} from "../apps/web/src/studio/StudioAnimationLibrary";
 import {StudioAnimationPlayback} from "../apps/web/src/studio/StudioAnimationPlayback";
 const graph=createAnatomyPreset({archetype:"human"});
 const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
-const expectedIds=["human-idle","human-walk","human-run"] as const;
+const expectedIds=["human-idle","human-walk","human-jog","human-sprint"] as const;
 const load=()=>expectedIds.map(id=>loadBakedStudioAnimation(id,graph));
 describe("C6.2 verified Quaternius source-backed motion",()=>{
   it("verifies curated original source SHA, archive provenance and byte-for-byte bake hashes",()=>{
@@ -19,9 +19,9 @@ describe("C6.2 verified Quaternius source-backed motion",()=>{
       sourceArchiveSha256:string;sourceGlbSha256:string;license:string;
       clips:{id:string;sourceName:string;timesSeconds:number[]}[];
     };
-    const manifest=JSON.parse(readFileSync("assets/animations/reference-v1/manifest.json","utf8")) as {
+    const manifest=JSON.parse(readFileSync("assets/animations/studio-v1/manifest.json","utf8")) as {
       sourceArchiveSha256:string;sourceGlbSha256:string;sourceInputSha256:string;
-      entries:{id:string;sourceClip:string;filename:string;artifactSha256:string;sourceSha256:string;bytes:number}[];
+      entries:{id:string;sourceClip:string;filename:string;artifactSha256:string;bytes:number}[];
     };
     expect(source.sourceArchiveSha256).toBe(
       "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724");
@@ -30,13 +30,18 @@ describe("C6.2 verified Quaternius source-backed motion",()=>{
     expect(manifest.sourceArchiveSha256).toBe(source.sourceArchiveSha256);
     expect(manifest.sourceGlbSha256).toBe(source.sourceGlbSha256);
     expect(manifest.sourceInputSha256).toBe(hash(raw));
-    expect(manifest.entries.map(e=>e.id).sort()).toEqual([...expectedIds].sort());
+    expect(manifest.entries.map(e=>e.id).sort()).toEqual(["human-idle","human-walk","human-run","human-sprint"].sort());
+    expect(STUDIO_ANIMATIONS.map(e=>e.label)).toEqual(["Idle","Walk","Jog","Sprint"]);
+    expect(STUDIO_ANIMATIONS.map(e=>e.id)).toEqual([...expectedIds]);
+    expect(resolveStudioAnimationId("human-run-calibrated")).toBe("human-jog");
+    expect(resolveStudioAnimationId("human-walk-calibrated")).toBe("human-walk");
+    expect(loadBakedStudioAnimation("human-run-calibrated",graph).id).toBe("human-jog");
+    expect(()=>resolveStudioAnimationId("unknown")).toThrow();
     expect(source.clips.map(c=>c.sourceName).sort()).toEqual([
-      "Idle_Loop","Walk_Loop","Jog_Fwd_Loop"].sort());
+      "Idle_Loop","Walk_Loop","Jog_Fwd_Loop","Sprint_Loop"].sort());
     for(const entry of manifest.entries){
-      const content=readFileSync("assets/animations/reference-v1/"+entry.filename,"utf8");
+      const content=readFileSync("assets/animations/studio-v1/"+entry.filename,"utf8");
       const clip=parseAnimationClip(content,graph);
-      expect(hash(raw)).toBe(entry.sourceSha256);
       expect(hash(content)).toBe(entry.artifactSha256);
       expect(Buffer.byteLength(content)).toBe(entry.bytes);
       expect(serializeAnimationClip(clip,graph)+"\n").toBe(content);
@@ -55,7 +60,7 @@ describe("C6.2 verified Quaternius source-backed motion",()=>{
     const clips=load();
     for(const clip of clips){
       expect(clip.durationSeconds).toBe(
-        source.clips.find(c=>c.id===clip.id)!.durationSeconds);
+        source.clips.find(c=>c.id===(clip.id==="human-jog"?"human-run":clip.id))!.durationSeconds);
       expect(clip.tracks.length).toBeGreaterThan(20);
       const sampled=createAnimationSampler(clip,graph);
       expect(sampled.sample(0)).toEqual(sampled.sample(clip.durationSeconds));

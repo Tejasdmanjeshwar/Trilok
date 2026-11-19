@@ -1,5 +1,5 @@
 import {getBuildIdentity} from "../build-info";
-import {STUDIO_REFERENCE_ANIMATIONS} from "./StudioReferenceLibrary";
+import {STUDIO_ANIMATIONS} from "./StudioAnimationLibrary";
 import type {StudioAnimationState} from "./StudioViewport";
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
@@ -110,10 +110,10 @@ host.innerHTML=String.raw`
       </div>
       <div id="studio-pose-panel" class="studio-extra-panel" hidden>
         <fieldset class="studio-fieldset studio-animation-panel">
-          <legend>Reference animations</legend>
+          <legend>Animations</legend>
           <p>Preview motion on your character. Shape and equipment settings are preserved.</p>
           <label class="studio-field-label" for="studio-animation-select">Animation</label>
-          <select id="studio-animation-select" aria-label="Reference animation">
+          <select id="studio-animation-select" aria-label="Studio animation">
             <option value="">Static pose</option>
           </select>
           <div class="studio-action-pair studio-animation-actions">
@@ -318,7 +318,7 @@ function syncAnimation(state:StudioAnimationState|undefined):void {
 animationSelect.addEventListener("change",()=>{
   try{viewport.selectAnimation(animationSelect.value||null);}
   catch(error){
-    console.error("Reference animation unavailable",error);
+    console.error("Studio animation unavailable",error);
     viewport.selectAnimation(null);
   }
 });

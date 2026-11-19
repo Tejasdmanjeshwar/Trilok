@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "kind": "c6.2-unapproved-candidate",
+  "kind": "c6.2-official-studio-library",
   "sourceArchiveSha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
   "sourceGlbSha256": "69591853d817488edaa8fd9bf8fc1d821eaeaf789f8627b3cd23b41c4ed67997",
   "sourceInputSha256": "33ab1c9ddb830c25df3c7ff205d4713210a2c94d88b5a4fe609e5fa70a251ad6",

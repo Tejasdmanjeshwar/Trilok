@@ -56,7 +56,7 @@ describe("C6.2 source-versus-real-MakeHuman anatomical trajectory",()=>{
       ] as const;
       for(const input of source.clips){
         const baked=parseAnimationClip(readFileSync(
-          "assets/animations/candidate-c62-v1/"+input.id+".clip.json","utf8"),graph);
+          "assets/animations/studio-v1/"+input.id+".clip.json","utf8"),graph);
         const sampler=createAnimationSampler(baked,graph);
         let worst=0;
         for(let frame=0;frame<input.timesSeconds.length;frame++){

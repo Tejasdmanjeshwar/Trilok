@@ -24,8 +24,7 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
-import {STUDIO_REFERENCE_ANIMATIONS} from "./StudioReferenceLibrary";
-import {loadBakedStudioAnimation} from "./StudioReferenceLibrary";
+import {STUDIO_ANIMATIONS,loadBakedStudioAnimation,resolveStudioAnimationId} from "./StudioAnimationLibrary";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
 import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
@@ -223,7 +222,7 @@ export function createStudioViewport(
     emitAnimation();
   }
   function enterAnimation(id:string):void {
-    const source=STUDIO_REFERENCE_ANIMATIONS.find(entry=>entry.id===id);
+    const source=STUDIO_ANIMATIONS.find(entry=>entry.id===id);
     if(!source)throw new Error("Unknown reference animation");
     if(!active||!posePreview)throw new Error("Character is not ready for animation");
     animation?.dispose();animation=undefined;
@@ -240,8 +239,9 @@ export function createStudioViewport(
   }
   function selectAnimation(id:string|null):void {
     if(id===null){stopAnimation();return;}
-    if(animationId===id)return;
-    enterAnimation(id);
+    const resolved=resolveStudioAnimationId(id);
+    if(animationId===resolved)return;
+    enterAnimation(resolved);
   }
   function playAnimation(playing:boolean):void{animation?.setPlaying(playing);emitAnimation();}
   function seekAnimation(seconds:number):void{animation?.seek(seconds);updateMarkers();emitAnimation();}
