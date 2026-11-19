@@ -21,6 +21,20 @@ Across the five original Idle samples 1279, quarter, midpoint, three-quarter, 13
 
 The committed `scripts/calibrate-c63-100style.mjs` now includes a **diagnostic-only** candidate profile using `parallelTransportAnatomicalCue()`, measures original versus candidate source-backed shoulder/elbow/wrist poses at the reference, plus five phase samples per canonical source cycle, and emits `100style-minimal-twist-probe.json` in the existing temporary source-acquisition artifact. It does **not** rebake, replace, or promote any 100STYLE clips, or alter the official approved UAL1 profile/assets. The existing source-acquisition workflow's push trigger covers this amended script. Actual CI job success and resulting probe artifact must be inspected rather than assumed.
 
+### Exact-head full-cycle source-acquisition verification
+
+The [C6.3 source workflow #44601495062](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44601495062) **completed successfully** for commit `4c73b199d91e697f2c31fb5a5a7071887214bbfe`. Its downloaded, inspected `c63-100style-neutral-source-inspection` artifact contains `100style-minimal-twist-probe.json` with 16 original-BVH pose comparisons and **every-frame measurements** across the full selected Idle (94 frames), Walk (82 frames) and Run (48 frames) cycles.
+
+Measured worst signed rest-local elbow axial magnitude from actual original-BVH samples:
+
+| Source cycle | Left current | Left candidate | Right current | Right candidate |
+| --- | ---: | ---: | ---: | ---: |
+| Idle | +105.04° @ 1342 | +42.45° @ 1342 | −66.01° @ 1325 | +4.25° @ 1372 |
+| Walk | +104.00° @ 625 | +41.41° @ 625 | −61.87° @ 648 | +11.99° @ 660 |
+| Run | +84.52° @ 505 | +21.93° @ 505 | −59.22° @ 504 | +23.48° @ 543 |
+
+The constant left-elbow reduction of ~62.59° does **not** mean 42° residual is physically natural. The current calibration conflates a sagittal body-forward source cue with a signed target palm surface, while the candidate simply transfers the *measured target cue* with a shortest-arc alignment. The official BVH lacks a source palm normal; neither case can certify true pronation from link positions alone. The original source channels, reference motion, toe fixes, approved UAL1 assets and 100STYLE experimental baked bytes were left unchanged. The corrected diagnostic can now be rerun against additional captured clips using the single existing source-family adapter; it is not a new retarget engine.
+
 ### Run seam source-authored diagnosis
 
 Reconstructed the exact published source FR channel quaternions for the selected capture loop **499–546**. Source local quaternion angular differences at the wrap are:
