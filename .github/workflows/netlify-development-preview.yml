@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       pull_request:
-        description: "Pull request number to preview (defaults to C6.2 PR #112)"
-        required: true
-        default: "112"
+        description: "Optional PR number. Blank selects the uniquely most recently active open PR targeting main."
+        required: false
+        default: ""
         type: string
       reason:
         description: "Why this preview is needed"
@@ -39,16 +39,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Resolve current PR and its latest successful Verify automatically
+      - name: Select preview PR and resolve latest successful Verify automatically
         env:
           GH_TOKEN: ${{ github.token }}
           PREVIEW_PR_NUMBER: ${{ inputs.pull_request }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$PREVIEW_PR_NUMBER" =~ ^[1-9][0-9]{0,7}$ ]]; then
-            echo "::error::Select a valid pull request number"; exit 1
+          # Blank input selects an active PR. Read all pages and reject
+          # ambiguity; never silently choose an unrelated older draft.
+          if [[ -z "${PREVIEW_PR_NUMBER//[[:space:]]/}" ]]; then
+            gh api --paginate --slurp \
+              "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
+              > "$RUNNER_TEMP/open-preview-prs.json"
           fi
+          PREVIEW_PR_NUMBER="$(node scripts/select-netlify-preview-pr.mjs "$RUNNER_TEMP/open-preview-prs.json")"
+          export PREVIEW_PR_NUMBER
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PREVIEW_PR_NUMBER" > "$RUNNER_TEMP/preview-pr.json"
           gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml" --jq .id > "$RUNNER_TEMP/verify-workflow-id"
           sha="$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")).head.sha' "$RUNNER_TEMP/preview-pr.json")"
