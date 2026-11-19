@@ -46,6 +46,29 @@ try{
       Math.round(first+(last-first)*.4),
       Math.round(first+(last-first)*.6),
       Math.round(first+(last-first)*.8),last];
+    const sourceReferenceProbes=[0,1,10,60,Math.max(0,first-1),first,
+      Math.round((first+last)/2)].map(index=>{
+      const pose=evaluateBVHWorldPose(source,index);
+      const p=name=>pose.positions[source.joints.findIndex(j=>j.name===name)];
+      const diff=(a,b)=>p(a).map((v,i)=>v-p(b)[i]);
+      const unit=v=>v.map(x=>x/Math.hypot(...v));
+      const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+      const torso=unit(diff("Chest4","Hips"));
+      const right=unit(diff("RightHip","LeftHip"));
+      const face=unit([right[1]*torso[2]-right[2]*torso[1],
+        right[2]*torso[0]-right[0]*torso[2],
+        right[0]*torso[1]-right[1]*torso[0]]);
+      const larm=unit(diff("LeftElbow","LeftShoulder"));
+      const rarm=unit(diff("RightElbow","RightShoulder"));
+      const lknee=unit(diff("LeftKnee","LeftHip"));
+      const rknee=unit(diff("RightKnee","RightHip"));
+      return {frame:index,torso,right,face,
+        leftUpperArm:larm,rightUpperArm:rarm,
+        leftUpperLeg:lknee,rightUpperLeg:rknee,
+        armSymmetryDot:dot(larm,rarm),
+        rootWorld:pose.positions[0],
+        pelvisRotation:pose.rotations[0]};
+    });
     const samples=probes.map(index=>{
       const pose=evaluateBVHWorldPose(source,index);
       const root=pose.positions[0],leftHip=pose.positions[19],rightHip=pose.positions[15];
@@ -57,7 +80,7 @@ try{
     });
     reports.push({name,sha256:pin,frames:source.frames,
       frameTimeSeconds:source.frameTimeSeconds,structureSha256:fingerprint,
-      captureStart:first,captureStop:last,sourceProbes:samples});
+      captureStart:first,captureStop:last,sourceProbes:samples,sourceReferenceProbes});
   }
   if(new Set(structure).size!==1)
     throw Error("100STYLE Neutral source family hierarchy/offsets diverge");
@@ -69,6 +92,7 @@ try{
     jointStructureSha256:structure[0],
     files:reports.map(r=>({name:r.name,frames:r.frames,
       frameTimeSeconds:r.frameTimeSeconds,range:[r.captureStart,r.captureStop],
-      firstProbe:r.sourceProbes[0],lastProbe:r.sourceProbes.at(-1)})),
+      firstProbe:r.sourceProbes[0],lastProbe:r.sourceProbes.at(-1),
+      referenceProbes:r.sourceReferenceProbes})),
   }));
 }finally{await server.close();}
