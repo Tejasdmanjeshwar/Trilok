@@ -63,6 +63,18 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         .not.toMatch(/playwright\s+(install|test)|pnpm\s+(test:e2e|exec\s+playwright)|chromium/i);
     }
   });
+  it("keeps C6.3 source acquisition numeric-only and SHA-pins manual multi-angle browser review",()=>{
+    const source=readFileSync(join(dir,"c63-100style-source-acquisition.yml"),"utf8");
+    const diagnostic=readFileSync(join(dir,"studio-interaction-diagnostics.yml"),"utf8");
+    expect(source).toContain("node scripts/calibrate-c63-100style.mjs --emit-review-blobs");
+    expect(source).not.toMatch(/browser-review:|playwright|chromium/i);
+    expect(source).toContain("actions/upload-artifact@v4");
+    expect(diagnostic).toContain("100style-review");
+    expect(diagnostic).toContain("e2e/studio-animation-c6-3-100style.spec.ts");
+    expect(diagnostic).toContain("ref: ${{ github.sha }}");
+    expect(diagnostic).toContain("test-results/studio-c6-3-100style/**");
+    expect(diagnostic).toContain("--retries=0 --workers=1");
+  });
   it("reuses only pinned MakeHuman assets across gated acceptance jobs",()=>{
     const verify=readFileSync(join(dir,"ci.yml"),"utf8");
     const acceptance=readFileSync(join(dir,"phase-acceptance.yml"),"utf8");
