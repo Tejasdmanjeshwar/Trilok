@@ -5,17 +5,15 @@ name: Manual Netlify development preview
 on:
   workflow_dispatch:
     inputs:
-      source_sha:
-        description: "Exact 40-character commit SHA to preview (from approved PR)"
+      pull_request:
+        description: "Pull request number to preview (defaults to C6.2 PR #112)"
         required: true
-        type: string
-      verify_run_id:
-        description: "Successful GitHub Verify run ID for the same exact SHA"
-        required: true
+        default: "112"
         type: string
       reason:
-        description: "Visual-review reason and PR/phase"
-        required: true
+        description: "Why this preview is needed"
+        required: false
+        default: "Animation/Studio review"
         type: string
 
 permissions:
@@ -35,38 +33,34 @@ jobs:
     timeout-minutes: 12
     environment: trilok-netlify-preview
     steps:
-      - name: Verify approval, source run and immutable SHA
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve current PR and its latest successful Verify automatically
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          VERIFY_RUN_ID: ${{ inputs.verify_run_id }}
-          REASON: ${{ inputs.reason }}
+          PREVIEW_PR_NUMBER: ${{ inputs.pull_request }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::Must supply exact 40-character source SHA"; exit 1
+          if [[ ! "$PREVIEW_PR_NUMBER" =~ ^[1-9][0-9]{0,7}$ ]]; then
+            echo "::error::Select a valid pull request number"; exit 1
           fi
-          if [[ ! "$VERIFY_RUN_ID" =~ ^[1-9][0-9]{0,15}$ ]]; then
-            echo "::error::Must supply existing Verify run ID"; exit 1
-          fi
-          if [[ -z "${REASON//[[:space:]]/}" ]]; then
-            echo "::error::Review reason is mandatory"; exit 1
-          fi
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFY_RUN_ID" > "$RUNNER_TEMP/verify-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PREVIEW_PR_NUMBER" > "$RUNNER_TEMP/preview-pr.json"
           gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml" --jq .id > "$RUNNER_TEMP/verify-workflow-id"
-          node -e '
-            const fs=require("node:fs");
-            const run=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
-            const expectedWorkflowId=Number(fs.readFileSync(process.env.RUNNER_TEMP+"/verify-workflow-id","utf8"));
-            if(run.name!=="Verify" || run.workflow_id!==expectedWorkflowId || run.status!=="completed" || run.conclusion!=="success" ||
-              run.head_sha!==process.env.SOURCE_SHA ||
-              !["pull_request","push"].includes(run.event) ||
-              run.repository?.full_name!==process.env.GITHUB_REPOSITORY)
-              throw Error("Verify run does not prove exact source SHA");
-          ' "$RUNNER_TEMP/verify-run.json"
-          echo "APPROVED_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
-          echo "APPROVED_VERIFY_RUN=$VERIFY_RUN_ID" >> "$GITHUB_ENV"
+          sha="$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8")).head.sha' "$RUNNER_TEMP/preview-pr.json")"
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::PR has no valid source SHA"; exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=pull_request&head_sha=$sha&per_page=100" \
+            > "$RUNNER_TEMP/verify-runs.json"
+          node scripts/resolve-netlify-preview.mjs \
+            "$RUNNER_TEMP/preview-pr.json" \
+            "$RUNNER_TEMP/verify-workflow-id" \
+            "$RUNNER_TEMP/verify-runs.json"
       - name: Resolve the unique immutable artifact of this Verify run
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,13 +78,6 @@ jobs:
             console.log("Reviewed PR/source SHA:",process.env.APPROVED_SOURCE_SHA);
             console.log("Build checkout SHA (may be PR merge SHA):",sha);
           ' "$RUNNER_TEMP/verify-artifacts.json"
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Install Node (no application rebuild)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
       - name: Retrieve successful verified static artifact
         env:
           GH_TOKEN: ${{ github.token }}
@@ -105,6 +92,16 @@ jobs:
           node scripts/verify-static-release.mjs \
             --dir "$RUNNER_TEMP/trilok-static" \
             --sha "$APPROVED_CHECKOUT_SHA"
+      - name: Reject stale PR head before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$APPROVED_PR_NUMBER" --jq .head.sha)"
+          if [[ "$latest" != "$APPROVED_SOURCE_SHA" ]]; then
+            echo "::error::PR moved since Verify resolution; rerun with current verified head"; exit 1
+          fi
       - name: Deploy development draft only (never --prod)
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
@@ -115,10 +112,11 @@ jobs:
           if [[ -z "$NETLIFY_AUTH_TOKEN" || -z "$NETLIFY_SITE_ID" ]]; then
             echo "::error::Configure two Netlify secrets in protected preview Environment"; exit 1
           fi
-          # CLI uploads the exact CI-built bytes; it does not compile remotely.
-          npx --yes netlify-cli@27.10.1 deploy \
-            --no-build --dir "$RUNNER_TEMP/trilok-static" \
-            --site "$NETLIFY_SITE_ID" --json > "$RUNNER_TEMP/netlify-result.json"
+          # Launch Netlify in a clean temp working directory instead of the
+          # Trilok pnpm monorepo. This avoids workspace auto-discovery and
+          # bounds both CLI startup and draft upload independently.
+          bash scripts/deploy-netlify-static.sh \
+            "$RUNNER_TEMP/trilok-static" "$RUNNER_TEMP/netlify-result.json"
           node -e '
             const fs=require("node:fs");
             const o=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
@@ -129,30 +127,11 @@ jobs:
               throw Error("Netlify returned no valid unique draft preview URL");
             fs.appendFileSync(process.env.GITHUB_ENV,"PREVIEW_URL="+url.origin+"\n");
           ' "$RUNNER_TEMP/netlify-result.json"
-      - name: Verify deployed identity and both actual browser entrypoints
+      - name: Verify private or public Netlify draft without disabling access protection
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail-with-body --location --retry 4 --retry-delay 2 \
-            --max-time 30 "$PREVIEW_URL/build-info.json" \
-            --output "$RUNNER_TEMP/live-build-info.json"
-          node -e '
-            const fs=require("node:fs");
-            const build=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
-            if(build.commitSha!==process.env.APPROVED_CHECKOUT_SHA)
-              throw Error("Deployed SHA does not match reviewed source SHA");
-          ' "$RUNNER_TEMP/live-build-info.json"
-          for path in "/" "/studio/"; do
-            curl --fail-with-body --location --retry 3 --max-time 30 \
-              "$PREVIEW_URL$path" --output "$RUNNER_TEMP/page.html"
-            grep -qi '<html' "$RUNNER_TEMP/page.html" ||
-              { echo "::error::Missing HTML entrypoint $path"; exit 1; }
-          done
-          {
-            echo "## Verified Trilok development preview"
-            echo "- Reviewed source/PR SHA: \`$APPROVED_SOURCE_SHA\`"\n            echo "- Actual tested build checkout SHA: \`$APPROVED_CHECKOUT_SHA\`"
-            echo "- Verify run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$APPROVED_VERIFY_RUN"
-            echo "- Preview: $PREVIEW_URL/studio/"
-            echo "- Environment: development draft only; no production publication"
-            echo "- Visual acceptance remains separate from deployed identity."
-          } >> "$GITHUB_STEP_SUMMARY"
+          node scripts/verify-netlify-preview.mjs "$RUNNER_TEMP/trilok-static"
