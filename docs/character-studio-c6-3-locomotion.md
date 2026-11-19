@@ -1,3 +1,39 @@
+## C6.3 measured 100STYLE source-family anterior-axis correction (2026-11-19)
+
+**Confirmed root cause of the apparent backward Run lean:** the original
+calibration defined anatomical forward as `cross(rightHip-leftHip, torsoUp)`,
+which is the **opposite** of the recorded 100STYLE forward locomotion direction.
+Official source world trajectories on the selected loop measured alignment
+cosines **−0.998903 for Neutral_FW and −0.999972 for Neutral_FR** against
+that convention. This is a source-space orientation/sign mismatch, not an
+excuse to make the target lean forward with per-clip Euler hacks.
+
+The offline family adapter now derives this sign from both authenticated
+forward trajectories, requires near-collinearity and agreement, and performs
+one sagittal coordinate reflection for the entire 100STYLE Neutral family.
+It applies the reflection consistently to world positions and world rotations
+through `R' = S R S`, `S = diag(1,1,-1)`, before invoking the existing
+C6.2 calibration. This is a **frame-convention conversion**, not a
+runtime pose counter-rotation or a reflection inserted into the target rig.
+Original BVH channel ordering and SHA-256 identities are preserved.
+
+The recalibrated source/target measures, using the same source recordings and
+loop intervals, show 1.362 m forward Walk travel and 1.700 m forward Run travel
+along body-facing; the source Run leans **7.336°–13.303° toward motion** over
+five samples, with source-to-target torso-lean differences approximately
+0.059°–0.062°. A numeric-only source reacquisition and bake passed in
+[workflow #44579105093](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44579105093).
+The three reviewer-only canonical clips and common calibration profile were
+rebaked and transferred to **this same PR #118**; normal C6.2 choices and
+approved asset bytes remain untouched.
+
+**Important limits:** source-vs-target reconstructed FK agreement is not
+independent evidence of skinned hand orientation, trustworthy wrist twist,
+foot skin-grounding, or visually natural arm pumping. The Run loop still has
+a ~13.96° worst sampled rotational seam, unchanged by correcting a coordinate
+convention. Full-cycle skinned Chromium inspection, source reference comparisons,
+and owner visual approval remain mandatory. No merge or production deploy.
+
 ## 2026-11-19 — Anatomical revalidation and CI policy repair (PR #118, still blocked)
 
 **Scope remains one C6.3 PR. Do not merge or promote these clips.** The owner's
