@@ -214,37 +214,6 @@ try{
   const worldDir=(from,to)=>refPos(to).clone().sub(refPos(from)).normalize();
   const upper=worldDir("Hips","Chest4");
   const face=new THREE.Vector3(0,0,1);
-  // A straight shaft does not determine elbow roll. The generic humanoid
-  // target descriptor uses palm normals for the elbow cue, but fingerless
-  // 100STYLE BVH has no corresponding palm surfaces. For this source family
-  // use the same measured shoulder-elbow-wrist bend-plane convention on
-  // both calibrated reference poses instead. No new retarget engine, invented
-  // wrist roll, or per-clip counter-rotation is introduced.
-  const bendPlane=(shoulder,elbow,wrist,label)=>{
-    const upper=v(elbow).sub(v(shoulder));
-    const lower=v(wrist).sub(v(elbow));
-    const normal=new THREE.Vector3().crossVectors(upper,lower);
-    if(normal.lengthSq()<1e-7)
-      throw Error("Degenerate measured elbow bend plane "+label);
-    return normal.normalize().toArray();
-  };
-  const elbowIdBySource=new Map(),targetElbowPlaneById=new Map();
-  for(const side of ["Left","Right"]){
-    const suffix=side.toLowerCase();
-    const elbow=graph.joints.find(j=>j.role==="elbow_"+suffix);
-    if(!elbow)throw Error("Missing canonical elbow "+suffix);
-    elbowIdBySource.set(side+"Elbow",elbow.id);
-    targetElbowPlaneById.set(elbow.id,bendPlane(
-      targetRole("shoulder_"+suffix).restWorldPosition,
-      targetRole("elbow_"+suffix).restWorldPosition,
-      targetRole("wrist_"+suffix).restWorldPosition,
-      side+" target"));
-  }
-  // Preserve every actual MakeHuman C1 bind transform; only the physically
-  // measured auxiliary elbow roll axis changes in this source calibration.
-  target={...target,joints:target.joints.map(j=>
-    targetElbowPlaneById.has(j.id)
-      ? {...j,secondaryWorld:targetElbowPlaneById.get(j.id)}:j)};
   const sourceJoints=id.source.joints.map((joint,i)=>{
     const start=reference.positions[i];
     const child=shaftChild[joint.name];
@@ -264,18 +233,13 @@ try{
     if(axis.lengthSq()<1e-8)throw Error("Zero shaft "+joint.name);
     // Signed body-frame cue; BVH has no fingers/palm metadata, so wrists' twist
     // calibration remains provisional and is explicitly reported as such.
-    const secondary=/Elbow$/.test(joint.name)
-      ? bendPlane(refPos(joint.name.replace("Elbow","Shoulder")).toArray(),
-          start.toArray(),
-          refPos(joint.name.replace("Elbow","Wrist")).toArray(),
-          joint.name+" source")
-      : /Ankle$|Toe$/.test(joint.name)?upper.toArray():face.toArray();
+    const secondary=/Ankle$|Toe$/.test(joint.name)?upper:face;
     return {
       id:joint.name,parentId:joint.parent===null?null:id.source.joints[joint.parent].name,
       restWorldPosition:start.toArray(),
       restWorldRotation:reference.rotations[i].toArray(),
       shaftWorld:axis.normalize().toArray(),
-      secondaryWorld:secondary,
+      secondaryWorld:secondary.toArray(),
     };
   });
   const sourceRig={schemaVersion:1,identitySha256:fingerprint,
