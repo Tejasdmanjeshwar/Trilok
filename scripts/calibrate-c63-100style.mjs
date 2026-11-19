@@ -627,6 +627,8 @@ try{
     sourceReferenceFrame:assets["Neutral_ID.bvh"][1],
     sourceToTargetScale:scale,
     sourceFrameCorrectionQuaternion:normQ.toArray(),
+    sourceSagittalReflection:mirrorSagittal,
+    sourceAnteriorSignEvidence:familyTravelEvidence,
     targetIdentitySha256:targetHash,
     profileSha256:digest(JSON.stringify(profile,null,2)+"\n"),
     license:"CC-BY-4.0",origin:"https://www.ianxmason.com/100style/",
