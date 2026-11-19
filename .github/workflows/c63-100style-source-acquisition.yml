@@ -40,10 +40,10 @@ jobs:
       - name: Measure one shared 100STYLE to MakeHuman anatomical calibration
         run: node scripts/calibrate-c63-100style.mjs
       - name: Retain authenticated source inspection temporarily
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: c63-100style-neutral-source-inspection
           path: c63-100style-acquisition/
           retention-days: 2
-          if-no-files-found: error
+          if-no-files-found: warn
