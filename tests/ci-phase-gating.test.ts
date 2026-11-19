@@ -125,11 +125,13 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
     expect(preview).toContain('run.conclusion!=="success"');
     expect(preview).toContain("run.workflow_id!==expectedWorkflowId");
     expect(preview).toContain("run.head_sha!==process.env.SOURCE_SHA");
-    expect(preview).toContain("trilok-static-$APPROVED_SOURCE_SHA");
+    expect(preview).toContain("trilok-static-$APPROVED_CHECKOUT_SHA");
+    expect(preview).toContain("APPROVED_SOURCE_SHA");
+    expect(preview).toContain("APPROVED_CHECKOUT_SHA");
     expect(preview).toContain("--no-build");
     expect(preview).toContain("netlify-cli@27.10.1");
     expect(preview).toContain("verify-static-release.mjs");
-    expect(preview).toContain('build.commitSha!==process.env.APPROVED_SOURCE_SHA');
+    expect(preview).toContain('build.commitSha!==process.env.APPROVED_CHECKOUT_SHA');
     expect(preview).not.toMatch(/--prod(?:\\s|$)/m);
     expect(preview).not.toContain("wrangler deploy");
     expect(preview).not.toContain("pnpm build");
