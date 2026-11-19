@@ -67,6 +67,23 @@ jobs:
           ' "$RUNNER_TEMP/verify-run.json"
           echo "APPROVED_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "APPROVED_VERIFY_RUN=$VERIFY_RUN_ID" >> "$GITHUB_ENV"
+      - name: Resolve the unique immutable artifact of this Verify run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPROVED_VERIFY_RUN/artifacts" > "$RUNNER_TEMP/verify-artifacts.json"
+          node -e '
+            const fs=require("node:fs");
+            const artifacts=JSON.parse(fs.readFileSync(process.argv[1],"utf8")).artifacts;
+            const matches=artifacts.filter(a=>/^trilok-static-[0-9a-f]{40}$/.test(a.name) && !a.expired);
+            if(matches.length!==1)throw Error("Expected exactly one unexpired SHA-named artifact from this Verify run");
+            const sha=matches[0].name.slice("trilok-static-".length);
+            fs.appendFileSync(process.env.GITHUB_ENV,"APPROVED_CHECKOUT_SHA="+sha+"\\n");
+            console.log("Reviewed PR/source SHA:",process.env.APPROVED_SOURCE_SHA);
+            console.log("Build checkout SHA (may be PR merge SHA):",sha);
+          ' "$RUNNER_TEMP/verify-artifacts.json"
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -83,11 +100,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/trilok-static"
           gh run download "$APPROVED_VERIFY_RUN" \
             --repo "$GITHUB_REPOSITORY" \
-            --name "trilok-static-$APPROVED_SOURCE_SHA" \
+            --name "trilok-static-$APPROVED_CHECKOUT_SHA" \
             --dir "$RUNNER_TEMP/trilok-static"
           node scripts/verify-static-release.mjs \
             --dir "$RUNNER_TEMP/trilok-static" \
-            --sha "$APPROVED_SOURCE_SHA"
+            --sha "$APPROVED_CHECKOUT_SHA"
       - name: Deploy development draft only (never --prod)
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
@@ -122,7 +139,7 @@ jobs:
           node -e '
             const fs=require("node:fs");
             const build=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
-            if(build.commitSha!==process.env.APPROVED_SOURCE_SHA)
+            if(build.commitSha!==process.env.APPROVED_CHECKOUT_SHA)
               throw Error("Deployed SHA does not match reviewed source SHA");
           ' "$RUNNER_TEMP/live-build-info.json"
           for path in "/" "/studio/"; do
@@ -133,7 +150,7 @@ jobs:
           done
           {
             echo "## Verified Trilok development preview"
-            echo "- Exact SHA: \`$APPROVED_SOURCE_SHA\`"
+            echo "- Reviewed source/PR SHA: \`$APPROVED_SOURCE_SHA\`"\n            echo "- Actual tested build checkout SHA: \`$APPROVED_CHECKOUT_SHA\`"
             echo "- Verify run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$APPROVED_VERIFY_RUN"
             echo "- Preview: $PREVIEW_URL/studio/"
             echo "- Environment: development draft only; no production publication"
