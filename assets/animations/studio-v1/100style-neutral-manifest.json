@@ -12,7 +12,7 @@
     -0.10457306328041553
   ],
   "targetIdentitySha256": "66ecf6318f96d9bb2223969e09a9fa7ef09433b4022fc53fe7913c76cfc5ffc7",
-  "profileSha256": "b549e392cf5fa38cbd29493265ba3060d2dd899204a34d2f9a9698c931744eb3",
+  "profileSha256": "4662883947ab42cd56896af3f2c2fa0a2f66045dbac4c6e61d171f587698bfb9",
   "license": "CC-BY-4.0",
   "origin": "https://www.ianxmason.com/100style/",
   "clips": [
@@ -36,8 +36,8 @@
       "targetAngularSeamMaxDegrees": 0.2683,
       "verticalSeamMeters": 0.00002744655818252011,
       "rootWorldTravelMeters": 0.0019171336415121126,
-      "artifactSha256": "796e707afd170fa75ef58f3a4c75c00fe47ef8e34b29ef0d4045ae379c6f14fc",
-      "bytes": 186256,
+      "artifactSha256": "885ab2ef6d242b10d77cd32bc9aceeef4f4acd6cca00e9c4fc42cfb03a9b52ed",
+      "bytes": 185090,
       "acceptedForProduction": false
     },
     {
@@ -60,8 +60,8 @@
       "targetAngularSeamMaxDegrees": 3.5221,
       "verticalSeamMeters": 0.00038753195643212305,
       "rootWorldTravelMeters": 1.3631284996875914,
-      "artifactSha256": "60666a3d9e530fd4db6e082f76dc2d409a0f54260f4b7d79f4ceea334ec580c6",
-      "bytes": 165420,
+      "artifactSha256": "e805b6cb081ba8d60521adf8d2caab7d19b7ccc66fe783c5b4f173195b5a77f7",
+      "bytes": 164568,
       "acceptedForProduction": false
     },
     {
@@ -84,8 +84,8 @@
       "targetAngularSeamMaxDegrees": 13.9584,
       "verticalSeamMeters": 0.004337958656318728,
       "rootWorldTravelMeters": 1.699746851941093,
-      "artifactSha256": "c959623919c958fcb21f679fbd4686e4edca7a2eb8cef0ec1d746606cf2f5969",
-      "bytes": 98016,
+      "artifactSha256": "25e376501e3ebc594fbbc389f2f1a4fd6b37da4adbd2b5d0c0a101c25a2f56c5",
+      "bytes": 97612,
       "acceptedForProduction": false
     }
   ],
