@@ -80,7 +80,7 @@ jobs:
             const matches=artifacts.filter(a=>/^trilok-static-[0-9a-f]{40}$/.test(a.name) && !a.expired);
             if(matches.length!==1)throw Error("Expected exactly one unexpired SHA-named artifact from this Verify run");
             const sha=matches[0].name.slice("trilok-static-".length);
-            fs.appendFileSync(process.env.GITHUB_ENV,"APPROVED_CHECKOUT_SHA="+sha+"\\n");
+            fs.appendFileSync(process.env.GITHUB_ENV,"APPROVED_CHECKOUT_SHA="+sha+"\n");
             console.log("Reviewed PR/source SHA:",process.env.APPROVED_SOURCE_SHA);
             console.log("Build checkout SHA (may be PR merge SHA):",sha);
           ' "$RUNNER_TEMP/verify-artifacts.json"
