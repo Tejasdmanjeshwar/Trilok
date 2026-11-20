@@ -26,6 +26,13 @@ not yet a before/after browser trace establishing causation.
   allocation is shared. The same existing `bindTemplateToSemanticRig`
   performs the authoritative calibration and skin-weight fitting for each
   new human. The original MakeHuman vertices, indices and morphs are unchanged.
+- The body atlas is now prepared in a one-shot module Web Worker. The
+  worker calls the *same* source index/chunk loader and SHA-256/decompression
+  validation; it packs original number rows into Float64Array for zero-copy
+  buffer transfer and terminates after transfer. The main thread owns the
+  transferred numeric arrays thereafter. Unsupported/crashed worker paths
+  retry through the original main-thread source loader. Concurrent callers
+  share one in-flight worker preparation; a rejection clears the promise.
 - After the initial neutral model is attached, the Studio schedules
   low-priority atlas preparation via `requestIdleCallback` (timeout 6 s),
   or a delayed callback where unavailable. It uses the exact existing
@@ -47,15 +54,19 @@ the page lifetime. Per-generation geometry is deep-cloned before mutation and
 disposed with its human. The atlas cache is separately owned by the existing
 atlas modules. Existing source checksum and schema validation is preserved.
 There is no cross-tab persistent decoded cache; full reload prepares it again.
+The transferable atlas's original source number values remain exactly
+representable as Float64; converting to Float32 would be lossy and is avoided.
 
-A worker implementation is intentionally **not asserted complete**:
-there are no measurements identifying which CPU stage dominates, and
-transferring an atlas as deeply cloned nested JavaScript number arrays could
-double memory and introduce latency. The existing archery worker is unchanged.
-A generation worker remains the next step **if** a browser trace demonstrates
-CPU-bound JSON parsing or morph evaluation on the main thread. A typed,
-transferable numeric format and worker/fallback equivalence need testing
-before adopting it.
+This worker currently covers **body atlas preparation only**, not actual
+body/face morphology, skin fitting, or full-character generation. Facial
+atlas preparation remains on the main thread. A fuller generation worker
+must await measured profiling and independent geometry/rig parity validation.
+The existing archery worker remains unchanged. The worker result is a
+versioned, one-shot {version:1,type:prepared|error} reply, with owned
+Float64Array buffers transferred to the main thread. The worker does not
+retain a persistent atlas copy; termination releases its source arrays.
+Transfer and fallback outputs are validated against the same source atlas
+contract. Browser worker/fallback performance parity remains unmeasured.
 
 ## Benchmark and review protocol (required before acceptance)
 
@@ -77,3 +88,15 @@ gates. This branch is not proof of a few-second cold start.
 
 No animations, combat code, production deployment workflow or retargeting data
 are changed.
+
+
+## Available instrumented browser measurement
+
+`e2e/studio-generation-performance.spec.ts` records startup wall time,
+click-to-next-render durations for deterministic seeds 2694905601, 1729 and
+42, bounded diagnostic build stages and individual anatomy resource entries
+in `test-results/studio/random-generation-performance-<project>.json`.
+This is an evidence collection test, not a performance claim. Run the exact
+same test on main and PR head with controlled cold/warm HTTP cache and
+document both environments; static source inspection alone cannot establish
+a speedup.
