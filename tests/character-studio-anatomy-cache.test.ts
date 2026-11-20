@@ -16,7 +16,7 @@ describe("Studio immutable source preparation",()=>{
       if(!name)throw new Error("Unexpected source URL "+path);
       calls.push(name);
       const bytes=readFileSync(new URL("../apps/web/public/anatomy/"+name,import.meta.url));
-      return new Response(bytes,{status:200});
+      return new Response(new Uint8Array(bytes),{status:200});
     });
     globalThis.fetch=fetchMock as typeof fetch;
     let first:Awaited<ReturnType<typeof loadAnatomicalHuman>>|undefined;
