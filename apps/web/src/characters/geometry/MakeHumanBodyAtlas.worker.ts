@@ -25,7 +25,8 @@ self.onmessage=(event:MessageEvent<PrepareRequest>):void=>{
       const payload:BodyAtlas={...atlas,
         payload:{...atlas.payload,targets}};
       const response:AtlasWire={version:1,type:"prepared",atlas:payload};
-      self.postMessage(response,transfers);
+      (self as unknown as {postMessage:(value:AtlasWire,transfer:Transferable[])=>void})
+        .postMessage(response,transfers);
     }catch(error){
       self.postMessage({version:1,type:"error",
         message:error instanceof Error?error.message:String(error)} satisfies ErrorWire);
