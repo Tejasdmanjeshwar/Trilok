@@ -395,7 +395,7 @@ try {
     immutableSourceRestSha256:source.restSha256,
     sourceModelSha256:hash(maleFBX),sourceBindEvidence,
     targetCalibrationSha256:calibrationSha256,profileSha256,
-    entries,selection:c63?"c63-directional-review":all?"full-male-audit":"foundational-3",
+    entries,...(c63?{selection:"c63-directional-review"}:{}),
     distribution:"game-integrated-canonical-motion-resources"},null,2)+"\n";
   // Validate or write complete deterministic outputs; never silently drift.
   if(write) {
