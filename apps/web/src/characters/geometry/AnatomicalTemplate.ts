@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { applyOfficialSkinWeights, calibrateHumanBones, makeSourceLandmarks, type SourceRig, type SourceWeights, type RigDiagnostics } from "./OfficialHumanRig";
 import { createSkinningSpike, validateSkinningSpike, type SkinningSpike } from "./SkinningSpike";
 import { AnatomicalFK, type AnatomicalMotion, type JointTarget } from "./AnatomicalFK";
+import {SourceSkinningFidelity} from "./SourceSkinningFidelity";
 
 /**
  * Deterministic OBJ adapter for verified core MakeHuman geometry. Face-corner UV
@@ -31,6 +32,7 @@ export interface AnatomicalHuman {
   readonly mesh: THREE.SkinnedMesh;
   readonly template: AnatomicalTemplate;
   readonly rigDiagnostics?: RigDiagnostics;
+  readonly sourceSkinFidelity?:SourceSkinningFidelity;
   /** The pinned CC0 joint vertex map used by MakeHuman to refit rest joints. */
   readonly sourceRig?: SourceRig;
   /** Source jaw tip rest-world position; used to calibrate sagittal opening. */
@@ -256,6 +258,7 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
   });
   const geometry=template.geometry;
   if(official){
+    let fidelity:SourceSkinningFidelity|undefined;
     let diagnostic:RigDiagnostics;
     let displacement=0;
     let jawTipWorldRest:THREE.Vector3|undefined;
@@ -289,21 +292,29 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
       const sampledMotions=calibratedSkinMotionSamples(spike,jawTipWorldRest);
       official.onTiming?.("shoulder-motion-sampling",performance.now()-samplingStart);
       const fittingStart=performance.now();
+      const originalShoulderWeights=new Map<number,ReadonlyMap<number,number>>();
       diagnostic=applyOfficialSkinWeights(template,spike.graph,official.rig,
-        official.weights,proximalIndices,shoulderIndices,sampledMotions);
+        official.weights,proximalIndices,shoulderIndices,sampledMotions,
+        (sourceId,weights)=>originalShoulderWeights.set(sourceId,new Map(weights)));
       official.onTiming?.("skin-influence-fitting",performance.now()-fittingStart);
       if(diagnostic.unweightedVertices||diagnostic.unmappedBones.length)
         throw new Error("Official rig incomplete: "+diagnostic.unweightedVertices+" unweighted render vertices; "+diagnostic.unmappedBones.join(","));
       spike.mesh.geometry=geometry;
       spike.mesh.name="C2_MAKEHUMAN_CC0_WEIGHTED_SKINNING";
       validateSkinningSpike(spike);
-    }catch(error){geometry.dispose();spike.dispose();throw error;}
+      fidelity=new SourceSkinningFidelity(spike.mesh,template.sourceVertexIds,
+        originalShoulderWeights);
+      const correction=fidelity;
+      spike.mesh.onBeforeRender=()=>correction.update();
+    }catch(error){fidelity?.dispose();geometry.dispose();spike.dispose();throw error;}
     let disposed=false;
     return {spike,mesh:spike.mesh,template,jawTipWorldRest,sourceRig:official.rig,
+      sourceSkinFidelity:fidelity,
       rigDiagnostics:{...diagnostic,maxBindDisplacementMeters:displacement},
       vertexCount:geometry.getAttribute("position").count,
       triangleCount:geometry.getIndex()!.count/3,
-      dispose(){if(disposed)return;disposed=true;geometry.dispose();spike.dispose();}};
+      dispose(){if(disposed)return;disposed=true;fidelity?.dispose();
+        geometry.dispose();spike.dispose();}};
   }
   const indices:number[]=[],weights:number[]=[];
   const joints=spike.graph.joints;

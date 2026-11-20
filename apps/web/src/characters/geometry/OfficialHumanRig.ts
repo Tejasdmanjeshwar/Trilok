@@ -216,6 +216,7 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
   shoulderConnectorIndices?:ReadonlyMap<Side,number>,
   /** Calibrated FK samples for source-weight fidelity in CC0 shoulder patches. */
   motionSamples?:readonly (readonly THREE.Matrix4[])[],
+  onOverloadedShoulderSource?:(sourceId:number,weights:ReadonlyMap<number,number>)=>void,
 ):RigDiagnostics {
   if(rig.license!=="CC0"||data.license!=="CC0")
     throw new Error("Source skin data must be CC0");
@@ -312,6 +313,10 @@ export function applyOfficialSkinWeights(template:AnatomicalTemplate,
   for(const sourceId of template.sourceVertexIds){
     const influences=perSource.get(sourceId);
     const compact = new Map(influences);
+    // Retain the original source ownership for a bounded render-time LBS
+    // fidelity correction; GPU slots and weapon/contact ownership do not change.
+    if(compact.size>4&&shoulderSourceIds.has(sourceId))
+      onOverloadedShoulderSource?.(sourceId,compact);
     if(compact.size>4){
       for(const {wrist,palm} of passivePalmPairs){
         const wristWeight=compact.get(wrist),palmWeight=compact.get(palm);
