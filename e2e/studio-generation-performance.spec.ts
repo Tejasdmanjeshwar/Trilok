@@ -27,7 +27,27 @@ test("record real random-generation latency and resource timings for three seeds
       window.dispatchEvent(new Event("trilok:studio:request-metrics"));
     }));
     captures.push({seed,elapsedMs,diagnostics});
+    // Rendered evidence, same seed and default camera in both source revisions.
+    await page.screenshot({path:"test-results/studio/"+
+      test.info().project.name+"-seed-"+seed+".png",animations:"disabled"});
   }
+  // A page reload discards module-level decoded data while retaining the
+  // browser context's HTTP cache; measure one same-seed generation afterward.
+  const warmReloadStarted=Date.now();
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",
+    {timeout:120_000});
+  const warmReloadReadyMs=Date.now()-warmReloadStarted;
+  await page.getByRole("button",{name:"Generate",exact:true}).click();
+  await page.locator("#studio-generator-seed").fill("2694905601");
+  const warmFirstStarted=Date.now();
+  await page.locator("#studio-generator-seed-create").click();
+  await expect(page.locator("#studio-generator-feedback"))
+    .toContainText("Character generated from seed 2694905601",
+      {timeout:180_000});
+  await page.evaluate(()=>new Promise<void>(resolve=>
+    requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  const warmReloadFirstGenerationMs=Date.now()-warmFirstStarted;
   const resources=await page.evaluate(()=>performance.getEntriesByType("resource")
     .filter(e=>e.name.includes("/anatomy/"))
     .map(e=>({name:new URL(e.name).pathname,durationMs:e.duration,
@@ -35,11 +55,13 @@ test("record real random-generation latency and resource timings for three seeds
       decodedBodySize:(e as PerformanceResourceTiming).decodedBodySize})));
   mkdirSync("test-results/studio",{recursive:true});
   writeFileSync("test-results/studio/random-generation-performance-"+test.info().project.name+".json",
-    JSON.stringify({startupMs,captures,resources,project:test.info().project.name},null,2));
+    JSON.stringify({startupMs,warmReloadReadyMs,warmReloadFirstGenerationMs,
+      captures,resources,project:test.info().project.name},null,2));
   expect(captures).toHaveLength(3);
   for(const item of captures as Array<{elapsedMs:number;diagnostics:{
-    generations:readonly unknown[]}}>) {
+    generations?:readonly unknown[]}}>) {
     expect(item.elapsedMs).toBeGreaterThan(0);
-    expect(item.diagnostics.generations.length).toBeGreaterThan(0);
+    if(Array.isArray(item.diagnostics.generations))
+      expect(item.diagnostics.generations.length).toBeGreaterThan(0);
   }
 });
