@@ -5,7 +5,7 @@ import {createAnimationSampler} from "../packages/character-core/src/index";
 import {loadBakedStudioAnimation} from "../apps/web/src/studio/StudioAnimationLibrary";
 import {bindTemplateToSemanticRig,parseAnatomicalOBJ} from "../apps/web/src/characters/geometry/AnatomicalTemplate";
 import {AnatomicalFK} from "../apps/web/src/characters/geometry/AnatomicalFK";
-import type {SourceRig,SourceWeights} from "../apps/web/src/characters/geometry/OfficialHumanRig";
+import {sourceWeightRole,type SourceRig,type SourceWeights} from "../apps/web/src/characters/geometry/OfficialHumanRig";
 
 /** Experimental C121 measurements. Remove this after isolating a reusable fix. */
 const asset=(name:string)=>readFileSync(
@@ -183,6 +183,58 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
         return corners[1]!.clone().sub(corners[0]!)
           .cross(corners[2]!.clone().sub(corners[0]!)).normalize();
       };
+      // The source CC0 skin may have 5+ distinct mapped owners, truncated
+      // to four on the GPU. Compare exact unpruned mapped LBS at the same
+      // pose to isolate whether compaction explains the *upper clavicle* fold.
+      const roles=new Map(human.spike.graph.joints.map((j,i)=>[j.role,i]));
+      const originals=new Map<number,Map<number,number>>();
+      for(const [name,entries] of Object.entries(weights.weights)){
+        const role=sourceWeightRole(name);
+        let mapped=role?roles.get(role):undefined;
+        const connector=/^shoulder01\.(L|R)$/.exec(name);
+        if(connector){
+          const side=connector[1]==="L"?"right":"left";
+          mapped=human.spike.skeleton.bones.indexOf(
+            human.spike.shoulderSkinBones!.get(side as "left"|"right")!);
+        }
+        if(mapped===undefined)throw new Error("Unmapped original source skin "+name);
+        for(const [id,weight] of entries){
+          let byBone=originals.get(id);
+          if(!byBone){byBone=new Map();originals.set(id,byBone);}
+          byBone.set(mapped,(byBone.get(mapped)??0)+weight);
+        }
+      }
+      const sourceIds=human.template.sourceVertexIds;
+      const unpruned=(()=>{
+        const matrices=human.spike.skeleton.bones.map((bone,i)=>
+          bone.matrixWorld.clone().multiply(human.spike.skeleton.boneInverses[i]!));
+        const memo=new Map<number,THREE.Vector3>();
+        return (id:number)=>{
+          const cached=memo.get(id);if(cached)return cached;
+          const sourceId=sourceIds[id]!;
+          const weightsByBone=originals.get(sourceId);
+          if(!weightsByBone)throw new Error("Missing MakeHuman source owner "+sourceId);
+          const sum=[...weightsByBone.values()].reduce((a,b)=>a+b,0);
+          const position=new THREE.Vector3().fromBufferAttribute(
+            human.mesh.geometry.getAttribute("position"),id);
+          const out=new THREE.Vector3();
+          for(const [bone,weight] of weightsByBone)
+            out.addScaledVector(position.clone().applyMatrix4(matrices[bone]!),weight/sum);
+          memo.set(id,out);return out;
+        };
+      })();
+      for(const face of targetFaces){
+        const rest=referenceFace(human,face,i=>new THREE.Vector3().fromBufferAttribute(
+          human.mesh.geometry.getAttribute("position"),i));
+        const current=referenceFace(human,face,i=>
+          human.mesh.getVertexPosition(i,new THREE.Vector3()));
+        const exact=referenceFace(human,face,unpruned);
+        console.log("TRILOK_C121_UNPRUNED "+JSON.stringify({
+          face,currentRatio:current.area/rest.area,unprunedRatio:exact.area/rest.area,
+          currentNormalDot:current.normal.dot(rest.normal),
+          unprunedNormalDot:exact.normal.dot(rest.normal),
+        }));
+      }
       // Compare linear-blend skinning against a per-vertex DQS reference
       // with identical source geometry, weights, bind matrices and pose.
       // A DQS win is only a hypothesis gate, not GPU shader approval.
