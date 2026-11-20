@@ -278,6 +278,39 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
           faceRatio:+faceInfo(human,face).ratio.toFixed(6),
         }));
       }
+      // Snapshot read-only bone-skin matrices for a source-indexed offline
+      // optimization experiment. Never modify production animation clips.
+      console.log("TRILOK_C121_ROLE_INDEX "+JSON.stringify({
+        roles:human.spike.graph.joints.map((j,i)=>[j.role,i]),
+        shoulderHelpers:(["left","right"] as const).map(side=>[
+          side,human.spike.skeleton.bones.indexOf(
+            human.spike.shoulderSkinBones!.get(side)!)
+        ]),
+        forearmHelpers:(["left","right"] as const).map(side=>[
+          side,human.spike.skeleton.bones.indexOf(
+            human.spike.forearmSkinBones!.get(side)!)
+        ]),
+      }));
+      for(const clipId of ["human-kevin-idle","human-kevin-walk",
+        "human-kevin-run","human-idle","human-walk","human-jog",
+        "human-sprint"]){
+        const source=loadBakedStudioAnimation(clipId,human.spike.graph);
+        const sampleClip=createAnimationSampler(source,human.spike.graph);
+        const times=clipId==="human-kevin-run"?
+          [0,.15,.30,.40,.45,.48,.50,.51,.52,.54,.57,.60]:
+          [0,source.durationSeconds*.25,source.durationSeconds*.5,
+            source.durationSeconds*.75];
+        for(const t of times){
+          fk.applyRestDeltas(sampleClip.sample(t));
+          const matrices=human.spike.skeleton.bones.map((bone,i)=>
+            bone.matrixWorld.clone().multiply(
+              human.spike.skeleton.boneInverses[i]!).elements.map(x=>
+              +x.toFixed(9)));
+          console.log("TRILOK_C121_BONE_MATRIX "+JSON.stringify({
+            clipId,time:t,matrices,
+          }));
+        }
+      }
     }finally{human.dispose();}
   },120_000);
 });
