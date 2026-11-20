@@ -9,7 +9,9 @@ import {sourceBoneForRole} from "./OfficialHumanRig";
 /** C3.6: source-indexed, topology-preserving original MakeHuman CC0 body targets.
  * Supports native direct modifier endpoint behavior and explicit macro interpolation.
  * Native MakeHuman executable/oracle equivalence remains a separate acceptance gate. */
-export type BodyTarget=Readonly<{id:string;rows:readonly number[]}>;
+/** Numeric rows preserve source Float64 precision when transferred by a worker.
+ * The main-thread loader also accepts original JSON number arrays. */
+export type BodyTarget=Readonly<{id:string;rows:readonly number[]|Float64Array}>;
 export type BodyAtlas=Readonly<{
   payload:Readonly<{schemaVersion:1;revision:string;license:"CC0-1.0";
     units:"MakeHuman source coordinates";sourceManifestHash:string;
@@ -107,7 +109,7 @@ export function validateBodyAtlas(atlas:BodyAtlas,sourceCount:number):ReadonlyMa
   const result=new Map<string,BodyTarget>();
   for(const t of atlas.payload.targets){
     if(!/^(neck|torso|hip|stomach|buttocks|pelvis|armslegs|breast|genitals|bodyshapes|measure|macrodetails)(\/|$)/.test(t.id)||
-       result.has(t.id)||!Array.isArray(t.rows)||t.rows.length%4!==0||
+       result.has(t.id)||!(Array.isArray(t.rows)||t.rows instanceof Float64Array)||t.rows.length%4!==0||
        t.rows.length>sourceCount*4)
       throw new Error("Malformed MakeHuman source body target "+t.id);
     const seen=new Set<number>();
@@ -573,7 +575,7 @@ async function checkedBodyChunk(chunk:BodyChunkIndex["chunks"][number],
     throw new Error("C3.6 source chunk target count mismatch "+chunk.name);
   return payload.targets;
 }
-export async function loadBodyAtlas(signal?:AbortSignal):Promise<BodyAtlas>{
+async function loadBodyAtlasOnThread(signal?:AbortSignal):Promise<BodyAtlas>{
   if(!request)request=(async()=>{
     const response=await fetch("/anatomy/makehuman-body-v1-index.json",{signal});
     if(!response.ok)throw new Error("Pinned MakeHuman C3.6 body index unavailable");
@@ -600,4 +602,65 @@ export async function loadBodyAtlas(signal?:AbortSignal):Promise<BodyAtlas>{
       targets},contentDigest:index.sourceManifestHash} as BodyAtlas;
   })().catch(e=>{request=undefined;throw e;});
   return request;
+}
+
+/**
+ * Prepare immutable compressed MakeHuman atlas in a one-shot module worker.
+ * The worker uses the SAME checksum/decompression/parsing implementation
+ * above and transfers Float64 source rows (no structured clone of giant
+ * JavaScript arrays). The worker terminates after ownership transfer.
+ *
+ * The source loader remains the fallback for unsupported/failed workers.
+ * A single shared promise prevents duplicate concurrent preparation.
+ */
+let workerRequest:Promise<BodyAtlas>|undefined;
+async function loadBodyAtlasInWorker():Promise<BodyAtlas>{
+  const worker=new Worker(new URL("./MakeHumanBodyAtlas.worker.ts",import.meta.url),
+    {type:"module"});
+  return new Promise<BodyAtlas>((resolve,reject)=>{
+    let settled=false;
+    const finish=(error?:Error,atlas?:BodyAtlas):void=>{
+      if(settled)return;
+      settled=true;
+      worker.onmessage=null;
+      worker.onerror=null;
+      worker.terminate();
+      if(error)reject(error);
+      else resolve(atlas!);
+    };
+    worker.onerror=event=>finish(new Error(event.message||"MakeHuman atlas worker failed"));
+    worker.onmessage=event=>{
+      const value=event.data as {
+        version?:unknown;type?:unknown;atlas?:BodyAtlas;message?:unknown;
+      };
+      if(value?.version!==1){finish(new Error("Invalid body atlas worker protocol"));return;}
+      if(value.type==="error"){
+        finish(new Error(typeof value.message==="string"?value.message:
+          "MakeHuman atlas preparation failed"));
+        return;
+      }
+      if(value.type!=="prepared"||!value.atlas||
+        value.atlas.payload?.revision!==PINNED_BODY_REVISION||
+        value.atlas.payload.targets.length!==846||
+        value.atlas.payload.targets.some(t=>!(t.rows instanceof Float64Array))){
+        finish(new Error("Invalid worker body atlas output"));
+        return;
+      }
+      finish(undefined,value.atlas);
+    };
+    try{worker.postMessage({version:1,type:"prepare"});}
+    catch(error){finish(error instanceof Error?error:new Error(String(error)));}
+  });
+}
+export function loadBodyAtlas(signal?:AbortSignal):Promise<BodyAtlas>{
+  // Workers cannot spawn themselves recursively. All on-thread callers and
+  // fallback calls reuse the existing validated source promise.
+  if(typeof document==="undefined"||typeof Worker==="undefined")
+    return loadBodyAtlasOnThread(signal);
+  if(!workerRequest)workerRequest=loadBodyAtlasInWorker().catch(async()=>{
+    // Retain a functional browser fallback; rejected source promises reset
+    // themselves, permitting a new attempt on later Generate.
+    return loadBodyAtlasOnThread();
+  }).catch(error=>{workerRequest=undefined;throw error;});
+  return workerRequest;
 }

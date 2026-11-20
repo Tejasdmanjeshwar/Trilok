@@ -24,7 +24,7 @@ export interface AnatomicalTemplate {
   readonly sourceHeight: number;
   readonly conversionMetersPerSourceUnit: number;
 }
-export type AnatomicalLoadStage = "obj-fetch" | "obj-parse" | "rig-fetch" | "rig-json" | "weight-json" | "fk-calibration" | "shoulder-motion-sampling" | "skin-influence-fitting" | "total-instantiation";
+export type AnatomicalLoadStage = "obj-fetch" | "obj-parse" | "rig-fetch" | "rig-json" | "weight-json" | "fk-calibration" | "shoulder-motion-sampling" | "skin-influence-fitting" | "total-instantiation" | "source-cache-wait" | "obj-clone";
 export type AnatomicalTimingSink = (stage:AnatomicalLoadStage,milliseconds:number)=>void;
 export interface AnatomicalHuman {
   readonly spike: SkinningSpike;
@@ -355,38 +355,70 @@ export function bindTemplateToSemanticRig(template:AnatomicalTemplate,
     vertexCount:position.count,triangleCount:geometry.getIndex()!.count/3,
     dispose(){if(disposed)return;disposed=true;geometry.dispose();spike.dispose();}};
 }
+/**
+ * The pinned OBJ, rig description and official skin-weight definitions are
+ * independent of generated shape. Parse each once per page; never share a
+ * live BufferGeometry between humans, because morphology mutates attributes.
+ * A failed preparation is retryable, and an aborted preview may not abort
+ * the shared immutable preparation needed by a newer request.
+ */
+type PreparedAnatomicalSource=Readonly<{
+  template:AnatomicalTemplate;
+  rig:SourceRig;
+  weights:SourceWeights;
+}>;
+let preparedSource:Promise<PreparedAnatomicalSource>|undefined;
+function prepareAnatomicalSource(onTiming?:AnatomicalTimingSink):
+  Promise<PreparedAnatomicalSource> {
+  if(!preparedSource)preparedSource=(async()=>{
+    const fetchStart=performance.now();
+    const [objResponse,rigResponse,weightResponse]=await Promise.all([
+      fetch("/anatomy/makehuman-base.obj"),
+      fetch("/anatomy/makehuman-default.mhskel"),
+      fetch("/anatomy/makehuman-default_weights.mhw"),
+    ]);
+    if(!objResponse.ok)throw new Error(
+      "Pinned anatomical source unavailable (HTTP "+objResponse.status+")");
+    if(!rigResponse.ok||!weightResponse.ok)
+      throw new Error("Pinned CC0 MakeHuman skeleton/weight data unavailable");
+    const [obj,rawRig,rawWeights]=await Promise.all([
+      objResponse.text(),rigResponse.text(),weightResponse.text(),
+    ]);
+    onTiming?.("obj-fetch",performance.now()-fetchStart);
+    onTiming?.("rig-fetch",performance.now()-fetchStart);
+    const parseStart=performance.now();
+    // Only the visible skin is rendered; retain source OBJ vertex numbering.
+    const template=parseAnatomicalOBJ(obj,{includeGroups:["body"]});
+    onTiming?.("obj-parse",performance.now()-parseStart);
+    try{
+      const rigStart=performance.now();
+      const rig=JSON.parse(rawRig) as SourceRig;
+      onTiming?.("rig-json",performance.now()-rigStart);
+      const weightStart=performance.now();
+      const weights=JSON.parse(rawWeights) as SourceWeights;
+      onTiming?.("weight-json",performance.now()-weightStart);
+      return {template,rig,weights};
+    }catch(error){template.geometry.dispose();throw error;}
+  })().catch(error=>{preparedSource=undefined;throw error;});
+  return preparedSource;
+}
 export async function loadAnatomicalHuman(signal?:AbortSignal,
   onTiming?:AnatomicalTimingSink):Promise<AnatomicalHuman> {
   const totalStart=performance.now();
-  const fetchStart=performance.now();
-  const response=await fetch("/anatomy/makehuman-base.obj",{signal});
-  if(!response.ok)throw new Error("Pinned anatomical source unavailable (HTTP "+response.status+")");
-  const obj=await response.text();
-  onTiming?.("obj-fetch",performance.now()-fetchStart);
-  // MakeHuman core OBJ contains helper clothing/collision meshes that overlap
-  // the visible skin and produce a false "skirt" silhouette if imported.
-  // Retain original vertex numbering but render only the actual body surface.
-  const parseStart=performance.now();
-  const template=parseAnatomicalOBJ(obj,{includeGroups:["body"]});
-  onTiming?.("obj-parse",performance.now()-parseStart);
-  const rigFetchStart=performance.now();
-  const [rigResponse,weightResponse]=await Promise.all([
-    fetch("/anatomy/makehuman-default.mhskel",{signal}),
-    fetch("/anatomy/makehuman-default_weights.mhw",{signal}),
-  ]);
-  if(!rigResponse.ok||!weightResponse.ok){template.geometry.dispose();
-    throw new Error("Pinned CC0 MakeHuman skeleton/weight data unavailable");}
-  const rawRig=await rigResponse.text();
-  const rawWeights=await weightResponse.text();
-  onTiming?.("rig-fetch",performance.now()-rigFetchStart);
+  if(signal?.aborted)throw new Error("Preview superseded");
+  const waitStart=performance.now();
+  const source=await prepareAnatomicalSource(onTiming);
+  onTiming?.("source-cache-wait",performance.now()-waitStart);
+  if(signal?.aborted)throw new Error("Preview superseded");
+  const cloneStart=performance.now();
+  // clone() deep-copies render attribute buffers; per-character vertex changes,
+  // normals, bounds and GPU upload must never mutate the cached neutral data.
+  const template:AnatomicalTemplate={...source.template,
+    geometry:source.template.geometry.clone()};
+  onTiming?.("obj-clone",performance.now()-cloneStart);
   try{
-    const rigParseStart=performance.now();
-    const rig=JSON.parse(rawRig) as SourceRig;
-    onTiming?.("rig-json",performance.now()-rigParseStart);
-    const weightParseStart=performance.now();
-    const weights=JSON.parse(rawWeights) as SourceWeights;
-    onTiming?.("weight-json",performance.now()-weightParseStart);
-    const human=bindTemplateToSemanticRig(template,{rig,weights,onTiming});
+    const human=bindTemplateToSemanticRig(template,{rig:source.rig,
+      weights:source.weights,onTiming});
     onTiming?.("total-instantiation",performance.now()-totalStart);
     return human;
   }catch(error){template.geometry.dispose();throw error;}
