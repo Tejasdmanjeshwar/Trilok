@@ -25,5 +25,7 @@
       "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_Forward.fbx",
       "rootMotion": "visual_only"
     }
-  ]
+  ],
+  "sourceSubsetSha256": "61a6fc0487048df0b83fe94200f34ce82177a125973ab2b512707c9d0cd8c2a9",
+  "sourceSubsetDescription": "Verified subset of 58 original male animation FBXs and original HumanM_Model.fbx; bytes are identical to the corresponding members of the owner-supplied ZIP. Build-time transfer only."
 }
