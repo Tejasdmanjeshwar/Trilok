@@ -115,13 +115,24 @@ export interface KevinLocalResult {
   readonly profileSha256:string;
   readonly candidates:readonly KevinLocalCandidate[];
 }
+export type KevinRequestedAnimation = readonly [id:string,path:string];
+/**
+ * Accepts any explicit set of compatible male FBX files from the same
+ * licensed archive; the first three are defaults only. New source clips
+ * require NO retargeting code or per-clip orientation adjustments.
+ */
 export async function retargetOwnedKevinAnimations(
   file:File,
   graph:AnatomicalGraphV1,
   targetBones:ReadonlyMap<string,THREE.Bone>,
+  selectedClips:readonly KevinRequestedAnimation[]=KEVIN_INITIAL_FBX,
 ):Promise<KevinLocalResult> {
+  if(selectedClips.length<1||selectedClips.length>12||
+    new Set(selectedClips.map(c=>c[0])).size!==selectedClips.length ||
+    selectedClips.some(c=>!/^[a-z][a-z0-9-]{0,60}$/.test(c[0])))
+    throw Error("Invalid Kevin animation selection or duplicate ID");
   // Only data from this exact owner's ZIP; all processing is in memory.
-  const archive=await importOwnedKevinZip(file);
+  const archive=await importOwnedKevinZip(file,selectedClips.map(c=>c[1]));
   const {FBXLoader}=await import("three/addons/loaders/FBXLoader.js");
   const inputs: {
     readonly id:string;readonly label:string;
@@ -130,7 +141,7 @@ export async function retargetOwnedKevinAnimations(
     readonly rest:ReturnType<typeof sourceRestRecord>;
   }[]=[];
   const loader=new FBXLoader();
-  for(const [id,path] of KEVIN_INITIAL_FBX) {
+  for(const [id,path] of selectedClips) {
     const bytes=archive.members.get(path);
     if(!bytes)throw Error("Verified Kevin ZIP lacks "+path);
     const scene=loader.parse(bytes,"");
