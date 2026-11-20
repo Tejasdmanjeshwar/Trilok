@@ -76,11 +76,16 @@ if(maleSubset){
        path!=="Models/HumanM_Model.fbx"))
     throw Error("Unexpected male subset layout");
 }
+// ZIP entry names are NOT wildcard expressions: Kevin [RM] uses literal
+// brackets, which unzip -p interprets as a glob character class.
+const readZipEntry=(name)=>execFileSync("python3",["-c",
+  "import sys,zipfile;sys.stdout.buffer.write(zipfile.ZipFile(sys.argv[1]).read(sys.argv[2]))",
+  resolve(archive),name],{maxBuffer:8*1024*1024});
 const getWorldPos=obj=>{const p=obj.getWorldPosition(new THREE.Vector3());return [p.x,p.y,p.z];};
 const getWorldQuat=obj=>{const q=obj.getWorldQuaternion(new THREE.Quaternion());return [q.x,q.y,q.z,q.w];};
 const inputs=[];
 for(const {id,sourceFile:path,rootMotion} of sourcePaths){
-  const fbx=execFileSync("unzip",["-p",resolve(archive),path],{maxBuffer:8*1024*1024});
+  const fbx=readZipEntry(path);
   if(fbx.readUInt32LE(23)!==7700)throw Error("FBX version mismatch "+path);
   const parsed=new FBXLoader().parse(
     fbx.buffer.slice(fbx.byteOffset,fbx.byteOffset+fbx.byteLength),"");
@@ -104,8 +109,7 @@ if(new Set(inputs.map(s=>s.restSha256)).size!==1)
 const audited=new Set(inputs.map(c=>c.path));
 for(const path of malePaths){
   if(audited.has(path))continue;
-  const fbx=execFileSync("unzip",["-p",resolve(archive),path],
-    {maxBuffer:8*1024*1024});
+  const fbx=readZipEntry(path);
   if(fbx.readUInt32LE(23)!==catalog.fbxVersion)
     throw Error("Incompatible Kevin FBX version "+path);
   const scene=new FBXLoader().parse(fbx.buffer.slice(
@@ -123,8 +127,7 @@ for(const path of malePaths){
     throw Error("Kevin source-family rest mismatch "+path);
 }
 // Compare genuine mesh-backed source bind to the *same* male profile.
-const maleFBX=execFileSync("unzip",["-p",resolve(archive),"Models/HumanM_Model.fbx"],
-  {maxBuffer:8*1024*1024});
+const maleFBX=readZipEntry("Models/HumanM_Model.fbx");
 const modelScene=new FBXLoader().parse(maleFBX.buffer.slice(
   maleFBX.byteOffset,maleFBX.byteOffset+maleFBX.byteLength),"");
 const modelBones=normalizeKevinFBXScene(modelScene,{expectedBoneCount:55});
