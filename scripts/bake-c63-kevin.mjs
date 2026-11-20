@@ -61,8 +61,21 @@ if(new Set(sourcePaths.map(c=>c.id)).size!==sourcePaths.length)
   throw Error("Duplicate Kevin output ID");
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const archiveHash=hash(await readFile(resolve(archive)));
-if(archiveHash!==catalog.archiveSha256)
-  throw Error("Unexpected Kevin archive identity: "+archiveHash);
+// Accept either the verified full owner ZIP or the identical-byte male
+// development subset (58 male animation FBXs + their source skinned model).
+// The original 118-animation archive is never loaded by the game runtime.
+const fullArchive=archiveHash===catalog.archiveSha256;
+const maleSubset=archiveHash===catalog.sourceSubsetSha256;
+if(!fullArchive&&!maleSubset)
+  throw Error("Unexpected Kevin source archive identity: "+archiveHash);
+if(maleSubset){
+  const entries=execFileSync("unzip",["-Z1",resolve(archive)],
+    {encoding:"utf8",maxBuffer:1024*1024}).split("\n").filter(Boolean);
+  if(entries.length!==59||!entries.includes("Models/HumanM_Model.fbx")||
+     entries.some(path=>!path.startsWith("Animations/Male/")&&
+       path!=="Models/HumanM_Model.fbx"))
+    throw Error("Unexpected male subset layout");
+}
 const getWorldPos=obj=>{const p=obj.getWorldPosition(new THREE.Vector3());return [p.x,p.y,p.z];};
 const getWorldQuat=obj=>{const q=obj.getWorldQuaternion(new THREE.Quaternion());return [q.x,q.y,q.z,q.w];};
 const inputs=[];
@@ -294,7 +307,7 @@ try {
       worstSeams:seams.sort((a,b)=>b.seamDegrees-a.seamDegrees).slice(0,6)});
   }
   generated["manifest.json"]=JSON.stringify({schemaVersion:1,
-    sourceArchiveSha256:archiveHash,sourceFamilyMaleClipCount:malePaths.length,
+    sourceArchiveSha256:catalog.archiveSha256,developerInputSha256:archiveHash,sourceFamilyMaleClipCount:malePaths.length,
     immutableSourceRestSha256:source.restSha256,
     sourceModelSha256:hash(maleFBX),sourceBindEvidence,
     targetCalibrationSha256:calibrationSha256,profileSha256,

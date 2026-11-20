@@ -1,0 +1,56 @@
+name: C6.3 Kevin authored-source bake
+on:
+  push:
+    branches: [feat/c6-3-grounded-locomotion]
+    paths: [.github/workflows/c63-kevin-owner-bake.yml]
+permissions:
+  contents: write
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --frozen-lockfile
+      - name: Reconstruct SHA-pinned developer-only source input
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/kevin-male.zip"
+          : > "$archive"
+          for sha in 6df05a9691a653266213fa5b0ad1664505e6b0f7 e1d2d620e97289b9658826704b8d1e7ad28c1500 76956899d765f26cdadbcdccf7f7668d9903faf1 d54fb275b2d69b2b020d7048f232306988869dc0 60469a141b228e2d58db1bbb5a27b0a9244af77c 353395b7ec3ca8985ea08ea417cd35a6337dedf2 90a68f00dea73879927d6b52365540835e32a76a 05e1c5cda706dc3e23d185c718d082a69c65d9ec a7d5f4bffddf5d9da8a37be31e3970bacbc9f993 3ba7c77e050c66214d4b585b1fb59b6742598dee 99c028005e2ac2ba3639248ba84b91ab8a322d0b 5cfed61ba1e04774f0b112a7a29a6381922d3e9a; do
+            gh api "repos/$GITHUB_REPOSITORY/git/blobs/$sha" --jq .content | base64 --decode > "$RUNNER_TEMP/fragment.b64"
+            base64 --decode "$RUNNER_TEMP/fragment.b64" >> "$archive"
+          done
+          echo '61a6fc0487048df0b83fe94200f34ce82177a125973ab2b512707c9d0cd8c2a9  '"$archive" | sha256sum --check -
+          test "$(unzip -Z1 "$archive" | wc -l)" -eq 59
+      - name: Fetch pinned MakeHuman CC0 source mesh and rig
+        run: node scripts/fetch-makehuman-core.mjs --anatomical-rig-only
+      - name: Bake real Idle Walk Run source FBX curves to native clips
+        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --write
+      - name: Verify deterministic source-family rebake
+        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip"
+      - name: TypeScript checks
+        run: pnpm typecheck
+      - name: Tests and deterministic replay
+        run: pnpm test
+      - name: Vite build
+        run: pnpm build
+      - name: Commit only generated native animations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "feat/c6-3-grounded-locomotion"
+          git add assets/animations/studio-v1/kevin/
+          if git diff --cached --quiet; then
+            echo 'No baked asset changes to commit'
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "feat(c6.3): add baked Kevin source-backed motion assets"
+          git push origin HEAD:feat/c6-3-grounded-locomotion
