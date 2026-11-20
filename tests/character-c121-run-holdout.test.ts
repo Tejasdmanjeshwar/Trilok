@@ -35,7 +35,7 @@ const atlas=JSON.parse(readFileSync(new URL("./fixtures/c121-offline-shoulder-at
 const asset=(file:string)=>readFileSync(new URL("../apps/web/public/anatomy/"+file,
   import.meta.url),"utf8");
 const sha=(value:string)=>createHash("sha256").update(value).digest("hex");
-const vec=(p:THREE.BufferAttribute,i:number)=>new THREE.Vector3().fromBufferAttribute(p,i);
+const vec=(p:THREE.BufferAttribute|THREE.InterleavedBufferAttribute,i:number)=>new THREE.Vector3().fromBufferAttribute(p,i);
 function faceSurface(a:THREE.Vector3,b:THREE.Vector3,c:THREE.Vector3){
   const normal=b.clone().sub(a).cross(c.clone().sub(a));
   const area=normal.length()*.5;
