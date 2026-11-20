@@ -5,6 +5,8 @@ import {createStudioGripFailureReport,createStudioBowFailureReport,
   type StudioGripFailureReport} from "./StudioGripDiagnostics";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {buildStudioHuman,type StudioHumanModel} from "./StudioHumanModel";
+import {loadBodyAtlas} from "../characters/geometry/MakeHumanBodyTargets";
+import {loadFacialAtlas} from "../characters/geometry/MakeHumanFacialTargets";
 import {defaultStudioMorphState,type StudioMorphState} from "./StudioMorphCatalog";
 import {DEFAULT_STUDIO_APPEARANCE,validateStudioAppearance,type StudioAppearanceV1} from "./StudioAppearance";
 import {applyStudioSkinMaterial} from "./StudioSkinMaterial";
@@ -504,6 +506,20 @@ export function createStudioViewport(
   let contextLost=false;
   let raf=0;
   let resize:ResizeObserver|undefined;
+  let idlePreparation:number|undefined;
+  let idleTimeout:ReturnType<typeof setTimeout>|undefined;
+  // After the neutral human becomes interactive, warm the exact same atlas
+  // promises used by generation. A rejected load remains retryable.
+  function prepareRandomResources():void {
+    if(disposed||document.hidden)return;
+    const prepare=():void=>{
+      if(disposed||document.hidden)return;
+      void Promise.all([loadBodyAtlas(),loadFacialAtlas()]).catch(()=>{});
+    };
+    if(typeof window.requestIdleCallback==="function")
+      idlePreparation=window.requestIdleCallback(prepare,{timeout:6000});
+    else idleTimeout=setTimeout(prepare,1500);
+  }
   const performanceMonitor=new StudioPerformance();
   const requestMetrics=():void=>{
     // Respond only to explicit diagnostics requests; no player-facing panel.
@@ -970,6 +986,7 @@ export function createStudioViewport(
       previous?.dispose();
       refreshInspection();
       onReady();
+      if(!hadActive)prepareRandomResources();
       if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
       if(equipment==="none"||sword)onEditError("");
       return true;
@@ -1007,6 +1024,8 @@ export function createStudioViewport(
     requestAbort?.abort();
     requestAbort=undefined;
     cancelAnimationFrame(raf);
+    if(idlePreparation!==undefined)window.cancelIdleCallback(idlePreparation);
+    if(idleTimeout!==undefined)clearTimeout(idleTimeout);
     resize?.disconnect();
     document.removeEventListener("visibilitychange",visibilityChanged);
     window.removeEventListener("trilok:studio:request-metrics",requestMetrics);
