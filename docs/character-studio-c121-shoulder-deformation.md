@@ -47,6 +47,63 @@ At t=0.51, with all morphs disabled, anatomical-right face 15844 varied as follo
 
 This **does not support simply replacing the global 50% blend**: different faces, other shoulders, and other motion sources behave differently, and even 100% retains large deformations. Changing helper interpolation without visual acceptance could introduce new artifacts. No runtime formula was changed by this diagnostic work.
 
+## Offline weight-atlas source-ID recovery (2026-11-20)
+
+The pinned source OBJ is the 19,158-vertex MakeHuman mesh, SHA-256
+`8e761e6624b8f54536409135d1636da63b32486a90d4897f84e121d144f6fb4c`.
+The pinned skeleton SHA-256 is
+`99f179bce0aa850b45d4191a1d0d234c5851f881c057439470ded3bddf729a24`;
+the pinned weights SHA-256 is
+`0f3641d651ae3d00ad6b4ccee43142edb109d3bd909d27d9e4139ef1beed8625`.
+Source IDs are zero-based original OBJ vertex indices; UV seam splitting
+does not alter them.
+
+The failure at original vertex **15563** was not corrupt weight data:
+the new original-OBJ face-reference audit verifies it is **excluded-only**,
+not referenced by any `body`-group face and therefore correctly absent
+from the body-only render map. Of 19,158 valid source vertices, 13,380
+occur in `body` triangles and 5,778 only in excluded geometry. No
+vertex is shared between those categories; none is completely unreferenced.
+The two `shoulder01` weight groups reference 1,105 distinct positive-weight
+source IDs; 701 are eligible body vertices, and **404 are excluded-only**.
+The previous offline diagnostic incorrectly treated excluded vertices as
+missing body render mappings.
+
+The corrected *offline test* constructs deterministic original-OBJ face
+reference sets and matches their body membership exactly against
+`AnatomicalTemplate.sourceVertexIds`. It rejects malformed source
+references, missing body-triangle mappings, and accidental non-body render
+IDs. Valid excluded-only source vertices are accounted for and omitted from
+the body atlas. Independent fixture coverage exercises body-only, shared,
+excluded-only, unreferenced and invalid cases; live body geometry asserts
+identical GPU indices and weights across UV seam duplicates. This does
+**not** modify the original source geometry, normal parser, runtime
+skinning, morph data, or existing gameplay thresholds.
+
+The offline fitter generated **222** deterministic-order candidate entries
+(schema version **1**, original source IDs, canonical joint ordering, four
+normalized owners) trained on Kevin Idle/Walk and the four UAL1 motions,
+sampled at quarter-clip fractions. Kevin Run is intentionally absent from
+training. The candidate was emitted in the successful Verify run log;
+a second independent output comparison / immutable atlas artifact and
+holdout deformation acceptance are still required before runtime use.
+
+Verified diagnostic commit `9cbedf8b5e8f56af4693d4a17394444b2bb44898`:
+[Verify run 44759546215](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44759546215)
+passed **590 tests**, `pnpm typecheck`, `pnpm build`,
+animation-hash verification and static artifact sealing. These pass
+conditions only certify the offline source-ID recovery. They do **not**
+certify the atlas as an acceptable runtime correction.
+
+**Still unresolved:** independent Kevin Run 12-frame / both-shoulders
+full-weight comparison, cross-morphology area/normal/intersection gates,
+lower-axilla shared shoulder-helper cause and correction, retained C5.2
+weapon/IK acceptance after any future runtime change, desktop/touch
+WebGL before-after screenshot approval, timed performance acceptance,
+and SHA-locked manual Netlify development preview. The original Issue
+#121 visual wedge is **not claimed repaired**. Do not merge PR #122
+or deploy to Cloudflare until those gates are met.
+
 ## Required next gates
 
 1. Run the **explicitly manual** C6 Chromium phase-acceptance workflow on a pinned revision of PR #122. The new `e2e/studio-animation-c121-shoulder-closeup.spec.ts` supplies front, three-quarter, side and rear shoulder close-ups across all 12 reported frames, for desktop and touch projects; it is not invoked by automatic PR CI.
