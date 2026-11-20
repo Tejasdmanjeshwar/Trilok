@@ -27,6 +27,7 @@ import {StudioPerformance} from "./StudioPerformance";
 import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
 import {StudioLocomotionPlayback} from "./StudioLocomotionPlayback";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
+import {retargetOwnedKevinAnimations,type KevinLocalCandidate} from "../characters/animation/KevinLocalRetarget";
 import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
 
@@ -49,6 +50,8 @@ export interface StudioViewport {
   setInspection(options:StudioInspectionOptions):void;
   resetView():void;
   selectAnimation(id:string|null):void;
+  /** Local-only licensed source import; never uploads animation data. */
+  importKevinArchive(file:File):Promise<readonly KevinLocalCandidate[]>;
   playAnimation(playing:boolean):void;
   seekAnimation(seconds:number):void;
   setAnimationSpeed(speed:number):void;
@@ -205,6 +208,9 @@ export function createStudioViewport(
     }
   }
   let animationId:string|null=null;
+  // Owner-supplied source stays only in memory, never repository, storage or network.
+  let localKevinFile:File|undefined;
+  let localKevinCandidates=new Map<string,KevinLocalCandidate>();
   let equipment:EquipmentChoice="none";
   let bowProfile:BowProfile="recurve";
   let archeryState:ArcheryState="rest";
@@ -236,7 +242,8 @@ export function createStudioViewport(
   }
   function enterAnimation(id:string):void {
     const source=STUDIO_ANIMATIONS.find(entry=>entry.id===id);
-    if(!source)throw new Error("Unknown reference animation");
+    const owned=localKevinCandidates.get(id);
+    if(!source&&!owned)throw new Error("Unknown reference animation");
     if(!active||!posePreview)throw new Error("Character is not ready for animation");
     animation?.dispose();animation=undefined;
     cancelBowWorker();clearSword();
@@ -251,7 +258,8 @@ export function createStudioViewport(
         posePreview.animationFrames);
       animation.setMovement(...currentMovementComponents());
     }else{
-      const clip=loadBakedStudioAnimation(source.id,active.human.spike.graph);
+      const clip=owned?.clip ??
+        loadBakedStudioAnimation(source!.id,active.human.spike.graph);
       animation=new StudioAnimationPlayback(active.human.spike.character,clip,
         samples=>posePreview!.applyAnimationSamples(samples));
     }
@@ -260,9 +268,36 @@ export function createStudioViewport(
   }
   function selectAnimation(id:string|null):void {
     if(id===null){stopAnimation();return;}
-    const resolved=resolveStudioAnimationId(id);
+    const resolved=localKevinCandidates.has(id)?id:resolveStudioAnimationId(id);
     if(animationId===resolved)return;
     enterAnimation(resolved);
+  }
+  async function importKevinArchive(file:File):Promise<readonly KevinLocalCandidate[]> {
+    if(disposed||!active||!posePreview)
+      throw Error("Load the MakeHuman character before importing motions");
+    if(!file||file.size===0||file.size>32*1024*1024)
+      throw Error("Invalid Human Basic Motions ZIP");
+    stopAnimation();
+    cancelBowWorker();clearSword();
+    posePreview.setGrip("none");
+    posePreview.setPose("neutral");
+    try {
+      const result=await retargetOwnedKevinAnimations(
+        file,active.human.spike.graph,active.human.spike.bones);
+      if(disposed||!active)throw Error("Studio closed during Kevin import");
+      const clips=new Map(result.candidates.map(c=>[c.id,c]));
+      if(clips.size!==3)throw Error("Incomplete Kevin Idle/Walk/Run set");
+      localKevinCandidates=clips;
+      localKevinFile=file;
+      enterAnimation(result.candidates[0]!.id);
+      onEditError("");
+      return result.candidates;
+    }catch(error){
+      posePreview?.setGrip(equipment);
+      posePreview?.setPose(pose);
+      refreshSword();
+      throw error;
+    }
   }
   function playAnimation(playing:boolean):void{animation?.setPlaying(playing);emitAnimation();}
   function seekAnimation(seconds:number):void{animation?.seek(seconds);updateMarkers();emitAnimation();}
@@ -942,6 +977,15 @@ export function createStudioViewport(
       const previous=active;
       const previousPose=posePreview;
       const selectedAnimation=animationId;
+      // Morphology can move calibrated MakeHuman rest landmarks; the same
+      // immutable source family must be re-calibrated against the NEW body,
+      // never reuse old retargeted quaternions against a changed bind.
+      if(selectedAnimation?.startsWith("human-kevin-")&&localKevinFile){
+        const refreshed=await retargetOwnedKevinAnimations(
+          localKevinFile,incoming.human.spike.graph,incoming.human.spike.bones);
+        if(!valid()){preview.dispose();incoming.dispose();return false;}
+        localKevinCandidates=new Map(refreshed.candidates.map(c=>[c.id,c]));
+      }
       animation?.dispose();animation=undefined;
       disposeInspection();
       clearSword();
@@ -997,6 +1041,7 @@ export function createStudioViewport(
     disposed=true;ticket++;
     cancelBowWorker();
     animation?.dispose();animation=undefined;
+    localKevinCandidates.clear();localKevinFile=undefined;
     clearSword();
     requestAbort?.abort();
     requestAbort=undefined;
@@ -1026,6 +1071,6 @@ export function createStudioViewport(
     }
   }
   return {load,applyMorphology,applyRecipe,setView,setLight,setOrthographic,
-    focus,returnFromFocus,setPose,selectAnimation,playAnimation,seekAnimation,setAnimationSpeed,setAnimationLoop,setMovementPreviewSpeed,
+    focus,returnFromFocus,setPose,selectAnimation,importKevinArchive,playAnimation,seekAnimation,setAnimationSpeed,setAnimationLoop,setMovementPreviewSpeed,
     setMovementPreviewDirection,stepAnimation,resetAnimation,setEquipment,setShieldStance,setArcheryState,setArcheryDraw,setBowProfile,setExpression,setInspection,resetView,dispose};
 }
