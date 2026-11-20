@@ -111,7 +111,7 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
         const source=faceSource(f);
         for(const [a,b] of [[source[0]!,source[1]!],
           [source[1]!,source[2]!],[source[2]!,source[0]!]]){
-          const key=edgeKey(a,b),faces=edgeFaces.get(key)??[];
+          const key=edgeKey(a!,b!),faces=edgeFaces.get(key)??[];
           faces.push(f);edgeFaces.set(key,faces);
         }
       }
@@ -128,7 +128,7 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
         const ids=faceSource(face),neighbors=new Set<number>();
         for(const [a,b] of [[ids[0]!,ids[1]!],[ids[1]!,ids[2]!],
           [ids[2]!,ids[0]!]]){
-          for(const other of edgeFaces.get(edgeKey(a,b))??[])
+          for(const other of edgeFaces.get(edgeKey(a!,b!))??[])
             if(other!==face)neighbors.add(other);
         }
         const rest=norm(face,false),posed=norm(face,true);
