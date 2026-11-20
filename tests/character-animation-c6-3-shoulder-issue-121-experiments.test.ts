@@ -26,6 +26,65 @@ function faceInfo(human:ReturnType<typeof bindTemplateToSemanticRig>,face:number
 function stats(human:ReturnType<typeof bindTemplateToSemanticRig>,faceIds:readonly number[]){
   return faceIds.map(f=>faceInfo(human,f));
 }
+
+/** CPU-only dual-quaternion reference for diagnosis: never used in gameplay. */
+function dualQuaternionSurface(human:ReturnType<typeof bindTemplateToSemanticRig>){
+  const mesh=human.mesh;
+  human.spike.character.root.updateWorldMatrix(true,true);
+  const matrices=human.spike.skeleton.bones.map((bone,i)=>
+    mesh.bindMatrixInverse.clone().multiply(bone.matrixWorld)
+      .multiply(human.spike.skeleton.boneInverses[i]!).multiply(mesh.bindMatrix));
+  const positions=mesh.geometry.getAttribute("position");
+  const skinIndex=mesh.geometry.getAttribute("skinIndex");
+  const skinWeight=mesh.geometry.getAttribute("skinWeight");
+  const rotations=matrices.map(matrix=>new THREE.Quaternion().setFromRotationMatrix(matrix));
+  const translations=matrices.map(matrix=>new THREE.Vector3().setFromMatrixPosition(matrix));
+  const cache=new Map<number,THREE.Vector3>();
+  return (vertex:number):THREE.Vector3=>{
+    const previous=cache.get(vertex);
+    if(previous)return previous;
+    const real=[0,0,0,0],dual=[0,0,0,0];
+    let reference:THREE.Quaternion|undefined;
+    for(let k=0;k<4;k++){
+      const weight=skinWeight.getComponent(vertex,k);
+      if(weight===0)continue;
+      const index=skinIndex.getComponent(vertex,k);
+      const q=rotations[index]!,t=translations[index]!;
+      if(!reference)reference=q;
+      const sign=reference.dot(q)<0?-1:1;
+      const d=new THREE.Quaternion(t.x,t.y,t.z,0).multiply(q);
+      for(let component=0;component<4;component++){
+        const value=[q.x,q.y,q.z,q.w][component]!;
+        const dv=[d.x,d.y,d.z,d.w][component]!;
+        real[component]!;dual[component]!;
+        real[component]=(real[component]??0)+value*weight*sign;
+        dual[component]=(dual[component]??0)+dv*weight*sign*.5;
+      }
+    }
+    const norm=Math.hypot(...real);
+    if(norm<1e-10||!Number.isFinite(norm))
+      throw new Error("Invalid DQS accumulated orientation");
+    const qr=new THREE.Quaternion(real[0]!/norm,real[1]!/norm,
+      real[2]!/norm,real[3]!/norm);
+    const qd=new THREE.Quaternion(dual[0]!/norm,dual[1]!/norm,
+      dual[2]!/norm,dual[3]!/norm);
+    const translation=qd.multiply(qr.clone().invert());
+    const p=new THREE.Vector3().fromBufferAttribute(positions,vertex)
+      .applyQuaternion(qr).add(new THREE.Vector3(translation.x*2,
+        translation.y*2,translation.z*2));
+    cache.set(vertex,p);
+    return p;
+  };
+}
+function referenceFace(human:ReturnType<typeof bindTemplateToSemanticRig>,
+  face:number,get:(i:number)=>THREE.Vector3){
+  const indices=human.mesh.geometry.getIndex()!;
+  const corners=Array.from({length:3},(_,k)=>get(indices.getX(face*3+k)));
+  const a=corners[1]!.clone().sub(corners[0]!)
+    .cross(corners[2]!.clone().sub(corners[0]!));
+  return {area:a.length()*.5,normal:a.normalize()};
+}
+
 describe("C121 controlled shoulder connector diagnostic",()=>{
   it("compares actual Kevin pose against UAL and connector interpolation",()=>{
     const template=parseAnatomicalOBJ(asset("makehuman-base.obj"),{includeGroups:["body"]});
@@ -124,6 +183,24 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
         return corners[1]!.clone().sub(corners[0]!)
           .cross(corners[2]!.clone().sub(corners[0]!)).normalize();
       };
+      // Compare linear-blend skinning against a per-vertex DQS reference
+      // with identical source geometry, weights, bind matrices and pose.
+      // A DQS win is only a hypothesis gate, not GPU shader approval.
+      const dq=dualQuaternionSurface(human);
+      const restPosition=human.mesh.geometry.getAttribute("position");
+      for(const face of targetFaces){
+        const rest=referenceFace(human,face,i=>
+          new THREE.Vector3().fromBufferAttribute(restPosition,i));
+        const lbs=referenceFace(human,face,i=>
+          human.mesh.getVertexPosition(i,new THREE.Vector3()));
+        const dqs=referenceFace(human,face,dq);
+        console.log("TRILOK_C121_DQS "+JSON.stringify({
+          face,restArea:rest.area,lbsRatio:lbs.area/rest.area,
+          dqsRatio:dqs.area/rest.area,
+          lbsDot:lbs.normal.dot(rest.normal),
+          dqsDot:dqs.normal.dot(rest.normal),
+        }));
+      }
       for(const face of targetFaces){
         const ids=faceSource(face),neighbors=new Set<number>();
         for(const [a,b] of [[ids[0]!,ids[1]!],[ids[1]!,ids[2]!],
