@@ -29,9 +29,13 @@ function flag(name, fallback) {
 }
 const archive=flag("--archive",null);
 if(!archive)throw Error("Requires --archive (private licensed owner ZIP)");
-const destination=resolve(root,flag("--output","assets/animations/studio-v1/kevin"));
 const write=process.argv.includes("--write");
 const all=process.argv.includes("--all");
+const c63=process.argv.includes("--c63");
+if(all&&c63)throw Error("Choose --all or --c63, not both");
+const destination=resolve(root,flag("--output",c63?
+  "assets/animations/studio-v1/kevin/c63":"assets/animations/studio-v1/kevin"));
+const referenceOnly=all||c63;
 const catalog=JSON.parse(await readFile(resolve(root,
   "assets/animations/sources/kevin-basic-motions-v1.json"),"utf8"));
 if(catalog.schemaVersion!==1||catalog.fbxVersion!==7700||
@@ -45,20 +49,35 @@ const initial=catalog.clips.map(c=>{
     throw Error("Invalid Kevin catalog entry "+JSON.stringify(c));
   return c;
 });
+if(!Array.isArray(catalog.c63ReviewClips)||catalog.c63ReviewClips.length!==24)
+  throw Error("Expected exactly 24 new Kevin C6.3 review animations");
+const c63Candidates=catalog.c63ReviewClips.map(c=>{
+  if(!/^[a-z0-9-]+$/.test(c.id)||!c.id.startsWith("human-kevin-")||
+     !/^Animations\/Male\/[^.]+\.fbx$/.test(c.sourceFile)||
+     !["idle","walk","run","sprint","turn"].includes(c.family)||
+     !["loop","transition","one_shot"].includes(c.behavior)||
+     !["locked","visual_only"].includes(c.rootMotion)||
+     typeof c.label!=="string"||c.label.length>80)
+    throw Error("Invalid Kevin C6.3 catalog entry "+JSON.stringify(c));
+  return c;
+});
 const malePaths=execFileSync("unzip",["-Z1",resolve(archive)],
   {encoding:"utf8",maxBuffer:1024*1024}).split("\n")
   .filter(p=>p.startsWith("Animations/Male/")&&p.endsWith(".fbx")).sort();
 if(malePaths.length!==catalog.expectedMaleClipCount||
    new Set(malePaths).size!==malePaths.length)
   throw Error("Kevin source inventory changed: "+malePaths.length);
-const sourcePaths=all?[...initial,...malePaths
+const sourcePaths=c63?[...initial,...c63Candidates]:all?[...initial,...malePaths
   .filter(path=>!initial.some(c=>c.sourceFile===path))
   .map(path=>({id:"human-kevin-"+path.slice("Animations/Male/".length)
     .replace(/\.fbx$/,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/-$/,""),
     sourceFile:path,rootMotion:(path.includes("/Idles/")||path.includes("/Social/"))?
       "locked":"visual_only"}))]:initial;
-if(new Set(sourcePaths.map(c=>c.id)).size!==sourcePaths.length)
-  throw Error("Duplicate Kevin output ID");
+if(new Set(sourcePaths.map(c=>c.id)).size!==sourcePaths.length||
+   new Set(sourcePaths.map(c=>c.sourceFile)).size!==sourcePaths.length ||
+   c63&&c63Candidates.some(c=>!malePaths.includes(c.sourceFile)||
+     c.sourceFile.includes("RootMotion/")||c.sourceFile.includes("[RM]")))
+  throw Error("Duplicate/missing Kevin source or invalid non-RM C6.3 selection");
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const archiveHash=hash(await readFile(resolve(archive)));
 // Accept either the verified full owner ZIP or the identical-byte male
@@ -232,6 +251,14 @@ try {
   if(profile.calibrations.length!==49)throw Error("Incomplete Kevin profile");
   const immutableProfile=JSON.stringify(profile)+"\n";
   const profileSha256=hash(immutableProfile);
+  if(c63){
+    // All movements share exactly the original three-clip rig profile.
+    // Reject silent recalibration rather than baking incompatible directions.
+    const reference=await readFile(resolve(root,
+      "assets/animations/studio-v1/kevin/profile.json"),"utf8");
+    if(reference!==immutableProfile)
+      throw Error("Kevin C6.3 source retarget profile differs from accepted 3-clip profile");
+  }
   const generated={ "profile.json":immutableProfile };
   const entries=[];
   for(const input of inputs){
@@ -288,7 +315,7 @@ try {
           Math.floor(3*times.length/4),times.length-1].includes(times.indexOf(t))){
         // Apply the SAME presentation root offset that Studio will receive.
         const sampledPose=pose.map(p=>p.jointId===rig.rootJointId &&
-          !all && input.rootMotion!=="locked"?{...p,translation:offset}:p);
+          !referenceOnly && input.rootMotion!=="locked"?{...p,translation:offset}:p);
         try {
           const actual=checkSkinnedPose(sampledPose);
           skinnedSourceSamples.push({timeSeconds:t,...actual});
@@ -326,7 +353,7 @@ try {
         timesSeconds:times,values:keys});
     }
     const locked=input.rootMotion==="locked";
-    if(!locked&&!all)tracks.push({jointId:rig.rootJointId,channel:"translation",
+    if(!locked&&!referenceOnly)tracks.push({jointId:rig.rootJointId,channel:"translation",
       timesSeconds:times,values:offsets});
     const clip={schemaVersion:1,id:input.id,rig,
       durationSeconds:input.clip.duration,
@@ -341,13 +368,13 @@ try {
       // The 3 already accepted-for-review committed clips remain byte-for-byte
       // stable in normal mode. Full inventory mode stores full XYZ + heading
       // separately, including jumps. The Studio FK never consumes the travel.
-      ...(all?{rootTrajectory:{
+      ...(referenceOnly?{rootTrajectory:{
         coordinates:rig.coordinates,
         origin:"source-hips-at-first-key",
         orientation:"reference-only",
         // Conservative until semantic review: do not invent a cyclic seam
         // for jumps, transitions or travelling RM recordings.
-        behavior:"one_shot",
+        behavior:c63?input.behavior:"one_shot",
         timesSeconds:times,
         positionsMeters:fullWorldOffsets,
         rotations:trajectoryRotations,
@@ -355,6 +382,7 @@ try {
     const encoded=serializeAnimationClip(clip,graph)+"\n";
     parseAnimationClip(encoded,graph);
     const filename=input.id+".clip.json";
+    if(c63&&initial.some(entry=>entry.id===input.id))continue;
     generated[filename]=encoded;
     entries.push({id:input.id,sourceFile:input.path,sourceSha256:input.fbxSha256,
       outputSha256:hash(encoded),keyCount:times.length,
@@ -367,7 +395,8 @@ try {
     immutableSourceRestSha256:source.restSha256,
     sourceModelSha256:hash(maleFBX),sourceBindEvidence,
     targetCalibrationSha256:calibrationSha256,profileSha256,
-    entries,distribution:"game-integrated-canonical-motion-resources"},null,2)+"\n";
+    entries,selection:c63?"c63-directional-review":all?"full-male-audit":"foundational-3",
+    distribution:"game-integrated-canonical-motion-resources"},null,2)+"\n";
   // Validate or write complete deterministic outputs; never silently drift.
   if(write) {
     await mkdir(destination,{recursive:true});

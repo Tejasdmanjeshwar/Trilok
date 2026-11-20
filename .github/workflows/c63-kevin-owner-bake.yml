@@ -1,7 +1,7 @@
 name: C6.3 Kevin authored-source bake
 on:
   push:
-    branches: [feat/c6-3-grounded-locomotion]
+    branches: [feat/c6-3-kevin-directional-review]
     paths:
       - .github/workflows/c63-kevin-owner-bake.yml
       - scripts/bake-c63-kevin.mjs
@@ -36,14 +36,12 @@ jobs:
           test "$(unzip -Z1 "$archive" | wc -l)" -eq 59
       - name: Fetch pinned MakeHuman CC0 source mesh and rig
         run: node scripts/fetch-makehuman-core.mjs --anatomical-rig-only
-      - name: Bake real Idle Walk Run source FBX curves to native clips
-        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --write
-      - name: Verify deterministic source-family rebake
+      - name: Verify immutable existing Kevin Idle Walk Run outputs
         run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip"
-      - name: Validate and bake all 58 male clips with the same shared calibration
-        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --all --output "$RUNNER_TEMP/c63-all-male" --write
-      - name: Verify deterministic 58-clip batch rebake
-        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --all --output "$RUNNER_TEMP/c63-all-male"
+      - name: Bake only 24 genuine non-RM C6.3 review clips
+        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --c63 --write
+      - name: Verify deterministic Kevin directional review rebake
+        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --c63
       - name: TypeScript checks
         run: pnpm typecheck
       - name: Tests and deterministic replay
@@ -54,11 +52,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git branch --show-current)" = "feat/c6-3-grounded-locomotion"
-          git add assets/animations/studio-v1/kevin/
+          test "$(git branch --show-current)" = "feat/c6-3-kevin-directional-review"
+          git add assets/animations/studio-v1/kevin/c63/
           if git diff --cached --quiet; then
             echo 'No baked asset changes to commit'
             exit 0
           fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "feat(c6.3): add baked Kevin source-backed motion assets"
-          git push origin HEAD:feat/c6-3-grounded-locomotion
+          git push origin HEAD:feat/c6-3-kevin-directional-review
