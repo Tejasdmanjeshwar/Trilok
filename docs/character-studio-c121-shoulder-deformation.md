@@ -104,6 +104,72 @@ and SHA-locked manual Netlify development preview. The original Issue
 #121 visual wedge is **not claimed repaired**. Do not merge PR #122
 or deploy to Cloudflare until those gates are met.
 
+## Independent pinned-atlas Run holdout (2026-11-20)
+
+Added the pinned **222-entry** source-indexed diagnostic atlas at
+`tests/fixtures/c121-offline-shoulder-atlas.v1.json` and independent
+`tests/character-c121-run-holdout.test.ts`. The former comes from the
+original source-hash-verified non-Run training fit; the latter evaluates the
+*actual* approved Kevin Run at every required timestamp
+`0, .15, .30, .40, .45, .48, .50, .51, .52, .54, .57, .60`,
+on **both** anatomical shoulders. The test constructs a reference from
+every mapped source owner and original source vertex ID, the currently
+rendered GPU four-weight policy, and the atlas replacing only its own
+source IDs. All other vertices remain unchanged. It measures
+source-reference vertex RMS/max displacement, mean rest-normalized
+surface-area error, collapsed / stretched faces and normals opposed to
+the full-source reference, plus the 4 lower-axilla faces.
+
+[Verify run 44765414572](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44765414572)
+passed **591 tests in 116 files**, TypeScript, build, animation determinism
+and static release checks for SHA
+`64804011478cd1e4748ba84c42106ff9403af7ab`.
+
+**Measured 0.51 s, entire shoulder-region comparisons (candidate vs
+unpruned source-weight reference):**
+
+| Metric | Existing left | Fitted left | Existing right | Fitted right |
+| --- | ---: | ---: | ---: | ---: |
+| RMS displacement (mm) | 3.04528 | 0.33706 | 0.88148 | 0.72862 |
+| Mean absolute area error / rest | 0.043874 | 0.008138 | 0.016558 | 0.013647 |
+| Faces under 20% rest area | 1 | 0 | 5 | 5 |
+| Normals opposed to reference | 3 | 0 | 0 | 0 |
+
+**Independent holdout regressions:** right-side RMS error gets worse at
+0.00 s (0.98848→1.05499 mm), 0.54 s (0.84434→0.92663 mm),
+0.57 s (0.94265→1.04652 mm), and 0.60 s (0.98848→1.05499 mm).
+Left-side RMS worsens at 0.30 s (0.96783→1.04798 mm).
+The positive clavicle improvements are real, but the *unchanged*
+atlas does not satisfy the no-regression acceptance criterion across
+all independent frames. **Do not integrate this candidate in runtime.**
+In particular, do not select weights by Kevin timestamp or fit on Run,
+which is reserved as the holdout.
+
+**Axilla, at 0.51 s, original-source / current GPU / atlas ratios all
+identical:**
+
+| Face | Full source | GPU | Atlas |
+| --- | ---: | ---: | ---: |
+| 15844 | 0.006357 | 0.006357 | 0.006357 |
+| 15871 | 0.205283 | 0.205283 | 0.205283 |
+| 20356 | 0.121935 | 0.121935 | 0.121935 |
+| 20357 | 0.051936 | 0.051936 | 0.051936 |
+
+The axilla error occurs **even before four-slot compression**. This
+rules out omitted source influences *at these faces*, not all possible
+errors. Existing evidence shows the fixed halfway shoulder-connector
+interpolation can strongly influence this patch, but a globally
+different blend was previously rejected because face-specific and
+clip-specific outcomes conflict. Still unresolved are connector/source
+joint orientation, calibrated inverse bind and proximal torso/upper-arm
+transition ownership, plus actual skinned occlusion. No general correction
+is accepted pending broad-frame/bilateral and manual rendered validation.
+
+The atlas remains an **offline diagnostic fixture, not a shipped runtime
+asset**. Before any runtime change, verify independent regeneration of
+that fixture from pinned hashes, and evaluate the full broad-surface
+morphology/IK contact envelope without threshold relaxation.
+
 ## Required next gates
 
 1. Run the **explicitly manual** C6 Chromium phase-acceptance workflow on a pinned revision of PR #122. The new `e2e/studio-animation-c121-shoulder-closeup.spec.ts` supplies front, three-quarter, side and rear shoulder close-ups across all 12 reported frames, for desktop and touch projects; it is not invoked by automatic PR CI.
