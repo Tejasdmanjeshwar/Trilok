@@ -345,9 +345,9 @@ try {
         coordinates:rig.coordinates,
         origin:"source-hips-at-first-key",
         orientation:"reference-only",
-        behavior:input.path.includes("[RM]")?"one_shot":
-          (input.path.includes("Idle")||input.path.includes("Walk")||
-           input.path.includes("Run"))?"loop":"transition",
+        // Conservative until semantic review: do not invent a cyclic seam
+        // for jumps, transitions or travelling RM recordings.
+        behavior:"one_shot",
         timesSeconds:times,
         positionsMeters:fullWorldOffsets,
         rotations:trajectoryRotations,
