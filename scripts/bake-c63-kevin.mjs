@@ -82,7 +82,10 @@ const readZipEntry=(name)=>execFileSync("python3",["-c",
   "import sys,zipfile;sys.stdout.buffer.write(zipfile.ZipFile(sys.argv[1]).read(sys.argv[2]))",
   resolve(archive),name],{maxBuffer:8*1024*1024});
 const getWorldPos=obj=>{const p=obj.getWorldPosition(new THREE.Vector3());return [p.x,p.y,p.z];};
-// FBXLoader world-matrix decomposition under nonuniform inherited scale can\n// produce quaternions a few e-5 off unit length. Normalize rotation samples\n// before deterministic world-space retargeting, without changing joint motion.\nconst getWorldQuat=obj=>{const q=obj.getWorldQuaternion(new THREE.Quaternion()).normalize();return [q.x,q.y,q.z,q.w];};
+// FBXLoader world-matrix decomposition under nonuniform inherited scale can
+// produce quaternions a few e-5 off unit length. Normalize rotation samples
+// before deterministic world-space retargeting, without changing joint motion.
+const getWorldQuat=obj=>{const q=obj.getWorldQuaternion(new THREE.Quaternion()).normalize();return [q.x,q.y,q.z,q.w];};
 const inputs=[];
 for(const {id,sourceFile:path,rootMotion} of sourcePaths){
   const fbx=readZipEntry(path);
