@@ -83,42 +83,77 @@ try {
   const {createRetargetProfile,retargetWorldPose}=await server.ssrLoadModule("/packages/character-core/src/retargeting.ts");
   const {createHumanRestDescriptor}=await server.ssrLoadModule("/packages/character-core/src/retarget-human-frames.ts");
   const {mapKevinMaleHumanoidJoints,validateKevinMaleRestLaterality}=await server.ssrLoadModule("/apps/web/src/characters/animation/KevinHumanoidSkeletonAdapter.ts");
-  const {parseAnatomicalOBJ}=await server.ssrLoadModule("/apps/web/src/characters/geometry/AnatomicalTemplate.ts");
-  const {makeSourceLandmarks,calibrateHumanBones}=await server.ssrLoadModule("/apps/web/src/characters/geometry/OfficialHumanRig.ts");
-  const {createSkinningSpike}=await server.ssrLoadModule("/apps/web/src/characters/geometry/SkinningSpike.ts");
+  const {parseAnatomicalOBJ,bindTemplateToSemanticRig}=
+    await server.ssrLoadModule("/apps/web/src/characters/geometry/AnatomicalTemplate.ts");
   const graph=createAnatomyPreset({archetype:"human"});
   const rig=canonicalRigIdentity(graph);
   const source=inputs[0];
   const mappings=mapKevinMaleHumanoidJoints(graph,[...source.byName.keys()]);
   validateKevinMaleRestLaterality(source.bones.map(b=>({
-    id:b.name,worldPosition:getWorldPos(b),
+    id:originalKevinBoneName(b),worldPosition:getWorldPos(b),
   })));
   const sourceRig=createHumanRestDescriptor(graph,source.restSha256,
     mappings.map(m=>({targetJointId:m.targetId,nodeId:m.sourceId,
       worldPosition:getWorldPos(source.byName.get(m.sourceId)),
       worldRotation:getWorldQuat(source.byName.get(m.sourceId))})),
     {sourceMapping:mappings});
-  const [objBytes,rigBytes]=await Promise.all([
+  const [objBytes,rigBytes,weightsBytes]=await Promise.all([
     readFile(resolve(root,"apps/web/public/anatomy/makehuman-base.obj")),
     readFile(resolve(root,"apps/web/public/anatomy/makehuman-default.mhskel")),
+    readFile(resolve(root,"apps/web/public/anatomy/makehuman-default_weights.mhw")),
   ]);
   const template=parseAnatomicalOBJ(objBytes.toString("utf8"),
     {includeGroups:["body"]});
-  const spike=createSkinningSpike({forearmSkinning:true,shoulderSkinning:true});
+  // Same production MakeHuman skin/weights/forearm & shoulder helper setup
+  // used by Studio, not the standalone C2 diagnostic rig mesh.
+  const human=bindTemplateToSemanticRig(template,{
+    rig:JSON.parse(rigBytes.toString("utf8")),
+    weights:JSON.parse(weightsBytes.toString("utf8")),
+  });
+  const spike=human.spike;
   let targetRig;
-  const calibrationSha256=hash(Buffer.concat([objBytes,rigBytes]));
-  try {
-    const landmarks=makeSourceLandmarks(JSON.parse(rigBytes.toString("utf8")),
-      template,new THREE.Float32BufferAttribute(template.sourcePositions,3));
-    const targetRoot=spike.skeleton.bones[0].parent;
-    calibrateHumanBones(graph,spike.bones,spike.skeleton,targetRoot,landmarks,
-      spike.forearmSkinBones,spike.shoulderSkinBones);
-    targetRoot.updateMatrixWorld(true);
-    targetRig=createHumanRestDescriptor(graph,calibrationSha256,
-      graph.joints.map(j=>({targetJointId:j.id,nodeId:j.id,
-        worldPosition:getWorldPos(spike.bones.get(j.id)),
-        worldRotation:getWorldQuat(spike.bones.get(j.id))})));
-  }finally{template.geometry.dispose();spike.dispose();}
+  const calibrationSha256=hash(Buffer.concat([objBytes,rigBytes,weightsBytes]));
+  spike.character.root.updateMatrixWorld(true);
+  targetRig=createHumanRestDescriptor(graph,calibrationSha256,
+    graph.joints.map(j=>({targetJointId:j.id,nodeId:j.id,
+      worldPosition:getWorldPos(spike.bones.get(j.id)),
+      worldRotation:getWorldQuat(spike.bones.get(j.id))})));
+  const targetRestLocalRotations=new Map([...spike.bones.entries()]
+    .map(([id,bone])=>[id,bone.quaternion.clone()]));
+  const sampleMesh=()=>{
+    // Numerical CHECK only: actual skinned MakeHuman body vertices.
+    // Deformation quality still requires owner-reviewed Chromium rendering.
+    spike.character.root.updateMatrixWorld(true);
+    human.mesh.updateMatrixWorld(true);
+    human.mesh.skeleton.update();
+    const positions=human.mesh.geometry.getAttribute("position");
+    let nonfinite=0,maxDeformedDistanceMeters=0,lowestVertexMeters=Infinity;
+    const vertex=new THREE.Vector3(),base=new THREE.Vector3();
+    const stride=Math.max(1,Math.floor(positions.count/800));
+    for(let i=0;i<positions.count;i+=stride){
+      base.fromBufferAttribute(positions,i);
+      human.mesh.applyBoneTransform(i,vertex.copy(base));
+      if(![vertex.x,vertex.y,vertex.z].every(Number.isFinite)){nonfinite++;continue;}
+      maxDeformedDistanceMeters=Math.max(maxDeformedDistanceMeters,vertex.distanceTo(base));
+      lowestVertexMeters=Math.min(lowestVertexMeters,vertex.y);
+    }
+    if(nonfinite||maxDeformedDistanceMeters>2.5)
+      throw Error("Invalid MakeHuman skinned deformation "+JSON.stringify({
+        nonfinite,maxDeformedDistanceMeters,
+      }));
+    return {nonfinite,maxDeformedDistanceMeters,lowestVertexMeters};
+  };
+  const checkSkinnedPose=pose=>{
+    for(const {jointId,rotation} of pose){
+      const bone=spike.bones.get(jointId);
+      if(!bone)throw Error("Unknown actual MakeHuman bone "+jointId);
+      bone.quaternion.copy(targetRestLocalRotations.get(jointId))
+        .multiply(new THREE.Quaternion(...rotation));
+    }
+    return sampleMesh();
+  };
+  // The real MakeHuman mesh is owned by human and disposed after private
+  // verification/bake; no source geometry or clips enter the browser.
   const profile=createRetargetProfile(sourceRig,targetRig,mappings);
   if(profile.calibrations.length!==49)throw Error("Incomplete Kevin profile");
   const immutableProfile=JSON.stringify(profile)+"\n";
@@ -140,6 +175,7 @@ try {
     const action=mixer.clipAction(input.clip);
     action.play();action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
     const values=new Map(mappings.map(m=>[m.targetId,[]]));
+    const skinnedSourceSamples=[];
     for(const t of times){
       mixer.setTime(t);
       input.scene.updateMatrixWorld(true);
@@ -148,6 +184,12 @@ try {
       const pose=retargetWorldPose(profile,targetRig,sourceRotations,
         sourceRig.identitySha256,"source-anatomical");
       for(const p of pose)values.get(p.jointId).push([...p.rotation]);
+      if([0,Math.floor(times.length/4),Math.floor(times.length/2),
+          Math.floor(3*times.length/4),times.length-1].includes(
+          times.indexOf(t))){
+        const actual=checkSkinnedPose(pose);
+        skinnedSourceSamples.push({timeSeconds:t,...actual});
+      }
       const pelvis=getWorldPos(input.byName.get("B-hips"));
       if(!firstPelvis)firstPelvis=pelvis;
       const delta=new THREE.Vector3(...pelvis).sub(new THREE.Vector3(...firstPelvis));
@@ -190,6 +232,7 @@ try {
     entries.push({id:input.id,sourceFile:input.path,sourceSha256:input.fbxSha256,
       outputSha256:hash(encoded),keyCount:times.length,
       maxSeamDegrees:Math.max(...seams.map(s=>s.seamDegrees)),
+      sampledRealMakeHumanSkin:skinnedSourceSamples,
       worstSeams:seams.sort((a,b)=>b.seamDegrees-a.seamDegrees).slice(0,6)});
   }
   generated["manifest.json"]=JSON.stringify({schemaVersion:1,
@@ -202,6 +245,7 @@ try {
   await mkdir(destination,{recursive:true});
   for(const [filename,data] of Object.entries(generated))
     await writeFile(resolve(destination,filename),data,{mode:0o600});
+  human.dispose();
   console.log(JSON.stringify({profileSha256,mappedJointCount:49,
     clips:entries.map(({id,keyCount,maxSeamDegrees})=>({id,keyCount,maxSeamDegrees})),
     output:destination,publicDistributionAllowed:false}));
