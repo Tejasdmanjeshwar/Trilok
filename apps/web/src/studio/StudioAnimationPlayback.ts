@@ -24,6 +24,10 @@ export class StudioAnimationPlayback {
     this.pose=new CanonicalAnimationPose(character,clip,applyCalibratedPose);
     this.durationSeconds=clip.durationSeconds;
     this.clipId=clip.id;
+    // Source-authored jumps/transitions are one-shots, not implicit loops.
+    // Existing V1 clips without trajectory metadata keep historic behavior.
+    this.looping=clip.rootTrajectory?.behavior!=="one_shot" &&
+      clip.rootTrajectory?.behavior!=="transition";
     this.pose.apply(0);
   }
   private live():void {if(this.disposed)throw new Error("Animation playback disposed");}
