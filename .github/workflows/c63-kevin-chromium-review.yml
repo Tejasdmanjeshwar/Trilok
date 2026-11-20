@@ -7,6 +7,10 @@ on:
       - e2e/studio-animation-c6-2.spec.ts
       - e2e/studio-animation-c6-3-integrated.spec.ts
       - assets/animations/studio-v1/kevin/**
+      - packages/character-core/src/animation.ts
+      - scripts/bake-c63-kevin.mjs
+      - apps/web/src/studio/StudioAnimationPlayback.ts
+      - tests/character-animation-c6-3-root-trajectory.test.ts
 permissions:
   contents: read
 jobs:
