@@ -41,6 +41,23 @@ export function createStudioGeneratorPanel(
   const feedback=panel.querySelector<HTMLElement>("#studio-generator-feedback")!;
   let disposed=false;
   let running=false;
+  const stageMessages:Readonly<Record<string,string>>={
+    source:"Preparing anatomical skeleton and skin",
+    "head-morph":"Shaping head and proportions",
+    "body-atlas":"Preparing original body morph targets",
+    "body-morph":"Applying body features",
+    "facial-atlas":"Preparing original facial morph targets",
+    "facial-morph":"Applying facial features",
+    complete:"Preparing final character preview",
+  };
+  const onStage=(event:Event):void=>{
+    if(!running||disposed)return;
+    const detail=(event as CustomEvent<{stage?:unknown}>).detail;
+    const stage=typeof detail?.stage==="string"?detail.stage:"";
+    if(Object.hasOwn(stageMessages,stage))
+      feedback.textContent=stageMessages[stage]!;
+  };
+  window.addEventListener("trilok:studio:generation-stage",onStage);
 
   async function run(seed:number):Promise<void> {
     if(running||disposed)return;
@@ -101,6 +118,6 @@ export function createStudioGeneratorPanel(
       if(document.activeElement!==seedInput||!seedInput.value)
         seedInput.value=String(recipe.seed);
     },
-    dispose(){disposed=true;panel.remove();},
+    dispose(){disposed=true;window.removeEventListener("trilok:studio:generation-stage",onStage);panel.remove();},
   };
 }
