@@ -160,7 +160,16 @@ try {
   };
   // The real MakeHuman mesh is owned by human and disposed after private
   // verification/bake; no source geometry or clips enter the browser.
-  const profile=createRetargetProfile(sourceRig,targetRig,mappings);
+  // Freeze all nested quaternions/frames once. All three animation stacks
+  // share this identical, immutable calibration; no per-clip knobs exist.
+  const deepFreeze=o=>{
+    if(o&&typeof o==="object"&&!Object.isFrozen(o)){
+      Object.values(o).forEach(v=>deepFreeze(v));
+      Object.freeze(o);
+    }
+    return o;
+  };
+  const profile=deepFreeze(createRetargetProfile(sourceRig,targetRig,mappings));
   if(profile.calibrations.length!==49)throw Error("Incomplete Kevin profile");
   const immutableProfile=JSON.stringify(profile)+"\n";
   const profileSha256=hash(immutableProfile);
