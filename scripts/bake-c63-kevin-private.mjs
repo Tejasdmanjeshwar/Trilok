@@ -16,6 +16,10 @@ import {readFile,writeFile,mkdir} from "node:fs/promises";
 import {execFileSync} from "node:child_process";
 import {resolve,dirname} from "node:path";
 import {fileURLToPath} from "node:url";
+import {
+  normalizeKevinFBXScene,indexKevinBones,
+  originalKevinBoneName,verifyKevinModelBind,
+} from "./lib/kevin-fbx-source.mjs";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 function flag(name, fallback) {
@@ -54,10 +58,9 @@ for(const [id,path] of sourcePaths){
   if(bones.length!==56||parsed.animations.length!==1||!clip||
       clip.duration<=0||!Number.isFinite(clip.duration))
     throw Error("Unusable FBX source "+path);
-  // The original scene REST is read before any AnimationMixer modifies nodes.
-  const byName=new Map(bones.map(b=>[b.name,b]));
-  if(byName.size!==56)throw Error("Duplicate FBX source bone name");
-  const rest=bones.map(b=>({name:b.name,parent:b.parent?.name,
+  // Capture bind/rest before the AnimationMixer changes source nodes.
+  const rest=bones.map(b=>({name:originalKevinBoneName(b),
+    parent:b.parent?.isBone?originalKevinBoneName(b.parent):null,
     position:getWorldPos(b),rotation:getWorldQuat(b)}))
     .sort((a,b)=>a.name.localeCompare(b.name));
   inputs.push({id,path,scene:parsed,bones,byName,clip,rest,
@@ -65,6 +68,13 @@ for(const [id,path] of sourcePaths){
 }
 if(new Set(inputs.map(s=>s.restSha256)).size!==1)
   throw Error("Kevin rig rest transform differs between clips; refuse per-clip calibration");
+// Compare genuine mesh-backed source bind to the *same* male profile.
+const maleFBX=execFileSync("unzip",["-p",resolve(archive),"Models/HumanM_Model.fbx"],
+  {maxBuffer:8*1024*1024});
+const modelScene=new FBXLoader().parse(maleFBX.buffer.slice(
+  maleFBX.byteOffset,maleFBX.byteOffset+maleFBX.byteLength),"");
+const modelBones=normalizeKevinFBXScene(modelScene,{expectedBoneCount:55});
+const sourceBindEvidence=verifyKevinModelBind(modelScene,modelBones,inputs[0].byName);
 const server=await createServer({root,server:{middlewareMode:true},
   appType:"custom",logLevel:"error",configFile:false});
 try {
@@ -126,6 +136,7 @@ try {
       times.length*49>8192)
       throw Error("Source exceeds canonical key budget; do not decimate "+input.id);
     const mixer=new THREE.AnimationMixer(input.scene);
+    const offsets=[];let firstPelvis;
     const action=mixer.clipAction(input.clip);
     action.play();action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
     const values=new Map(mappings.map(m=>[m.targetId,[]]));
@@ -137,6 +148,11 @@ try {
       const pose=retargetWorldPose(profile,targetRig,sourceRotations,
         sourceRig.identitySha256,"source-anatomical");
       for(const p of pose)values.get(p.jointId).push([...p.rotation]);
+      const pelvis=getKevinWorldPos(input.byName.get("B-hips"));
+      if(!firstPelvis)firstPelvis=pelvis;
+      const delta=new THREE.Vector3(...pelvis).sub(new THREE.Vector3(...firstPelvis));
+      offsets.push([delta.x,delta.y,0]); // C1 X/right + Y/up; Z travel locked to simulation.
+
     }
     mixer.stopAllAction();
     const tracks=[];
@@ -154,13 +170,16 @@ try {
       tracks.push({jointId:m.targetId,channel:"rotation",
         timesSeconds:times,values:keys});
     }
+    const locked=input.id==="human-kevin-idle";
+    if(!locked)tracks.push({jointId:rig.rootJointId,channel:"translation",
+      timesSeconds:times,values:offsets});
     const clip={schemaVersion:1,id:input.id,rig,
       durationSeconds:input.clip.duration,
       source:{kind:"external",creator:"kevin-iglesias",
         revision:"human-basic-motions-free-fbx7700",
         license:"Unity Asset Store EULA",sha256:input.fbxSha256,
         origin:"https://assetstore.unity.com/packages/3d/animations/human-basic-motions-free-154271"},
-      rootMotion:"locked",
+      rootMotion:locked?"locked":"visual_only",
       layer:{mode:"base",jointMask:mappings.map(m=>m.targetId)},
       retarget:{mode:"rest_delta",authoredBindPoseId:rig.bindPoseId},
       tracks,contacts:[]};
@@ -176,6 +195,7 @@ try {
   generated["manifest.json"]=JSON.stringify({schemaVersion:1,
     sourceArchiveSha256:archiveHash,
     immutableSourceRestSha256:source.restSha256,
+    sourceModelSha256:hash(maleFBX),sourceBindEvidence,
     targetCalibrationSha256:calibrationSha256,profileSha256,
     entries,distribution:"private-only-not-cleared-for-browser"},null,2)+"\n";
   // Writes only after all three clips have passed canonical validation.

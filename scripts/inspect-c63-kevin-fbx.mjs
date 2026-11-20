@@ -12,6 +12,8 @@ import {execFileSync} from "node:child_process";
 import {resolve} from "node:path";
 import * as THREE from "three";
 import {FBXLoader} from "three/addons/loaders/FBXLoader.js";
+import {normalizeKevinFBXScene,originalKevinBoneName}
+  from "./lib/kevin-fbx-source.mjs";
 
 const EXPECTED_ARCHIVE="063d5e1822f85549d14035ef342b1feae45bac37962499a8b478c7eb997200cd";
 const SOURCE=[
@@ -25,14 +27,7 @@ const archive=resolve(process.argv[i+1]);
 const sourceBytes=await readFile(archive);
 const actual=createHash("sha256").update(sourceBytes).digest("hex");
 if(actual!==EXPECTED_ARCHIVE)throw Error("Kevin source ZIP SHA-256 mismatch: "+actual);
-const getNames=scene=>{
-  const nodes=[];
-  scene.traverse(node=>{if(node.isBone)nodes.push(node);});
-  const names=nodes.map(node=>node.name);
-  if(nodes.length!==56||new Set(names).size!==56)
-    throw Error("FBXLoader did not import the audited 56 unique source bones");
-  return nodes;
-};
+const getNames=scene=>[...normalizeKevinFBXScene(scene).values()];
 const getWorld=node=>{
   const p=node.getWorldPosition(new THREE.Vector3());
   const q=node.getWorldQuaternion(new THREE.Quaternion());
@@ -49,9 +44,8 @@ for(const filename of SOURCE){
   const sourceSha256=createHash("sha256").update(fbx).digest("hex");
   const buffer=fbx.buffer.slice(fbx.byteOffset,fbx.byteOffset+fbx.byteLength);
   const scene=loader.parse(buffer,"");
-  scene.updateMatrixWorld(true);
   const bones=getNames(scene);
-  const byId=new Map(bones.map(b=>[b.name,b]));
+  const byId=new Map(bones.map(b=>[originalKevinBoneName(b),b]));
   const required=["B-root","B-hips","B-spine","B-chest","B-hand.L",
     "B-hand.R","B-forearm.L","B-forearm.R","B-indexFinger01.L",
     "B-indexFinger01.R","B-pinky01.L","B-pinky01.R"];
@@ -60,7 +54,8 @@ for(const filename of SOURCE){
   if(scene.animations.length!==1||!clip||clip.duration<=0 ||
     !Number.isFinite(clip.duration)||clip.tracks.length<56)
     throw Error("Invalid FBXLoader animation stack");
-  const rest=bones.map(b=>({name:b.name,parent:b.parent?.name??null,
+  const rest=bones.map(b=>({name:originalKevinBoneName(b),
+    parent:b.parent?.isBone?originalKevinBoneName(b.parent):null,
     ...getWorld(b)})).sort((a,b)=>a.name.localeCompare(b.name));
   // Imported source reference MUST match between clips (no per-clip rig profile).
   const restSignature=createHash("sha256").update(JSON.stringify(rest)).digest("hex");
