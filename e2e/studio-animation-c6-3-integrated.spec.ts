@@ -48,8 +48,12 @@ test("C6.3 Kevin Idle Walk Run render across their cycles, front and side",async
           range.value=String(value);
           range.dispatchEvent(new Event("input",{bubbles:true}));
         },time);
-        await expect(page.locator("#studio-animation-clock"))
-          .toContainText(time.toFixed(2),{timeout:10_000});
+        // Timeline displays two decimal places and the browser's range input
+        // rounds to a 0.001-second step; tolerate display quantization only.
+        const displayed=Number((await page.locator("#studio-animation-clock")
+          .textContent())?.split(" / ")[0]);
+        expect(Math.abs(displayed-time),id+" timeline quantization")
+          .toBeLessThan(.015);
         await page.waitForTimeout(120);
         const path="test-results/studio-c6-3/"+id+"-"+view+"-"+fraction+".jpg";
         const {mkdirSync}=await import("node:fs");
