@@ -2,7 +2,11 @@ name: C6.3 Kevin authored-source bake
 on:
   push:
     branches: [feat/c6-3-grounded-locomotion]
-    paths: [.github/workflows/c63-kevin-owner-bake.yml]
+    paths:
+      - .github/workflows/c63-kevin-owner-bake.yml
+      - scripts/bake-c63-kevin.mjs
+      - scripts/lib/kevin-fbx-source.mjs
+      - assets/animations/sources/kevin-basic-motions-v1.json
 permissions:
   contents: write
 jobs:
