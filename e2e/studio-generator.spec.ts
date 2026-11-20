@@ -69,7 +69,7 @@ test("Random character keeps the Generate panel simple on touch",async({page})=>
   const generator=page.locator("#studio-generator-panel");
   await expect(generator.getByRole("button",{name:"Random character"})).toBeVisible();
   await expect(generator.locator("#studio-generator-seed")).toBeVisible();
-  await expect(generator.getByRole("button")).toHaveCount(2);
+  await expect(generator.getByRole("button")).toHaveCount(3);
   expect(await page.locator("body").evaluate(el=>el.scrollWidth<=innerWidth+1))
     .toBe(true);
   mkdirSync("test-results/studio",{recursive:true});
