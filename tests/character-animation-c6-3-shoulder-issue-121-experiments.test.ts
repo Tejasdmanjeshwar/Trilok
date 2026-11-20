@@ -188,6 +188,9 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
       // pose to isolate whether compaction explains the *upper clavicle* fold.
       const roles=new Map(human.spike.graph.joints.map((j,i)=>[j.role,i]));
       const originals=new Map<number,Map<number,number>>();
+      const targetSourceIds=new Set(targetFaces.flatMap(face=>
+        Array.from({length:3},(_,k)=>human.template.sourceVertexIds[
+          human.mesh.geometry.getIndex()!.getX(face*3+k)]!)));
       for(const [name,entries] of Object.entries(weights.weights)){
         const role=sourceWeightRole(name);
         let mapped=role?roles.get(role):undefined;
@@ -197,8 +200,10 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
           mapped=human.spike.skeleton.bones.indexOf(
             human.spike.shoulderSkinBones!.get(side as "left"|"right")!);
         }
+        if(!entries.some(([id])=>targetSourceIds.has(id)))continue;
         if(mapped===undefined)throw new Error("Unmapped original source skin "+name);
         for(const [id,weight] of entries){
+          if(!targetSourceIds.has(id))continue;
           let byBone=originals.get(id);
           if(!byBone){byBone=new Map();originals.set(id,byBone);}
           byBone.set(mapped,(byBone.get(mapped)??0)+weight);
