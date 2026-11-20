@@ -179,3 +179,71 @@ morphology/IK contact envelope without threshold relaxation.
 5. Re-run neutral/short/tall/muscular/heavy morphology and Kevin/UAL1 tests, Chromium frame sweep, lifecycle/regeneration, complete Verify and Netlify preview, all pinned to the exact successful source SHA. Obtain owner approval before merging.
 
 **Open limitation:** local browser execution and manual workflow dispatch are unavailable to the connected GitHub editing actions in this environment; the CI logs do not substitute for rendered before/after inspection. No Cloudflare deployment is authorized.
+
+
+## November 20 rendered reproduction and runtime correction candidate
+
+The original dark wedge **was reproduced independently** from the verified PR #122
+static artifact attached to Verify run 44767133328. Its sealed checkout/build
+identity is `b1215d1ede175342a14f3c396a56c8bae7462fba`; the PR source HEAD
+at the time was `074a443cd4f602e653eab306754d9a6df84fe0ff`.
+A genuine Chromium 144 WebGL context was created via a virtual X display
+and ANGLE SwiftShader. The artifact's actual JavaScript, meshes, MakeHuman
+data, and shaders were served using a local Playwright request router because
+direct HTTP/localhost navigation is prohibited in the execution environment.
+The missing external Google Fonts request was nonessential; Studio reported
+ready without a JavaScript page error.
+
+The renderer was set to the existing 1100 × 780 viewport, neutral humanoid,
+Kevin Run timeline 0.51 / 0.60 seconds. The Studio's shoulder focus and
+front/three-quarter/side/rear camera presets were used. Pixel analysis and
+runtime source-indexed raycasts revealed the black triangular patch at rendered
+face **6796**, render vertices **1776, 1618, 4241**, source vertex IDs
+**1517, 1395, 3752**. Adjacent faces 6797 and 6634 have severe collapse.
+This matches the visually damaged upper clavicle rather than relying solely
+on the previously measured but unlocated axilla diagnostic.
+
+Direct Chromium measurements at the original pose, before any experimental
+change:
+
+| Face | Posed/rest surface area | Posed/rest face-normal dot |
+| --- | ---: | ---: |
+| 6796 (actual dark wedge) | 0.337 | −0.909 |
+| 6797 | 0.139 | −0.816 |
+| 6634 | 0.219 | −0.876 |
+| 6798 (neighbor) | 1.359 | +0.967 |
+| 6799 (neighbor) | 1.482 | +0.972 |
+
+This is a deformed, continuous source mesh, not an absent source triangle.
+The material already renders with Three.js `DoubleSide`. Disabling native
+shoulder corrective morph influences in the same WebGL instance **did not**
+eliminate the black wedge. A controlled, one-frame experiment reconstructing
+the original multi-influence source LBS pose for the original shoulder01
+vertices and mapping those positions back through the compressed GPU matrix
+**removed the wedge without modifying topology, lighting, material, or camera**.
+That A/B demonstration identifies the *visible upper clavicle* mechanism as
+the source-weight compression fold, distinct from the full-source lower-axilla
+fold. This experiment alone is not broad animation acceptance.
+
+Candidate code on PR #122 now retains the original overloaded shoulder
+owners from `OfficialHumanRig.applyOfficialSkinWeights` and uses
+`SourceSkinningFidelity` to compute their full-source linear-blend result
+with finite canonical skin matrices, then solve for a compensated bind-space
+position under the existing four GPU influences. The conventional GPU index
+and weight attributes remain unchanged; original face topology, UV and bone
+IDs remain unchanged. The path uses a bounded direct affine inverse per
+overloaded render vertex and frame rather than training on Kevin Run,
+searching weights dynamically, or injecting a Kevin-specific overlay.
+
+The independent source-reference holdout test now checks the actual runtime
+correction on the full Run 12-timestamp shoulder region against uncompressed
+LBS, in addition to retaining the baseline and diagnostic atlas comparisons.
+**Acceptance is conditional** on exact-HEAD CI, actual new-build Chromium
+review, morphology/contact regressions and measured generation/runtime cost.
+The separate lower-axilla collapsed faces (15844/15871/20356/20357) remain
+unresolved in the full-source LBS reference; a successful upper-clavicle
+correction is not a claim that those defects disappeared.
+
+Never merge or deploy to production solely because this new numerical
+correction passes unit tests. The actual next revision's rendered before/after
+images and the five-morphology/weapon-contact evidence are mandatory.
