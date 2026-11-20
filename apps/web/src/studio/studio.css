@@ -341,3 +341,18 @@ h1{font-size:19px;letter-spacing:-.035em;margin:0;line-height:1.2}
 .studio-animation-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
 .studio-animation-panel .studio-switch { margin-block:12px; }
 #studio-animation-static { width:100%; }
+
+/* Opt-in local timing diagnostics: visible to the owner, never uploaded. */
+.studio-generator-diagnostics{border-top:1px solid #42515c;padding-top:12px;
+  display:grid;gap:9px;min-width:0}
+.studio-generator-diagnostics p{font-size:12px;line-height:1.5;color:#c3ced3;margin:0}
+.studio-generator-diagnostics button{min-height:44px;border-radius:9px;
+  border:1px solid #bda57c;background:#283947;color:#ffe7b5;
+  font-size:12px;font-weight:700;padding:9px 12px}
+.studio-generator-diagnostics button:disabled{opacity:.5}
+.studio-generator-diagnostics button:focus-visible,
+.studio-generator-diagnostics textarea:focus-visible{outline:3px solid #f6d99f;outline-offset:2px}
+.studio-generator-diagnostics textarea{box-sizing:border-box;width:100%;min-width:0;
+  max-width:100%;resize:vertical;background:#111c26;color:#f3e8d7;
+  border:1px solid #677785;border-radius:8px;padding:10px;
+  font:11px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}

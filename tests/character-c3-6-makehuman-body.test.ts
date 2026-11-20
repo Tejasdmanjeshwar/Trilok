@@ -255,7 +255,7 @@ describe("C3.6 original MakeHuman body asset correspondence",()=>{
         const expectedDelta=new THREE.Vector3();
         for(const [id,amount] of factors){
           const target=targetMap.get(id)!;
-          const rowMap=new Map<number,readonly number[]>();
+          const rowMap=new Map<number,ArrayLike<number>>();
           for(let i=0;i<target.rows.length;i+=4)
             rowMap.set(target.rows[i]!,target.rows.slice(i+1,i+4));
           for(const source of headRef){

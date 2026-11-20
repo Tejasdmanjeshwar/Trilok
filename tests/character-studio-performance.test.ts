@@ -32,4 +32,15 @@ describe("Character Studio bounded preview metrics",()=>{
     expect(snapshot.edits.p95Ms).toBe(241);
     expect(snapshot.gpu).toBeNull();
   });
+  it("retains three isolated, validated generation stage traces",()=>{
+    const metrics=new StudioPerformance();
+    for(let i=0;i<5;i++)
+      metrics.recordGeneration({elapsedMs:i+1,stages:{source:i,body:i+0.5}});
+    metrics.recordGeneration({elapsedMs:NaN,stages:{}});
+    metrics.recordGeneration({elapsedMs:5,stages:{invalid:Infinity}});
+    const snapshot=metrics.snapshot();
+    expect(snapshot.generations.map(g=>g.elapsedMs)).toEqual([3,4,5]);
+    expect(snapshot.generations[0]?.stages.source).toBe(2);
+    expect(snapshot.generations[2]?.stages.body).toBe(4.5);
+  });
 });
