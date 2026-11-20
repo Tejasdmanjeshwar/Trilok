@@ -112,13 +112,6 @@ host.innerHTML=String.raw`
         <fieldset class="studio-fieldset studio-animation-panel">
           <legend>Animations</legend>
           <p>Preview motion on your character. Shape and equipment settings are preserved.</p>
-          <div id="studio-kevin-local" hidden>
-            <label class="studio-field-label" for="studio-kevin-file">Kevin Iglesias Basic Motions FREE — local ZIP</label>
-            <input type="file" id="studio-kevin-file" accept=".zip,application/zip"
-              aria-describedby="studio-kevin-notice" />
-            <p id="studio-kevin-notice">Select your licensed regular FBX ZIP. All three motions are retargeted on this device. Source files and generated animation data are never uploaded or saved by Trilok.</p>
-            <output id="studio-kevin-status" role="status" aria-live="polite">No Kevin archive loaded</output>
-          </div>
           <label class="studio-field-label" for="studio-animation-select">Animation</label>
           <select id="studio-animation-select" aria-label="Studio animation">
             <option value="">Static pose</option>
@@ -134,7 +127,7 @@ host.innerHTML=String.raw`
             <label class="studio-field-label" for="studio-movement-speed">Movement pace</label>
             <input id="studio-movement-speed" type="range" min="0" max="1" step=".01" value="0" />
             <output id="studio-movement-speed-value">Standing</output>
-            <p>${EXPERIMENTAL_KAYKIT_REVIEW?"Experimental KayKit directional source is unaccepted; anatomical fidelity is not proven.":"Approved UAL1 forward speed transitions only; Kevin experimental clips are local-import only."}</p>
+            <p>${EXPERIMENTAL_KAYKIT_REVIEW?"Experimental KayKit directional source is unaccepted; anatomical fidelity is not proven.":"Approved UAL1 forward speed transitions; optional source families appear as bundled animations."}</p>
           </div>
           <div class="studio-action-pair studio-animation-actions">
             <button id="studio-animation-play" type="button" disabled aria-label="Play animation">Play</button>
@@ -310,31 +303,6 @@ const startOverButton=element<HTMLButtonElement>("#studio-start-over");
 const focusArea=element<HTMLSelectElement>("#studio-focus-area");
 const animationSelect=element<HTMLSelectElement>("#studio-animation-select");
 const movementSettings=element<HTMLElement>("#studio-movement-settings");
-const kevinLocal=element<HTMLElement>("#studio-kevin-local");
-const kevinFile=element<HTMLInputElement>("#studio-kevin-file");
-const kevinStatus=element<HTMLOutputElement>("#studio-kevin-status");
-const KEVIN_REVIEW_ENABLED=new URLSearchParams(location.search)
-  .has("c63-kevin-local-review");
-kevinLocal.hidden=!KEVIN_REVIEW_ENABLED;
-kevinFile.addEventListener("change",()=>{
-  const file=kevinFile.files?.item(0);
-  if(!file)return;
-  kevinFile.disabled=true;
-  kevinStatus.textContent="Checking original ZIP and calibrating MakeHuman…";
-  void viewport.importKevinArchive(file).then(clips=>{
-    for(const option of Array.from(animationSelect.options))
-      if(option.value.startsWith("human-kevin-"))option.remove();
-    for(const clip of clips)
-      animationSelect.add(new Option("Kevin (experimental) · "+clip.label,clip.id));
-    animationSelect.value=clips[0]!.id;
-    kevinStatus.textContent="Loaded "+clips.length+
-      " source-backed clips locally; visual quality is not yet approved";
-  }).catch(error=>{
-    const detail=error instanceof Error?error.message:String(error);
-    kevinStatus.textContent="Kevin source rejected: "+detail;
-    console.warn("[Trilok Kevin local review]",error);
-  }).finally(()=>{kevinFile.disabled=false;kevinFile.value="";});
-});
 const movementDirection=element<HTMLSelectElement>("#studio-movement-direction");
 movementDirection.addEventListener("change",()=>{
   viewport.setMovementPreviewDirection(movementDirection.value as

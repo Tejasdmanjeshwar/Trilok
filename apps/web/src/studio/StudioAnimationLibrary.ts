@@ -6,6 +6,7 @@ import sprint from "../../../../assets/animations/studio-v1/human-sprint.clip.js
 import backward from "../../../../assets/animations/studio-v1/human-backward.clip.json";
 import strafeLeft from "../../../../assets/animations/studio-v1/human-strafe-left.clip.json";
 import strafeRight from "../../../../assets/animations/studio-v1/human-strafe-right.clip.json";
+import kevinCatalog from "../../../../assets/animations/sources/kevin-basic-motions-v1.json";
 
 /** Approved source-backed motions, independent of Studio controls or playback. */
 const library = [
@@ -18,12 +19,22 @@ const library = [
   {id:"human-strafe-right",label:"Strafe Right",clip:strafeRight},
 ] as const;
 
+// Canonical game-integrated JSON resources are bundled at build time.
+const kevinBakes = import.meta.glob<{default:AnimationClipV1}>(
+  "../../../../assets/animations/studio-v1/kevin/*.clip.json",{eager:true});
+const kevinLibrary = kevinCatalog.clips.flatMap(({id,label})=>{
+  const path="../../../../assets/animations/studio-v1/kevin/"+id+".clip.json";
+  const clip=kevinBakes[path]?.default;
+  return clip?[{id,label,clip}]:[];
+});
+
 /** KayKit directional motion failed owner review. Keep it accessible only in an\n * explicitly opted-in PR diagnostic, not the accepted animation menu. */
 export const EXPERIMENTAL_KAYKIT_REVIEW = typeof location !== "undefined" &&
   new URLSearchParams(location.search).has("c63-kaykit-review");
 export const STUDIO_ANIMATIONS = [
   ...library.slice(0,EXPERIMENTAL_KAYKIT_REVIEW?library.length:4)
     .map(({id,label})=>({id,label})),
+  ...kevinLibrary.map(({id,label})=>({id,label})),
   {id:"locomotion-preview",label:"Movement transitions"},
 ];
 
@@ -43,7 +54,7 @@ export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1,
   };
 }
 const clips: Readonly<Record<string,unknown>> =
-  Object.fromEntries(library.map(({id,clip})=>[id,clip]));
+  Object.fromEntries([...library,...kevinLibrary].map(({id,clip})=>[id,clip]));
 
 /** Legacy names are input-only migrations, never extra playback choices.
  * This also migrates a previously selected "human-run" to semantic "Jog". */
