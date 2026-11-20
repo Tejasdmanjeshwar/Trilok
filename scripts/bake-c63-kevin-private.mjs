@@ -118,8 +118,18 @@ try {
     graph.joints.map(j=>({targetJointId:j.id,nodeId:j.id,
       worldPosition:getWorldPos(spike.bones.get(j.id)),
       worldRotation:getWorldQuat(spike.bones.get(j.id))})));
-  const targetRestLocalRotations=new Map([...spike.bones.entries()]
-    .map(([id,bone])=>[id,bone.quaternion.clone()]));
+  const {AnatomicalFK}=await server.ssrLoadModule(
+    "/apps/web/src/characters/geometry/AnatomicalFK.ts");
+  const {HumanPoseCorrectives}=await server.ssrLoadModule(
+    "/apps/web/src/characters/geometry/HumanPoseCorrectives.ts");
+  // Use the exact production Studio FK/helper-correction path: direct bone
+  // quaternion assignment misses proximal-forearm twist and shoulder skinning.
+  const fk=new AnatomicalFK(graph,spike.bones,{
+    jawTipWorldRest:human.jawTipWorldRest,
+    forearmSkinBones:spike.forearmSkinBones,
+    shoulderSkinBones:spike.shoulderSkinBones,
+  });
+  const correctives=new HumanPoseCorrectives(human);
   const sampleMesh=()=>{
     // Numerical CHECK only: actual skinned MakeHuman body vertices.
     // Deformation quality still requires owner-reviewed Chromium rendering.
@@ -144,12 +154,8 @@ try {
     return {nonfinite,maxDeformedDistanceMeters,lowestVertexMeters};
   };
   const checkSkinnedPose=pose=>{
-    for(const {jointId,rotation} of pose){
-      const bone=spike.bones.get(jointId);
-      if(!bone)throw Error("Unknown actual MakeHuman bone "+jointId);
-      bone.quaternion.copy(targetRestLocalRotations.get(jointId))
-        .multiply(new THREE.Quaternion(...rotation));
-    }
+    fk.applyRestDeltas(pose);
+    correctives.applyAnimationSamples(pose);
     return sampleMesh();
   };
   // The real MakeHuman mesh is owned by human and disposed after private
@@ -245,6 +251,7 @@ try {
   await mkdir(destination,{recursive:true});
   for(const [filename,data] of Object.entries(generated))
     await writeFile(resolve(destination,filename),data,{mode:0o600});
+  correctives.dispose();
   human.dispose();
   console.log(JSON.stringify({profileSha256,mappedJointCount:49,
     clips:entries.map(({id,keyCount,maxSeamDegrees})=>({id,keyCount,maxSeamDegrees})),
