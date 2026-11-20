@@ -106,7 +106,7 @@ const getWorldPos=obj=>{const p=obj.getWorldPosition(new THREE.Vector3());return
 // before deterministic world-space retargeting, without changing joint motion.
 const getWorldQuat=obj=>{const q=obj.getWorldQuaternion(new THREE.Quaternion()).normalize();return [q.x,q.y,q.z,q.w];};
 const inputs=[];
-for(const {id,sourceFile:path,rootMotion} of sourcePaths){
+for(const {id,sourceFile:path,rootMotion,behavior} of sourcePaths){
   const fbx=readZipEntry(path);
   if(fbx.readUInt32LE(23)!==7700)throw Error("FBX version mismatch "+path);
   const parsed=new FBXLoader().parse(
@@ -122,7 +122,7 @@ for(const {id,sourceFile:path,rootMotion} of sourcePaths){
     parent:b.parent?.isBone?originalKevinBoneName(b.parent):null,
     position:getWorldPos(b),rotation:getWorldQuat(b)}))
     .sort((a,b)=>a.name.localeCompare(b.name));
-  inputs.push({id,path,rootMotion,scene:parsed,bones,byName,clip,rest,
+  inputs.push({id,path,rootMotion,behavior,scene:parsed,bones,byName,clip,rest,
     restSha256:hash(JSON.stringify(rest)),fbxSha256:hash(fbx)});
 }
 if(new Set(inputs.map(s=>s.restSha256)).size!==1)
