@@ -84,7 +84,7 @@
       "id": "human-kevin-idle-01-to-02",
       "sourceFile": "Animations/Male/Idles/HumanM@Idle01-Idle02.fbx",
       "sourceSha256": "76f72bac8324682c16377851414f62f016984ce225fd250dcf79476e828e55c7",
-      "outputSha256": "2ba33fd6447f85e253074a6cefc2bbbd95b04a9ca9a19cf9f35cf5d1ad0bc0ba",
+      "outputSha256": "175a49ba8ad3dc80d67caa54425a0de4525c6299f600b8a67231afe4db0df8c7",
       "keyCount": 24,
       "maxSeamDegrees": 89.90012057304304,
       "sampledRealMakeHumanSkin": [
@@ -150,7 +150,7 @@
       "id": "human-kevin-idle-02-to-01",
       "sourceFile": "Animations/Male/Idles/HumanM@Idle02-Idle01.fbx",
       "sourceSha256": "29e4120db27972f88aa4e1bb084c1a510b7c184cbcc67c42cc8c2f404ddd25da",
-      "outputSha256": "d1a3e0e930b7d092b19050dbff6d6db0107408e5e0b2eee87696fad3497a0657",
+      "outputSha256": "d28f78f17eb41eefe3df2b9e78eb1b2ba139df024354675757e93c1dfdf65452",
       "keyCount": 33,
       "maxSeamDegrees": 89.90011024727926,
       "sampledRealMakeHumanSkin": [
@@ -1470,7 +1470,7 @@
       "id": "human-kevin-turn-left",
       "sourceFile": "Animations/Male/Movement/Turn/HumanM@Turn01_Left.fbx",
       "sourceSha256": "c5b1184be14f7d721a67d229e379dc122462e64eccf8197f8fd02ff1375b793e",
-      "outputSha256": "977ed6813d7e5fe26b03c662be648667a3d16eb5453a7cc7db711aa4937cfe8f",
+      "outputSha256": "bd8f6344d70c480bd6ac01e099d60e39329842c396da18f4a2ab730e11d1ba67",
       "keyCount": 54,
       "maxSeamDegrees": 0.00033184019120056305,
       "sampledRealMakeHumanSkin": [
@@ -1536,7 +1536,7 @@
       "id": "human-kevin-turn-right",
       "sourceFile": "Animations/Male/Movement/Turn/HumanM@Turn01_Right.fbx",
       "sourceSha256": "d4ddf39abbe72b4f92c58dad8e4abd9081b7f16459d28389ca18ccf15b2efdd6",
-      "outputSha256": "e034c8e738541f8b619e048b14d84e0b355b11c08242801289b9bc0441819c1f",
+      "outputSha256": "10aca53c52709054f249cb66e77e9f7494fe800b0cffecea27c0ea37db8ead51",
       "keyCount": 48,
       "maxSeamDegrees": 0.0003531363029058203,
       "sampledRealMakeHumanSkin": [
