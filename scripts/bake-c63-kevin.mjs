@@ -245,7 +245,7 @@ try {
       times.length*49>8192)
       throw Error("Source exceeds canonical key budget; do not decimate "+input.id);
     const mixer=new THREE.AnimationMixer(input.scene);
-    const offsets=[];let firstPelvis,firstSourceRoot;
+    const offsets=[],fullWorldOffsets=[],trajectoryRotations=[];let firstPelvis,firstSourceRoot,firstHipRotation;
     const sourceRootBone=input.byName.get("B-root");
     if(!sourceRootBone)throw Error("Missing source B-root for "+input.path);
     const action=mixer.clipAction(input.clip);
@@ -275,14 +275,20 @@ try {
       const pelvis=getWorldPos(input.byName.get("B-hips"));
       if(!firstPelvis)firstPelvis=pelvis;
       if(!firstSourceRoot)firstSourceRoot=getWorldPos(sourceRootBone);
+      const sourceHipWorldRotation=new THREE.Quaternion(...getWorldQuat(input.byName.get("B-hips")));
+      if(!firstHipRotation)firstHipRotation=sourceHipWorldRotation.clone();
+      const motionRotation=sourceHipWorldRotation.clone().multiply(
+        firstHipRotation.clone().invert()).normalize();
+      trajectoryRotations.push(motionRotation.toArray());
       const delta=new THREE.Vector3(...pelvis).sub(new THREE.Vector3(...firstPelvis));
       const offset=[delta.x,delta.y,0]; // Z travel remains gameplay-authoritative.
       offsets.push(offset);
+      fullWorldOffsets.push(delta.toArray());
       if([0,Math.floor(times.length/4),Math.floor(times.length/2),
           Math.floor(3*times.length/4),times.length-1].includes(times.indexOf(t))){
         // Apply the SAME presentation root offset that Studio will receive.
         const sampledPose=pose.map(p=>p.jointId===rig.rootJointId &&
-          input.rootMotion!=="locked"?{...p,translation:offset}:p);
+          !all && input.rootMotion!=="locked"?{...p,translation:offset}:p);
         try {
           const actual=checkSkinnedPose(sampledPose);
           skinnedSourceSamples.push({timeSeconds:t,...actual});
@@ -320,7 +326,7 @@ try {
         timesSeconds:times,values:keys});
     }
     const locked=input.rootMotion==="locked";
-    if(!locked)tracks.push({jointId:rig.rootJointId,channel:"translation",
+    if(!locked&&!all)tracks.push({jointId:rig.rootJointId,channel:"translation",
       timesSeconds:times,values:offsets});
     const clip={schemaVersion:1,id:input.id,rig,
       durationSeconds:input.clip.duration,
@@ -331,7 +337,21 @@ try {
       rootMotion:locked?"locked":"visual_only",
       layer:{mode:"base",jointMask:mappings.map(m=>m.targetId)},
       retarget:{mode:"rest_delta",authoredBindPoseId:rig.bindPoseId},
-      tracks,contacts:[]};
+      tracks,contacts:[],
+      // The 3 already accepted-for-review committed clips remain byte-for-byte
+      // stable in normal mode. Full inventory mode stores full XYZ + heading
+      // separately, including jumps. The Studio FK never consumes the travel.
+      ...(all?{rootTrajectory:{
+        coordinates:rig.coordinates,
+        origin:"source-hips-at-first-key",
+        orientation:"reference-only",
+        behavior:input.path.includes("[RM]")?"one_shot":
+          (input.path.includes("Idle")||input.path.includes("Walk")||
+           input.path.includes("Run"))?"loop":"transition",
+        timesSeconds:times,
+        positionsMeters:fullWorldOffsets,
+        rotations:trajectoryRotations,
+      }}:{})};
     const encoded=serializeAnimationClip(clip,graph)+"\n";
     parseAnimationClip(encoded,graph);
     const filename=input.id+".clip.json";
