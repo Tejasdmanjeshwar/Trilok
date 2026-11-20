@@ -190,16 +190,19 @@ try {
       const pose=retargetWorldPose(profile,targetRig,sourceRotations,
         sourceRig.identitySha256,"source-anatomical");
       for(const p of pose)values.get(p.jointId).push([...p.rotation]);
-      if([0,Math.floor(times.length/4),Math.floor(times.length/2),
-          Math.floor(3*times.length/4),times.length-1].includes(
-          times.indexOf(t))){
-        const actual=checkSkinnedPose(pose);
-        skinnedSourceSamples.push({timeSeconds:t,...actual});
-      }
       const pelvis=getWorldPos(input.byName.get("B-hips"));
       if(!firstPelvis)firstPelvis=pelvis;
       const delta=new THREE.Vector3(...pelvis).sub(new THREE.Vector3(...firstPelvis));
-      offsets.push([delta.x,delta.y,0]); // C1 X/right + Y/up; Z travel locked to simulation.
+      const offset=[delta.x,delta.y,0]; // Z travel remains gameplay-authoritative.
+      offsets.push(offset);
+      if([0,Math.floor(times.length/4),Math.floor(times.length/2),
+          Math.floor(3*times.length/4),times.length-1].includes(times.indexOf(t))){
+        // Apply the SAME presentation root offset that Studio will receive.
+        const sampledPose=pose.map(p=>p.jointId===rig.rootJointId &&
+          input.id!=="human-kevin-idle"?{...p,translation:offset}:p);
+        const actual=checkSkinnedPose(sampledPose);
+        skinnedSourceSamples.push({timeSeconds:t,...actual});
+      }
 
     }
     mixer.stopAllAction();
