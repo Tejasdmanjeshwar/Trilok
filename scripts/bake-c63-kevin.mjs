@@ -1,12 +1,10 @@
 /**
- * C6.3 private-only candidate bake for Kevin Iglesias Human Basic Motions FREE.
+ * C6.3 developer-time canonical asset bake for Kevin Iglesias Human Basic Motions FREE.
  * Same C6.2 source-anatomical rig retargeter, no per-animation correction.
- * Output is intentionally local/ignored: DO NOT commit/deploy/export without
- * legal authorization for independently extractable animation keyframes.
+ * Bake canonical game-integrated resources for normal runtime loading.
  *
- * pnpm exec node scripts/bake-c63-kevin-private.mjs \
- *   --archive "/private/Human Basic Motions FREE.zip" \
- *   --output assets/animations/private/kevin-c63
+ * node scripts/bake-c63-kevin.mjs --archive "/path/Human Basic Motions FREE.zip" --write
+ * Omit --write to verify deterministic baked bytes; use --all for all male clips.
  */
 import * as THREE from "three";
 import {FBXLoader} from "three/addons/loaders/FBXLoader.js";
@@ -31,23 +29,44 @@ function flag(name, fallback) {
 }
 const archive=flag("--archive",null);
 if(!archive)throw Error("Requires --archive (private licensed owner ZIP)");
-const destination=resolve(root,flag("--output","assets/animations/private/kevin-c63"));
-const allowable=resolve(root,"assets/animations/private");
-if(!destination.startsWith(allowable+"/"))
-  throw Error("Private candidate output must remain inside ignored assets/animations/private");
-const sourcePaths=[
-  ["human-kevin-idle","Animations/Male/Idles/HumanM@Idle01.fbx"],
-  ["human-kevin-walk","Animations/Male/Movement/Walk/HumanM@Walk01_Forward.fbx"],
-  ["human-kevin-run","Animations/Male/Movement/Run/HumanM@Run01_Forward.fbx"],
-];
+const destination=resolve(root,flag("--output","assets/animations/studio-v1/kevin"));
+const write=process.argv.includes("--write");
+const all=process.argv.includes("--all");
+const catalog=JSON.parse(await readFile(resolve(root,
+  "assets/animations/sources/kevin-basic-motions-v1.json"),"utf8"));
+if(catalog.schemaVersion!==1||catalog.fbxVersion!==7700||
+   catalog.expectedMaleClipCount!==58||!Array.isArray(catalog.clips)||
+   catalog.clips.length<3||new Set(catalog.clips.map(c=>c.id)).size!==catalog.clips.length)
+  throw Error("Invalid Kevin source catalog");
+const initial=catalog.clips.map(c=>{
+  if(!/^[a-z0-9-]+$/.test(c.id)||
+     !/^Animations\/Male\/[^.]+\.fbx$/.test(c.sourceFile)||
+     !["locked","visual_only"].includes(c.rootMotion))
+    throw Error("Invalid Kevin catalog entry "+JSON.stringify(c));
+  return c;
+});
+const malePaths=execFileSync("unzip",["-Z1",resolve(archive)],
+  {encoding:"utf8",maxBuffer:1024*1024}).split("\n")
+  .filter(p=>p.startsWith("Animations/Male/")&&p.endsWith(".fbx")).sort();
+if(malePaths.length!==catalog.expectedMaleClipCount||
+   new Set(malePaths).size!==malePaths.length)
+  throw Error("Kevin source inventory changed: "+malePaths.length);
+const sourcePaths=all?[...initial,...malePaths
+  .filter(path=>!initial.some(c=>c.sourceFile===path))
+  .map(path=>({id:"human-kevin-"+path.slice("Animations/Male/".length)
+    .replace(/\.fbx$/,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/-$/,""),
+    sourceFile:path,rootMotion:(path.includes("/Idles/")||path.includes("/Social/"))?
+      "locked":"visual_only"}))]:initial;
+if(new Set(sourcePaths.map(c=>c.id)).size!==sourcePaths.length)
+  throw Error("Duplicate Kevin output ID");
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const archiveHash=hash(await readFile(resolve(archive)));
-if(archiveHash!=="063d5e1822f85549d14035ef342b1feae45bac37962499a8b478c7eb997200cd")
+if(archiveHash!==catalog.archiveSha256)
   throw Error("Unexpected Kevin archive identity: "+archiveHash);
 const getWorldPos=obj=>{const p=obj.getWorldPosition(new THREE.Vector3());return [p.x,p.y,p.z];};
 const getWorldQuat=obj=>{const q=obj.getWorldQuaternion(new THREE.Quaternion());return [q.x,q.y,q.z,q.w];};
 const inputs=[];
-for(const [id,path] of sourcePaths){
+for(const {id,sourceFile:path,rootMotion} of sourcePaths){
   const fbx=execFileSync("unzip",["-p",resolve(archive),path],{maxBuffer:8*1024*1024});
   if(fbx.readUInt32LE(23)!==7700)throw Error("FBX version mismatch "+path);
   const parsed=new FBXLoader().parse(
@@ -63,11 +82,33 @@ for(const [id,path] of sourcePaths){
     parent:b.parent?.isBone?originalKevinBoneName(b.parent):null,
     position:getWorldPos(b),rotation:getWorldQuat(b)}))
     .sort((a,b)=>a.name.localeCompare(b.name));
-  inputs.push({id,path,scene:parsed,bones,byName,clip,rest,
+  inputs.push({id,path,rootMotion,scene:parsed,bones,byName,clip,rest,
     restSha256:hash(JSON.stringify(rest)),fbxSha256:hash(fbx)});
 }
 if(new Set(inputs.map(s=>s.restSha256)).size!==1)
   throw Error("Kevin rig rest transform differs between clips; refuse per-clip calibration");
+// Validate EVERY male clip against the one reusable rest calibration.
+const audited=new Set(inputs.map(c=>c.path));
+for(const path of malePaths){
+  if(audited.has(path))continue;
+  const fbx=execFileSync("unzip",["-p",resolve(archive),path],
+    {maxBuffer:8*1024*1024});
+  if(fbx.readUInt32LE(23)!==catalog.fbxVersion)
+    throw Error("Incompatible Kevin FBX version "+path);
+  const scene=new FBXLoader().parse(fbx.buffer.slice(
+    fbx.byteOffset,fbx.byteOffset+fbx.byteLength),"");
+  const bones=normalizeKevinFBXScene(scene);
+  const clip=scene.animations[0];
+  if(scene.animations.length!==1||!clip||!Number.isFinite(clip.duration)||
+     clip.duration<=0)throw Error("Incompatible Kevin source animation "+path);
+  const rest=[...bones.values()].map(b=>({
+    name:originalKevinBoneName(b),
+    parent:b.parent?.isBone?originalKevinBoneName(b.parent):null,
+    position:getWorldPos(b),rotation:getWorldQuat(b),
+  })).sort((a,b)=>a.name.localeCompare(b.name));
+  if(hash(JSON.stringify(rest))!==inputs[0].restSha256)
+    throw Error("Kevin source-family rest mismatch "+path);
+}
 // Compare genuine mesh-backed source bind to the *same* male profile.
 const maleFBX=execFileSync("unzip",["-p",resolve(archive),"Models/HumanM_Model.fbx"],
   {maxBuffer:8*1024*1024});
@@ -158,8 +199,7 @@ try {
     correctives.applyAnimationSamples(pose);
     return sampleMesh();
   };
-  // The real MakeHuman mesh is owned by human and disposed after private
-  // verification/bake; no source geometry or clips enter the browser.
+  // Source mesh is used for numerical validation; canonical baked clips ship.
   // Freeze all nested quaternions/frames once. All three animation stacks
   // share this identical, immutable calibration; no per-clip knobs exist.
   const deepFreeze=o=>{
@@ -208,7 +248,7 @@ try {
           Math.floor(3*times.length/4),times.length-1].includes(times.indexOf(t))){
         // Apply the SAME presentation root offset that Studio will receive.
         const sampledPose=pose.map(p=>p.jointId===rig.rootJointId &&
-          input.id!=="human-kevin-idle"?{...p,translation:offset}:p);
+          input.rootMotion!=="locked"?{...p,translation:offset}:p);
         const actual=checkSkinnedPose(sampledPose);
         skinnedSourceSamples.push({timeSeconds:t,...actual});
       }
@@ -230,7 +270,7 @@ try {
       tracks.push({jointId:m.targetId,channel:"rotation",
         timesSeconds:times,values:keys});
     }
-    const locked=input.id==="human-kevin-idle";
+    const locked=input.rootMotion==="locked";
     if(!locked)tracks.push({jointId:rig.rootJointId,channel:"translation",
       timesSeconds:times,values:offsets});
     const clip={schemaVersion:1,id:input.id,rig,
@@ -254,18 +294,25 @@ try {
       worstSeams:seams.sort((a,b)=>b.seamDegrees-a.seamDegrees).slice(0,6)});
   }
   generated["manifest.json"]=JSON.stringify({schemaVersion:1,
-    sourceArchiveSha256:archiveHash,
+    sourceArchiveSha256:archiveHash,sourceFamilyMaleClipCount:malePaths.length,
     immutableSourceRestSha256:source.restSha256,
     sourceModelSha256:hash(maleFBX),sourceBindEvidence,
     targetCalibrationSha256:calibrationSha256,profileSha256,
-    entries,distribution:"private-only-not-cleared-for-browser"},null,2)+"\n";
-  // Writes only after all three clips have passed canonical validation.
-  await mkdir(destination,{recursive:true});
-  for(const [filename,data] of Object.entries(generated))
-    await writeFile(resolve(destination,filename),data,{mode:0o600});
+    entries,distribution:"game-integrated-canonical-motion-resources"},null,2)+"\n";
+  // Validate or write complete deterministic outputs; never silently drift.
+  if(write) {
+    await mkdir(destination,{recursive:true});
+    for(const [filename,data] of Object.entries(generated))
+      await writeFile(resolve(destination,filename),data);
+  }else{
+    for(const [filename,data] of Object.entries(generated)){
+      const committed=await readFile(resolve(destination,filename),"utf8");
+      if(committed!==data)throw Error("Kevin bake drift: "+filename);
+    }
+  }
   correctives.dispose();
   human.dispose();
   console.log(JSON.stringify({profileSha256,mappedJointCount:49,
     clips:entries.map(({id,keyCount,maxSeamDegrees})=>({id,keyCount,maxSeamDegrees})),
-    output:destination,publicDistributionAllowed:false}));
+    output:destination,verified:!write,gameIntegrated:true}));
 }finally{await server.close();}

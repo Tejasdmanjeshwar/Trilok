@@ -14,7 +14,8 @@
     "build:deployment": "pnpm build && node scripts/verify-build-identity.mjs",
     "animation:bake": "node scripts/fetch-makehuman-core.mjs && node scripts/bake-studio-animations.mjs --write",
     "animation:verify": "node scripts/fetch-makehuman-core.mjs && node scripts/bake-studio-animations.mjs && node scripts/bake-c63-kaykit.mjs",
-    "animation:bake:directional": "node scripts/fetch-makehuman-core.mjs && node scripts/bake-c63-kaykit.mjs --write"
+    "animation:bake:directional": "node scripts/fetch-makehuman-core.mjs && node scripts/bake-c63-kaykit.mjs --write",
+    "animation:bake:kevin": "node scripts/bake-c63-kevin.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
