@@ -5,7 +5,7 @@
  */
 import * as THREE from "three";
 
-const SIDE_END=/^(B-(?:hand|handProp|shoulder|upperArm|forearm|thigh|shin|foot|toe|(?:indexFinger|middleFinger|ringFinger|pinky|thumb)0[1-3]))([LR])$/;
+const SIDE_END=/^(B-(?:hand|handProp|shoulder|upperArm|forearm|thigh|shin|foot|toe|(?:indexFinger|middleFinger|ringFinger|pinky|thumb)0[1-3]))[_.]?([LR])$/;
 
 /** FBXLoader sanitizes . in three.js PropertyBinding node names. */
 export function originalKevinBoneName(node) {
