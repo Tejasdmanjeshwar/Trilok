@@ -282,6 +282,16 @@ describe("C121 offline source skin fit (unapproved diagnostic)",()=>{
         sourceAudit:{body:audit.body.size,excludedOnly:audit.excludedOnly.size,
           shared:audit.shared.size,unreferenced:audit.unreferenced.size},
         entries};
+      // Recompute rather than only log: the pinned fixture must be bytewise
+      // reproducible from the immutable MakeHuman sources and training clips.
+      const pinned=JSON.parse(readFileSync(new URL(
+        "./fixtures/c121-offline-shoulder-atlas.v1.json",import.meta.url),"utf8")) as
+        typeof atlas;
+      expect(atlas).toEqual(pinned);
+      console.log("TRILOK_C121_ATLAS_REGENERATED "+JSON.stringify({
+        schemaVersion:atlas.schemaVersion,entries:atlas.entries.length,
+        sha256:sha(JSON.stringify(atlas)),
+      }));
       console.log("TRILOK_C121_OFFLINE_ATLAS "+JSON.stringify(atlas));
     }finally{human.dispose();}
   },180_000);
