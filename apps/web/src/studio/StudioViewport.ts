@@ -941,17 +941,28 @@ export function createStudioViewport(
     try{
       initialize();
       const stages:Record<string,number>={};
+      const reportStage=(stage:string,phase:"start"|"end",ms?:number):void=>{
+        if(recipe&&valid())window.dispatchEvent(new CustomEvent(
+          "trilok:studio:generation-stage",{
+            detail:{stage,phase,durationMs:ms},
+          }));
+      };
       incoming=await buildStudioHuman(state,abort.signal,
         (stage,ms)=>{
           stages[stage]=(stages[stage]??0)+ms;
-          if(recipe&&valid())window.dispatchEvent(new CustomEvent(
-            "trilok:studio:generation-stage",{detail:{stage}}));
+          reportStage(stage,"end",ms);
         },
-        (stage,ms)=>{stages["source:"+stage]=(stages["source:"+stage]??0)+ms;});
+        (stage,ms)=>{
+          stages["source:"+stage]=(stages["source:"+stage]??0)+ms;
+          reportStage("source:"+stage,"end",ms);
+        },
+        stage=>reportStage(stage,"start"));
       if(recipe)performanceMonitor.recordGeneration({
         elapsedMs:performance.now()-started,stages,
       });
       if(!valid()){incoming.dispose();return false;}
+      const finalizeStarted=performance.now();
+      reportStage("finalize","start");
       applyStudioSkinMaterial(incoming.human.mesh,appearance);
       if(expression!=="neutral") {
         const ok=await incoming.setFace(previewExpression(state.face,expression),valid);
@@ -993,6 +1004,7 @@ export function createStudioViewport(
       if(!hadActive)prepareRandomResources();
       if(hadActive)performanceMonitor.recordEdit(performance.now()-started);
       if(equipment==="none"||sword)onEditError("");
+      reportStage("finalize","end",performance.now()-finalizeStarted);
       return true;
     }catch(error){
       incoming?.dispose();

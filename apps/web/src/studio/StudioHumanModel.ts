@@ -23,10 +23,12 @@ export interface StudioHumanModel {
 }
 export async function buildStudioHuman(state:StudioMorphState,
   signal?:AbortSignal,onTiming?:StudioHumanBuildTiming,
-  onSourceTiming?:AnatomicalTimingSink):Promise<StudioHumanModel>{
+  onSourceTiming?:AnatomicalTimingSink,
+  onStageStart?:(stage:StudioHumanBuildStage)=>void):Promise<StudioHumanModel>{
   validateStudioMorphState(state);
   const started=performance.now();
   const sourceStart=performance.now();
+  onStageStart?.("source");
   const human=await loadAnatomicalHuman(signal,onSourceTiming);
   onTiming?.("source",performance.now()-sourceStart);
   let face:MakeHumanFacialController|undefined;
@@ -36,26 +38,31 @@ export async function buildStudioHuman(state:StudioMorphState,
     if(Object.keys(state.shape).some(key=>
       state.shape[key as keyof typeof state.shape] !==
         DEFAULT_HUMAN_HEAD_MORPHOLOGY[key as keyof typeof state.shape])){
+      onStageStart?.("head-morph");
       const start=performance.now();
       applyHumanMorphology(human,createHumanHeadRecipe(state.shape));
       onTiming?.("head-morph",performance.now()-start);
     }
     if(Object.keys(state.body).length){
+      onStageStart?.("body-atlas");
       const atlasStart=performance.now();
       const atlas=await loadBodyAtlas();
       onTiming?.("body-atlas",performance.now()-atlasStart);
       if(signal?.aborted)throw new Error("Preview superseded");
+      onStageStart?.("body-morph");
       const morphStart=performance.now();
       const body=new MakeHumanBodyController(human,atlas);
       try{body.apply(state.body);}finally{body.dispose();}
       onTiming?.("body-morph",performance.now()-morphStart);
     }
     if(Object.keys(state.face).length){
+      onStageStart?.("facial-atlas");
       const atlasStart=performance.now();
       const atlas=await loadFacialAtlas();
       onTiming?.("facial-atlas",performance.now()-atlasStart);
       if(signal?.aborted)throw new Error("Preview superseded");
       face=new MakeHumanFacialController(human,atlas);
+      onStageStart?.("facial-morph");
       const morphStart=performance.now();
       face.apply(state.face);
       onTiming?.("facial-morph",performance.now()-morphStart);
