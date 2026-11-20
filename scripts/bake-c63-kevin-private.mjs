@@ -148,7 +148,7 @@ try {
       const pose=retargetWorldPose(profile,targetRig,sourceRotations,
         sourceRig.identitySha256,"source-anatomical");
       for(const p of pose)values.get(p.jointId).push([...p.rotation]);
-      const pelvis=getKevinWorldPos(input.byName.get("B-hips"));
+      const pelvis=getWorldPos(input.byName.get("B-hips"));
       if(!firstPelvis)firstPelvis=pelvis;
       const delta=new THREE.Vector3(...pelvis).sub(new THREE.Vector3(...firstPelvis));
       offsets.push([delta.x,delta.y,0]); // C1 X/right + Y/up; Z travel locked to simulation.
