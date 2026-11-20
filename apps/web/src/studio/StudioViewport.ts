@@ -942,7 +942,11 @@ export function createStudioViewport(
       initialize();
       const stages:Record<string,number>={};
       incoming=await buildStudioHuman(state,abort.signal,
-        (stage,ms)=>{stages[stage]=(stages[stage]??0)+ms;},
+        (stage,ms)=>{
+          stages[stage]=(stages[stage]??0)+ms;
+          if(recipe&&valid())window.dispatchEvent(new CustomEvent(
+            "trilok:studio:generation-stage",{detail:{stage}}));
+        },
         (stage,ms)=>{stages["source:"+stage]=(stages["source:"+stage]??0)+ms;});
       if(recipe)performanceMonitor.recordGeneration({
         elapsedMs:performance.now()-started,stages,
