@@ -156,6 +156,8 @@ describe("C121 independent Kevin Run holdout versus full source LBS",()=>{
       }
       const index=human.mesh.geometry.getIndex()!;
       const rest=human.mesh.geometry.getAttribute("position");
+      const immutableRest=rest.clone();
+      expect(human.sourceSkinFidelity?.snapshot().renderVertices).toBeGreaterThan(100);
       const bySide={left:new Set<number>(),right:new Set<number>()};
       for(const side of ["left","right"] as const){
         const suffix=side==="left"?".R":".L";
@@ -199,8 +201,12 @@ describe("C121 independent Kevin Run holdout versus full source LBS",()=>{
         const fullCache=new Map<number,THREE.Vector3>();
         const gpuCache=new Map<number,THREE.Vector3>();
         const atlasCache=new Map<number,THREE.Vector3>();
+        // Use the actual runtime hook's compensated four-owner coordinates.
+        // Source/legacy/atlas references above remain anchored to immutable rest.
+        human.sourceSkinFidelity!.update();
+        const correctedCache=new Map<number,THREE.Vector3>();
         const lbs=(render:number,entries:readonly Influence[]):THREE.Vector3=>{
-          const p=vec(rest,render),out=new THREE.Vector3();
+          const p=vec(immutableRest,render),out=new THREE.Vector3();
           const total=entries.reduce((s,[,w])=>s+w,0);
           if(!(total>0))throw new Error("Unweighted body vertex "+render);
           for(const [owner,w] of entries){
@@ -225,6 +231,17 @@ describe("C121 independent Kevin Run holdout versus full source LBS",()=>{
           const result=lbs(render,influences);
           gpuCache.set(render,result);return result;
         };
+        const getCorrected=(render:number)=>{
+          const prior=correctedCache.get(render);
+          if(prior)return prior;
+          const influences=Array.from({length:4},(_,k)=>
+            [gpuIndex.getComponent(render,k),gpuWeight.getComponent(render,k)] as const);
+          const out=new THREE.Vector3();
+          const p=vec(rest,render);
+          for(const [owner,w] of influences)if(w!==0)
+            out.addScaledVector(p.clone().applyMatrix4(matrices[owner]!),w);
+          correctedCache.set(render,out);return out;
+        };
         const getAtlas=(render:number)=>{
           const prior=atlasCache.get(render);
           if(prior)return prior;
@@ -240,9 +257,20 @@ describe("C121 independent Kevin Run holdout versus full source LBS",()=>{
             source:summarize(region,getFull,getFull),
             baseline:summarize(region,getGpu,getFull),
             fitted:summarize(region,getAtlas,getFull),
+            corrected:summarize(region,getCorrected,getFull),
             changedBaseline:summarize(changed,getGpu,getFull),
             changedFitted:summarize(changed,getAtlas,getFull),
+            changedCorrected:summarize(changed,getCorrected,getFull),
           };
+          // The fitted atlas is deliberately not accepted: only the runtime
+          // source-faithful shoulder correction is gated against each frame.
+          // Unchanged face ownership must never become less accurate.
+          expect(metrics.corrected.rmsPositionErrorMm).toBeLessThanOrEqual(
+            metrics.baseline.rmsPositionErrorMm+.01);
+          expect(metrics.corrected.meanAbsAreaErrorOverRest).toBeLessThanOrEqual(
+            metrics.baseline.meanAbsAreaErrorOverRest+.0001);
+          expect(metrics.corrected.collapsedLtPoint2).toBeLessThanOrEqual(
+            metrics.baseline.collapsedLtPoint2);
           console.log("TRILOK_C121_HOLDOUT "+JSON.stringify(metrics));
         }
         const lower=regions.axilla.map(f=>{
