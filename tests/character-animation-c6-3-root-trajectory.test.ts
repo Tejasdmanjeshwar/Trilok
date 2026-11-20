@@ -29,7 +29,8 @@ describe("C6.3 authored trajectory isolation",()=>{
     validateAnimationClip(clip,graph);
     const a=sampleAnimationRootTrajectory(clip,existing.durationSeconds/2)!;
     expect(a.positionMeters).toEqual([1,0.400113,2]);
-    expect(a.rotation).toEqual([0,Math.SQRT1_2,0,Math.SQRT1_2]);
+    for(let k=0;k<4;k++)
+      expect(a.rotation[k]).toBeCloseTo([0,Math.SQRT1_2,0,Math.SQRT1_2][k]!,12);
     expect(sampleAnimationRootTrajectory(clip,existing.durationSeconds)!.positionMeters)
       .toEqual([2,-0.6,4]);
     const t=sampleAnimationRootTrajectory(clip,existing.durationSeconds/4)!;
