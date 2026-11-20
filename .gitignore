@@ -39,3 +39,9 @@ credentials.json
 service-account*.json
 **/.secrets/
 **/secrets.local.*
+
+# C6.3 private Kevin Iglesias FBX intake; third-party license requires explicit clearance.
+assets/animations/private/
+assets/animations/kevin-local/
+*.unitypackage
+Human Basic Motions FREE.zip
