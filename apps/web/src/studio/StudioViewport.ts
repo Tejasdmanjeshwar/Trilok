@@ -281,10 +281,13 @@ export function createStudioViewport(
     cancelBowWorker();clearSword();
     posePreview.setGrip("none");
     posePreview.setPose("neutral");
+    const owner=active;
+    const generation=ticket;
     try {
       const result=await retargetOwnedKevinAnimations(
-        file,active.human.spike.graph,active.human.spike.bones);
-      if(disposed||!active)throw Error("Studio closed during Kevin import");
+        file,owner.human.spike.graph,owner.human.spike.bones);
+      if(disposed||active!==owner||ticket!==generation)
+        throw Error("Studio character changed during Kevin import");
       const clips=new Map(result.candidates.map(c=>[c.id,c]));
       if(clips.size!==3)throw Error("Incomplete Kevin Idle/Walk/Run set");
       localKevinCandidates=clips;
@@ -981,6 +984,9 @@ export function createStudioViewport(
       // immutable source family must be re-calibrated against the NEW body,
       // never reuse old retargeted quaternions against a changed bind.
       if(selectedAnimation?.startsWith("human-kevin-")&&localKevinFile){
+        // Live target rest must be sampled before any C5 grip or authored pose.
+        preview.setGrip("none");
+        preview.setPose("neutral");
         const refreshed=await retargetOwnedKevinAnimations(
           localKevinFile,incoming.human.spike.graph,incoming.human.spike.bones);
         if(!valid()){preview.dispose();incoming.dispose();return false;}
