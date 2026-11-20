@@ -252,6 +252,18 @@ try {
       input.scene.updateMatrixWorld(true);
       const sourceRotations=new Map(mappings.map(m=>
         [m.sourceId,getWorldQuat(input.byName.get(m.sourceId))]));
+      for(const m of mappings){
+        const q=sourceRotations.get(m.sourceId);
+        if(!q||q.length!==4||!q.every(Number.isFinite)||
+          Math.abs(Math.hypot(...q)-1)>1e-5){
+          const bone=input.byName.get(m.sourceId);
+          throw Error("Invalid world-space source rotation "+JSON.stringify({
+            clip:input.id,time:t,source:m.sourceId,target:m.targetId,
+            quaternion:q,boneName:bone?.name,localQuaternion:bone?.quaternion.toArray(),
+            worldScale:bone?.getWorldScale(new THREE.Vector3()).toArray(),
+          }));
+        }
+      }
       const pose=retargetWorldPose(profile,targetRig,sourceRotations,
         sourceRig.identitySha256,"source-anatomical");
       for(const p of pose)values.get(p.jointId).push([...p.rotation]);
