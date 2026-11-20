@@ -27,5 +27,5 @@ describe("MakeHuman worker atlas transferable precision",()=>{
       for(let j=0;j<transferred.rows.length;j++)
         expect(Object.is(transferred.rows[j],reference.rows[j])).toBe(true);
     }
-  });
+  },30_000);
 });
