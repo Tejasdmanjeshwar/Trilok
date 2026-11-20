@@ -9,7 +9,7 @@ test("C6.3 Kevin local review is opt-in and preserves approved UAL1 controls",as
   await page.locator('[data-section="pose"]').click();
   await expect(page.locator("#studio-kevin-local")).toBeHidden();
   await expect(page.locator("#studio-animation-select option")).toHaveText([
-    "Static pose","Idle","Walk","Jog","Sprint",
+    "Static pose","Idle","Walk","Jog","Sprint","Movement transitions",
   ]);
   await page.goto("/studio/?c63-kevin-local-review");
   await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",{timeout:90_000});
@@ -18,7 +18,7 @@ test("C6.3 Kevin local review is opt-in and preserves approved UAL1 controls",as
   await expect(page.locator("#studio-kevin-file")).toHaveAttribute("type","file");
   await expect(page.locator("#studio-kevin-notice")).toContainText("never uploaded");
   await expect(page.locator("#studio-animation-select option")).toHaveText([
-    "Static pose","Idle","Walk","Jog","Sprint",
+    "Static pose","Idle","Walk","Jog","Sprint","Movement transitions",
   ]);
 });
 test("C6.3 rejects impostor local archives without replacing approved clips",async({page})=>{
@@ -36,7 +36,7 @@ test("C6.3 rejects impostor local archives without replacing approved clips",asy
   await expect(page.locator("#studio-kevin-status")).toContainText(
     /Kevin source rejected:/,{timeout:30_000});
   await expect(page.locator("#studio-animation-select option")).toHaveText([
-    "Static pose","Idle","Walk","Jog","Sprint",
+    "Static pose","Idle","Walk","Jog","Sprint","Movement transitions",
   ]);
   await page.locator("#studio-animation-select").selectOption("human-walk");
   await expect(page.locator("#studio-animation-play")).toBeEnabled();
