@@ -245,7 +245,9 @@ try {
       times.length*49>8192)
       throw Error("Source exceeds canonical key budget; do not decimate "+input.id);
     const mixer=new THREE.AnimationMixer(input.scene);
-    const offsets=[];let firstPelvis;
+    const offsets=[];let firstPelvis,firstSourceRoot;
+    const sourceRootBone=input.byName.get("B-root");
+    if(!sourceRootBone)throw Error("Missing source B-root for "+input.path);
     const action=mixer.clipAction(input.clip);
     action.play();action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
     const values=new Map(mappings.map(m=>[m.targetId,[]]));
@@ -272,6 +274,7 @@ try {
       for(const p of pose)values.get(p.jointId).push([...p.rotation]);
       const pelvis=getWorldPos(input.byName.get("B-hips"));
       if(!firstPelvis)firstPelvis=pelvis;
+      if(!firstSourceRoot)firstSourceRoot=getWorldPos(sourceRootBone);
       const delta=new THREE.Vector3(...pelvis).sub(new THREE.Vector3(...firstPelvis));
       const offset=[delta.x,delta.y,0]; // Z travel remains gameplay-authoritative.
       offsets.push(offset);
@@ -280,8 +283,23 @@ try {
         // Apply the SAME presentation root offset that Studio will receive.
         const sampledPose=pose.map(p=>p.jointId===rig.rootJointId &&
           input.rootMotion!=="locked"?{...p,translation:offset}:p);
-        const actual=checkSkinnedPose(sampledPose);
-        skinnedSourceSamples.push({timeSeconds:t,...actual});
+        try {
+          const actual=checkSkinnedPose(sampledPose);
+          skinnedSourceSamples.push({timeSeconds:t,...actual});
+        } catch(cause) {
+          const rootNow=getWorldPos(sourceRootBone);
+          const hipBone=input.byName.get("B-hips");
+          throw new Error("Kevin skinned pose rejected "+JSON.stringify({
+            clip:input.id,sourceFile:input.path,timeSeconds:t,
+            hipParentName:hipBone.parent?.name,
+            rootInitialMeters:firstSourceRoot,rootNowMeters:rootNow,
+            rootDeltaMeters:rootNow.map((v,i)=>v-firstSourceRoot[i]),
+            hipInitialMeters:firstPelvis,hipNowMeters:pelvis,
+            hipDeltaMeters:delta.toArray(),hipLocalMeters:hipBone.position.toArray(),
+            hipWorldQuaternion:getWorldQuat(hipBone),
+            presentationOffsetMeters:offset,
+          })+" cause="+String(cause));
+        }
       }
 
     }
