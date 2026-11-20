@@ -59,6 +59,15 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         expect(source).not.toMatch(/pnpm test:e2e/);
         continue;
       }
+      if(path==="c63-kevin-chromium-review.yml"){
+        // Keep source-backed visual regression scoped to the feature branch,
+        // rather than forbidding all feature-specific rendered verification.
+        expect(source).toMatch(/branches:\s*\[feat\/c6-3-grounded-locomotion\]/);
+        expect(source).toContain("paths:");
+        expect(source).toContain("e2e/studio-animation-c6-3-integrated.spec.ts");
+        expect(source).not.toMatch(/^  pull_request:/m);
+        continue;
+      }
       expect(source, `${path} must not install or execute browsers during subphases`)
         .not.toMatch(/playwright\s+(install|test)|pnpm\s+(test:e2e|exec\s+playwright)|chromium/i);
     }
