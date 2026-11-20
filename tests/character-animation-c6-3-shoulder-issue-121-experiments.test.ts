@@ -209,7 +209,6 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
           byBone.set(mapped,(byBone.get(mapped)??0)+weight);
         }
       }
-      const sourceIds=human.template.sourceVertexIds;
       const unpruned=(()=>{
         const matrices=human.spike.skeleton.bones.map((bone,i)=>
           bone.matrixWorld.clone().multiply(human.spike.skeleton.boneInverses[i]!));
