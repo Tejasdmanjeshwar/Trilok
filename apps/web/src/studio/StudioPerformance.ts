@@ -5,9 +5,15 @@ export type StudioIntervalStats=Readonly<{
   medianMs:number|null;
   p95Ms:number|null;
 }>;
+export interface StudioGenerationMeasurement {
+  readonly elapsedMs:number;
+  readonly stages:Readonly<Record<string,number>>;
+}
 export interface StudioPerformanceSnapshot {
   readonly initialLoadMs:number|null;
   readonly edits:StudioIntervalStats;
+  /** Most recent three generation attempts, bounded for diagnostics. */
+  readonly generations:readonly StudioGenerationMeasurement[];
   readonly frames:StudioIntervalStats;
   /** WebGLRenderer.info counters, not a total GPU memory or leak measurement. */
   readonly gpu:{readonly geometries:number;readonly textures:number}|null;
@@ -24,6 +30,7 @@ function summarize(values:readonly number[]):StudioIntervalStats {
 export class StudioPerformance {
   private readonly frames:number[]=[];
   private readonly edits:number[]=[];
+  private readonly generations:StudioGenerationMeasurement[]=[];
   private lastFrame:number|undefined;
   private load:number|null=null;
   private suspended=false;
@@ -32,6 +39,13 @@ export class StudioPerformance {
     if(this.load===null&&Number.isFinite(ms)&&ms>=0)this.load=ms;
   }
   recordEdit(ms:number):void {this.push(this.edits,ms);}
+  recordGeneration(measurement:StudioGenerationMeasurement):void {
+    if(!Number.isFinite(measurement.elapsedMs)||measurement.elapsedMs<0||
+      Object.values(measurement.stages).some(ms=>!Number.isFinite(ms)||ms<0))return;
+    this.generations.push({elapsedMs:measurement.elapsedMs,
+      stages:{...measurement.stages}});
+    if(this.generations.length>3)this.generations.shift();
+  }
   recordFrame(time:number):void {
     if(this.suspended||!Number.isFinite(time))return;
     if(this.lastFrame!==undefined){
@@ -49,6 +63,7 @@ export class StudioPerformance {
     StudioPerformanceSnapshot {
     return {
       initialLoadMs:this.load,edits:summarize(this.edits),
+      generations:this.generations.map(m=>({elapsedMs:m.elapsedMs,stages:{...m.stages}})),
       frames:summarize(this.frames),
       gpu:gpu?{geometries:gpu.geometries,textures:gpu.textures}:null,
       suspended:this.suspended,
