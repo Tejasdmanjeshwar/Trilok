@@ -24,8 +24,14 @@ describe("MakeHuman worker atlas transferable precision",()=>{
       const transferred=targets[i]!;
       expect(transferred.id).toBe(reference.id);
       expect(transferred.rows.length).toBe(reference.rows.length);
+      // Compare every original displacement without millions of assertion
+      // allocations, preserving full-value equality and useful failure ID.
+      let mismatch=-1;
       for(let j=0;j<transferred.rows.length;j++)
-        expect(Object.is(transferred.rows[j],reference.rows[j])).toBe(true);
+        if(!Object.is(transferred.rows[j],reference.rows[j])){
+          mismatch=j;break;
+        }
+      expect(mismatch,reference.id+" first differing source row").toBe(-1);
     }
   },30_000);
 });
