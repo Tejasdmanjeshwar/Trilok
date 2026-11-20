@@ -40,6 +40,10 @@ jobs:
         run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --write
       - name: Verify deterministic source-family rebake
         run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip"
+      - name: Validate and bake all 58 male clips with the same shared calibration
+        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --all --output "$RUNNER_TEMP/c63-all-male" --write
+      - name: Verify deterministic 58-clip batch rebake
+        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --all --output "$RUNNER_TEMP/c63-all-male"
       - name: TypeScript checks
         run: pnpm typecheck
       - name: Tests and deterministic replay
