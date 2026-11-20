@@ -1,0 +1,65 @@
+name: C6.3 Kevin rendered Chromium review
+on:
+  push:
+    branches: [feat/c6-3-grounded-locomotion]
+    paths:
+      - .github/workflows/c63-kevin-chromium-review.yml
+      - e2e/studio-animation-c6-2.spec.ts
+      - e2e/studio-animation-c6-3-integrated.spec.ts
+      - assets/animations/studio-v1/kevin/**
+permissions:
+  contents: read
+jobs:
+  chromium-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pnpm install --frozen-lockfile
+      - name: Cache pinned MakeHuman assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/web/public/anatomy/makehuman-base.obj
+            apps/web/public/anatomy/makehuman-default.mhskel
+            apps/web/public/anatomy/makehuman-default_weights.mhw
+            apps/web/public/anatomy/makehuman-facial-v1.json
+            assets/cache/makehuman-body-v1.json
+          key: makehuman-pinned-v1-${{ runner.os }}-${{ hashFiles('assets/makehuman-core.json', 'assets/makehuman-body-v1.json', 'assets/makehuman-facial-v1.json', 'scripts/fetch-makehuman-*.mjs', 'scripts/fetch-pinned-source.mjs') }}
+      - name: Fetch verified MakeHuman assets
+        run: node scripts/fetch-makehuman-core.mjs
+      - name: Build current integrated game
+        run: pnpm build
+      - name: Install Chromium software renderer
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Test source-backed Kevin and approved UAL1 skinned playback
+        run: pnpm exec playwright test e2e/studio-animation-c6-3-integrated.spec.ts e2e/studio-animation-c6-2.spec.ts --project=desktop-chromium
+      - name: Emit representative skinned JPEGs for model inspection
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64
+          for name in ["human-kevin-idle-front-0.5.jpg", "human-kevin-walk-front-0.5.jpg", "human-kevin-run-side-0.5.jpg"]:
+            p=Path("test-results/studio-c6-3")/name
+            if p.is_file():
+              print("TRILOK_C63_IMAGE_BASE64:"+name+":"+base64.b64encode(p.read_bytes()).decode())
+            else:
+              print("TRILOK_C63_IMAGE_MISSING:"+name)
+          PY
+      - name: Archive actual skin screenshots and failure traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c63-kevin-render-review-${{ github.sha }}
+          path: |
+            test-results/studio-c6-3/
+            test-results/studio-c6-2/
+            test-results/**/trace.zip
+          if-no-files-found: warn
+          retention-days: 14
