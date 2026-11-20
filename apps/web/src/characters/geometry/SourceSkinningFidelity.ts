@@ -126,7 +126,10 @@ export class SourceSkinningFidelity {
         changed=true;this.updated++;
       }
       if(!row.last)row.last=new THREE.Vector3();
-      row.last.copy(this.candidate);
+      // BufferAttribute stores Float32, not the full-precision candidate.
+      // Comparing against a Double-precision prior falsely treats every
+      // previously compensated vertex as a new morphology edit next frame.
+      row.last.fromBufferAttribute(position,id);
     }
     if(changed)position.needsUpdate=true;
   }
