@@ -18,6 +18,19 @@ test("One-click Random character produces editable results with Undo and Redo",a
     .toContainText(`Character generated from seed ${firstSeed}.`,{timeout:60_000});
   await expect(page.locator("#studio-generator-current-seed"))
     .toContainText(firstSeed);
+  const copyTiming=generator.locator("#studio-generator-copy-timing");
+  await expect(copyTiming).toBeEnabled();
+  await copyTiming.click();
+  const timingReport=generator.locator("#studio-generator-timing-report");
+  await expect(timingReport).toBeVisible();
+  const timing=JSON.parse(await timingReport.inputValue()) as {
+    schema:string;build:string;attempts:{attempt:number;seed:number;
+      status:string;stages:{name:string;elapsedMs:number}[]}[];
+  };
+  expect(timing.schema).toBe("trilok-studio-generation-timing.v1");
+  expect(timing.attempts[0]?.seed).toBe(Number(firstSeed));
+  expect(timing.attempts[0]?.status).toBe("success");
+  expect(timing.attempts[0]?.stages.some(s=>s.name==="source")).toBe(true);
   await expect(page.locator("#studio-undo")).toBeEnabled();
   await page.locator("#studio-undo").click();
   await expect(page.locator("#studio-redo")).toBeEnabled();

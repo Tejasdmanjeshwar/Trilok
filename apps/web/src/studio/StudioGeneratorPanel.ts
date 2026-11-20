@@ -1,4 +1,6 @@
 import {parseStudioGeneratorSeed,type GeneratorDifference} from "./StudioGenerator";
+import {StudioGenerationTiming,type GenerationTimingPhase} from "./StudioGenerationTiming";
+import {getBuildIdentity} from "../build-info";
 import type {StudioRecipeV1} from "./StudioRecipe";
 
 export interface StudioGeneratorPanel {
@@ -31,6 +33,15 @@ export function createStudioGeneratorPanel(
     </form>
     <p id="studio-generator-current-seed" class="studio-generator-current-seed"></p>
     <p id="studio-generator-feedback" class="studio-generator-feedback" role="status" aria-live="polite" aria-atomic="true"></p>
+    <div class="studio-generator-diagnostics">
+      <p>Slow generation? Copy a local timing report after the first and second attempts.
+        Nothing is uploaded automatically. The report includes your browser details and
+        the reproducible seed.</p>
+      <button id="studio-generator-copy-timing" type="button" disabled>Copy timing report</button>
+      <p id="studio-generator-timing-status" role="status" aria-live="polite"></p>
+      <textarea id="studio-generator-timing-report" rows="10" readonly hidden
+        aria-label="Generation timing report to copy manually"></textarea>
+    </div>
   `;
   mount.append(panel);
   const create=panel.querySelector<HTMLButtonElement>("#studio-generator-create")!;
@@ -41,6 +52,101 @@ export function createStudioGeneratorPanel(
   const feedback=panel.querySelector<HTMLElement>("#studio-generator-feedback")!;
   let disposed=false;
   let running=false;
+  const timings=new StudioGenerationTiming();
+  const copyTiming=panel.querySelector<HTMLButtonElement>("#studio-generator-copy-timing")!;
+  const timingStatus=panel.querySelector<HTMLElement>("#studio-generator-timing-status")!;
+  const timingText=panel.querySelector<HTMLTextAreaElement>("#studio-generator-timing-report")!;
+  const longTasks:{startMs:number;durationMs:number}[]=[];
+  let longTaskObserver:PerformanceObserver|undefined;
+  if(typeof PerformanceObserver!=="undefined"&&
+    PerformanceObserver.supportedEntryTypes.includes("longtask")){
+    try{
+      longTaskObserver=new PerformanceObserver(list=>{
+        for(const entry of list.getEntries()){
+          longTasks.push({startMs:entry.startTime,durationMs:entry.duration});
+          if(longTasks.length>150)longTasks.shift();
+        }
+      });
+      longTaskObserver.observe({type:"longtask",buffered:true});
+    }catch{longTaskObserver=undefined;}
+  }
+  function metricsSnapshot():unknown {
+    let value:unknown=null;
+    const receive=(event:Event):void=>{
+      value=(event as CustomEvent<unknown>).detail;
+    };
+    window.addEventListener("trilok:studio:metrics",receive);
+    try{window.dispatchEvent(new Event("trilok:studio:request-metrics"));}
+    finally{window.removeEventListener("trilok:studio:metrics",receive);}
+    return value;
+  }
+  function report():string {
+    const resources=(performance.getEntriesByType("resource") as PerformanceResourceTiming[])
+      .filter(entry=>{
+        try{
+          const path=new URL(entry.name).pathname;
+          return path.startsWith("/anatomy/")||path.startsWith("/assets/");
+        }catch{return false;}
+      }).slice(-40).map(entry=>({
+        path:new URL(entry.name).pathname,
+        startMs:Math.round(entry.startTime),
+        durationMs:Math.round(entry.duration),
+        transferBytes:entry.transferSize,
+        decodedBytes:entry.decodedBodySize,
+      }));
+    const connection=(navigator as Navigator&{connection?:{
+      effectiveType?:string;downlink?:number;rtt?:number;
+    }}).connection;
+    const heap=(performance as Performance&{memory?:{
+      usedJSHeapSize:number;totalJSHeapSize:number;jsHeapSizeLimit:number;
+    }}).memory;
+    const tasks=longTasks.map(task=>({
+      atMs:Math.round(task.startMs),durationMs:Math.round(task.durationMs),
+    }));
+    return JSON.stringify({
+      schema:"trilok-studio-generation-timing.v1",
+      build:getBuildIdentity().commitSha,
+      capturedAt:new Date().toISOString(),
+      explanation:"Durations are browser wall-clock estimates, not GPU timings; "+
+        "source:* stages can overlap their parent source stage. "+
+        "A running attempt may be copied before completion.",
+      environment:{
+        userAgent:navigator.userAgent,
+        hardwareConcurrency:navigator.hardwareConcurrency??null,
+        online:navigator.onLine,
+        connection:connection?{
+          effectiveType:connection.effectiveType??null,
+          downlinkMbps:connection.downlink??null,
+          rttMs:connection.rtt??null,
+        }:null,
+        usedJsHeapMB:heap?Math.round(heap.usedJSHeapSize/1048576):null,
+      },
+      studio:metricsSnapshot(),
+      attempts:timings.snapshot(performance.now()),
+      longTasks:{
+        observed:tasks.length,
+        totalDurationMs:Math.round(tasks.reduce((sum,task)=>sum+task.durationMs,0)),
+        longestMs:Math.max(0,...tasks.map(task=>task.durationMs)),
+        entries:tasks.slice(-35),
+      },
+      resourceTimings:resources,
+    },null,2);
+  }
+  copyTiming.addEventListener("click",()=>{
+    const text=report();
+    timingText.value=text;timingText.hidden=false;
+    timingStatus.textContent="Report shown below. Copy it and paste it into the chat.";
+    if(navigator.clipboard?.writeText){
+      void navigator.clipboard.writeText(text).then(()=>{
+        if(!disposed)timingStatus.textContent=
+          "Timing report copied. Paste it into the chat.";
+      }).catch(()=>{
+        if(!disposed)timingStatus.textContent=
+          "Clipboard unavailable. Select the report below and copy it manually.";
+      });
+    }else timingStatus.textContent=
+      "Clipboard unavailable. Select the report below and copy it manually.";
+  });
   const stageMessages:Readonly<Record<string,string>>={
     source:"Preparing anatomical skeleton and skin",
     "head-morph":"Shaping head and proportions",
@@ -52,9 +158,14 @@ export function createStudioGeneratorPanel(
   };
   const onStage=(event:Event):void=>{
     if(!running||disposed)return;
-    const detail=(event as CustomEvent<{stage?:unknown}>).detail;
+    const detail=(event as CustomEvent<{
+      stage?:unknown;phase?:unknown;durationMs?:unknown;
+    }>).detail;
     const stage=typeof detail?.stage==="string"?detail.stage:"";
-    if(Object.hasOwn(stageMessages,stage))
+    const phase:GenerationTimingPhase=detail?.phase==="start"?"start":"end";
+    const ms=typeof detail?.durationMs==="number"?detail.durationMs:undefined;
+    timings.stage(stage,phase,performance.now(),ms);
+    if(phase==="start"&&Object.hasOwn(stageMessages,stage))
       feedback.textContent=stageMessages[stage]!;
   };
   window.addEventListener("trilok:studio:generation-stage",onStage);
@@ -62,11 +173,17 @@ export function createStudioGeneratorPanel(
   async function run(seed:number):Promise<void> {
     if(running||disposed)return;
     running=true;
+    timings.begin(seed,performance.now(),new Date().toISOString());
+    copyTiming.disabled=false;
+    timingStatus.textContent="Generation running. Copy the current timing at any point.";
+    timingText.hidden=true;
     create.disabled=true;manual.disabled=true;seedInput.disabled=true;
     seedInput.setAttribute("aria-invalid","false");
     feedback.textContent="Creating a new character…";
+    let status:"success"|"failed"="failed";
     try {
       const result=await generate(seed);
+      status=result?"success":"failed";
       if(disposed)return;
       feedback.textContent=result?
         "Character generated from seed "+seed+". Adjust any detail or use Undo to go back.":
@@ -75,9 +192,13 @@ export function createStudioGeneratorPanel(
       if(!disposed)feedback.textContent=
         "Couldn't finish this character. Your previous design is safe. Try again.";
     }finally{
+      timings.finish(status,performance.now());
       running=false;
       if(!disposed){
         create.disabled=false;manual.disabled=false;seedInput.disabled=false;
+        const last=timings.snapshot(performance.now()).at(-1);
+        timingStatus.textContent="Attempt "+last?.attempt+": "+
+          (last?.elapsedMs??0).toFixed(0)+" ms · Copy timing report to share.";
       }
     }
   }
@@ -118,6 +239,10 @@ export function createStudioGeneratorPanel(
       if(document.activeElement!==seedInput||!seedInput.value)
         seedInput.value=String(recipe.seed);
     },
-    dispose(){disposed=true;window.removeEventListener("trilok:studio:generation-stage",onStage);panel.remove();},
+    dispose(){
+      disposed=true;longTaskObserver?.disconnect();
+      window.removeEventListener("trilok:studio:generation-stage",onStage);
+      panel.remove();
+    },
   };
 }

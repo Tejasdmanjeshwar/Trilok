@@ -163,3 +163,33 @@ contract; retain authoritative source precision and morphology algorithms.
 Per-character skeletal fitting must remain anatomy-dependent. Repeat
 visual/determinism tests, collect long tasks, verify memory overhead, and
 measure actual device cold starts before considering acceptance.
+
+## Owner-shareable first-generation timing diagnostics (PR #120 follow-up)
+
+The Generate panel now exposes **Copy timing report**. This works during a
+pending generation and after it completes or fails. The JSON includes the
+first attempt and the four most recent later attempts (first is never
+discarded), exact build SHA, a reproducible seed, per-stage wall time,
+currently pending stage, bounded browser long-task observations, first-party
+asset resource loading durations / decoded sizes, Studio frame/GPU counters
+where available, and browser/network information. It is collected locally
+and is **never uploaded or stored automatically**. If clipboard permissions
+are unavailable, a selectable read-only text area contains the same report.
+
+To isolate the >60 second owner-specific cold-first-generation delay:
+open a fresh development preview session; go to Generate; perform the first
+Random character action, allow it to finish or use Copy timing report if it
+remains pending; then generate again one or two times and copy the updated
+report into the engineering conversation. Preserve the exact SHA label.
+Do not paste other application logs, cookies, tokens, or private URLs.
+Resource entries include **pathnames only**, not full URLs or query tokens.
+Long-task sampling is best effort (only browsers supporting the observer);
+missing entries do not mean the main thread was responsive.
+
+Stage `source` encompasses verified anatomy loading and calibrated rig
+generation, and `source:*` details overlap it; `body-atlas`,
+`body-morph`, `facial-atlas`, and `facial-morph` remain individually
+reported. The new `finalize` stage covers pose setup and viewport swap.
+The attempt duration is click-to-Generate resolution, not independent GPU
+completion. No generator values, render geometry, source assets, or
+authoritative gameplay mechanics are changed by instrumentation.
