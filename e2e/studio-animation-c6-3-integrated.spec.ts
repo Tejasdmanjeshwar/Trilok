@@ -17,3 +17,51 @@ test("C6.3 keeps UAL1 functional without a player ZIP import route",async({page}
   await expect(page.locator("#studio-animation-play")).toBeEnabled();
   await expect(page.locator("#studio-error")).toBeHidden();
 });
+
+
+/** Browser-real skin and camera captures for owner approval, never generated curves. */
+test("C6.3 Kevin Idle Walk Run render across their cycles, front and side",async({page})=>{
+  test.setTimeout(240_000);
+  const errors:string[]=[];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.setViewportSize({width:1100,height:780});
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/studio/");
+  await expect(page.locator("html")).toHaveAttribute("data-studio-ready","true",
+    {timeout:90_000});
+  await page.locator('[data-section="pose"]').click();
+  for(const [id,duration] of [
+    ["human-kevin-idle",2.7],["human-kevin-walk",.8],["human-kevin-run",.6],
+  ] as const){
+    await expect(page.locator('#studio-animation-select option[value="'+id+'"]')).toHaveCount(1);
+    await page.locator("#studio-animation-select").selectOption(id);
+    await expect(page.locator("#studio-animation-play")).toBeEnabled();
+    const frames:Buffer[]=[];
+    for(const view of ["front","side"] as const){
+      await page.locator('[data-section="view"]').click();
+      await page.locator('[data-view="'+view+'"]').click();
+      await page.locator('[data-section="pose"]').click();
+      for(const fraction of [0,.25,.5,.75] as const){
+        const time=duration*fraction;
+        await page.locator("#studio-animation-time").evaluate((element,value)=>{
+          const range=element as HTMLInputElement;
+          range.value=String(value);
+          range.dispatchEvent(new Event("input",{bubbles:true}));
+        },time);
+        await expect(page.locator("#studio-animation-clock"))
+          .toContainText(time.toFixed(2),{timeout:10_000});
+        await page.waitForTimeout(120);
+        const path="test-results/studio-c6-3/"+id+"-"+view+"-"+fraction+".jpg";
+        const {mkdirSync}=await import("node:fs");
+        mkdirSync("test-results/studio-c6-3",{recursive:true});
+        frames.push(await page.locator("#studio-viewport canvas").screenshot({
+          path,type:"jpeg",quality:65,
+        }));
+      }
+    }
+    expect(frames[0].equals(frames[1]),id+" must render changing motion").toBe(false);
+    expect(frames[4].equals(frames[5]),id+" side view must change").toBe(false);
+    await expect(page.locator("#studio-error")).toBeHidden();
+  }
+  expect(errors).toEqual([]);
+});
