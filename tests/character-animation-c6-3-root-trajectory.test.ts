@@ -68,6 +68,7 @@ describe("C6.3 authored trajectory isolation",()=>{
         .some(p=>p.translation)).toBe(false);
       const player=new StudioAnimationPlayback(spike.character,clip);
       try{
+        expect(player.state.loop).toBe(false);
         player.seek(existing.durationSeconds/2);
         expect(actor.position.equals(baseline)).toBe(true);
         player.setPlaying(true);
