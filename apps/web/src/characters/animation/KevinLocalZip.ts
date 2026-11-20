@@ -7,9 +7,9 @@
 export const KEVIN_ARCHIVE_SHA256 =
   "063d5e1822f85549d14035ef342b1feae45bac37962499a8b478c7eb997200cd";
 export const KEVIN_INITIAL_FBX = [
-  ["human-kevin-idle", "Animations/Male/Idles/HumanM@Idle01.fbx"],
-  ["human-kevin-walk", "Animations/Male/Movement/Walk/HumanM@Walk01_Forward.fbx"],
-  ["human-kevin-run", "Animations/Male/Movement/Run/HumanM@Run01_Forward.fbx"],
+  ["human-kevin-idle", "Animations/Male/Idles/HumanM@Idle01.fbx", "locked"],
+  ["human-kevin-walk", "Animations/Male/Movement/Walk/HumanM@Walk01_Forward.fbx", "visual_only"],
+  ["human-kevin-run", "Animations/Male/Movement/Run/HumanM@Run01_Forward.fbx", "visual_only"],
 ] as const;
 
 const MAX_ARCHIVE_BYTES=32*1024*1024;

@@ -115,7 +115,9 @@ export interface KevinLocalResult {
   readonly profileSha256:string;
   readonly candidates:readonly KevinLocalCandidate[];
 }
-export type KevinRequestedAnimation = readonly [id:string,path:string];
+export type KevinRequestedAnimation = readonly [
+  id:string,path:string,rootMotion:"locked"|"visual_only",
+];
 /**
  * Accepts any explicit set of compatible male FBX files from the same
  * licensed archive; the first three are defaults only. New source clips
@@ -129,19 +131,20 @@ export async function retargetOwnedKevinAnimations(
 ):Promise<KevinLocalResult> {
   if(selectedClips.length<1||selectedClips.length>12||
     new Set(selectedClips.map(c=>c[0])).size!==selectedClips.length ||
-    selectedClips.some(c=>!/^[a-z][a-z0-9-]{0,60}$/.test(c[0])))
+    selectedClips.some(c=>!/^[a-z][a-z0-9-]{0,60}$/.test(c[0]) ||
+      !["locked","visual_only"].includes(c[2])))
     throw Error("Invalid Kevin animation selection or duplicate ID");
   // Only data from this exact owner's ZIP; all processing is in memory.
   const archive=await importOwnedKevinZip(file,selectedClips.map(c=>c[1]));
   const {FBXLoader}=await import("three/addons/loaders/FBXLoader.js");
   const inputs: {
-    readonly id:string;readonly label:string;
+    readonly id:string;readonly label:string;readonly rootMotion:"locked"|"visual_only";
     readonly bytes:ArrayBuffer;readonly scene:THREE.Group;
     readonly bones:Map<string,THREE.Bone>;readonly clip:THREE.AnimationClip;
     readonly rest:ReturnType<typeof sourceRestRecord>;
   }[]=[];
   const loader=new FBXLoader();
-  for(const [id,path] of selectedClips) {
+  for(const [id,path,rootMotion] of selectedClips) {
     const bytes=archive.members.get(path);
     if(!bytes)throw Error("Verified Kevin ZIP lacks "+path);
     const scene=loader.parse(bytes,"");
@@ -151,7 +154,7 @@ export async function retargetOwnedKevinAnimations(
     const rest=sourceRestRecord(bones);
     if(inputs.length)assertRestMatch(inputs[0]!.rest,rest);
     inputs.push({id,label:path.split("/").at(-1)!.replace(/\.fbx$/,""),
-      bytes,scene,bones,clip,rest});
+      bytes,scene,bones,clip,rest,rootMotion});
   }
   const source=inputs[0]!;
   const mappings=mapKevinMaleHumanoidJoints(graph,[...source.bones.keys()]);
@@ -212,7 +215,7 @@ export async function retargetOwnedKevinAnimations(
       maxSeam=Math.max(maxSeam,seam);
       tracks.push({jointId:mapping.targetId,channel:"rotation",timesSeconds:times,values});
     }
-    const locked=input.id==="human-kevin-idle";
+    const locked=input.rootMotion==="locked";
     if(!locked){
       const origin=pelvisPositions[0]!;
       const offsets:Vec3[]=pelvisPositions.map(v=>[v[0]-origin[0],v[1]-origin[1],0]);
