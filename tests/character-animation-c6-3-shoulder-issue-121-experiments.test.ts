@@ -95,6 +95,56 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
               ratio:+x.ratio.toFixed(5),dot:+x.normalDot.toFixed(5)}))}));
         }
       }
+      // Face-edge neighborhood evidence: compare posed normals against
+      // ADJACENT posed normals, not against unrotated world-space rest normals.
+      // Shared original OBJ IDs connect intentional UV-seam duplicates.
+      fk.applyRestDeltas(sampler.sample(.51));
+      const index=human.mesh.geometry.getIndex()!;
+      const p=human.mesh.geometry.getAttribute("position");
+      const sourceIds=human.template.sourceVertexIds;
+      const targetFaces=[6797,6634,2365,20356,20357,15844,15871,15607] as const;
+      const edgeFaces=new Map<string,number[]>();
+      const faceSource=(face:number)=>Array.from({length:3},(_,k)=>
+        sourceIds[index.getX(face*3+k)]!);
+      const edgeKey=(a:number,b:number)=>Math.min(a,b)+":"+Math.max(a,b);
+      for(let f=0;f<index.count/3;f++){
+        const source=faceSource(f);
+        for(const [a,b] of [[source[0]!,source[1]!],
+          [source[1]!,source[2]!],[source[2]!,source[0]!]]){
+          const key=edgeKey(a,b),faces=edgeFaces.get(key)??[];
+          faces.push(f);edgeFaces.set(key,faces);
+        }
+      }
+      const norm=(face:number,posed:boolean)=>{
+        const corners=Array.from({length:3},(_,k)=>{
+          const id=index.getX(face*3+k);
+          return posed?human.mesh.getVertexPosition(id,new THREE.Vector3()):
+            new THREE.Vector3().fromBufferAttribute(p,id);
+        });
+        return corners[1]!.clone().sub(corners[0]!)
+          .cross(corners[2]!.clone().sub(corners[0]!)).normalize();
+      };
+      for(const face of targetFaces){
+        const ids=faceSource(face),neighbors=new Set<number>();
+        for(const [a,b] of [[ids[0]!,ids[1]!],[ids[1]!,ids[2]!],
+          [ids[2]!,ids[0]!]]){
+          for(const other of edgeFaces.get(edgeKey(a,b))??[])
+            if(other!==face)neighbors.add(other);
+        }
+        const rest=norm(face,false),posed=norm(face,true);
+        const adjoining=[...neighbors].sort((a,b)=>a-b).map(other=>({
+          face:other,
+          restDot:+rest.dot(norm(other,false)).toFixed(6),
+          poseDot:+posed.dot(norm(other,true)).toFixed(6),
+        }));
+        const original=ids.map(id=>Object.entries(weights.weights)
+          .flatMap(([bone,rows])=>rows.filter(([source,w])=>source===id&&w>0)
+            .map(([,w])=>[bone,w])));
+        console.log("TRILOK_C121_ADJACENCY "+JSON.stringify({
+          face,source:ids,original,adjoining,
+          faceRatio:+faceInfo(human,face).ratio.toFixed(6),
+        }));
+      }
     }finally{human.dispose();}
   },120_000);
 });
