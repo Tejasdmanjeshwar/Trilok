@@ -9,6 +9,7 @@ test("record real random-generation latency and resource timings for three seeds
     {timeout:120_000});
   const startupMs=Date.now()-navigationStarted;
   await page.getByRole("button",{name:"Generate",exact:true}).click();
+  mkdirSync("test-results/studio",{recursive:true});
   const captures:unknown[]=[];
   for(const seed of [2694905601,1729,42]){
     const input=page.locator("#studio-generator-seed");
