@@ -119,8 +119,9 @@ try {
     // FBXLoader owns pre/post rotations, Euler order and axis/unit conversion.
     // Sample every distinct authored key time rather than inventing sinusoids.
     const nativeTimes=input.clip.tracks.flatMap(track=>[...track.times]);
-    const times=[...new Set([0,input.clip.duration,...nativeTimes]
-      .map(t=>Math.round(t*1e7)/1e7))].sort((a,b)=>a-b);
+    const times=[...new Set([0,input.clip.duration,...nativeTimes
+      .map(t=>Math.round(t*1e7)/1e7)
+      .filter(t=>t>=0&&t<input.clip.duration)])].sort((a,b)=>a-b);
     if(times[0]!==0||times.at(-1)!==input.clip.duration ||
       times.length*49>8192)
       throw Error("Source exceeds canonical key budget; do not decimate "+input.id);
