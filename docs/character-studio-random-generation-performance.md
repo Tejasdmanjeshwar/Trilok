@@ -100,3 +100,66 @@ This is an evidence collection test, not a performance claim. Run the exact
 same test on main and PR head with controlled cold/warm HTTP cache and
 document both environments; static source inspection alone cannot establish
 a speedup.
+
+## Measured exact-SHA Chromium comparison (2026-11-20)
+
+[Run 44724810054](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44724810054),
+base `9d32e2a19da304784a0312144c64be47ff3bab26`,
+candidate `3e0b3f3a3d9c8a6f8c19a8d506d085121c84fe49`.
+Both desktop and Pixel 7 touch-emulated Chromium comparison jobs passed.
+One before/after sample per seed/viewport on the same respective runner
+using identical Playwright test code, localhost Vite static bundles, and
+pinned sources. No performance throttling or production-network emulation
+was applied. Times are wall clock to two animation frames following model
+completion; they do not include an independent GPU execution timer.
+
+| Scenario | Desktop base (ms) | Desktop candidate (ms) | Touch base (ms) | Touch candidate (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Initial Studio ready | 943 | 997 | 564 | 595 |
+| First Generate seed 2694905601 | 6230 | 2728 | 3811 | 2966 |
+| Second Generate seed 1729 | 1866 | 2036 | 1066 | 1043 |
+| Third Generate seed 42 | 1987 | 1955 | 886 | 1082 |
+| Warm page reload ready | 1955 | 3579 | 1454 | 1218 |
+| First Generate after warm reload | 6589 | 3971 | 3454 | 2966 |
+
+First-generation speedup is 2.28× on desktop and 1.28× on touch emulation
+in this run. Subsequent generations do not consistently improve. Desktop
+warm page reload ready became **slower** (1955 → 3579 ms) on this sample;
+do not infer repeatable regression or reliability from a single run.
+The production-reported minute-long first generation was **not reproduced**.
+Cold-network benchmarks, repeat runs, CPU/memory profiles, measured GPU work,
+and independent real devices remain outstanding.
+
+The candidate's measured **actual body-morph main-thread stage** still takes
+1608 ms on the first desktop seed and approximately 1518–1530 ms on subsequent
+desktop seeds; on touch emulation, 886 ms first and 777–787 ms subsequent.
+The first body atlas wait measured 247 ms desktop, 1631 ms touch.
+Anatomical source instantiation and skin fitting measured ~234 ms on the
+first desktop seed; generation does not skip per-character calibration.
+These are staged browser measurements, not a full main-thread long-task
+trace, but demonstrate that atlas loading is only part of the cost and
+**the main-thread responsiveness requirement is not fully met**.
+
+Desktop and touch screenshot pairs for deterministic seeds 2694905601,
+1729 and 42 are in the run's
+`studio-generation-desktop-chromium-3e0b3f3...` and
+`studio-generation-touch-chromium-3e0b3f3...` artifacts.
+Direct RGB pixel comparison at identical screenshot dimensions found
+all differing pixels (>5 channel units) localized to the **build SHA text
+at the top of the viewport** (desktop bbox x=840–892, y=114–121;
+touch x=883–1019, y=172–194). The character and viewport pixels are
+otherwise identical across all three seeds in each browser project.
+This is strong rendered equivalence evidence for those seeds, but does
+not substitute for full C6.3 pose/equipment/animation regression tests.
+
+## Next optimization barrier
+
+To satisfy responsiveness rather than only wall-time improvement,
+profile and isolate the expensive `MakeHumanBodyController.apply` path,
+especially its synchronous body target accumulation, source-to-render
+mapping, pose-sensitive joint fitting and geometry diagnostics.
+Move only confirmed independent numeric work behind a shared typed worker
+contract; retain authoritative source precision and morphology algorithms.
+Per-character skeletal fitting must remain anatomy-dependent. Repeat
+visual/determinism tests, collect long tasks, verify memory overhead, and
+measure actual device cold starts before considering acceptance.
