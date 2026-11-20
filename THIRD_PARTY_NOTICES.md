@@ -68,10 +68,10 @@ the Trilok proprietary notice.
 
 Quaternius's CC0 dedication does not confer exclusive Trilok ownership over the underlying motion data. Attribution is retained voluntarily.
 
-## Retired C6.3 animation-source research (not distributed)
+## Rejected and private-only C6.3 animation sources (not distributed)
 
 - **100STYLE:** Ian Mason / Mason, Starke and Komura (2022), [original dataset](https://www.ianxmason.com/100style/), CC BY 4.0. This source was experimentally evaluated and rejected for Trilok retargeting; its source files, derived clips and preview selector are not part of the runtime. No license claims are made over the former experimental output.
-- **Kevin Iglesias Human Basic Motions FREE:** [original product](https://assetstore.unity.com/packages/3d/animations/human-basic-motions-free-154271), Standard Unity Asset Store EULA per the previously inspected creator documentation. Both user-provided archives were privately audited for compatibility; **no Kevin source or retargeted animation curves are redistributed**. Browser-bundle/export rights remain under review; commercial game usage does not automatically authorize serving extractable motion data.
+- **Kevin Iglesias Human Basic Motions FREE:** [original product](https://assetstore.unity.com/packages/3d/animations/human-basic-motions-free-154271), Standard Unity Asset Store EULA per the previously inspected creator documentation. Both user-provided archives were privately audited for compatibility; **no Kevin source or retargeted animation curves are redistributed**. An opt-in, client-side ZIP importer allows a licensed user to select the original archive from their own device and retarget it entirely in memory for evaluation. Only general import/calibration code, not source-derived keys, enters the web bundle. Browser-export rights remain under review; commercial game usage does not automatically authorize serving extractable motion data.
 
 ## 2. Runtime dependency — Three.js
 
