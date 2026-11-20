@@ -924,7 +924,13 @@ export function createStudioViewport(
     rebuilding++;
     try{
       initialize();
-      incoming=await buildStudioHuman(state,abort.signal);
+      const stages:Record<string,number>={};
+      incoming=await buildStudioHuman(state,abort.signal,
+        (stage,ms)=>{stages[stage]=(stages[stage]??0)+ms;},
+        (stage,ms)=>{stages["source:"+stage]=(stages["source:"+stage]??0)+ms;});
+      if(recipe)performanceMonitor.recordGeneration({
+        elapsedMs:performance.now()-started,stages,
+      });
       if(!valid()){incoming.dispose();return false;}
       applyStudioSkinMaterial(incoming.human.mesh,appearance);
       if(expression!=="neutral") {
