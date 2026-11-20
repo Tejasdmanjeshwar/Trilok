@@ -63,6 +63,9 @@ describe("C6.3 private local ZIP decoder",()=>{
   it("rejects traversal, unapproved source paths, missing bones and invalid version",async()=>{
     await expect(extractKevinZipMembers(zip(first),["../secrets.fbx"]))
       .rejects.toThrow(/member request/);
+    await expect(extractKevinZipMembers(zip(first),
+      ["Animations/Male/../../secrets.fbx"]))
+      .rejects.toThrow(/member request/);
     await expect(extractKevinZipMembers(zip(first),[KEVIN_INITIAL_FBX[1]![1]]))
       .rejects.toThrow(/missing required/);
     const wrong=expected.slice();

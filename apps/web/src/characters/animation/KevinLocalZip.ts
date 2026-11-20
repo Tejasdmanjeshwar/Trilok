@@ -73,6 +73,8 @@ export async function extractKevinZipMembers(
   const wanted=new Set(requested);
   if(wanted.size!==requested.length||wanted.size>12||
     requested.some(p=>!p.startsWith("Animations/Male/")||
+      p.split("/").some(segment=>segment===".."||segment===".") ||
+      p.includes("\\\\") ||
       !/^Animations\/Male\/[a-zA-Z0-9_@.\-/ ]+\.fbx$/.test(p)))
     throw Error("Unexpected Kevin archive member request");
   const extracted=new Map<string,ArrayBuffer>();
