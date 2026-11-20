@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {readdirSync,readFileSync} from "node:fs";
+import {existsSync,readdirSync,readFileSync} from "node:fs";
 import {join} from "node:path";
 
 /**
@@ -63,17 +63,32 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         .not.toMatch(/playwright\s+(install|test)|pnpm\s+(test:e2e|exec\s+playwright)|chromium/i);
     }
   });
-  it("keeps C6.3 source acquisition numeric-only and SHA-pins manual multi-angle browser review",()=>{
-    const source=readFileSync(join(dir,"c63-100style-source-acquisition.yml"),"utf8");
+  it("retires failed 100STYLE paths without weakening exact-SHA manual Studio review",()=>{
+    const abandoned=[
+      ".github/workflows/c63-100style-source-acquisition.yml",
+      "assets/animations/studio-v1/100style-neutral-manifest.json",
+      "assets/animations/studio-v1/100style-neutral-profile.json",
+      ...["idle","walk","run"].map(name=>
+        "assets/animations/studio-v1/human-100style-neutral-"+name+".clip.json"),
+      "scripts/probe-c63-100style.py",
+      "scripts/inspect-c63-100style.mjs",
+      "scripts/calibrate-c63-100style.mjs",
+      "scripts/c63-skinned-pose-evidence.mjs",
+      "scripts/c63-skinned-foot-evidence.mjs",
+      "tests/character-animation-c6-3-100style.test.ts",
+      "e2e/studio-animation-c6-3-100style.spec.ts",
+    ];
+    for(const path of abandoned)expect(existsSync(path),path).toBe(false);
+    const library=readFileSync("apps/web/src/studio/StudioAnimationLibrary.ts","utf8");
     const diagnostic=readFileSync(join(dir,"studio-interaction-diagnostics.yml"),"utf8");
-    expect(source).toContain("node scripts/calibrate-c63-100style.mjs --emit-review-blobs");
-    expect(source).not.toMatch(/browser-review:|playwright|chromium/i);
-    expect(source).toContain("actions/upload-artifact@v4");
-    expect(diagnostic).toContain("100style-review");
-    expect(diagnostic).toContain("e2e/studio-animation-c6-3-100style.spec.ts");
+    expect(library).not.toMatch(/100style|EXPERIMENTAL_100STYLE_REVIEW/i);
+    expect(diagnostic).not.toMatch(/100style/i);
+    expect(diagnostic).toContain("e2e/studio-animation-c6-2.spec.ts");
     expect(diagnostic).toContain("ref: ${{ github.sha }}");
-    expect(diagnostic).toContain("test-results/studio-c6-3-100style/**");
     expect(diagnostic).toContain("--retries=0 --workers=1");
+    // Generic BVH and full-orientation math are reusable, not retired.
+    expect(existsSync("packages/character-core/src/bvh.ts")).toBe(true);
+    expect(existsSync("packages/character-core/src/retargeting.ts")).toBe(true);
   });
   it("reuses only pinned MakeHuman assets across gated acceptance jobs",()=>{
     const verify=readFileSync(join(dir,"ci.yml"),"utf8");
