@@ -15,6 +15,19 @@ describe("C6.3 Kevin build-time integration",()=>{
       "human-kevin-idle","human-kevin-walk","human-kevin-run",
     ]);
   });
+  it("pins only the selected 24 non-RM C6.3 directions",()=>{
+    const entries=catalog.c63ReviewClips;
+    expect(entries).toHaveLength(24);
+    expect(new Set(entries.map(e=>e.id)).size).toBe(24);
+    expect(new Set(entries.map(e=>e.sourceFile)).size).toBe(24);
+    expect(entries.filter(e=>e.family==="walk")).toHaveLength(7);
+    expect(entries.filter(e=>e.family==="run")).toHaveLength(7);
+    expect(entries.filter(e=>e.family==="sprint")).toHaveLength(5);
+    expect(entries.filter(e=>e.family==="idle")).toHaveLength(3);
+    expect(entries.filter(e=>e.family==="turn")).toHaveLength(2);
+    expect(entries.every(e=>!e.sourceFile.includes("[RM]")&&
+      !e.sourceFile.includes("RootMotion/"))).toBe(true);
+  });
   it("removes player ZIP inputs, experimental query switches and runtime FBX loaders",()=>{
     const viewport=readFileSync("apps/web/src/studio/StudioViewport.ts","utf8");
     const main=readFileSync("apps/web/src/studio/main.ts","utf8");

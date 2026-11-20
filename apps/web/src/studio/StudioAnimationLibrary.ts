@@ -7,6 +7,23 @@ import backward from "../../../../assets/animations/studio-v1/human-backward.cli
 import strafeLeft from "../../../../assets/animations/studio-v1/human-strafe-left.clip.json";
 import strafeRight from "../../../../assets/animations/studio-v1/human-strafe-right.clip.json";
 import kevinCatalog from "../../../../assets/animations/sources/kevin-basic-motions-v1.json";
+export const EXPERIMENTAL_KEVIN_C63_REVIEW=typeof location!=="undefined" &&
+  new URLSearchParams(location.search).has("c63-kevin-review");
+const c63ReviewClips=new Map<string,AnimationClipV1>();
+/** Called by an opt-in, separately bundled Studio chunk; ordinary gameplay
+ * and normal Studio do not import any unapproved directional clip. */
+export function registerKevinC63Review(entries:readonly {id:string;label:string;clip:AnimationClipV1}[]):void{
+  if(!EXPERIMENTAL_KEVIN_C63_REVIEW||c63ReviewClips.size||entries.length!==24||
+    new Set(entries.map(e=>e.id)).size!==24)
+    throw new Error("Invalid C6.3 review registration");
+  const selected=new Set(kevinCatalog.c63ReviewClips.map(e=>e.id));
+  for(const entry of entries)if(!selected.has(entry.id)||entry.clip.id!==entry.id)
+    throw new Error("Unexpected Kevin review source "+entry.id);
+  for(const entry of entries)c63ReviewClips.set(entry.id,entry.clip);
+  STUDIO_ANIMATIONS.splice(STUDIO_ANIMATIONS.length-1,0,
+    ...entries.map(({id,label})=>({id,label})));
+}
+
 
 /** Approved source-backed motions, independent of Studio controls or playback. */
 const library = [
@@ -67,7 +84,8 @@ const previousIds: Readonly<Record<string,string>> = {
 };
 export function resolveStudioAnimationId(id:string):string {
   const resolved=previousIds[id]??id;
-  if(resolved!=="locomotion-preview"&&!Object.hasOwn(clips,resolved))
+  if(resolved!=="locomotion-preview"&&!Object.hasOwn(clips,resolved)&&
+    !c63ReviewClips.has(resolved))
     throw new Error("Unknown or unaccepted Studio animation");
   return resolved;
 }
@@ -76,7 +94,7 @@ export function resolveStudioAnimationId(id:string):string {
  * Jog's historical baked identifier is normalized at this API boundary. */
 export function loadBakedStudioAnimation(id:string,graph:AnatomicalGraphV1):AnimationClipV1 {
   const resolved=resolveStudioAnimationId(id);
-  const clip=clips[resolved];
+  const clip=c63ReviewClips.get(resolved)??clips[resolved];
   validateAnimationClip(clip,graph);
   return clip.id===resolved?clip:{...clip,id:resolved};
 }

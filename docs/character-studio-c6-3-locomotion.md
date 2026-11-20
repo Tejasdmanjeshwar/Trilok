@@ -177,3 +177,24 @@ The initial three Kevin clips are build-time bundled, require no player ZIP
 or FBX import, and remain review candidates rather than accepted visuals.
 The 58-clip library is an **offline compatibility validation**, not a
 public Character Studio menu. No 100STYLE source has been restored.
+
+## Kevin C6.3 directional review intake (2026-11-21)
+
+Recovered and verified the owner's original SHA-pinned FBX ZIP locally.
+Exactly 24 additional **non-RM** male clips were selected: 3 idle
+transitions/alternates, 7 walks, 7 runs, 5 sprints and 2 turns.
+The original Kevin Idle/Walk/Run baked bytes and hashes remain unchanged.
+Developer-only `--c63` batch mode deterministically writes 24 clips
+under `assets/animations/studio-v1/kevin/c63/` with the same immutable
+source-to-C1 49-joint profile; it stores source hip root trajectories as
+reference-only and distinguishes `loop`, `transition`, `one_shot`.
+
+The review is opt-in at `/studio/?c63-kevin-review`; a separate
+code-split chunk is loaded only for that route. Its selector uses the
+existing canonical pose, FK, corrected MakeHuman shoulder surface, and
+Studio camera/timeline controls. No user source ZIP upload is required.
+The added clips are deliberately NOT normal-playback approvals.
+Source animations, especially turn final headings and ground contacts,
+require actual rendered desktop/touch and morphology inspection before
+promoting to the gameplay mixer. Jump/fall/social and RM duplicates are
+deferred. No production deployment or C6.3 phase acceptance is implied.
