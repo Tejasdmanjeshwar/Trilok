@@ -12,7 +12,7 @@ import * as THREE from "three";
  */
 export class SourceSkinningFidelity {
   private readonly mesh:THREE.SkinnedMesh;
-  private readonly rows:readonly {
+  private readonly rows:{
     readonly renderId:number;
     readonly owners:readonly (readonly [number,number])[];
     base:THREE.Vector3;
@@ -117,7 +117,8 @@ export class SourceSkinningFidelity {
         this.candidate.copy(this.goal).applyMatrix4(this.blended)
           .applyMatrix4(this.mesh.bindMatrixInverse)
           .sub(this.morphOffset);
-        if(!this.candidate.toArray().every(Number.isFinite))
+        if(!Number.isFinite(this.candidate.x)||!Number.isFinite(this.candidate.y)||
+          !Number.isFinite(this.candidate.z))
           throw new Error("Nonfinite full-source skin compensation");
       }
       if(!this.working.equals(this.candidate)){
