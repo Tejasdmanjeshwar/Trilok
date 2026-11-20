@@ -57,37 +57,42 @@ describe("C121 controlled shoulder connector diagnostic",()=>{
           console.log("TRILOK_C121_CLIP "+JSON.stringify({name,time:t,angles,base}));
         }
       }
+      // Reconstruct the helper's original calibrated pivot for every tested
+      // blend; unlike a fixed translation, this uses the exact shared pivot.
+      fk.applyRestDeltas([]);
+      const anchors=Object.fromEntries((["left","right"] as const).map(side=>{
+        const connector=human.spike.shoulderSkinBones!.get(side)!;
+        const shoulder=human.spike.bones.get(joint("shoulder_"+side))!;
+        return [side,{rest:connector.quaternion.clone(),
+          connectorRestPosition:connector.position.clone(),
+          shoulderRestPosition:shoulder.position.clone()}];
+      })) as Record<"left"|"right",{
+        rest:THREE.Quaternion;connectorRestPosition:THREE.Vector3;
+        shoulderRestPosition:THREE.Vector3;
+      }>;
       const sampler=createAnimationSampler(
         loadBakedStudioAnimation("human-kevin-run",human.spike.graph),human.spike.graph);
       for(const time of [.48,.50,.51,.52,.54]){
         fk.applyRestDeltas(sampler.sample(time));
-        const shoulderRest=new Map((["left","right"] as const).map(side=>[side,{
-          connector:human.spike.shoulderSkinBones!.get(side)!,
-          joint:human.spike.bones.get(joint("shoulder_"+side))!,
-        }]));
         for(const blend of [0,.25,.5,.75,1]){
           for(const side of ["left","right"] as const){
-            const {connector,joint:bone}=shoulderRest.get(side)!;
-            const restJoint=fk.frames.get(joint("shoulder_"+side))!.rest;
-            const delta=restJoint.clone().invert().multiply(bone.quaternion);
-            const partial=new THREE.Quaternion().slerp(delta,blend);
-            // Helpers share parent with semantic shoulders. Reconstruct
-            // calibrated rest pivots using the alpha=.5 actual state first.
-            const restQuat=restJoint;
-            const fullOffset=bone.position.clone().sub(
-              connector.position.clone().sub(
-                bone.position.clone().sub(connector.position).applyQuaternion(
-                  new THREE.Quaternion().slerp(delta,.5)
-                ).negate()
-              )
-            );
-            void fullOffset;void restQuat;
+            const connector=human.spike.shoulderSkinBones!.get(side)!;
+            const shoulder=human.spike.bones.get(joint("shoulder_"+side))!;
+            const rest=anchors[side];
+            const localDelta=fk.frames.get(joint("shoulder_"+side))!.rest.clone()
+              .invert().multiply(shoulder.quaternion);
+            const partial=new THREE.Quaternion().slerp(localDelta,blend);
+            connector.quaternion.copy(rest.rest).multiply(partial);
+            const offset=rest.shoulderRestPosition.clone().sub(rest.connectorRestPosition);
+            connector.position.copy(rest.connectorRestPosition).add(
+              offset.clone().sub(offset.applyQuaternion(partial)));
           }
-          // This initial experiment logs pose triangles; connector variation
-          // is measured by an isolated follow-up after rest anchors are captured.
+          human.spike.character.root.updateWorldMatrix(true,true);
           console.log("TRILOK_C121_VARIANT "+JSON.stringify({time,blend,
-            left:stats(human,ids.left).map(x=>+x.ratio.toFixed(5)),
-            right:stats(human,ids.right).map(x=>+x.ratio.toFixed(5))}));
+            left:stats(human,ids.left).map(x=>({face:x.face,
+              ratio:+x.ratio.toFixed(5),dot:+x.normalDot.toFixed(5)})),
+            right:stats(human,ids.right).map(x=>({face:x.face,
+              ratio:+x.ratio.toFixed(5),dot:+x.normalDot.toFixed(5)}))}));
         }
       }
     }finally{human.dispose();}
