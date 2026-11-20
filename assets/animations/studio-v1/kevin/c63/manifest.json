@@ -1,0 +1,1604 @@
+{
+  "schemaVersion": 1,
+  "sourceArchiveSha256": "063d5e1822f85549d14035ef342b1feae45bac37962499a8b478c7eb997200cd",
+  "developerInputSha256": "61a6fc0487048df0b83fe94200f34ce82177a125973ab2b512707c9d0cd8c2a9",
+  "sourceFamilyMaleClipCount": 58,
+  "immutableSourceRestSha256": "20e77d7c21a0e49dba2365be8539dc3cd15cfd4959a7796fdecc91625756c4e6",
+  "sourceModelSha256": "88fd0684f0b3331cc4056b2ddafebf506d52c21c32e18884fd28214c0a8d75cb",
+  "sourceBindEvidence": {
+    "skinClusterCount": 52,
+    "maximumBindResidual": 0.000001104651144273952,
+    "maximumRestTranslationMeters": 0,
+    "maximumRestAngleRadians": 0.0012077492562992355
+  },
+  "targetCalibrationSha256": "b39395b69f4e7fa33b63fb6788978d5a9890e000ac373c4f2c7ff92efd8f96b3",
+  "profileSha256": "d05d75dd34dfab2245e98a7cdebb9fd174f8bef866a94dd12da63a40e33deace",
+  "entries": [
+    {
+      "id": "human-kevin-idle-02",
+      "sourceFile": "Animations/Male/Idles/HumanM@Idle02.fbx",
+      "sourceSha256": "24d28bb04574a166737fd13b1e4c446038baaf5cb81a4ca82a591090801e9fc2",
+      "outputSha256": "0a8714f638115e54cdb19a21d6c4673d61e3e475c2f28ba02d4cec12851f4b10",
+      "keyCount": 83,
+      "maxSeamDegrees": 0.0000024148365394514667,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3557744533304047,
+          "lowestVertexMeters": -0.019566144229338465
+        },
+        {
+          "timeSeconds": 0.6666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3368288945314021,
+          "lowestVertexMeters": -0.008058541083667888
+        },
+        {
+          "timeSeconds": 1.3666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.33620109836224,
+          "lowestVertexMeters": -0.02020299703267736
+        },
+        {
+          "timeSeconds": 2.0666666,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3575677456583037,
+          "lowestVertexMeters": -0.031138546341313782
+        },
+        {
+          "timeSeconds": 2.700000047683716,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3557744533304047,
+          "lowestVertexMeters": -0.019566144229338465
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.0000024148365394514667
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[1]/joint",
+          "seamDegrees": 0.0000024148365394514667
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[right,0]/ankle/joint",
+          "seamDegrees": 0.0000024148365394514667
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[thumb]/phalanx[0]/joint",
+          "seamDegrees": 0.0000017075472925031877
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[ring]/phalanx[1]/joint",
+          "seamDegrees": 0.0000017075472925031877
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/toe/joint",
+          "seamDegrees": 0.0000017075472925031877
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-idle-01-to-02",
+      "sourceFile": "Animations/Male/Idles/HumanM@Idle01-Idle02.fbx",
+      "sourceSha256": "76f72bac8324682c16377851414f62f016984ce225fd250dcf79476e828e55c7",
+      "outputSha256": "175a49ba8ad3dc80d67caa54425a0de4525c6299f600b8a67231afe4db0df8c7",
+      "keyCount": 24,
+      "maxSeamDegrees": 89.90012057304304,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4528582446446343,
+          "lowestVertexMeters": -0.019607371877585496
+        },
+        {
+          "timeSeconds": 0.15,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4237333905508076,
+          "lowestVertexMeters": -0.025267790877270824
+        },
+        {
+          "timeSeconds": 0.3,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.40129670438938314,
+          "lowestVertexMeters": -0.027435822036300087
+        },
+        {
+          "timeSeconds": 0.5,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.35932483668347026,
+          "lowestVertexMeters": -0.020359423937103008
+        },
+        {
+          "timeSeconds": 0.6666666865348816,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3557744533304047,
+          "lowestVertexMeters": -0.019566144229338465
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 89.90012057304304
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 89.90006556347716
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 89.8999725188183
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 89.89987845771847
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 87.18965921830377
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 87.18957080527098
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-idle-02-to-01",
+      "sourceFile": "Animations/Male/Idles/HumanM@Idle02-Idle01.fbx",
+      "sourceSha256": "29e4120db27972f88aa4e1bb084c1a510b7c184cbcc67c42cc8c2f404ddd25da",
+      "outputSha256": "d28f78f17eb41eefe3df2b9e78eb1b2ba139df024354675757e93c1dfdf65452",
+      "keyCount": 33,
+      "maxSeamDegrees": 89.90011024727926,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3557744533304047,
+          "lowestVertexMeters": -0.019566144229338465
+        },
+        {
+          "timeSeconds": 0.2666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3600523391897767,
+          "lowestVertexMeters": -0.029660091314138718
+        },
+        {
+          "timeSeconds": 0.4333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.40951289305213967,
+          "lowestVertexMeters": -0.024110336725281335
+        },
+        {
+          "timeSeconds": 0.6,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4472637864590839,
+          "lowestVertexMeters": -0.01371807939373064
+        },
+        {
+          "timeSeconds": 0.7666666507720947,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4528582099424422,
+          "lowestVertexMeters": -0.019607371877585496
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 89.90011024727926
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 89.90006039601687
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 89.89995467546984
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 89.89988962578512
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 87.1895722809285
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 87.18956104298654
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-walk-backward",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_Backward.fbx",
+      "sourceSha256": "6783b9930530c19640e88c5758327384deda677ba94b7b15606d683ac096ac57",
+      "outputSha256": "e251c780b96330f3a096547ddfce06181536b8d818c466a74ffdf1d1dd88dad3",
+      "keyCount": 40,
+      "maxSeamDegrees": 0.00008386126178276746,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.5849985750876222,
+          "lowestVertexMeters": 0.012398617021383548
+        },
+        {
+          "timeSeconds": 0.2173781,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.5534090020553957,
+          "lowestVertexMeters": -0.015287639397631989
+        },
+        {
+          "timeSeconds": 0.4666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.5202653074747948,
+          "lowestVertexMeters": -0.0003257312088204775
+        },
+        {
+          "timeSeconds": 0.6333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4954229662870062,
+          "lowestVertexMeters": -0.012037670835022087
+        },
+        {
+          "timeSeconds": 0.800000011920929,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.5849985750876222,
+          "lowestVertexMeters": 0.012398617021383548
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[1]/joint",
+          "seamDegrees": 0.00008386126178276746
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[0]/joint",
+          "seamDegrees": 0.00008151638342218004
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.00006637506707733
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[0]/joint",
+          "seamDegrees": 0.00006116261833114449
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.00005717096819739339
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[1]/joint",
+          "seamDegrees": 0.00005511966892038353
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-walk-backward-left",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_BackwardLeft.fbx",
+      "sourceSha256": "cb8eddae26a6340283ec56397fa531e830fdc1f908258ca6d7d8991e42533d63",
+      "outputSha256": "4b14b5dcdb28be9a6d1fdc2ef8700dd9475afb61c842654c0d9181979703d087",
+      "keyCount": 46,
+      "maxSeamDegrees": 0.00006952884322115481,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7462955625531522,
+          "lowestVertexMeters": 0.012398815267444255
+        },
+        {
+          "timeSeconds": 0.2333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4419961828330544,
+          "lowestVertexMeters": -0.012602180214020986
+        },
+        {
+          "timeSeconds": 0.45,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6253130731241088,
+          "lowestVertexMeters": 0.0005157256530844631
+        },
+        {
+          "timeSeconds": 0.6333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6252078572705564,
+          "lowestVertexMeters": -0.012037566231479752
+        },
+        {
+          "timeSeconds": 0.800000011920929,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7462955625531522,
+          "lowestVertexMeters": 0.012398815267444255
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.00006952884322115481
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[2]/joint",
+          "seamDegrees": 0.0000673994678321603
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[2]/joint",
+          "seamDegrees": 0.00006452631211963724
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[0]/joint",
+          "seamDegrees": 0.000055278134994132214
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[1]/joint",
+          "seamDegrees": 0.00005490766940823125
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.000054827958256488166
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-walk-backward-right",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_BackwardRight.fbx",
+      "sourceSha256": "e0e4517c7297c6615e469f70760bcc47af70dd4af76d598ee347ab7d770d73e9",
+      "outputSha256": "f746b3e18f0123986a2809c382faa9e57979384b6c100d9d6eba1e54589ef00e",
+      "keyCount": 44,
+      "maxSeamDegrees": 2.586231607780049,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6160990287297825,
+          "lowestVertexMeters": 0.012398977597656319
+        },
+        {
+          "timeSeconds": 0.2173781,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.677359886048861,
+          "lowestVertexMeters": -0.015287483330602744
+        },
+        {
+          "timeSeconds": 0.4333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6268363590419821,
+          "lowestVertexMeters": 0.003957584665478721
+        },
+        {
+          "timeSeconds": 0.6500168,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.42687264656338797,
+          "lowestVertexMeters": -0.009300505522734183
+        },
+        {
+          "timeSeconds": 0.800000011920929,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.616098714355683,
+          "lowestVertexMeters": 0.012398977597656319
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/leg[right,0]/toe/joint",
+          "seamDegrees": 2.586231607780049
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.00006577936720662801
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.00005678718022833446
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[2]/joint",
+          "seamDegrees": 0.000056011715788764106
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/wrist/joint",
+          "seamDegrees": 0.00005517254151663637
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[0]/joint",
+          "seamDegrees": 0.00005517254151663637
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-walk-forward-left",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_ForwardLeft.fbx",
+      "sourceSha256": "922795db9bee60b447a2ad88b03571db5c98a1bb5c315d6280b8e882afeaff5b",
+      "outputSha256": "97bb7bc1e8eec34ab39294f42807d7257a616d43f426ff8fbf4eec1de127c811",
+      "keyCount": 40,
+      "maxSeamDegrees": 0.00012758703787024448,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7231687069105399,
+          "lowestVertexMeters": 0.00461322458216018
+        },
+        {
+          "timeSeconds": 0.2,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.555753756127236,
+          "lowestVertexMeters": -0.02187695001268524
+        },
+        {
+          "timeSeconds": 0.4,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6681383773502295,
+          "lowestVertexMeters": 0.001642782628578185
+        },
+        {
+          "timeSeconds": 0.6,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.616669493069365,
+          "lowestVertexMeters": -0.022409367362507364
+        },
+        {
+          "timeSeconds": 0.800000011920929,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7231689826859454,
+          "lowestVertexMeters": 0.004612968805840431
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/knee/joint",
+          "seamDegrees": 0.00012758703787024448
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[0]/joint",
+          "seamDegrees": 0.00009109408726125178
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[2]/joint",
+          "seamDegrees": 0.00008698440996621522
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.00008595597008961247
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/ankle/joint",
+          "seamDegrees": 0.00008268831923637578
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[1]/joint",
+          "seamDegrees": 0.00008265305017133079
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-walk-forward-right",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_ForwardRight.fbx",
+      "sourceSha256": "bcae18c213372af570c36d23204bc5871f97ccb137a1fe6d8bd32ec129cb788b",
+      "outputSha256": "0dcabfc5867dee2f03c949351273939aaed1bca8ae2aad8383eaa9a34de6ed4e",
+      "keyCount": 42,
+      "maxSeamDegrees": 0.7050833479201956,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7353243747853149,
+          "lowestVertexMeters": 0.004613270101907235
+        },
+        {
+          "timeSeconds": 0.1666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6161215254814875,
+          "lowestVertexMeters": -0.01723982944466515
+        },
+        {
+          "timeSeconds": 0.4,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7098741555020049,
+          "lowestVertexMeters": 0.001642900549863588
+        },
+        {
+          "timeSeconds": 0.6,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.5432011442178902,
+          "lowestVertexMeters": -0.022409796398222354
+        },
+        {
+          "timeSeconds": 0.800000011920929,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7353243703906048,
+          "lowestVertexMeters": 0.004612964036683265
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/leg[right,0]/toe/joint",
+          "seamDegrees": 0.7050833479201956
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/knee/joint",
+          "seamDegrees": 0.0001562569054150184
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/toe/joint",
+          "seamDegrees": 0.00009852118762060221
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/hip/joint",
+          "seamDegrees": 0.00008960963508683711
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/wrist/joint",
+          "seamDegrees": 0.00008808362474986784
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[0]/joint",
+          "seamDegrees": 0.00008417359530998
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-walk-left",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_Left.fbx",
+      "sourceSha256": "76d6f754358e67d2bedf4a7b8296f6013143cc944bb3539f8e34ae4bcb3097d3",
+      "outputSha256": "099a465529a7f9925145602949e7d479db1cf00807438cad9bbe1f67640abe1b",
+      "keyCount": 41,
+      "maxSeamDegrees": 0.00014915403608120346,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7741252939676145,
+          "lowestVertexMeters": 0.004613340877865246
+        },
+        {
+          "timeSeconds": 0.2,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6348707404054952,
+          "lowestVertexMeters": -0.021877074189699197
+        },
+        {
+          "timeSeconds": 0.4,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8031203174928907,
+          "lowestVertexMeters": 0.0016428251463366517
+        },
+        {
+          "timeSeconds": 0.5833501,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7407032313632721,
+          "lowestVertexMeters": -0.02118994981572081
+        },
+        {
+          "timeSeconds": 0.800000011920929,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7741257908438827,
+          "lowestVertexMeters": 0.0046129851974811426
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/knee/joint",
+          "seamDegrees": 0.00014915403608120346
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[0]/joint",
+          "seamDegrees": 0.00009863949590414067
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/ankle/joint",
+          "seamDegrees": 0.0000878847901289063
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[0]/joint",
+          "seamDegrees": 0.00008621000267015644
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.00008140900723934089
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[0]/joint",
+          "seamDegrees": 0.00007921252812025822
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-walk-right",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_Right.fbx",
+      "sourceSha256": "b169cb5a2aefce4d32d7b3f18cafea2de25fb1bf159478e14707ce1f2128054f",
+      "outputSha256": "47eb3b29490ce3e22da19fffb2e09b61a3bc906a35e34b31d3b9130170906ab5",
+      "keyCount": 39,
+      "maxSeamDegrees": 0.00015200048519533373,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8553221057843183,
+          "lowestVertexMeters": 0.004613486150750412
+        },
+        {
+          "timeSeconds": 0.1666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.697368669118305,
+          "lowestVertexMeters": -0.01723995959708982
+        },
+        {
+          "timeSeconds": 0.4166667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7938656541368712,
+          "lowestVertexMeters": 0.005054448025276659
+        },
+        {
+          "timeSeconds": 0.6333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.5954059252447542,
+          "lowestVertexMeters": -0.023049280894373178
+        },
+        {
+          "timeSeconds": 0.800000011920929,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8553217756064116,
+          "lowestVertexMeters": 0.0046131970666114935
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/knee/joint",
+          "seamDegrees": 0.00015200048519533373
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/wrist/joint",
+          "seamDegrees": 0.00012123585776773199
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/elbow/joint",
+          "seamDegrees": 0.00010135123903960996
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[0]/joint",
+          "seamDegrees": 0.00009965407506668417
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/ankle/joint",
+          "seamDegrees": 0.00009319830038968815
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/hip/joint",
+          "seamDegrees": 0.0000876189754100317
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-run-backward",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_Backward.fbx",
+      "sourceSha256": "2a72e3fbafd861f814c2bed0ab5485ee268fe587daa890d4e9dcaed8686e877a",
+      "outputSha256": "880756f6f1d283055d2104420bb027c7ca70665ca280dfa99f7f00137d8f7deb",
+      "keyCount": 34,
+      "maxSeamDegrees": 2.7946169566386208,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.9815497361993444,
+          "lowestVertexMeters": 0.0611024109576186
+        },
+        {
+          "timeSeconds": 0.1666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6183611777598923,
+          "lowestVertexMeters": 0.03488519511942049
+        },
+        {
+          "timeSeconds": 0.3333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7555324720881449,
+          "lowestVertexMeters": 0.06393464722206092
+        },
+        {
+          "timeSeconds": 0.4666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.629242210611973,
+          "lowestVertexMeters": 0.059010493533237215
+        },
+        {
+          "timeSeconds": 0.6000000238418579,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.9828983679261978,
+          "lowestVertexMeters": 0.0611024109576186
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/toe/joint",
+          "seamDegrees": 2.7946169566386208
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[2]/joint",
+          "seamDegrees": 0.0030177303154648723
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.0010841029360824888
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.0005744113967536125
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[middle]/phalanx[2]/joint",
+          "seamDegrees": 0.00038809435982607113
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[middle]/phalanx[1]/joint",
+          "seamDegrees": 0.0002570638582630211
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-run-backward-left",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_BackwardLeft.fbx",
+      "sourceSha256": "acb98a8039694a31f79e7286df4eb55c9a523411bfa6b7f71fb9ba8d3e86f883",
+      "outputSha256": "878a2eca7a93fd51fddb416d9eea4c7f664414137abbdc278f89b74bdf2da087",
+      "keyCount": 40,
+      "maxSeamDegrees": 2.7946262860581745,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.1020227960247753,
+          "lowestVertexMeters": 0.061102576930311465
+        },
+        {
+          "timeSeconds": 0.1666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.51787160307182,
+          "lowestVertexMeters": 0.035625673540725926
+        },
+        {
+          "timeSeconds": 0.3,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8454880135871384,
+          "lowestVertexMeters": 0.05895437210019147
+        },
+        {
+          "timeSeconds": 0.4666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.747530006188323,
+          "lowestVertexMeters": 0.059749438651192685
+        },
+        {
+          "timeSeconds": 0.6000000238418579,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.1023060717841944,
+          "lowestVertexMeters": 0.061102576930311465
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/toe/joint",
+          "seamDegrees": 2.7946262860581745
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[2]/joint",
+          "seamDegrees": 0.003370445760541824
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.0011276433399234856
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[middle]/phalanx[2]/joint",
+          "seamDegrees": 0.0004584915517916804
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.0003430428087537985
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/wrist/joint",
+          "seamDegrees": 0.00019789876427207576
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-run-backward-right",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_BackwardRight.fbx",
+      "sourceSha256": "0205b20d187336514630cf930977b839fa7ccc757f5fa95e319d395b64b745c3",
+      "outputSha256": "f221ce98ddb9072bce7c07865c0dc6e5cced955f090b08f74979589bc90f746c",
+      "keyCount": 40,
+      "maxSeamDegrees": 4.230442515699874,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.9116256580348189,
+          "lowestVertexMeters": 0.061102696253570496
+        },
+        {
+          "timeSeconds": 0.1833762,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.858843403717329,
+          "lowestVertexMeters": 0.044685704840107976
+        },
+        {
+          "timeSeconds": 0.3333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.900692115226424,
+          "lowestVertexMeters": 0.06393466061443231
+        },
+        {
+          "timeSeconds": 0.4833762,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.5714427621938888,
+          "lowestVertexMeters": 0.06659432644675686
+        },
+        {
+          "timeSeconds": 0.6000000238418579,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.9116261216645161,
+          "lowestVertexMeters": 0.05971058165385552
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/leg[right,0]/toe/joint",
+          "seamDegrees": 4.230442515699874
+        },
+        {
+          "jointId": "root/humanoid[0]/leg[left,0]/toe/joint",
+          "seamDegrees": 2.7946221109790366
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.0010733805808496612
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.0010142802170873893
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[middle]/phalanx[1]/joint",
+          "seamDegrees": 0.00020487721400226568
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.00017697638299052232
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-run-forward-left",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_ForwardLeft.fbx",
+      "sourceSha256": "2c8166e115b0fb5486215729d9ae9b2ddfbf9ab7f497579f4068dcda276386c5",
+      "outputSha256": "8b44dbca7b4ef3b014276f3bbeb98fe0c8798770a93a94a60925dc6d687546bc",
+      "keyCount": 30,
+      "maxSeamDegrees": 0.00009045166678240452,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8804145986135237,
+          "lowestVertexMeters": 0.13287052300578697
+        },
+        {
+          "timeSeconds": 0.1333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6315510945675306,
+          "lowestVertexMeters": 0.041546543754503486
+        },
+        {
+          "timeSeconds": 0.3,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.0981587526470626,
+          "lowestVertexMeters": 0.12977472238175533
+        },
+        {
+          "timeSeconds": 0.4333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8285182951674768,
+          "lowestVertexMeters": 0.036136420570544676
+        },
+        {
+          "timeSeconds": 0.6000000238418579,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8804149415967776,
+          "lowestVertexMeters": 0.13287052300578697
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/shoulder/joint",
+          "seamDegrees": 0.00009045166678240452
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.00008862811988882531
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.00008629451401548686
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.00007858428728119955
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/wrist/joint",
+          "seamDegrees": 0.00007567344100177606
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[2]/joint",
+          "seamDegrees": 0.00007298641202620365
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-run-forward-right",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_ForwardRight.fbx",
+      "sourceSha256": "91077e26887f25ced19cb6c7fc05d2e0b5ca85b3cf47c0ec32382898b8c10c2d",
+      "outputSha256": "6eeb26ef5760d80e1e3101c3dcc5e6b67cba811790236bf76914a423f2c08298",
+      "keyCount": 32,
+      "maxSeamDegrees": 0.00012150011933867687,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.1547687962758355,
+          "lowestVertexMeters": 0.1328705278802405
+        },
+        {
+          "timeSeconds": 0.1666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.5228454743503156,
+          "lowestVertexMeters": 0.027745484566258173
+        },
+        {
+          "timeSeconds": 0.3,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8775721876487587,
+          "lowestVertexMeters": 0.12977454332293295
+        },
+        {
+          "timeSeconds": 0.4666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.6210926874467517,
+          "lowestVertexMeters": 0.02287275249074886
+        },
+        {
+          "timeSeconds": 0.6000000238418579,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.1547687962758355,
+          "lowestVertexMeters": 0.1328705278802405
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.00012150011933867687
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[1]/joint",
+          "seamDegrees": 0.0001090426384930193
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.00010771091380014323
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[2]/joint",
+          "seamDegrees": 0.00009136574815440879
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/wrist/joint",
+          "seamDegrees": 0.00007659258531570645
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/elbow/joint",
+          "seamDegrees": 0.00007224357953120653
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-run-left",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_Left.fbx",
+      "sourceSha256": "92eae4a5aef950f9a2c33d64237aa9d11a3f4607d380bf3660065931944f021b",
+      "outputSha256": "e5760a090eb14e7e9d5d65cbd483f5a49adbe891947798b5956ee36e0ec084a1",
+      "keyCount": 30,
+      "maxSeamDegrees": 0.00014365740592787413,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.039027209553019,
+          "lowestVertexMeters": 0.1328702196912895
+        },
+        {
+          "timeSeconds": 0.1333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.8246333133297652,
+          "lowestVertexMeters": 0.041546783428982936
+        },
+        {
+          "timeSeconds": 0.3333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.1698057252099936,
+          "lowestVertexMeters": 0.10819506757805185
+        },
+        {
+          "timeSeconds": 0.4840366,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7489629294658748,
+          "lowestVertexMeters": 0.017009825937942237
+        },
+        {
+          "timeSeconds": 0.6000000238418579,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.039027209553019,
+          "lowestVertexMeters": 0.1328702196912895
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[0]/joint",
+          "seamDegrees": 0.00014365740592787413
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.00012831624281008186
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.00011829002287468268
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.00011043752701828085
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[2]/joint",
+          "seamDegrees": 0.00010595052317530302
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[2]/joint",
+          "seamDegrees": 0.00010143750766556209
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-run-right",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_Right.fbx",
+      "sourceSha256": "8dc0702eb7601b2ac9347d4f3ac4bf2ff7223876eb6dacea5c583a7028c8a019",
+      "outputSha256": "0dbcfa58e879f74fda55813f5bd353e96fa61bdee0c2649bd4f0bc99e2b9571d",
+      "keyCount": 32,
+      "maxSeamDegrees": 0.00008690056955158538,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.1698099117264564,
+          "lowestVertexMeters": 0.13287017915365806
+        },
+        {
+          "timeSeconds": 0.1333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.9236788803968834,
+          "lowestVertexMeters": 0.041546812893654764
+        },
+        {
+          "timeSeconds": 0.3169253,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.0651918535585325,
+          "lowestVertexMeters": 0.1231773681325844
+        },
+        {
+          "timeSeconds": 0.4833333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7410238386185904,
+          "lowestVertexMeters": 0.01707880664441365
+        },
+        {
+          "timeSeconds": 0.6000000238418579,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.1698099117264564,
+          "lowestVertexMeters": 0.13287017915365806
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[thumb]/phalanx[0]/joint",
+          "seamDegrees": 0.00008690056955158538
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.0000778012214668666
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[0]/joint",
+          "seamDegrees": 0.00007680167329336816
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/wrist/joint",
+          "seamDegrees": 0.00007551916267412
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/shoulder/joint",
+          "seamDegrees": 0.00006306376946685154
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[0]/joint",
+          "seamDegrees": 0.0000624831663367408
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-sprint-forward",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_Forward.fbx",
+      "sourceSha256": "462b19137eabc47470a37d0367627a627f4182e90343ee797ff9091c5e534eb2",
+      "outputSha256": "99c97934c6dfec727c8443ff60e027659474a07c2f3fb781d407181c68a86669",
+      "keyCount": 31,
+      "maxSeamDegrees": 0.00008738572425355211,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2836108075318404,
+          "lowestVertexMeters": 0.19793641082791996
+        },
+        {
+          "timeSeconds": 0.1333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.0719840039571111,
+          "lowestVertexMeters": 0.0837328998116278
+        },
+        {
+          "timeSeconds": 0.3,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.3560250265364102,
+          "lowestVertexMeters": 0.14286413962209638
+        },
+        {
+          "timeSeconds": 0.4,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.0704490780796743,
+          "lowestVertexMeters": 0.0829115275326128
+        },
+        {
+          "timeSeconds": 0.5333333611488342,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2836108075318404,
+          "lowestVertexMeters": 0.19793641082791996
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/wrist/joint",
+          "seamDegrees": 0.00008738572425355211
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[1]/joint",
+          "seamDegrees": 0.00008247647861701645
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/elbow/joint",
+          "seamDegrees": 0.00007256573755967706
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.00006414107696247815
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[1]/joint",
+          "seamDegrees": 0.00005993466672601393
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.00005383515068798647
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-sprint-forward-left",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_ForwardLeft.fbx",
+      "sourceSha256": "54702a74c1891b535399699fbded5742ba27221d6c263387b5a8efe3dc3641c2",
+      "outputSha256": "2be00a986df6d3b272e451e4ae9ede7d356dacfa2ce878374d10c580697899ef",
+      "keyCount": 33,
+      "maxSeamDegrees": 0.0000805629426297023,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.0867755063524716,
+          "lowestVertexMeters": 0.19793634421709858
+        },
+        {
+          "timeSeconds": 0.150004,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.7127425241755462,
+          "lowestVertexMeters": 0.061248716268938366
+        },
+        {
+          "timeSeconds": 0.2666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.3922683261026956,
+          "lowestVertexMeters": 0.1984918682596622
+        },
+        {
+          "timeSeconds": 0.3907319,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2070415344344492,
+          "lowestVertexMeters": 0.07857646980921226
+        },
+        {
+          "timeSeconds": 0.5333333611488342,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.0867755063524716,
+          "lowestVertexMeters": 0.19793634421709858
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/shoulder/joint",
+          "seamDegrees": 0.0000805629426297023
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.00008043617159502157
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/elbow/joint",
+          "seamDegrees": 0.00007476249687183361
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[2]/joint",
+          "seamDegrees": 0.000069066013704549
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[0]/joint",
+          "seamDegrees": 0.00006049153481231459
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.00005835716184981681
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-sprint-forward-right",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_ForwardRight.fbx",
+      "sourceSha256": "c624c1660a85cfe6ecfd50cda7722b9f171b550b3662bddb636006f01c20a3cb",
+      "outputSha256": "d5036d48c222a7509e8ec9dc12bfb77cbef776303e29c3f02a1f5d879bdc6c8c",
+      "keyCount": 33,
+      "maxSeamDegrees": 0.0000775008295287106,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.389698032082269,
+          "lowestVertexMeters": 0.19793650251476452
+        },
+        {
+          "timeSeconds": 0.1240653,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2029132240052363,
+          "lowestVertexMeters": 0.07928158597101786
+        },
+        {
+          "timeSeconds": 0.2666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.082190776209691,
+          "lowestVertexMeters": 0.19849167583134486
+        },
+        {
+          "timeSeconds": 0.3907321,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.963126362203907,
+          "lowestVertexMeters": 0.07857627899117786
+        },
+        {
+          "timeSeconds": 0.5333333611488342,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.389698032082269,
+          "lowestVertexMeters": 0.19793650251476452
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.0000775008295287106
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.00007735019609276488
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/elbow/joint",
+          "seamDegrees": 0.00007260590680579781
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/shoulder/joint",
+          "seamDegrees": 0.0000690237844045419
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[2]/joint",
+          "seamDegrees": 0.00006324843682983222
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[2]/joint",
+          "seamDegrees": 0.000059101860138660345
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-sprint-left",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_Left.fbx",
+      "sourceSha256": "2c10bc69d1ba7970776b0018b628b2881107f8f06769afb8750602aa0a477790",
+      "outputSha256": "2128192cd25cd4b66d28cb13162db8124b70fad07ca1b7706706ff1f9bb0eafb",
+      "keyCount": 35,
+      "maxSeamDegrees": 0.00010491346209810383,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2702875993720428,
+          "lowestVertexMeters": 0.19793637064814346
+        },
+        {
+          "timeSeconds": 0.1240659,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.9039416076914907,
+          "lowestVertexMeters": 0.07928159696781033
+        },
+        {
+          "timeSeconds": 0.2333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2956842316830905,
+          "lowestVertexMeters": 0.2086655563841095
+        },
+        {
+          "timeSeconds": 0.4,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.1789826187224226,
+          "lowestVertexMeters": 0.0829113213116697
+        },
+        {
+          "timeSeconds": 0.5333333611488342,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2702875993720428,
+          "lowestVertexMeters": 0.19793637064814346
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.00010491346209810383
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[0]/joint",
+          "seamDegrees": 0.00008472601203647329
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[0]/joint",
+          "seamDegrees": 0.0000816414771456569
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[2]/joint",
+          "seamDegrees": 0.00007871404088081775
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.00007689652534049854
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[1]/joint",
+          "seamDegrees": 0.00007565417341623096
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-sprint-right",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_Right.fbx",
+      "sourceSha256": "ae1e710aa02bf9f733044a122ffde0eafd3ccef75b4b045aff5be55dc81b61a8",
+      "outputSha256": "75a39f6af8c862a41127bb102db9517f4955608917fc30fc849394dab89a828e",
+      "keyCount": 35,
+      "maxSeamDegrees": 0.00010780561662527066,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.3898974904864132,
+          "lowestVertexMeters": 0.19793648847700607
+        },
+        {
+          "timeSeconds": 0.1166924,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2484610280597177,
+          "lowestVertexMeters": 0.08002697683738247
+        },
+        {
+          "timeSeconds": 0.2333333,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.2476993524424256,
+          "lowestVertexMeters": 0.20866620555688148
+        },
+        {
+          "timeSeconds": 0.3907326,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.9208615070260707,
+          "lowestVertexMeters": 0.07857672279291092
+        },
+        {
+          "timeSeconds": 0.5333333611488342,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 1.3898974904864132,
+          "lowestVertexMeters": 0.19793648847700607
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[0]/joint",
+          "seamDegrees": 0.00010780561662527066
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[index]/phalanx[1]/joint",
+          "seamDegrees": 0.00010510782358129277
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[2]/joint",
+          "seamDegrees": 0.00010010655287161034
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.00009598785396802573
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[little]/phalanx[0]/joint",
+          "seamDegrees": 0.00008607461192674237
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[0]/joint",
+          "seamDegrees": 0.00007236455686327786
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-turn-left",
+      "sourceFile": "Animations/Male/Movement/Turn/HumanM@Turn01_Left.fbx",
+      "sourceSha256": "c5b1184be14f7d721a67d229e379dc122462e64eccf8197f8fd02ff1375b793e",
+      "outputSha256": "bd8f6344d70c480bd6ac01e099d60e39329842c396da18f4a2ab730e11d1ba67",
+      "keyCount": 54,
+      "maxSeamDegrees": 0.00033184019120056305,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3951489713179687,
+          "lowestVertexMeters": -0.0196072703675913
+        },
+        {
+          "timeSeconds": 0.2666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4413481532914749,
+          "lowestVertexMeters": -0.012723532180793737
+        },
+        {
+          "timeSeconds": 0.5166667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4691731082540919,
+          "lowestVertexMeters": -0.009977597976348104
+        },
+        {
+          "timeSeconds": 0.7666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4344050990006812,
+          "lowestVertexMeters": -0.015608767248988319
+        },
+        {
+          "timeSeconds": 1,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.39514858683488807,
+          "lowestVertexMeters": -0.01960726980320663
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/elbow/joint",
+          "seamDegrees": 0.00033184019120056305
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/wrist/joint",
+          "seamDegrees": 0.0002211389115599307
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/shoulder/joint",
+          "seamDegrees": 0.00015196211576768838
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/elbow/joint",
+          "seamDegrees": 0.00010159547655638247
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[little]/phalanx[1]/joint",
+          "seamDegrees": 0.00009447228192189304
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[middle]/phalanx[1]/joint",
+          "seamDegrees": 0.00008517221247134613
+        }
+      ]
+    },
+    {
+      "id": "human-kevin-turn-right",
+      "sourceFile": "Animations/Male/Movement/Turn/HumanM@Turn01_Right.fbx",
+      "sourceSha256": "d4ddf39abbe72b4f92c58dad8e4abd9081b7f16459d28389ca18ccf15b2efdd6",
+      "outputSha256": "10aca53c52709054f249cb66e77e9f7494fe800b0cffecea27c0ea37db8ead51",
+      "keyCount": 48,
+      "maxSeamDegrees": 0.0003531363029058203,
+      "sampledRealMakeHumanSkin": [
+        {
+          "timeSeconds": 0,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.36968538645200777,
+          "lowestVertexMeters": -0.0196072703675913
+        },
+        {
+          "timeSeconds": 0.25,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.40544726948851556,
+          "lowestVertexMeters": -0.014528718494347434
+        },
+        {
+          "timeSeconds": 0.4666667,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.4354287717419458,
+          "lowestVertexMeters": -0.008480384110376923
+        },
+        {
+          "timeSeconds": 0.8,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.39687293409220287,
+          "lowestVertexMeters": -0.01692879023994267
+        },
+        {
+          "timeSeconds": 1,
+          "nonfinite": 0,
+          "maxDeformedDistanceMeters": 0.3696848826412708,
+          "lowestVertexMeters": -0.019607264636893135
+        }
+      ],
+      "worstSeams": [
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/elbow/joint",
+          "seamDegrees": 0.0003531363029058203
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/wrist/joint",
+          "seamDegrees": 0.00019441308925272148
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/shoulder/joint",
+          "seamDegrees": 0.0001818357482855818
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/elbow/joint",
+          "seamDegrees": 0.00009609411081684445
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[right,0]/finger[ring]/phalanx[0]/joint",
+          "seamDegrees": 0.00009601822506638677
+        },
+        {
+          "jointId": "root/humanoid[0]/arm[left,0]/finger[ring]/phalanx[2]/joint",
+          "seamDegrees": 0.0000881167202328128
+        }
+      ]
+    }
+  ],
+  "selection": "c63-directional-review",
+  "distribution": "game-integrated-canonical-motion-resources"
+}

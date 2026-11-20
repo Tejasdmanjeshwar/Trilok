@@ -27,5 +27,199 @@
     }
   ],
   "sourceSubsetSha256": "61a6fc0487048df0b83fe94200f34ce82177a125973ab2b512707c9d0cd8c2a9",
-  "sourceSubsetDescription": "Verified subset of 58 original male animation FBXs and original HumanM_Model.fbx; bytes are identical to the corresponding members of the owner-supplied ZIP. Build-time transfer only."
+  "sourceSubsetDescription": "Verified subset of 58 original male animation FBXs and original HumanM_Model.fbx; bytes are identical to the corresponding members of the owner-supplied ZIP. Build-time transfer only.",
+  "c63ReviewClips": [
+    {
+      "id": "human-kevin-idle-02",
+      "label": "Kevin Review — Idle 02",
+      "sourceFile": "Animations/Male/Idles/HumanM@Idle02.fbx",
+      "rootMotion": "locked",
+      "behavior": "loop",
+      "family": "idle"
+    },
+    {
+      "id": "human-kevin-idle-01-to-02",
+      "label": "Kevin Review — Idle 01 → 02",
+      "sourceFile": "Animations/Male/Idles/HumanM@Idle01-Idle02.fbx",
+      "rootMotion": "locked",
+      "behavior": "transition",
+      "family": "idle"
+    },
+    {
+      "id": "human-kevin-idle-02-to-01",
+      "label": "Kevin Review — Idle 02 → 01",
+      "sourceFile": "Animations/Male/Idles/HumanM@Idle02-Idle01.fbx",
+      "rootMotion": "locked",
+      "behavior": "transition",
+      "family": "idle"
+    },
+    {
+      "id": "human-kevin-walk-backward",
+      "label": "Kevin Review — Walk Backward",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_Backward.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "walk"
+    },
+    {
+      "id": "human-kevin-walk-backward-left",
+      "label": "Kevin Review — Walk Backward Left",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_BackwardLeft.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "walk"
+    },
+    {
+      "id": "human-kevin-walk-backward-right",
+      "label": "Kevin Review — Walk Backward Right",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_BackwardRight.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "walk"
+    },
+    {
+      "id": "human-kevin-walk-forward-left",
+      "label": "Kevin Review — Walk Forward Left",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_ForwardLeft.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "walk"
+    },
+    {
+      "id": "human-kevin-walk-forward-right",
+      "label": "Kevin Review — Walk Forward Right",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_ForwardRight.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "walk"
+    },
+    {
+      "id": "human-kevin-walk-left",
+      "label": "Kevin Review — Walk Left",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_Left.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "walk"
+    },
+    {
+      "id": "human-kevin-walk-right",
+      "label": "Kevin Review — Walk Right",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_Right.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "walk"
+    },
+    {
+      "id": "human-kevin-run-backward",
+      "label": "Kevin Review — Run Backward",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_Backward.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "run"
+    },
+    {
+      "id": "human-kevin-run-backward-left",
+      "label": "Kevin Review — Run Backward Left",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_BackwardLeft.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "run"
+    },
+    {
+      "id": "human-kevin-run-backward-right",
+      "label": "Kevin Review — Run Backward Right",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_BackwardRight.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "run"
+    },
+    {
+      "id": "human-kevin-run-forward-left",
+      "label": "Kevin Review — Run Forward Left",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_ForwardLeft.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "run"
+    },
+    {
+      "id": "human-kevin-run-forward-right",
+      "label": "Kevin Review — Run Forward Right",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_ForwardRight.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "run"
+    },
+    {
+      "id": "human-kevin-run-left",
+      "label": "Kevin Review — Run Left",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_Left.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "run"
+    },
+    {
+      "id": "human-kevin-run-right",
+      "label": "Kevin Review — Run Right",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_Right.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "run"
+    },
+    {
+      "id": "human-kevin-sprint-forward",
+      "label": "Kevin Review — Sprint Forward",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_Forward.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "sprint"
+    },
+    {
+      "id": "human-kevin-sprint-forward-left",
+      "label": "Kevin Review — Sprint Forward Left",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_ForwardLeft.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "sprint"
+    },
+    {
+      "id": "human-kevin-sprint-forward-right",
+      "label": "Kevin Review — Sprint Forward Right",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_ForwardRight.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "sprint"
+    },
+    {
+      "id": "human-kevin-sprint-left",
+      "label": "Kevin Review — Sprint Left",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_Left.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "sprint"
+    },
+    {
+      "id": "human-kevin-sprint-right",
+      "label": "Kevin Review — Sprint Right",
+      "sourceFile": "Animations/Male/Movement/Sprint/HumanM@Sprint01_Right.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "loop",
+      "family": "sprint"
+    },
+    {
+      "id": "human-kevin-turn-left",
+      "label": "Kevin Review — Turn Left",
+      "sourceFile": "Animations/Male/Movement/Turn/HumanM@Turn01_Left.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "one_shot",
+      "family": "turn"
+    },
+    {
+      "id": "human-kevin-turn-right",
+      "label": "Kevin Review — Turn Right",
+      "sourceFile": "Animations/Male/Movement/Turn/HumanM@Turn01_Right.fbx",
+      "rootMotion": "visual_only",
+      "behavior": "one_shot",
+      "family": "turn"
+    }
+  ]
 }

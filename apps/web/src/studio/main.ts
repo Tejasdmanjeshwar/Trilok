@@ -1,5 +1,6 @@
 import {getBuildIdentity} from "../build-info";
-import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW} from "./StudioAnimationLibrary";
+import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW,
+  EXPERIMENTAL_KEVIN_C63_REVIEW} from "./StudioAnimationLibrary";
 import type {StudioAnimationState} from "./StudioViewport";
 import {availableStudioModules} from "./StudioAppearance";
 import "./studio.css";
@@ -16,6 +17,11 @@ import {STUDIO_FOCUS,STUDIO_POSES,STUDIO_EXPRESSIONS,
   type StudioFocus,type StudioPose,type StudioExpression}
   from "./StudioInspection";
 
+async function bootstrapStudio():Promise<void>{
+if(EXPERIMENTAL_KEVIN_C63_REVIEW){
+  const {installKevinC63Review}=await import("./StudioKevinC63ReviewLibrary");
+  installKevinC63Review();
+}
 const studioBuild=getBuildIdentity();
 const host=document.querySelector<HTMLElement>("#studio-app");
 if(!host)throw new Error("Unable to open Character Studio");
@@ -571,3 +577,10 @@ window.addEventListener("pagehide",()=>{
   window.removeEventListener("keydown",keyboardHistory);
   generatorPanel?.dispose();morphEditor.dispose();viewport.dispose();
 },{once:true});
+
+}
+void bootstrapStudio().catch(error=>{
+  console.error("Studio animation review initialization failed",error);
+  const host=document.querySelector<HTMLElement>("#studio-app");
+  if(host)host.textContent="Unable to initialize Character Studio animation review.";
+});

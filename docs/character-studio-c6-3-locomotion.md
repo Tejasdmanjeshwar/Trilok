@@ -177,3 +177,50 @@ The initial three Kevin clips are build-time bundled, require no player ZIP
 or FBX import, and remain review candidates rather than accepted visuals.
 The 58-clip library is an **offline compatibility validation**, not a
 public Character Studio menu. No 100STYLE source has been restored.
+
+## Kevin C6.3 directional review intake (2026-11-21)
+
+Recovered and verified the owner's original SHA-pinned FBX ZIP locally.
+Exactly 24 additional **non-RM** male clips were selected: 3 idle
+transitions/alternates, 7 walks, 7 runs, 5 sprints and 2 turns.
+The original Kevin Idle/Walk/Run baked bytes and hashes remain unchanged.
+Developer-only `--c63` batch mode deterministically writes 24 clips
+under `assets/animations/studio-v1/kevin/c63/` with the same immutable
+source-to-C1 49-joint profile; it stores source hip root trajectories as
+reference-only and distinguishes `loop`, `transition`, `one_shot`.
+
+The review is opt-in at `/studio/?c63-kevin-review`; a separate
+code-split chunk is loaded only for that route. Its selector uses the
+existing canonical pose, FK, corrected MakeHuman shoulder surface, and
+Studio camera/timeline controls. No user source ZIP upload is required.
+The added clips are deliberately NOT normal-playback approvals.
+Source animations, especially turn final headings and ground contacts,
+require actual rendered desktop/touch and morphology inspection before
+promoting to the gameplay mixer. Jump/fall/social and RM duplicates are
+deferred. No production deployment or C6.3 phase acceptance is implied.
+
+### Exact generated C6.3 review assets — source-bake verification
+
+The [authoritative source bake #44803665646](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44803665646)
+succeeded on the owner's pinned 58-male-file source subset. The worker
+regenerated **24 additional** source-backed canonical motion resources
+under `kevin/c63`, then successfully re-baked and compared exact bytes.
+The workflow passed **120 test files**, TypeScript and Vite build.
+Asset commit `98fb906959ed762706e5e2ac8dff369c8b16d7dd`.
+All original Kevin 3-clip output/manifest bytes were independently verified
+unchanged. The new 24-clip payload is approximately 4.54 MB of canonical
+JSON before compression, and is opt-in/code-split.
+
+The first new CI test caught an incorrect fallback that labelled the
+idle transitions and turns as loops. This was fixed in the shared baker,
+not by modifying animation curves or relaxing the new assertions. The
+committed results have `transition` for Idle01→Idle02 and Idle02→Idle01,
+and `one_shot` for Turn01_Left and Turn01_Right. The metadata
+classifications are evidence-backed source-family decisions; they do not
+establish that whole-body turning produces acceptable visuals or that
+some other loop seams (including backward running) are production-ready.
+
+**Final exact-head PR Verify and real Chromium visual acceptance remain
+separate gates.** The automatic PR Verify run initiated by the workflow's
+GitHub bot push required external approval; this owner-authored
+documentation commit will trigger a new reviewable exact-HEAD Verify.
