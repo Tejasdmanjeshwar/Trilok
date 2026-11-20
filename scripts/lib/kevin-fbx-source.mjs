@@ -85,7 +85,10 @@ export function verifyKevinModelBind(modelScene, modelBones, animatedBones) {
     maximumRestAngleRadians=Math.max(maximumRestAngleRadians,
       getKevinWorldRotation(bone).angleTo(getKevinWorldRotation(match)));
   }
-  // FBXLoader decomposes source/model bind matrices with sub-0.1 degree\n  // rounding differences; the observed worst case is 0.001208 rad.\n  // Continue rejecting meaningful bind mismatch (>0.002 rad).\n  if(maximumRestTranslationMeters>1e-4||maximumRestAngleRadians>2e-3)
+  // FBXLoader decomposes source/model bind matrices with sub-0.1 degree
+  // rounding differences; the observed worst case is 0.001208 rad.
+  // Continue rejecting meaningful bind mismatch (>0.002 rad).
+  if(maximumRestTranslationMeters>1e-4||maximumRestAngleRadians>2e-3)
     throw Error("Kevin model bind differs from authored animation rest: "+
       maximumRestTranslationMeters+"m / "+maximumRestAngleRadians+"rad");
   const meshes=[];
