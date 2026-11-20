@@ -374,7 +374,7 @@ try {
         orientation:"reference-only",
         // Conservative until semantic review: do not invent a cyclic seam
         // for jumps, transitions or travelling RM recordings.
-        behavior:c63?input.behavior:"one_shot",
+        behavior:c63?(input.behavior??"loop"):"one_shot",
         timesSeconds:times,
         positionsMeters:fullWorldOffsets,
         rotations:trajectoryRotations,
