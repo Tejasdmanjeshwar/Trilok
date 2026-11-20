@@ -52,8 +52,8 @@ for(const [id,path] of sourcePaths){
   if(fbx.readUInt32LE(23)!==7700)throw Error("FBX version mismatch "+path);
   const parsed=new FBXLoader().parse(
     fbx.buffer.slice(fbx.byteOffset,fbx.byteOffset+fbx.byteLength),"");
-  parsed.updateMatrixWorld(true);
-  const bones=[];parsed.traverse(obj=>{if(obj.isBone)bones.push(obj);});
+  const byName=normalizeKevinFBXScene(parsed);
+  const bones=[...byName.values()];
   const clip=parsed.animations[0];
   if(bones.length!==56||parsed.animations.length!==1||!clip||
       clip.duration<=0||!Number.isFinite(clip.duration))
