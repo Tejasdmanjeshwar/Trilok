@@ -42,6 +42,20 @@ export type AnimationTrackV1 =
       readonly timesSeconds: readonly number[]; readonly values: readonly Quat[] }
   | { readonly jointId: string; readonly channel: "translation";
       readonly timesSeconds: readonly number[]; readonly values: readonly Vec3[] };
+/** An authored trajectory is a read-only motion reference, never a joint offset.
+ * All vectors are metres in canonical Y-up/+Z-forward coordinates, relative
+ * to the source hips at t=0. Orientations are world-space source hip deltas
+ * from t=0 (XYZW). They must not also be applied to pose joint rotations.
+ * The gameplay simulation is the sole owner of actor/world displacement. */
+export interface AnimationRootTrajectoryV1 {
+  readonly coordinates: typeof CHARACTER_COORDINATES;
+  readonly origin: "source-hips-at-first-key";
+  readonly orientation: "reference-only";
+  readonly behavior: "loop" | "one_shot" | "transition";
+  readonly timesSeconds: readonly number[];
+  readonly positionsMeters: readonly Vec3[];
+  readonly rotations: readonly Quat[];
+}
 export interface AnimationContactV1 {
   readonly id: string;
   readonly atSeconds: number;
@@ -63,11 +77,17 @@ export interface AnimationClipV1 {
   readonly retarget: { readonly mode: "rest_delta"; readonly authoredBindPoseId: string };
   readonly tracks: readonly AnimationTrackV1[];
   readonly contacts: readonly AnimationContactV1[];
+  /** Optional backwards-compatible C6.3 source-root reference data. */
+  readonly rootTrajectory?: AnimationRootTrajectoryV1;
 }
 export interface SampledJointV1 {
   readonly jointId: string;
   readonly rotation?: Quat;
   readonly translation?: Vec3;
+}
+export interface RootTrajectorySampleV1 {
+  readonly positionMeters: Vec3;
+  readonly rotation: Quat;
 }
 export interface AnimationSampler {
   readonly clipId: string;
@@ -217,6 +237,9 @@ export function validateAnimationClip(value: unknown, graph: AnatomicalGraphV1):
     }
     requireValid(previous === clip.durationSeconds, "last key must equal duration");
   }
+  if(clip.rootTrajectory!==undefined)
+    validateRootTrajectory(clip.rootTrajectory,clip.durationSeconds,
+      clip.tracks.some(t=>t.channel==="translation"&&t.jointId===identity.rootJointId));
   requireValid(Array.isArray(clip.contacts) && clip.contacts.length <= 256,
     "contact count");
   const seen = new Set<string>();
@@ -234,6 +257,44 @@ export function validateAnimationClip(value: unknown, graph: AnatomicalGraphV1):
   }
 }
 
+/** Refuses invalid travel curves without restricting legitimate jumps or falls.
+ * Deliberately does not require a zero loop seam: displacement may accumulate
+ * over repeated cycles and gameplay remains authoritative for such travel. */
+function validateRootTrajectory(
+  trajectory: AnimationRootTrajectoryV1, durationSeconds: number,
+  poseTranslation: boolean,
+): void {
+  requireValid(trajectory !== null && typeof trajectory === "object" &&
+    trajectory.coordinates === CHARACTER_COORDINATES &&
+    trajectory.origin === "source-hips-at-first-key" &&
+    trajectory.orientation === "reference-only" &&
+    ["loop","one_shot","transition"].includes(trajectory.behavior),
+    "root trajectory contract");
+  const ts=trajectory.timesSeconds, ps=trajectory.positionsMeters,
+    qs=trajectory.rotations;
+  requireValid(Array.isArray(ts) && Array.isArray(ps) && Array.isArray(qs) &&
+    ts.length >= 2 && ts.length <= MAX_ANIMATION_KEYS &&
+    ps.length === ts.length && qs.length === ts.length,
+    "root trajectory key count");
+  requireValid(!poseTranslation, "root trajectory and pose root translation overlap");
+  let last=-1;
+  for(let i=0;i<ts.length;i++){
+    const t=ts[i];
+    requireValid(finite(t) && t>last && t<=durationSeconds,
+      "root trajectory sample time");
+    if(i===0)requireValid(t===0,"root trajectory first key");
+    const p=ps[i],q=qs[i];
+    tuple(p,3,"root trajectory position");
+    tuple(q,4,"root trajectory orientation");
+    requireValid(Math.abs(Math.hypot(...q)-1)<=1e-5,
+      "root trajectory quaternion unit");
+    last=t;
+  }
+  requireValid(last===durationSeconds,"root trajectory end");
+  requireValid(Math.hypot(...ps[0]!)<=1e-5 &&
+    Math.abs(Math.abs(qs[0]![3])-1)<=1e-5,
+    "root trajectory origin must be identity");
+}
 function interpolateQuaternion(a: Quat, b: Quat, alpha: number): Quat {
   let cosine = dot(a, b);
   const sign = cosine < 0 ? -1 : 1;
@@ -266,6 +327,37 @@ function sampleTrack(track: AnimationTrackV1, seconds: number): Quat | Vec3 {
     start[2] + (end[2] - start[2]) * ratio];
 }
 
+/** Deterministic reference-only sampling. No actor transform mutation.
+ * Samples are clamped; callers must explicitly supply cycle/displacement
+ * semantics if they ever choose to consume trajectories in gameplay. */
+export function sampleAnimationRootTrajectory(
+  clip: AnimationClipV1, seconds: number,
+): RootTrajectorySampleV1 | undefined {
+  const trajectory=clip.rootTrajectory;
+  if(!trajectory)return undefined;
+  if(!Number.isFinite(seconds))throw Error("Invalid root trajectory time");
+  const ts=trajectory.timesSeconds;
+  const time=Math.max(0,Math.min(clip.durationSeconds,seconds));
+  let lo=0,hi=ts.length-1;
+  while(hi-lo>1){
+    const mid=(lo+hi)>>>1;
+    if(ts[mid]!<=time)lo=mid;
+    else hi=mid;
+  }
+  if(time<=ts[0]!)hi=lo=0;
+  else if(time>=ts[hi]!)lo=hi;
+  const alpha=lo===hi?0:(time-ts[lo]!)/(ts[hi]!-ts[lo]!);
+  const a=trajectory.positionsMeters[lo]!,b=trajectory.positionsMeters[hi]!;
+  return {
+    positionMeters:[
+      a[0]+(b[0]-a[0])*alpha,
+      a[1]+(b[1]-a[1])*alpha,
+      a[2]+(b[2]-a[2])*alpha,
+    ],
+    rotation:interpolateQuaternion(trajectory.rotations[lo]!,
+      trajectory.rotations[hi]!,alpha),
+  };
+}
 /** Validates once; samples only poses, never consumes or fires combat events. */
 export function createAnimationSampler(clip: AnimationClipV1,
   graph: AnatomicalGraphV1): AnimationSampler {

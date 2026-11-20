@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "kind": "c6.3-authored-directional-library",
+  "sourceGlbSha256": "60428e3abc09ba83e595d256e3af8c5c976b46cdae599f0802fc82b4a3445168",
+  "sourceCommit": "672074b73ba276876a19e8816ecdc5241817ab47",
+  "sourceInputSha256": "d855005c4f1adefaecffe9aafb8c19ae8ebe9fed5f414b0fa4cb18aace023ab1",
+  "sourceLicense": "CC0-1.0",
+  "sourceOrigin": "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0",
+  "targetCalibrationSha256": "66ecf6318f96d9bb2223969e09a9fa7ef09433b4022fc53fe7913c76cfc5ffc7",
+  "sourceBindMaxResidual": 0.000011419021798594819,
+  "mappedJointCount": 18,
+  "profileSha256": "d1709dcd564c2bc8f394183c29f160f5bba90308705e349aa3d63702244055f1",
+  "profile": "kaykit-profile.json",
+  "engine": "packages/character-core/src/retargeting.ts@c6.2-anatomical-absolute-v2",
+  "entries": [
+    {
+      "id": "human-backward",
+      "sourceClip": "Walking_Backwards",
+      "filename": "human-backward.clip.json",
+      "artifactSha256": "536a00bd87817be1340a8dd61f38c96aefe80d15a408ce984c34c8a8afe85c08",
+      "bytes": 59672,
+      "minLoopDot": 0.9999999999999999
+    },
+    {
+      "id": "human-strafe-left",
+      "sourceClip": "Running_Strafe_Left",
+      "filename": "human-strafe-left.clip.json",
+      "artifactSha256": "48fb6253e509bfa4e28631812e413b0b4725af9171ba60d39fb95f2725594f6f",
+      "bytes": 46660,
+      "minLoopDot": 0.9999999999999999
+    },
+    {
+      "id": "human-strafe-right",
+      "sourceClip": "Running_Strafe_Right",
+      "filename": "human-strafe-right.clip.json",
+      "artifactSha256": "08fecea6484cedca5c763ef6db557926d08ab798357f319136db0b122fd93707",
+      "bytes": 46682,
+      "minLoopDot": 0.9999999999999998
+    }
+  ]
+}

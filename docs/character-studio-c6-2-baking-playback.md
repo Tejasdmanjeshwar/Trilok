@@ -1,6 +1,6 @@
 # C6.2 — Official calibrated animation baking and Character Studio playback
 
-**Status:** Owner-approved recalibrated UAL1 visual set promoted on [PR #112](https://github.com/Tejasdmanjeshwar/Trilok/pull/112). Engineering closure remains conditional on final-SHA automated and browser checks, merge, and post-merge CI. Production Cloudflare deployment is not authorized.
+**Status:** Owner-approved recalibrated UAL1 visual set promoted on [PR #112](https://github.com/Tejasdmanjeshwar/Trilok/pull/112). The approved four-clip library merged in [PR #112](https://github.com/Tejasdmanjeshwar/Trilok/pull/112), main merge SHA `89130350df0c05f38afe85a3ed2194b2ac93ef97`. The broader C6 Chromium phase-acceptance remains open by owner decision. Production Cloudflare deployment is not authorized.
 
 ## Approved Studio library
 

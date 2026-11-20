@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {readdirSync,readFileSync} from "node:fs";
+import {existsSync,readdirSync,readFileSync} from "node:fs";
 import {join} from "node:path";
 
 /**
@@ -59,9 +59,45 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         expect(source).not.toMatch(/pnpm test:e2e/);
         continue;
       }
+      if(path==="c63-kevin-chromium-review.yml"){
+        // Keep source-backed visual regression scoped to the feature branch,
+        // rather than forbidding all feature-specific rendered verification.
+        expect(source).toMatch(/branches:\s*\[feat\/c6-3-grounded-locomotion\]/);
+        expect(source).toContain("paths:");
+        expect(source).toContain("e2e/studio-animation-c6-3-integrated.spec.ts");
+        expect(source).not.toMatch(/^  pull_request:/m);
+        continue;
+      }
       expect(source, `${path} must not install or execute browsers during subphases`)
         .not.toMatch(/playwright\s+(install|test)|pnpm\s+(test:e2e|exec\s+playwright)|chromium/i);
     }
+  });
+  it("retires failed 100STYLE paths without weakening exact-SHA manual Studio review",()=>{
+    const abandoned=[
+      ".github/workflows/c63-100style-source-acquisition.yml",
+      "assets/animations/studio-v1/100style-neutral-manifest.json",
+      "assets/animations/studio-v1/100style-neutral-profile.json",
+      ...["idle","walk","run"].map(name=>
+        "assets/animations/studio-v1/human-100style-neutral-"+name+".clip.json"),
+      "scripts/probe-c63-100style.py",
+      "scripts/inspect-c63-100style.mjs",
+      "scripts/calibrate-c63-100style.mjs",
+      "scripts/c63-skinned-pose-evidence.mjs",
+      "scripts/c63-skinned-foot-evidence.mjs",
+      "tests/character-animation-c6-3-100style.test.ts",
+      "e2e/studio-animation-c6-3-100style.spec.ts",
+    ];
+    for(const path of abandoned)expect(existsSync(path),path).toBe(false);
+    const library=readFileSync("apps/web/src/studio/StudioAnimationLibrary.ts","utf8");
+    const diagnostic=readFileSync(join(dir,"studio-interaction-diagnostics.yml"),"utf8");
+    expect(library).not.toMatch(/100style|EXPERIMENTAL_100STYLE_REVIEW/i);
+    expect(diagnostic).not.toMatch(/100style/i);
+    expect(diagnostic).toContain("e2e/studio-animation-c6-2.spec.ts");
+    expect(diagnostic).toContain("ref: ${{ github.sha }}");
+    expect(diagnostic).toContain("--retries=0 --workers=1");
+    // Generic BVH and full-orientation math are reusable, not retired.
+    expect(existsSync("packages/character-core/src/bvh.ts")).toBe(true);
+    expect(existsSync("packages/character-core/src/retargeting.ts")).toBe(true);
   });
   it("reuses only pinned MakeHuman assets across gated acceptance jobs",()=>{
     const verify=readFileSync(join(dir,"ci.yml"),"utf8");

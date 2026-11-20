@@ -39,3 +39,9 @@ credentials.json
 service-account*.json
 **/.secrets/
 **/secrets.local.*
+
+# C6.3 original source archives are developer inputs; canonical game clips are tracked.
+assets/animations/private/
+assets/animations/kevin-local/
+*.unitypackage
+Human Basic Motions FREE.zip

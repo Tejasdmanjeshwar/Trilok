@@ -67,6 +67,10 @@ for(const data of [
   console.log("MakeHuman CC0 official rig verified:",data.path,bytes.length,"bytes");
 }
 
-// Fetch and compile original CC0 facial targets from the same pinned revision.
-await import("./fetch-makehuman-facial.mjs");
-await import("./fetch-makehuman-body.mjs");
+// Source-only calibration needs verified OBJ, skeleton and weights, not the
+// unrelated 846-target body atlas or facial target corpus. Normal test/build
+// entry points retain the complete acquisition exactly as before.
+if(!process.argv.includes("--anatomical-rig-only")){
+  await import("./fetch-makehuman-facial.mjs");
+  await import("./fetch-makehuman-body.mjs");
+}

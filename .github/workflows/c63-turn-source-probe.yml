@@ -1,0 +1,33 @@
+name: C6.3 Authored Turn Source Inspection
+on:
+  push:
+    branches: [feat/c6-3-grounded-locomotion]
+    paths: [.github/workflows/c63-turn-source-probe.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Verify public CC0 turn-source page and download references
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 2 --max-time 40 -A "Mozilla/5.0" \
+            https://kinemiq.app/animations/move-turn-around-left/ > /tmp/turn-left.html
+          curl -fLsS --retry 2 --max-time 40 -A "Mozilla/5.0" \
+            https://kinemiq.app/animations/move-turn-around-right/ > /tmp/turn-right.html
+          python3 - <<'PY'
+          import re,html
+          for p in ["/tmp/turn-left.html","/tmp/turn-right.html"]:
+            s=html.unescape(open(p).read())
+            print("FILE",p,"BYTES",len(s))
+            for keyword in ["CC0","CC BY","download","export","\.glb","\.bvh","\.fbx","\.zip","api/","data-motion"]:
+              print("HITS",keyword,len(re.findall(keyword,s,re.I)))
+            for link in sorted(set(re.findall(r'(?:href|src|data-url)\s*=\s*["\x27]([^"\x27]+)',s))):
+              if any(term in link.lower() for term in ["glb","fbx","bvh","zip","download","asset","motion","animation"]):
+                print("LINK",link[:500])
+            for match in list(re.finditer(r'(?i)(?:\.glb|\.fbx|\.bvh|download|asset_url|motion_id)',s))[:35]:
+              print("SNIPPET",re.sub(r'\s+',' ',s[max(0,match.start()-90):match.end()+120])[:250])
+          PY

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "kind": "kevin-human-basic-motions-free-male-fbx7700",
+  "archiveSha256": "063d5e1822f85549d14035ef342b1feae45bac37962499a8b478c7eb997200cd",
+  "fbxVersion": 7700,
+  "sourceBoneCount": 56,
+  "mappedC1JointCount": 49,
+  "expectedMaleClipCount": 58,
+  "clips": [
+    {
+      "id": "human-kevin-idle",
+      "label": "Kevin — Idle",
+      "sourceFile": "Animations/Male/Idles/HumanM@Idle01.fbx",
+      "rootMotion": "locked"
+    },
+    {
+      "id": "human-kevin-walk",
+      "label": "Kevin — Walk",
+      "sourceFile": "Animations/Male/Movement/Walk/HumanM@Walk01_Forward.fbx",
+      "rootMotion": "visual_only"
+    },
+    {
+      "id": "human-kevin-run",
+      "label": "Kevin — Run",
+      "sourceFile": "Animations/Male/Movement/Run/HumanM@Run01_Forward.fbx",
+      "rootMotion": "visual_only"
+    }
+  ],
+  "sourceSubsetSha256": "61a6fc0487048df0b83fe94200f34ce82177a125973ab2b512707c9d0cd8c2a9",
+  "sourceSubsetDescription": "Verified subset of 58 original male animation FBXs and original HumanM_Model.fbx; bytes are identical to the corresponding members of the owner-supplied ZIP. Build-time transfer only."
+}

@@ -28,8 +28,9 @@ test("C6.2 clips visibly deform the existing skinned Studio human and restore C5
   page.on("pageerror",e=>errors.push(e.message));
   await openStudio(page);
   const options=page.locator("#studio-animation-select option");
-  await expect(options).toHaveText(["Static pose","Idle","Walk","Jog","Sprint"]);
-  await expect(options).toHaveCount(5);
+  await expect(options).toHaveText(["Static pose","Idle","Walk","Jog","Sprint",
+    "Kevin — Idle","Kevin — Walk","Kevin — Run","Movement transitions"]);
+  await expect(options).toHaveCount(9);
   for(const [id,time] of [["human-idle",.75],["human-walk",.30],["human-jog",.18],["human-sprint",.15]] as const){
     await page.locator("#studio-animation-select").selectOption(id);
     await expect(page.locator("#studio-animation-play")).toBeEnabled();

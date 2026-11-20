@@ -3,6 +3,10 @@ import idle from "../../../../assets/animations/studio-v1/human-idle.clip.json";
 import walk from "../../../../assets/animations/studio-v1/human-walk.clip.json";
 import jog from "../../../../assets/animations/studio-v1/human-run.clip.json";
 import sprint from "../../../../assets/animations/studio-v1/human-sprint.clip.json";
+import backward from "../../../../assets/animations/studio-v1/human-backward.clip.json";
+import strafeLeft from "../../../../assets/animations/studio-v1/human-strafe-left.clip.json";
+import strafeRight from "../../../../assets/animations/studio-v1/human-strafe-right.clip.json";
+import kevinCatalog from "../../../../assets/animations/sources/kevin-basic-motions-v1.json";
 
 /** Approved source-backed motions, independent of Studio controls or playback. */
 const library = [
@@ -10,11 +14,47 @@ const library = [
   {id:"human-walk",label:"Walk",clip:walk},
   {id:"human-jog",label:"Jog",clip:jog},
   {id:"human-sprint",label:"Sprint",clip:sprint},
+  {id:"human-backward",label:"Walk Backward",clip:backward},
+  {id:"human-strafe-left",label:"Strafe Left",clip:strafeLeft},
+  {id:"human-strafe-right",label:"Strafe Right",clip:strafeRight},
 ] as const;
 
-export const STUDIO_ANIMATIONS = library.map(({id,label})=>({id,label}));
+// Canonical game-integrated JSON resources are bundled at build time.
+const kevinBakes = import.meta.glob<{default:AnimationClipV1}>(
+  "../../../../assets/animations/studio-v1/kevin/*.clip.json",{eager:true});
+const kevinLibrary = kevinCatalog.clips.flatMap(({id,label})=>{
+  const path="../../../../assets/animations/studio-v1/kevin/"+id+".clip.json";
+  const clip=kevinBakes[path]?.default;
+  return clip?[{id,label,clip}]:[];
+});
+
+/** KayKit directional motion failed owner review. Keep it accessible only in an\n * explicitly opted-in PR diagnostic, not the accepted animation menu. */
+export const EXPERIMENTAL_KAYKIT_REVIEW = typeof location !== "undefined" &&
+  new URLSearchParams(location.search).has("c63-kaykit-review");
+export const STUDIO_ANIMATIONS = [
+  ...library.slice(0,EXPERIMENTAL_KAYKIT_REVIEW?library.length:4)
+    .map(({id,label})=>({id,label})),
+  ...kevinLibrary.map(({id,label})=>({id,label})),
+  {id:"locomotion-preview",label:"Movement transitions"},
+];
+
+/** Immutable C6.2 assets are shared with the runtime mixer without rebaking. */
+export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1,
+  includeUnacceptedKayKit=false){
+  return {
+    idle:loadBakedStudioAnimation("human-idle",graph),
+    walk:loadBakedStudioAnimation("human-walk",graph),
+    jog:loadBakedStudioAnimation("human-jog",graph),
+    sprint:loadBakedStudioAnimation("human-sprint",graph),
+    directional:includeUnacceptedKayKit?{
+      backward:loadBakedStudioAnimation("human-backward",graph),
+      left:loadBakedStudioAnimation("human-strafe-left",graph),
+      right:loadBakedStudioAnimation("human-strafe-right",graph),
+    }:undefined,
+  };
+}
 const clips: Readonly<Record<string,unknown>> =
-  Object.fromEntries(library.map(({id,clip})=>[id,clip]));
+  Object.fromEntries([...library,...kevinLibrary].map(({id,clip})=>[id,clip]));
 
 /** Legacy names are input-only migrations, never extra playback choices.
  * This also migrates a previously selected "human-run" to semantic "Jog". */
@@ -27,7 +67,8 @@ const previousIds: Readonly<Record<string,string>> = {
 };
 export function resolveStudioAnimationId(id:string):string {
   const resolved=previousIds[id]??id;
-  if(!Object.hasOwn(clips,resolved))throw new Error("Unknown Studio animation");
+  if(resolved!=="locomotion-preview"&&!Object.hasOwn(clips,resolved))
+    throw new Error("Unknown or unaccepted Studio animation");
   return resolved;
 }
 
