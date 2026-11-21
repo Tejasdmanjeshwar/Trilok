@@ -52,6 +52,7 @@ const minReach=.03;
 export class GroundedFootContacts {
   private readonly chains:FootChain[];
   private readonly surface:GroundContactSurface;
+  private readonly frames?:ReadonlyMap<string,JointFrame>;
   private disposed=false;
   private readonly scratch=new THREE.Vector3();
   private readonly bend=new THREE.Vector3();
@@ -95,6 +96,7 @@ export class GroundedFootContacts {
   constructor(character:SemanticCharacter,ground:GroundContactSurface={heightAt:()=>0},
     frames?:ReadonlyMap<string,JointFrame>) {
     this.surface=ground;
+    this.frames=frames;
     this.root=character.root;
     const graph:AnatomicalGraphV1=character.graph;
     const pelvisId=graph.joints.find(j=>j.role==="pelvis")?.id;
@@ -492,10 +494,16 @@ export class GroundedFootContacts {
     // Knee and ankle pitch are single C5 hinges. Extract their signed
     // twist to prohibit hyperextension and out-of-range foot dorsiflexion.
     if(channel==="knee"||channel==="ankle-flex"){
-      this.neutral.copy(joint.quaternion);
-      desired.set(this.localAxis.x*this.neutral.x+
-        this.localAxis.y*this.neutral.y+
-        this.localAxis.z*this.neutral.z,0,0,this.neutral.w);
+      // C5 constraints describe REST-RELATIVE joint motion. Projecting the
+      // absolute local bone quaternion would misclassify source poses whose
+      // calibrated bind orientation is not the identity, especially across
+      // the asymmetric and regenerated skeletons.
+      const rest=this.frames?.get(joint.name)?.rest;
+      if(!rest)return; // No calibrated frame -> never invent a legal hinge.
+      this.neutral.copy(rest).invert().multiply(joint.quaternion).normalize();
+      const projection=this.localAxis.x*this.neutral.x+
+        this.localAxis.y*this.neutral.y+this.localAxis.z*this.neutral.z;
+      desired.set(projection,0,0,this.neutral.w);
       let angle=2*Math.atan2(desired.x,desired.w);
       if(angle>Math.PI)angle-=2*Math.PI;
       if(angle<-Math.PI)angle+=2*Math.PI;
