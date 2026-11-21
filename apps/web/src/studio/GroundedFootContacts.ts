@@ -21,6 +21,11 @@ export interface GroundContactMetrics {
   readonly sampledSoleFeet?:number;
   /** Pose-only vertical pelvis correction, never actor/root translation. */
   readonly pelvisOffsetMeters?:number;
+  /** Contact-eligibility diagnostics; these are observations, not plant markers. */
+  readonly nearestSoleGapMeters?:number;
+  readonly nearestSoleSpeedMetersPerSecond?:number;
+  readonly nearGroundFeet?:number;
+  readonly rawSolePenetrationMeters?:number;
 }
 interface FootChain {
   hip:THREE.Object3D;
@@ -244,6 +249,8 @@ export class GroundedFootContacts {
       this.sourcePelvisOrientation.copy(this.pelvis.quaternion);
     }
     let plantedFeet=0,maxAnchorSlipMeters=0,maxPenetrationMeters=0,unreachableFeet=0;
+    let nearestSoleGapMeters=Infinity,nearestSoleSpeedMetersPerSecond=Infinity;
+    let nearGroundFeet=0,rawSolePenetrationMeters=0;
     this.root.updateWorldMatrix(true,true);
     this.root.getWorldPosition(this.worldRoot);
     this.rootMovement.set(0,0,0);
@@ -281,6 +288,10 @@ export class GroundedFootContacts {
       const enterHeight=Math.max(.025,leg*.065);
       const leaveHeight=Math.max(.045,leg*.12);
       const proximity=Math.abs(contact.y-ground);
+      nearestSoleGapMeters=Math.min(nearestSoleGapMeters,proximity);
+      nearestSoleSpeedMetersPerSecond=Math.min(nearestSoleSpeedMetersPerSecond,speed);
+      if(proximity<=enterHeight)nearGroundFeet++;
+      rawSolePenetrationMeters=Math.max(rawSolePenetrationMeters,Math.max(0,ground-contact.y));
       const enter=proximity<=enterHeight&&speed<1.1&&rise<.9;
       const keep=proximity<=leaveHeight&&speed<2&&rise<1.6;
       if(!chain.planted&&enter){
@@ -372,7 +383,11 @@ export class GroundedFootContacts {
     }
     this.metrics={plantedFeet,maxAnchorSlipMeters,maxPenetrationMeters,unreachableFeet,
       sampledSoleFeet:this.footSamples,
-      pelvisOffsetMeters:this.pelvisHeight};
+      pelvisOffsetMeters:this.pelvisHeight,
+      nearestSoleGapMeters:Number.isFinite(nearestSoleGapMeters)?nearestSoleGapMeters:0,
+      nearestSoleSpeedMetersPerSecond:Number.isFinite(nearestSoleSpeedMetersPerSecond)?
+        nearestSoleSpeedMetersPerSecond:0,
+      nearGroundFeet,rawSolePenetrationMeters};
     return this.status;
   }
   /**
