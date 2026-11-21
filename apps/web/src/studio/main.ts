@@ -126,7 +126,7 @@ host.innerHTML=String.raw`
             <label class="studio-field-label" for="studio-movement-direction">Movement direction</label>
             <select id="studio-movement-direction" aria-label="Movement direction">
               <option value="forward">Forward</option>
-              ${EXPERIMENTAL_KEVIN_C63_REVIEW?String.raw`<option value="forward-left">Forward-left</option>
+              ${!EXPERIMENTAL_KAYKIT_REVIEW?String.raw`<option value="forward-left">Forward-left</option>
               <option value="forward-right">Forward-right</option>
               <option value="backward">Backward</option>
               <option value="backward-left">Backward-left</option>
@@ -135,14 +135,14 @@ host.innerHTML=String.raw`
               <option value="right">Strafe right</option>
               <option value="turn-left">Turn left (one-shot)</option>
               <option value="turn-right">Turn right (one-shot)</option>`:
-                EXPERIMENTAL_KAYKIT_REVIEW?String.raw`<option value="backward">Backward (unaccepted KayKit)</option>
+                String.raw`<option value="backward">Backward (unaccepted KayKit)</option>
               <option value="left">Strafe left (unaccepted KayKit)</option>
-              <option value="right">Strafe right (unaccepted KayKit)</option>`:""}
+              <option value="right">Strafe right (unaccepted KayKit)</option>`}
             </select>
             <label class="studio-field-label" for="studio-movement-speed">Movement pace</label>
             <input id="studio-movement-speed" type="range" min="0" max="1" step=".01" value="0" />
             <output id="studio-movement-speed-value">Standing</output>
-            <p>${EXPERIMENTAL_KEVIN_C63_REVIEW?"Owner-approved Kevin directions; backward sprint is not authored. Turning plays once and does not change the gameplay actor heading.":EXPERIMENTAL_KAYKIT_REVIEW?"Experimental KayKit directional source is unaccepted; anatomical fidelity is not proven.":"Approved UAL1 forward speed transitions; optional source families appear as bundled animations."}</p>
+            <p>${EXPERIMENTAL_KAYKIT_REVIEW?"Experimental KayKit directional source is unaccepted; anatomical fidelity is not proven.":"Owner-approved Kevin movement loads on demand. Backward sprint is not authored; turns play once and never change the gameplay actor heading."}</p>
           </div>
           <div class="studio-action-pair studio-animation-actions">
             <button id="studio-animation-play" type="button" disabled aria-label="Play animation">Play</button>
@@ -348,7 +348,7 @@ movementSpeed.addEventListener("input",()=>{
   const requested=Number(movementSpeed.value);
   const direction=movementDirection.value;
   // No backward-sprint source in the approved 27-clip inventory.
-  const speed=EXPERIMENTAL_KEVIN_C63_REVIEW && direction.startsWith("backward")?
+  const speed=!EXPERIMENTAL_KAYKIT_REVIEW && direction.startsWith("backward")?
     Math.min(.65,requested):requested;
   try{
     viewport.setMovementPreviewSpeed(speed);
@@ -385,9 +385,19 @@ function syncAnimation(state:StudioAnimationState|undefined):void {
     animationLoop.checked=state.loop;
   }
 }
-animationSelect.addEventListener("change",()=>{
-  try{viewport.selectAnimation(animationSelect.value||null);}
-  catch(error){
+animationSelect.addEventListener("change",async()=>{
+  const requested=animationSelect.value||null;
+  try{
+    // Do not preload 4.54MB of approved directional poses on Studio startup.
+    // Demand-load only when the user enters the locomotion mixer.
+    if(requested==="locomotion-preview"&&!EXPERIMENTAL_KAYKIT_REVIEW){
+      const {installKevinC63Review}=await import("./StudioKevinC63ReviewLibrary");
+      installKevinC63Review();
+    }
+    // An asynchronous import must not restore a stale user selection.
+    if((animationSelect.value||null)!==requested)return;
+    viewport.selectAnimation(requested);
+  }catch(error){
     console.error("Studio animation unavailable",error);
     viewport.selectAnimation(null);
   }
