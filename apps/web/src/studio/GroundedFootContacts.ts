@@ -111,11 +111,18 @@ export class GroundedFootContacts {
         return id?frames?.get(id)?.freedoms.get(motion):undefined;
       };
       const samples=this.calibrateSole(character.root,ankle,toe);
+      const previous=ankleAt.clone().addScaledVector(this.up,-soleOffset);
+      if(samples.length===2){
+        this.skinWorld(samples[0]!,this.heel);
+        this.skinWorld(samples[1]!,this.toeSample);
+        previous.copy(this.heel).add(this.toeSample).multiplyScalar(.5);
+        previous.y=Math.min(this.heel.y,this.toeSample.y);
+      }
       return {hip,knee,ankle,toe,samples,
         hipFlex:calibrated("hip_"+side,"flexion"),
         hipAbduct:calibrated("hip_"+side,"abduction"),
         kneeFlex:calibrated("knee_"+side,"flexion"),
-        anchor:ankleAt.clone(),previous:ankleAt.clone(),
+        anchor:previous.clone(),previous,
         soleOffset,planted:false,blend:0};
     });
     this.footSamples=this.chains.filter(c=>c.samples.length===2).length;
@@ -194,7 +201,8 @@ export class GroundedFootContacts {
   reset():void {
     this.live();
     for(const chain of this.chains){chain.planted=false;chain.blend=0;
-      chain.ankle.getWorldPosition(chain.previous);
+      chain.ankle.getWorldPosition(this.ankleRaw);
+      this.measureSole(chain,this.ankleRaw,chain.previous);
     }
     this.rootObserved=false;
     this.hasLastCorrection=false;
@@ -253,10 +261,10 @@ export class GroundedFootContacts {
       // Ground contact is defined in the WORLD frame: subtracting actor
       // translation would incorrectly release a truly stationary planted
       // sole while the character walks past it.
-      const speed=this.worldFootMovement.copy(ankle).sub(chain.previous).length()/dt;
-      const rise=Math.abs(ankle.y-chain.previous.y)/dt;
+      const speed=this.worldFootMovement.copy(contact).sub(chain.previous).length()/dt;
+      const rise=Math.abs(contact.y-chain.previous.y)/dt;
       if(!available){
-        chain.planted=false;chain.blend=0;chain.previous.copy(ankle);
+        chain.planted=false;chain.blend=0;chain.previous.copy(contact);
         return {chain,valid:false,ground:0,contact:contact.clone()};
       }
       const leg=chain.hip.getWorldPosition(this.b)
@@ -272,7 +280,7 @@ export class GroundedFootContacts {
         chain.anchor.copy(contact);chain.anchor.y=ground;
         chain.planted=true;
       }else if(chain.planted&&!keep)chain.planted=false;
-      chain.previous.copy(ankle);
+      chain.previous.copy(contact);
       const desired=chain.planted?1:0;
       chain.blend+=(1-Math.exp(-dt/(desired?.09:.11)))*(desired-chain.blend);
       if(chain.blend<1e-5)chain.blend=0;
