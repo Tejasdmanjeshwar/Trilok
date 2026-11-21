@@ -60,17 +60,45 @@ describe("Trilok CI budget and phase acceptance policy",()=>{
         continue;
       }
       if(path==="c63-kevin-chromium-review.yml"){
-        // Keep source-backed visual regression scoped to the feature branch,
-        // rather than forbidding all feature-specific rendered verification.
-        expect(source).toMatch(/branches:\s*\[feat\/c6-3-grounded-locomotion\]/);
-        expect(source).toContain("paths:");
-        expect(source).toContain("e2e/studio-animation-c6-3-integrated.spec.ts");
+        // Keep source-backed visual regression available by manual dispatch,
+        // rather than coupling it to a merged historical branch.
+        expect(source).toMatch(/workflow_dispatch:/);
+        expect(source).not.toMatch(/^  push:/m);
         expect(source).not.toMatch(/^  pull_request:/m);
+        expect(source).toContain("e2e/studio-animation-c6-3-integrated.spec.ts");
+        expect(source).toContain("actions/upload-artifact@v4");
+        expect(source).not.toContain("TRILOK_C63_IMAGE_BASE64");
         continue;
       }
       expect(source, `${path} must not install or execute browsers during subphases`)
         .not.toMatch(/playwright\s+(install|test)|pnpm\s+(test:e2e|exec\s+playwright)|chromium/i);
     }
+  });
+  it("keeps source-backed C6.3 verification manual, read-only, and available after merging",()=>{
+    expect(paths).not.toContain("c63-turn-source-probe.yml");
+    const source=readFileSync(join(dir,"c63-kevin-owner-bake.yml"),"utf8");
+    expect(source).toMatch(/workflow_dispatch:/);
+    expect(source).not.toMatch(/^  push:/m);
+    expect(source).not.toMatch(/^  pull_request:/m);
+    expect(source).toContain("contents: read");
+    expect(source).not.toContain("git push origin");
+    expect(source).not.toContain("--write");
+    expect(source).toContain("--c63");
+    expect(source).toContain("--archive");
+  });
+  it("enforces engine-independent imports without a Unity editor dependency",()=>{
+    const command=readFileSync("package.json","utf8");
+    const guard=readFileSync("scripts/verify-portable-boundaries.mjs","utf8");
+    const verify=readFileSync(join(dir,"ci.yml"),"utf8");
+    const acceptance=readFileSync(join(dir,"phase-acceptance.yml"),"utf8");
+    expect(command).toContain('"portability:verify"');
+    expect(verify).toContain("pnpm portability:verify");
+    expect(acceptance).toContain("pnpm portability:verify");
+    expect(guard).toContain("packages/combat/src");
+    expect(guard).toContain("packages/character-core/src");
+    expect(guard).toContain("packages/combat-ai/src");
+    expect(guard).toContain("disallowed presentation/editor import");
+    expect(command).not.toContain("unity-editor");
   });
   it("retires failed 100STYLE paths without weakening exact-SHA manual Studio review",()=>{
     const abandoned=[

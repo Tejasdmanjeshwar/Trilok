@@ -1,14 +1,10 @@
 name: C6.3 Kevin authored-source bake
+# Verify exact approved source inputs only on explicit request.
+# Never auto-commit generated assets from a historic feature branch.
 on:
-  push:
-    branches: [feat/c6-3-kevin-directional-review]
-    paths:
-      - .github/workflows/c63-kevin-owner-bake.yml
-      - scripts/bake-c63-kevin.mjs
-      - scripts/lib/kevin-fbx-source.mjs
-      - assets/animations/sources/kevin-basic-motions-v1.json
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   bake:
     runs-on: ubuntu-latest
@@ -38,25 +34,13 @@ jobs:
         run: node scripts/fetch-makehuman-core.mjs --anatomical-rig-only
       - name: Verify immutable existing Kevin Idle Walk Run outputs
         run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip"
-      - name: Bake only 24 genuine non-RM C6.3 review clips
-        run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --c63 --write
       - name: Verify deterministic Kevin directional review rebake
         run: node scripts/bake-c63-kevin.mjs --archive "$RUNNER_TEMP/kevin-male.zip" --c63
+      - name: Verify portable core boundaries
+        run: pnpm portability:verify
       - name: TypeScript checks
         run: pnpm typecheck
       - name: Tests and deterministic replay
         run: pnpm test
       - name: Vite build
         run: pnpm build
-      - name: Commit only generated native animations
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git branch --show-current)" = "feat/c6-3-kevin-directional-review"
-          git add assets/animations/studio-v1/kevin/c63/
-          if git diff --cached --quiet; then
-            echo 'No baked asset changes to commit'
-            exit 0
-          fi
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "feat(c6.3): add baked Kevin source-backed motion assets"
-          git push origin HEAD:feat/c6-3-kevin-directional-review
