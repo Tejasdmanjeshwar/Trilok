@@ -320,3 +320,33 @@ quality, C5 equipment regressions and exact-HEAD CI remain separate from
 functional code/test implementation. Do not declare C6.3, or full Step 2
 visual quality, accepted without those results. Do not deploy Cloudflare
 production without explicit owner approval.
+
+
+### Measured gait phase alignment — 2026-11-21
+
+The independent 96-sample canonical MakeHuman FK test in [CI run
+#44901403501](https://github.com/Tejasdmanjeshwar/Trilok/actions/runs/44901403501)
+recorded the lowest **mean ankle/toe world-height phase** for both legs
+on all 21 canonical Kevin walk/jog/sprint gait clips. This is a repeatable
+low-foot **signal**, not a skinned-sole contact/plant event. Normalized
+representative left-foot phases: forward walk `70/96`, backward walk `23/96`;
+forward jog `72/96`, backward jog `24/96`; forward sprint `75/96`.
+The backward walk/jog phase shift is approximately **half a cycle**, so
+blindly using identical normalized phases would juxtapose opposing legs.
+
+The checked-in `kevin/c63/locomotion-map.json` now stores the complete
+measured left/right low-foot phases of the **19** additional authored gait
+categories and three forward reference gaits, together with the 96-frame
+sampling method and provenance. The mixer applies each source's measured
+**left low-foot phase minus its same-gait forward reference** as a wrapped
+sampling offset. No runtime mesh scanning, authored clip modification,
+contact-marker invention, or gameplay displacement is introduced.
+A numerical regression regenerates the measurements from original clips
+and the calibrated MakeHuman skeleton, including mirrored sides.
+
+**Important limitation:** low-foot height alone cannot prove a planted,
+stationary sole, and actual contact onset/release may differ from the trough.
+This correction aligns a verified gait **phase landmark**, not claimed
+foot-pinning. Step 3 still owns skinned-sole geometry, velocity/contact
+classification and pelvis balancing. Cross-gait perceptual transition
+quality still requires a real Chromium render and owner review.
