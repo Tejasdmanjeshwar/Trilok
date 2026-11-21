@@ -1472,10 +1472,11 @@ function frame(now: number): void {
   const motionElapsed = Math.max(0, now - phaseAt);
   hero.face(enemy.root.position);
   enemy.face(hero.root.position);
-  hero.setLocomotion(movement.activity(hero.root) === "approach" ||
-                     movement.activity(hero.root) === "retreat");
-  enemy.setLocomotion(movement.activity(enemy.root) === "approach" ||
-                      movement.activity(enemy.root) === "retreat");
+  // Movement controller sampled the committed presentation transforms above.
+  // Pose presentation never changes actor position, legal combat reach or
+  // dodge/parry windows. The legacy proxy is not a C5 skinned character.
+  hero.setLocomotionIntent(movement.locomotionIntent(hero.root,delta));
+  enemy.setLocomotionIntent(movement.locomotionIntent(enemy.root,delta));
   const frozen = now < visualFeedback.frozenUntil;
   if (!frozen) {
     const heroClipTime = motionElapsed;
