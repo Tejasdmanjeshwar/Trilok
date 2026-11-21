@@ -43,6 +43,8 @@ interface FootChain {
   /** Two measured skin vertices, calibrated once per regenerated morphology. */
   samples:readonly {mesh:THREE.SkinnedMesh;index:number}[];
   planted:boolean;
+  /** The real skinned heel or forefoot vertex bearing contact. */
+  region:"heel"|"toe";
   blend:number;
 }
 const minReach=.03;
@@ -118,11 +120,12 @@ export class GroundedFootContacts {
       };
       const samples=this.calibrateSole(character.root,ankle,toe);
       const previous=ankleAt.clone().addScaledVector(this.up,-soleOffset);
+      let region:"heel"|"toe"="heel";
       if(samples.length===2){
         this.skinWorld(samples[0]!,this.heel);
         this.skinWorld(samples[1]!,this.toeSample);
-        previous.copy(this.heel).add(this.toeSample).multiplyScalar(.5);
-        previous.y=Math.min(this.heel.y,this.toeSample.y);
+        region=this.heel.y<=this.toeSample.y?"heel":"toe";
+        previous.copy(region==="heel"?this.heel:this.toeSample);
       }
       return {hip,knee,ankle,toe,samples,
         hipFlex:calibrated("hip_"+side,"flexion"),
@@ -130,7 +133,7 @@ export class GroundedFootContacts {
         kneeFlex:calibrated("knee_"+side,"flexion"),
         ankleFlex:calibrated("ankle_"+side,"flexion"),
         anchor:previous.clone(),previous,
-        soleOffset,planted:false,blend:0};
+        soleOffset,planted:false,region,blend:0};
     });
     this.footSamples=this.chains.filter(c=>c.samples.length===2).length;
   }
@@ -195,12 +198,22 @@ export class GroundedFootContacts {
     return out.applyMatrix4(mesh.matrixWorld);
   }
   private measureSole(chain:FootChain,ankle:THREE.Vector3,
-    out:THREE.Vector3):THREE.Vector3 {
+    out:THREE.Vector3,selectRegion=false):THREE.Vector3 {
     if(chain.samples.length===2){
       this.skinWorld(chain.samples[0]!,this.heel);
       this.skinWorld(chain.samples[1]!,this.toeSample);
-      out.copy(this.heel).add(this.toeSample).multiplyScalar(.5);
-      out.y=Math.min(this.heel.y,this.toeSample.y);
+      if(selectRegion){
+        // Contact lives on an ACTUAL sole vertex, never at a fictional
+        // mid-heel/toe XZ location whose height came from another vertex.
+        // Use morphology-scaled height hysteresis to prevent contact-point
+        // switches on a noisy nearly level sole.
+        const hysteresis=this.heel.distanceTo(this.toeSample)*.035;
+        if(chain.region==="heel"&&this.toeSample.y<this.heel.y-hysteresis)
+          chain.region="toe";
+        else if(chain.region==="toe"&&this.heel.y<this.toeSample.y-hysteresis)
+          chain.region="heel";
+      }
+      out.copy(chain.region==="heel"?this.heel:this.toeSample);
     }else out.copy(ankle).addScaledVector(this.up,-chain.soleOffset);
     return out;
   }
@@ -261,7 +274,15 @@ export class GroundedFootContacts {
     const evidence=this.chains.map(chain=>{
       chain.hip.updateWorldMatrix(true,true);
       const ankle=chain.ankle.getWorldPosition(this.ankleRaw);
-      const contact=this.measureSole(chain,ankle,this.sole);
+      const regionBefore=chain.region;
+      const contact=this.measureSole(chain,ankle,this.sole,true);
+      if(chain.region!==regionBefore){
+        // A heel-to-toe roll is a new support region, NOT 20+ cm of
+        // sliding at a single world anchor. Release the old anchor before
+        // establishing a new one at the measured forefoot.
+        chain.planted=false;
+        chain.blend=0;
+      }
       // Both measured ends must have valid terrain support: missing terrain
       // information is not evidence for an invented flat surface.
       const heelHeight=chain.samples.length===2?
