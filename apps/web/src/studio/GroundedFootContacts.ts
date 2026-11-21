@@ -34,6 +34,7 @@ interface FootChain {
   hipFlex?:JointFreedom;
   hipAbduct?:JointFreedom;
   kneeFlex?:JointFreedom;
+  ankleFlex?:JointFreedom;
   ankle:THREE.Object3D;
   toe:THREE.Object3D;
   anchor:THREE.Vector3;
@@ -127,6 +128,7 @@ export class GroundedFootContacts {
         hipFlex:calibrated("hip_"+side,"flexion"),
         hipAbduct:calibrated("hip_"+side,"abduction"),
         kneeFlex:calibrated("knee_"+side,"flexion"),
+        ankleFlex:calibrated("ankle_"+side,"flexion"),
         anchor:previous.clone(),previous,
         soleOffset,planted:false,blend:0};
     });
@@ -385,7 +387,33 @@ export class GroundedFootContacts {
       }
       chain.hip.updateWorldMatrix(true,true);
       chain.ankle.getWorldPosition(this.after);
-      const sole=this.measureSole(chain,this.after,this.sole);
+      let sole=this.measureSole(chain,this.after,this.sole);
+      // On a verified support, use the two REAL skinned-foot sample points
+      // and the caller's local terrain height to align ankle pitch to the
+      // measured longitudinal slope. No new ankle freedom or tilt marker.
+      if(chain.planted&&chain.samples.length===2&&chain.ankleFlex){
+        const heelGround=this.surface.heightAt(this.heel.x,this.heel.z);
+        const toeGround=this.surface.heightAt(this.toeSample.x,this.toeSample.z);
+        if(heelGround!==undefined&&toeGround!==undefined&&
+          Number.isFinite(heelGround)&&Number.isFinite(toeGround)){
+          const groundRise=toeGround-heelGround;
+          const skinnedRise=this.toeSample.y-this.heel.y;
+          const error=groundRise-skinnedRise;
+          if(Number.isFinite(error)&&Math.abs(error)>1e-5){
+            chain.toe.getWorldPosition(this.after);
+            this.scratch.copy(this.after);
+            // A residual only, not a source-clip overwrite: constrain the
+            // toe target by measured foot length and a gentle pitch budget.
+            const along=this.toeSample.distanceTo(this.heel);
+            this.scratch.y+=THREE.MathUtils.clamp(error,
+              -along*.18,along*.18);
+            this.rotateBounded(chain.ankle,chain.toe,this.scratch,
+              chain.ankleFlex,"ankle-flex",.065);
+            chain.ankle.getWorldPosition(this.after);
+            sole=this.measureSole(chain,this.after,this.sole);
+          }
+        }
+      }
       if(chain.planted){
         plantedFeet++;
         maxAnchorSlipMeters=Math.max(maxAnchorSlipMeters,
