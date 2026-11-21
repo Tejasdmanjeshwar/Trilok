@@ -8,6 +8,7 @@
     "dev": "pnpm --filter @trilok/web dev",
     "build": "pnpm --filter @trilok/web build",
     "typecheck": "tsc --noEmit",
+    "portability:verify": "node scripts/verify-portable-boundaries.mjs",
     "test": "node scripts/fetch-makehuman-core.mjs && vitest run tests/ --pool=threads --maxWorkers=1",
     "test:e2e": "playwright test",
     "bench:studio": "node scripts/fetch-makehuman-core.mjs && vitest run benchmarks/ --pool=threads --maxWorkers=1",
