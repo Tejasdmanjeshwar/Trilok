@@ -323,7 +323,7 @@ const movementSpeed=element<HTMLInputElement>("#studio-movement-speed");
 const movementSpeedValue=element<HTMLOutputElement>("#studio-movement-speed-value");
 function movementPaceLabel(speed:number,direction:string):string {
   return direction.startsWith("turn-")?"One-shot turn":
-    speed<.05?"Standing":speed<.32?"Walking":speed<.65?"Jogging":"Sprinting";
+    speed<.05?"Standing":speed<=.32?"Walking":speed<=.65?"Jogging":"Sprinting";
 }
 movementDirection.addEventListener("change",()=>{
   const selected=movementDirection.value;
@@ -331,8 +331,11 @@ movementDirection.addEventListener("change",()=>{
   // Keep the requested slider value available for directions that support it.
   const prior=movementDirection.dataset.previous??"forward";
   try{
-    if(selected.startsWith("backward") && Number(movementSpeed.value)>.65)
+    if(!EXPERIMENTAL_KAYKIT_REVIEW&&selected.startsWith("backward") &&
+      Number(movementSpeed.value)>.65){
       viewport.setMovementPreviewSpeed(.65);
+      movementSpeed.value=".65";
+    }
     viewport.setMovementPreviewDirection(selected as
       Parameters<typeof viewport.setMovementPreviewDirection>[0]);
     movementDirection.dataset.previous=selected;
