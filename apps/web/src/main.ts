@@ -160,6 +160,7 @@ const faultRestartButton = query<HTMLButtonElement>("#fault-restart");
 const faultCopyButton = query<HTMLButtonElement>("#fault-copy");
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const c63GameplayReview=new URLSearchParams(location.search).has("c63-gameplay-metrics");
 let quality: ArenaQuality = /Android|iPhone|iPad/i.test(navigator.userAgent) ? "low" : "high";
 qualityButton.textContent = "⚙ " + (quality === "high" ? "HIGH" : "MOBILE");
 const scene = new THREE.Scene();
@@ -1491,6 +1492,10 @@ function frame(now: number): void {
       counter && counter.attackerId === "enemy" ? motionElapsed :
       presentation === "windup" ? motionElapsed : undefined);
   }
+  if(c63GameplayReview)renderer.domElement.dataset.c63Gameplay=JSON.stringify({
+    hero:hero.locomotionSource,enemy:enemy.locomotionSource,
+    // The animation path never sets either authoritative actor transform.
+  });
   movement.update(now);
   effects.update(now);
   projectiles.update(now);
