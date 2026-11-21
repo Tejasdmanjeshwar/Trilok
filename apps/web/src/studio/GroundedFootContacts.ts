@@ -27,6 +27,15 @@ export interface GroundContactMetrics {
   readonly nearGroundFeet?:number;
   readonly rawSolePenetrationMeters?:number;
 }
+/** Immutable, diagnostic-only view of the actual posed contact region. */
+export interface FootContactSnapshot {
+  readonly side:"left"|"right";
+  readonly worldPoint:readonly [number,number,number];
+  readonly worldAnchor:readonly [number,number,number];
+  readonly planted:boolean;
+  readonly blend:number;
+  readonly skinned:boolean;
+}
 interface FootChain {
   hip:THREE.Object3D;
   knee:THREE.Object3D;
@@ -220,6 +229,21 @@ export class GroundedFootContacts {
     return out;
   }
   get status():GroundContactMetrics {return {...this.metrics};}
+  /** Read-only rendered-sole evidence for QA and terrain-adapter tests.
+   * Never returns mutable skeleton positions or changes stance state. */
+  contactSnapshots():readonly FootContactSnapshot[]{
+    this.live();
+    this.root.updateWorldMatrix(true,true);
+    return this.chains.map((chain,index)=>{
+      const ankle=chain.ankle.getWorldPosition(this.ankleRaw);
+      const point=this.measureSole(chain,ankle,this.sole);
+      return {side:index===0?"left" as const:"right" as const,
+        worldPoint:[point.x,point.y,point.z] as const,
+        worldAnchor:[chain.anchor.x,chain.anchor.y,chain.anchor.z] as const,
+        planted:chain.planted,blend:chain.blend,
+        skinned:chain.samples.length===2};
+    });
+  }
   reset():void {
     this.live();
     if(this.pelvis&&this.hasLastCorrection &&
