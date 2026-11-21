@@ -1391,7 +1391,10 @@ let previous = performance.now();
 let frames = 0;
 let frameSeconds = 0;
 function frame(now: number): void {
-  const delta = Math.min(.05, Math.max(0, (now - previous) / 1000));
+  const elapsedSeconds = Math.min(1, Math.max(0, (now - previous) / 1000));
+  // Rendering/clip integration is capped to prevent large visual jumps;
+  // travel speed is derived from the ACTUAL elapsed interval instead.
+  const delta = Math.min(.05, elapsedSeconds);
   previous = now;
   updateOffenseRhythm(now);
   const expiredArrows = projectiles.expireTurn(session.state.turn);
@@ -1475,8 +1478,8 @@ function frame(now: number): void {
   // Movement controller sampled the committed presentation transforms above.
   // Pose presentation never changes actor position, legal combat reach or
   // dodge/parry windows. The legacy proxy is not a C5 skinned character.
-  hero.setLocomotionIntent(movement.locomotionIntent(hero.root,delta));
-  enemy.setLocomotionIntent(movement.locomotionIntent(enemy.root,delta));
+  hero.setLocomotionIntent(movement.locomotionIntent(hero.root,elapsedSeconds));
+  enemy.setLocomotionIntent(movement.locomotionIntent(enemy.root,elapsedSeconds));
   const frozen = now < visualFeedback.frozenUntil;
   if (!frozen) {
     const heroClipTime = motionElapsed;
