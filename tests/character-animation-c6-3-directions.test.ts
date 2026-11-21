@@ -132,7 +132,7 @@ describe("C6.3 authored directional locomotion",()=>{
   it("keeps canonical quaternions finite and prevents authoritative travel",()=>{
     const mixer=new CanonicalLocomotionMixer(graph,canonicalLibrary);
     try{
-      for(const [forward,lateral] of [[1,0],[.6,-.6],[-.5,.5],[0,1],[0,0]]){
+      for(const [forward,lateral] of [[1,0],[.6,-.6],[-.3,.3],[0,1],[0,0]]){
         mixer.setIntent(intent(forward!,lateral!));
         for(let t=0;t<5;t++){
           for(const joint of mixer.advance(.04)){
