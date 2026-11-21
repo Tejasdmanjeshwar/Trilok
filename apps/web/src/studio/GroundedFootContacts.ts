@@ -68,7 +68,9 @@ export class GroundedFootContacts {
   private readonly worldFootMovement=new THREE.Vector3();
   private readonly localShift=new THREE.Vector3();
   private readonly pelvisRotation=new THREE.Quaternion();
+  private readonly up=new THREE.Vector3(0,1,0);
   private readonly pelvis?:THREE.Object3D;
+  private readonly footSamples:number;
   private readonly root:THREE.Object3D;
   private rootObserved=false;
   private pelvisHeight=0;
@@ -111,6 +113,7 @@ export class GroundedFootContacts {
         anchor:ankleAt.clone(),previous:ankleAt.clone(),
         soleOffset,planted:false,blend:0};
     });
+    this.footSamples=this.chains.filter(c=>c.samples.length===2).length;
   }
   /**
    * Determine heel/toe support from actual bound, currently skinned vertices.
@@ -179,7 +182,7 @@ export class GroundedFootContacts {
       this.skinWorld(chain.samples[1]!,this.toeSample);
       out.copy(this.heel).add(this.toeSample).multiplyScalar(.5);
       out.y=Math.min(this.heel.y,this.toeSample.y);
-    }else out.copy(ankle).addScaledVector(new THREE.Vector3(0,1,0),-chain.soleOffset);
+    }else out.copy(ankle).addScaledVector(this.up,-chain.soleOffset);
     return out;
   }
   get status():GroundContactMetrics {return {...this.metrics};}
@@ -192,7 +195,7 @@ export class GroundedFootContacts {
     this.pelvisHeight=0;this.pelvisLateral=0;this.pelvisLean=0;
     this.metrics={plantedFeet:0,maxAnchorSlipMeters:0,
       maxPenetrationMeters:0,unreachableFeet:0,pelvisOffsetMeters:0,
-      sampledSoleFeet:this.chains.filter(c=>c.samples.length===2).length};
+      sampledSoleFeet:this.footSamples};
   }
   private live():void {if(this.disposed)throw new Error("Ground contacts disposed");}
   /**
@@ -280,7 +283,7 @@ export class GroundedFootContacts {
       // FK supplies the untouched authored pose each frame; no pelvis/root
       // drift is stored in game state or injected into animation assets.
       this.pelvis.position.add(this.localShift);
-      this.pelvisRotation.setFromAxisAngle(new THREE.Vector3(0,0,1),this.pelvisLean);
+      this.pelvisRotation.setFromAxisAngle(this.worldAxis.set(0,0,1),this.pelvisLean);
       this.pelvis.quaternion.multiply(this.pelvisRotation).normalize();
       this.pelvis.updateWorldMatrix(true,true);
     }
@@ -322,7 +325,7 @@ export class GroundedFootContacts {
       maxPenetrationMeters=Math.max(maxPenetrationMeters,Math.max(0,ground-sole.y));
     }
     this.metrics={plantedFeet,maxAnchorSlipMeters,maxPenetrationMeters,unreachableFeet,
-      sampledSoleFeet:this.chains.filter(c=>c.samples.length===2).length,
+      sampledSoleFeet:this.footSamples,
       pelvisOffsetMeters:this.pelvisHeight};
     return this.status;
   }
