@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createWarrior, type WarriorRole } from "./warrior";
 import type { WeaponId } from "@trilok/combat";
 import type { LocomotionIntent } from "@trilok/character-core";
+import {LegacyCanonicalLegProjection} from "./LegacyCanonicalLegProjection";
 
 export type Motion = "idle" | "attack" | "flurry_melee" | "feint_melee" | "delayed_melee" | "rapid_melee" | "heavy_melee" | "melee" | "windup" | "parry" | "intercept" | "riposte" | "dodge" | "hit" | "hit_heavy" | "hit_arm" | "hit_head" | "victory";
 type Key = readonly [number, number, number, number];
@@ -152,6 +153,22 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
   let intent:LocomotionIntent={forward:0,lateral:0,turn:0,grounded:true};
   let gait = 0;
   let stride = 0;
+  let canonical:LegacyCanonicalLegProjection|undefined;
+  let pendingCanonical:Promise<void>|undefined;
+  let canonicalBlend=0;
+  let disposed=false;
+  const requestCanonical=():void=>{
+    if(canonical||pendingCanonical||disposed)return;
+    pendingCanonical=LegacyCanonicalLegProjection.load().then(instance=>{
+      if(disposed)instance.dispose();
+      else canonical=instance;
+    }).catch(error=>{
+      // Explicitly retain the legacy gait if an optional lazy chunk fails.
+      // Combat authority and action animations must never depend on an
+      // animation-resource download completing successfully.
+      console.warn("Canonical combat locomotion unavailable",error);
+    });
+  };
   active.play();
   return {
     root: rig.root,
@@ -167,6 +184,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
         throw new Error("Invalid actor locomotion presentation input");
       intent={...value};
       moving=value.grounded&&Math.hypot(value.forward,value.lateral)>1e-3;
+      if(moving||Math.abs(value.turn)>1e-3)requestCanonical();
     },
     play(name) {
       if (current === name) {
@@ -205,13 +223,26 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       const direction=intent.forward<-.01?-1:1;
       stride += dt * (7+7*magnitude) * direction;
       const step = Math.sin(stride);
+      const sourceWeight=canonical?(1-Math.exp(-dt/.2)):0;
+      canonicalBlend+=(sourceWeight-canonicalBlend)*
+        (1-Math.exp(-dt/.2));
+      let authored:{leftPitch:number;rightPitch:number;leftRoll:number;rightRoll:number}|undefined;
+      if(canonical){
+        canonical.setIntent(intent);
+        authored=canonical.sample(dt);
+      }
+      const fallbackRoll=Math.max(-.15,Math.min(.15,intent.lateral*.15))*gait;
       if (leftLeg) {
-        leftLeg.rotation.x=step*gait*.57;
-        leftLeg.rotation.z=Math.max(-.15,Math.min(.15,intent.lateral*.15))*gait;
+        leftLeg.rotation.x=THREE.MathUtils.lerp(step*gait*.57,
+          (authored?.leftPitch??0)*gait,canonicalBlend);
+        leftLeg.rotation.z=THREE.MathUtils.lerp(fallbackRoll,
+          (authored?.leftRoll??0)*gait,canonicalBlend);
       }
       if (rightLeg) {
-        rightLeg.rotation.x=-step*gait*.57;
-        rightLeg.rotation.z=Math.max(-.15,Math.min(.15,intent.lateral*.15))*gait;
+        rightLeg.rotation.x=THREE.MathUtils.lerp(-step*gait*.57,
+          (authored?.rightPitch??0)*gait,canonicalBlend);
+        rightLeg.rotation.z=THREE.MathUtils.lerp(fallbackRoll,
+          (authored?.rightRoll??0)*gait,canonicalBlend);
       }
       if (torso) torso.position.y = Math.abs(step) * gait * .045;
       if (current === "idle") {
@@ -226,6 +257,8 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       return anchor.localToWorld(out.set(0, -.78, .28));
     },
     dispose() {
+      disposed=true;
+      canonical?.dispose();
       mixer.stopAllAction();
       mixer.uncacheRoot(rig.root);
       rig.dispose();
