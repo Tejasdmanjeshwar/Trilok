@@ -355,12 +355,24 @@ export class GroundedFootContacts {
       const hip=chain.hip.getWorldPosition(this.b);
       const knee=chain.knee.getWorldPosition(this.c);
       const upper=hip.distanceTo(knee),lower=knee.distanceTo(this.a);
-      if(upper<minReach||lower<minReach){unreachableFeet++;continue;}
+      if(upper<minReach||lower<minReach){
+        unreachableFeet++;
+        // The existing C5 bones are degenerate: do not force a fallback
+        // rotation. Release support smoothly rather than retaining an anchor.
+        chain.planted=false;
+        chain.blend*=Math.exp(-dt/.11);
+        continue;
+      }
       const distance=hip.distanceTo(this.scratch);
       const maxReach=(upper+lower)*.985;
       const minDistance=Math.abs(upper-lower)+.012;
       if(distance>maxReach||distance<minDistance){
         unreachableFeet++;
+        // No authored foot can remain planted beyond the measured reach.
+        // Fade out support; clamp only the residual correction target, NOT
+        // the gameplay root or the original world-space foot anchor.
+        chain.planted=false;
+        chain.blend*=Math.exp(-dt/.11);
         if(distance<1e-8)continue;
         this.scratch.sub(hip).setLength(
           THREE.MathUtils.clamp(distance,minDistance,maxReach)).add(hip);
