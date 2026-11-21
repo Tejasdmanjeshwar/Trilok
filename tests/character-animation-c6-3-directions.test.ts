@@ -1,5 +1,6 @@
 import {describe,expect,it} from "vitest";
-import {createAnatomyPreset,CanonicalLocomotionMixer} from "../packages/character-core/src/index";
+import {createAnatomyPreset,CanonicalLocomotionMixer,
+  type LocomotionPhaseReferenceV1,type LocomotionGait} from "../packages/character-core/src/index";
 import {loadStudioLocomotionLibrary,loadBakedStudioAnimation,registerKevinC63Review,STUDIO_ANIMATIONS} from "../apps/web/src/studio/StudioAnimationLibrary";
 import kevinCatalog from "../assets/animations/sources/kevin-basic-motions-v1.json";
 import {readFileSync} from "node:fs";
@@ -8,12 +9,15 @@ const graph=createAnatomyPreset({archetype:"human"});
 const original=loadStudioLocomotionLibrary(graph);
 const mapping=JSON.parse(readFileSync(
   "assets/animations/studio-v1/kevin/c63/locomotion-map.json","utf8")) as {
-  schemaVersion:number;motions:{id:string;gait:"walk"|"jog"|"sprint";direction:string}[];
+  schemaVersion:number;phaseBaselines:Record<string,LocomotionPhaseReferenceV1>;
+  motions:{id:string;gait:"walk"|"jog"|"sprint";direction:string;
+    phaseReference:LocomotionPhaseReferenceV1}[];
   turns:{id:string;direction:"left"|"right"}[];
 };
 const motions=mapping.motions.map(m=>({
   gait:m.gait,direction:m.direction as "forward"|"backward"|"left"|"right"|
     "forward-left"|"forward-right"|"backward-left"|"backward-right",
+  phaseReference:m.phaseReference,
   clip:JSON.parse(readFileSync("assets/animations/studio-v1/kevin/c63/"+m.id+".clip.json","utf8")),
 }));
 const turns=mapping.turns.map(t=>({
@@ -22,6 +26,7 @@ const turns=mapping.turns.map(t=>({
 }));
 const canonicalLibrary={
   idle:loadBakedStudioAnimation("human-kevin-idle",graph),
+  phaseBaselines:mapping.phaseBaselines as Record<LocomotionGait,LocomotionPhaseReferenceV1>,
   walk:loadBakedStudioAnimation("human-kevin-walk",graph),
   jog:loadBakedStudioAnimation("human-kevin-run",graph),
   sprint:motions.find(m=>m.gait==="sprint"&&m.direction==="forward")!.clip,
@@ -37,6 +42,20 @@ describe("C6.3 authored directional locomotion",()=>{
     const mixer=new CanonicalLocomotionMixer(graph,canonicalLibrary);
     expect(mixer.availableDirections).toHaveLength(10);
     mixer.dispose();
+  });
+  it("aligns source-measured low-foot extrema across forward and reversed gaits",()=>{
+    const walk=mapping.phaseBaselines.walk!;
+    const jog=mapping.phaseBaselines.jog!;
+    expect(walk.leftPhase).toBeCloseTo(70/96,10);
+    expect(jog.leftPhase).toBeCloseTo(72/96,10);
+    for(const [gait,baseline] of [["walk",walk],["jog",jog]] as const){
+      const source=mapping.motions.find(m=>m.gait===gait&&m.direction==="backward")!;
+      const offset=source.phaseReference.leftPhase-baseline.leftPhase;
+      expect(Math.abs(offset)).toBeGreaterThan(.45);
+      expect(Math.abs(offset)).toBeLessThan(.55);
+      const aligned=(((baseline.leftPhase+offset)%1)+1)%1;
+      expect(aligned).toBeCloseTo(source.phaseReference.leftPhase,10);
+    }
   });
   it("resolves simultaneous backward-lateral input to an authored diagonal, not backward",()=>{
     const mixer=new CanonicalLocomotionMixer(graph,canonicalLibrary);
