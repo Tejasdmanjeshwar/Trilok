@@ -325,7 +325,11 @@ export class GroundedFootContacts {
           Number.isFinite(heelHeight)&&Number.isFinite(toeHeight)?
           chain.region==="heel"?heelHeight:toeHeight:undefined):
         this.surface.heightAt(contact.x,contact.z);
-      const available=ground!==undefined&&Number.isFinite(ground)&&grounded;
+      // A seek or initial pose evaluation has no elapsed world time:
+      // it cannot provide measured foot velocity or verify a touchdown.
+      // Never fabricate a stance event from a single static low-foot pose.
+      const available=deltaSeconds>0&&ground!==undefined&&
+        Number.isFinite(ground)&&grounded;
       // Ground contact is defined in the WORLD frame: subtracting actor
       // translation would incorrectly release a truly stationary planted
       // sole while the character walks past it.
