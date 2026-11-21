@@ -200,7 +200,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       // not intended travel. Canonical C5 skinned locomotion remains in Studio;
       // this proxy only has one hinge per leg and cannot run its foot IK.
       const magnitude=Math.min(1,Math.hypot(intent.forward,intent.lateral));
-      const amplitude=moving?magnitude:0;
+      const amplitude=moving?(magnitude>1e-3?magnitude:1):0;
       gait += (amplitude - gait) * (1 - Math.exp(-11 * dt));
       const direction=intent.forward<-.01?-1:1;
       stride += dt * (7+7*magnitude) * direction;
