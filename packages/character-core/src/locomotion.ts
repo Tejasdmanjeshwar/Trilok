@@ -11,6 +11,35 @@ export interface LocomotionIntent {
   readonly turn: number;
   readonly grounded: boolean;
 }
+/** Validated movement already authorized by the simulation/presentation caller.
+ * Coordinates: +Y up, +Z forward; positive heading rotates +Z toward +X.
+ * This adapter cannot move the actor or infer legality/dodge windows. */
+export interface LocomotionMovementSnapshot {
+  readonly displacementMeters: readonly [number,number,number];
+  readonly elapsedSeconds: number;
+  readonly headingRadians: number;
+  readonly grounded: boolean;
+  /** Measured or explicitly configured speed represented by gait magnitude 1. */
+  readonly referenceSpeedMetersPerSecond: number;
+}
+/** Convert world movement into canonical local forward/strafe intent.
+ * Zero elapsed time is a stationary sample rather than an infinite velocity.
+ * No frame history, randomness, root motion, or rendering dependency. */
+export function locomotionIntentFromMovement(snapshot:LocomotionMovementSnapshot):LocomotionIntent {
+  const {displacementMeters:d,elapsedSeconds:dt,headingRadians:heading,
+    grounded,referenceSpeedMetersPerSecond:reference}=snapshot;
+  if(d.length!==3||!d.every(Number.isFinite)||!Number.isFinite(dt)||
+    dt<0||dt>1||!Number.isFinite(heading)||
+    !Number.isFinite(reference)||reference<=0||typeof grounded!=="boolean")
+    throw new Error("Invalid authoritative movement snapshot");
+  if(dt===0||!grounded)return {forward:0,lateral:0,turn:0,grounded};
+  const sine=Math.sin(heading),cosine=Math.cos(heading);
+  const forward=(d[0]*sine+d[2]*cosine)/(dt*reference);
+  const lateral=(d[0]*cosine-d[2]*sine)/(dt*reference);
+  const magnitude=Math.hypot(forward,lateral);
+  const factor=magnitude>1?1/magnitude:1;
+  return {forward:forward*factor,lateral:lateral*factor,turn:0,grounded};
+}
 export type TravelDirection =
   "forward" | "forward-right" | "right" | "backward-right" |
   "backward" | "backward-left" | "left" | "forward-left";
