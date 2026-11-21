@@ -177,7 +177,7 @@ export class GroundedFootContacts {
         if(along>=length*.3&&(!tip||score<tip.score))tip=candidate;
       }
     });
-    if(!heel||!tip)return [];
+    if(!heel||!tip||heel.mesh===tip.mesh&&heel.index===tip.index)return [];
     return [heel,tip];
   }
   private skinWorld(sample:{mesh:THREE.SkinnedMesh;index:number},
@@ -200,6 +200,13 @@ export class GroundedFootContacts {
   get status():GroundContactMetrics {return {...this.metrics};}
   reset():void {
     this.live();
+    if(this.pelvis&&this.hasLastCorrection &&
+      this.pelvis.position.distanceToSquared(this.lastCorrectedPosition)<1e-14 &&
+      1-Math.abs(this.pelvis.quaternion.dot(this.lastCorrectedOrientation))<1e-12){
+      this.pelvis.position.copy(this.sourcePelvisPosition);
+      this.pelvis.quaternion.copy(this.sourcePelvisOrientation);
+      this.pelvis.updateWorldMatrix(true,true);
+    }
     for(const chain of this.chains){chain.planted=false;chain.blend=0;
       chain.ankle.getWorldPosition(this.ankleRaw);
       this.measureSole(chain,this.ankleRaw,chain.previous);
@@ -296,8 +303,12 @@ export class GroundedFootContacts {
           sum+e.ground-e.contact.y,0)/support.length,-.035,.035):0;
       const parent=this.pelvis.parent;
       const pelvisWorld=this.pelvis.getWorldPosition(this.b);
+      // Weight transfer is lateral in the CHARACTER frame, not world X:
+      // the same pose must work when the actor turns toward any heading.
       const toward=support.length===1?
-        support[0]!.contact.x-pelvisWorld.x:0;
+        this.localShift.copy(support[0]!.contact).sub(pelvisWorld)
+          .dot(this.worldAxis.set(1,0,0)
+            .transformDirection(this.root.matrixWorld)):0;
       const lateralTarget=grounded?
         THREE.MathUtils.clamp(toward*.12,-.024,.024):0;
       const response=1-Math.exp(-dt/.13);
