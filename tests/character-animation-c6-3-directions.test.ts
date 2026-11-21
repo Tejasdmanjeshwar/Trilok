@@ -112,6 +112,23 @@ describe("C6.3 authored directional locomotion",()=>{
       expect(mixer.turnStatus?.running??false).toBe(false);
     }finally{mixer.dispose();}
   });
+  it("integrates gait weights and phase independently of render-frame subdivision",()=>{
+    const one=new CanonicalLocomotionMixer(graph,canonicalLibrary);
+    const split=new CanonicalLocomotionMixer(graph,canonicalLibrary);
+    try{
+      const input=intent(.4,.3);
+      one.setIntent(input);split.setIntent(input);
+      const direct=one.advance(.48);
+      for(let i=0;i<48;i++)split.advance(.01);
+      expect(Math.abs(one.gaitPhase-split.gaitPhase)).toBeLessThan(1e-9);
+      for(const [key,value] of Object.entries(one.blendWeights))
+        expect(Math.abs(value-(split.blendWeights[key]??0))).toBeLessThan(1e-9);
+      expect(direct.length).toBeGreaterThan(40);
+      const before=JSON.parse(JSON.stringify(one.advance(0)));
+      one.setIntent(intent(-.45,-.45));
+      expect(one.advance(0)).toEqual(before);
+    }finally{one.dispose();split.dispose();}
+  });
   it("keeps canonical quaternions finite and prevents authoritative travel",()=>{
     const mixer=new CanonicalLocomotionMixer(graph,canonicalLibrary);
     try{
