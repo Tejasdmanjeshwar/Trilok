@@ -126,14 +126,23 @@ host.innerHTML=String.raw`
             <label class="studio-field-label" for="studio-movement-direction">Movement direction</label>
             <select id="studio-movement-direction" aria-label="Movement direction">
               <option value="forward">Forward</option>
-              ${EXPERIMENTAL_KAYKIT_REVIEW?String.raw`<option value="backward">Backward (unaccepted KayKit)</option>
+              ${EXPERIMENTAL_KEVIN_C63_REVIEW?String.raw`<option value="forward-left">Forward-left</option>
+              <option value="forward-right">Forward-right</option>
+              <option value="backward">Backward</option>
+              <option value="backward-left">Backward-left</option>
+              <option value="backward-right">Backward-right</option>
+              <option value="left">Strafe left</option>
+              <option value="right">Strafe right</option>
+              <option value="turn-left">Turn left (one-shot)</option>
+              <option value="turn-right">Turn right (one-shot)</option>`:
+                EXPERIMENTAL_KAYKIT_REVIEW?String.raw`<option value="backward">Backward (unaccepted KayKit)</option>
               <option value="left">Strafe left (unaccepted KayKit)</option>
               <option value="right">Strafe right (unaccepted KayKit)</option>`:""}
             </select>
             <label class="studio-field-label" for="studio-movement-speed">Movement pace</label>
             <input id="studio-movement-speed" type="range" min="0" max="1" step=".01" value="0" />
             <output id="studio-movement-speed-value">Standing</output>
-            <p>${EXPERIMENTAL_KAYKIT_REVIEW?"Experimental KayKit directional source is unaccepted; anatomical fidelity is not proven.":"Approved UAL1 forward speed transitions; optional source families appear as bundled animations."}</p>
+            <p>${EXPERIMENTAL_KEVIN_C63_REVIEW?"Owner-approved Kevin directions; backward sprint is not authored. Turning plays once and does not change the gameplay actor heading.":EXPERIMENTAL_KAYKIT_REVIEW?"Experimental KayKit directional source is unaccepted; anatomical fidelity is not proven.":"Approved UAL1 forward speed transitions; optional source families appear as bundled animations."}</p>
           </div>
           <div class="studio-action-pair studio-animation-actions">
             <button id="studio-animation-play" type="button" disabled aria-label="Play animation">Play</button>
@@ -310,16 +319,44 @@ const focusArea=element<HTMLSelectElement>("#studio-focus-area");
 const animationSelect=element<HTMLSelectElement>("#studio-animation-select");
 const movementSettings=element<HTMLElement>("#studio-movement-settings");
 const movementDirection=element<HTMLSelectElement>("#studio-movement-direction");
-movementDirection.addEventListener("change",()=>{
-  viewport.setMovementPreviewDirection(movementDirection.value as
-    "forward"|"backward"|"left"|"right");
-});
 const movementSpeed=element<HTMLInputElement>("#studio-movement-speed");
 const movementSpeedValue=element<HTMLOutputElement>("#studio-movement-speed-value");
+function movementPaceLabel(speed:number,direction:string):string {
+  return direction.startsWith("turn-")?"One-shot turn":
+    speed<.05?"Standing":speed<.32?"Walking":speed<.65?"Jogging":"Sprinting";
+}
+movementDirection.addEventListener("change",()=>{
+  const selected=movementDirection.value;
+  // The source set has no backward sprint; never disguise running as sprint.
+  // Keep the requested slider value available for directions that support it.
+  const prior=movementDirection.dataset.previous??"forward";
+  try{
+    if(selected==="backward" && Number(movementSpeed.value)>.65)
+      viewport.setMovementPreviewSpeed(.65);
+    viewport.setMovementPreviewDirection(selected as
+      Parameters<typeof viewport.setMovementPreviewDirection>[0]);
+    movementDirection.dataset.previous=selected;
+    movementSpeed.disabled=selected.startsWith("turn-");
+    movementSpeedValue.textContent=movementPaceLabel(Number(movementSpeed.value),selected);
+  }catch(error){
+    console.error("Unsupported authored movement",error);
+    movementDirection.value=prior;
+    movementSpeed.disabled=prior.startsWith("turn-");
+  }
+});
 movementSpeed.addEventListener("input",()=>{
-  const speed=Number(movementSpeed.value);
-  viewport.setMovementPreviewSpeed(speed);
-  movementSpeedValue.textContent=speed<.05?"Standing":speed<.32?"Walking":speed<.65?"Jogging":"Sprinting";
+  const requested=Number(movementSpeed.value);
+  const direction=movementDirection.value;
+  // No backward-sprint source in the approved 27-clip inventory.
+  const speed=EXPERIMENTAL_KEVIN_C63_REVIEW && direction==="backward"?
+    Math.min(.65,requested):requested;
+  try{
+    viewport.setMovementPreviewSpeed(speed);
+    movementSpeed.value=String(speed);
+    movementSpeedValue.textContent=movementPaceLabel(speed,direction);
+  }catch(error){
+    console.error("Unsupported authored movement",error);
+  }
 });
 const animationTime=element<HTMLInputElement>("#studio-animation-time");
 const animationPlay=element<HTMLButtonElement>("#studio-animation-play");
