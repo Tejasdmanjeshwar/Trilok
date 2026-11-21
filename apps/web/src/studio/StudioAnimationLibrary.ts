@@ -72,9 +72,11 @@ export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1,
       walk:loadBakedStudioAnimation("human-kevin-walk",graph),
       jog:loadBakedStudioAnimation("human-kevin-run",graph),
       sprint:loadBakedStudioAnimation("human-kevin-sprint-forward",graph),
+      phaseBaselines:kevinMotionMap.phaseBaselines,
       motions:kevinMotionMap.motions.map(entry=>({
         gait:entry.gait as LocomotionGait,
         direction:entry.direction as TravelDirection,
+        phaseReference:entry.phaseReference,
         clip:loadBakedStudioAnimation(entry.id,graph),
       })),
       turns:kevinMotionMap.turns.map(entry=>({
