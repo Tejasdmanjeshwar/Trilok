@@ -28,6 +28,7 @@ import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
 import {StudioPerformance} from "./StudioPerformance";
 import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
 import {StudioLocomotionPlayback} from "./StudioLocomotionPlayback";
+import type {TravelDirection} from "@trilok/character-core";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
 import {isShortTap,isDoubleTap,isTrustedMouseDoubleClick,focusAreaForSkinTriangle,positionForFocusedAngle,
   type StudioTap} from "./StudioSurfaceFocus";
@@ -56,7 +57,7 @@ export interface StudioViewport {
   setAnimationSpeed(speed:number):void;
   setAnimationLoop(loop:boolean):void;
   setMovementPreviewSpeed(speed:number):void;
-  setMovementPreviewDirection(direction:"forward"|"backward"|"left"|"right"):void;
+  setMovementPreviewDirection(direction:TravelDirection|"turn-left"|"turn-right"):void;
   stepAnimation(direction:-1|1):void;
   resetAnimation():void;
   dispose():void;
@@ -197,13 +198,20 @@ export function createStudioViewport(
   let posePreview:StudioPosePreview|undefined;
   let animation:StudioAnimationPlayback|StudioLocomotionPlayback|undefined;
   let previewMovementSpeed=0;
-  let previewMovementDirection:"forward"|"backward"|"left"|"right"="forward";
-  function currentMovementComponents():readonly [number,number]{
+  let previewMovementDirection:TravelDirection|"turn-left"|"turn-right"="forward";
+  function currentMovementComponents():readonly [number,number,number]{
+    const speed=previewMovementSpeed;
     switch(previewMovementDirection){
-      case "forward":return [previewMovementSpeed,0];
-      case "backward":return [-previewMovementSpeed,0];
-      case "left":return [0,-previewMovementSpeed];
-      case "right":return [0,previewMovementSpeed];
+      case "forward":return [speed,0,0];
+      case "forward-right":return [speed*Math.SQRT1_2,speed*Math.SQRT1_2,0];
+      case "right":return [0,speed,0];
+      case "backward-right":return [-speed*Math.SQRT1_2,speed*Math.SQRT1_2,0];
+      case "backward":return [-speed,0,0];
+      case "backward-left":return [-speed*Math.SQRT1_2,-speed*Math.SQRT1_2,0];
+      case "left":return [0,-speed,0];
+      case "forward-left":return [speed*Math.SQRT1_2,-speed*Math.SQRT1_2,0];
+      case "turn-left":return [0,0,-1];
+      case "turn-right":return [0,0,1];
     }
   }
   let animationId:string|null=null;
@@ -270,19 +278,37 @@ export function createStudioViewport(
   function seekAnimation(seconds:number):void{animation?.seek(seconds);updateMarkers();emitAnimation();}
   function setAnimationSpeed(speed:number):void{animation?.setSpeed(speed);emitAnimation();}
   function setAnimationLoop(loop:boolean):void{animation?.setLoop(loop);emitAnimation();}
-  function setMovementPreviewDirection(direction:"forward"|"backward"|"left"|"right"):void{
-    if(!["forward","backward","left","right"].includes(direction))
-      throw Error("Unsupported movement preview direction");
+  function setMovementPreviewDirection(direction:TravelDirection|"turn-left"|"turn-right"):void{
+    const valid=["forward","forward-right","right","backward-right",
+      "backward","backward-left","left","forward-left","turn-left","turn-right"];
+    if(!valid.includes(direction))throw Error("Unsupported movement preview direction");
+    if(!EXPERIMENTAL_KEVIN_C63_REVIEW &&
+      !["forward",...(EXPERIMENTAL_KAYKIT_REVIEW?["backward","left","right"]:[])].includes(direction))
+      throw Error("Direction requires the Kevin C6.3 review library");
+    // Validate against available authored gait coverage before updating preview selection.
+    // Unsupported backward sprint is rejected; no fake reversed forward clip.
+    const previous=previewMovementDirection;
     previewMovementDirection=direction;
-    if(animation instanceof StudioLocomotionPlayback)
-      animation.setMovement(...currentMovementComponents());
+    try{
+      if(animation instanceof StudioLocomotionPlayback)
+        animation.setMovement(...currentMovementComponents());
+    }catch(error){
+      previewMovementDirection=previous;
+      throw error;
+    }
     updateMarkers();emitAnimation();
   }
   function setMovementPreviewSpeed(speed:number):void{
     if(!Number.isFinite(speed)||speed<0||speed>1)throw Error("Invalid movement preview speed");
+    const previous=previewMovementSpeed;
     previewMovementSpeed=speed;
-    if(animation instanceof StudioLocomotionPlayback)
-      animation.setMovement(...currentMovementComponents());
+    try{
+      if(animation instanceof StudioLocomotionPlayback)
+        animation.setMovement(...currentMovementComponents());
+    }catch(error){
+      previewMovementSpeed=previous;
+      throw error;
+    }
     updateMarkers();emitAnimation();
   }
   function stepAnimation(direction:-1|1):void{animation?.step(direction);updateMarkers();emitAnimation();}
