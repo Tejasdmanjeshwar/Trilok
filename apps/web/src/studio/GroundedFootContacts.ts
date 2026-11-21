@@ -463,9 +463,9 @@ export class GroundedFootContacts {
       gradient.dot(this.delta.copy(target).sub(endAt))/(denom+1e-8),-.07,.07);
     step=THREE.MathUtils.clamp(applied+step,-maxCorrection,maxCorrection)-applied;
     if(Math.abs(step)<1e-7)return;
-    // Knee is a single C5 flexion hinge. Extract current twist signed
-    // around its hinge axis to prohibit hyperextension and excess flexion.
-    if(channel==="knee"){
+    // Knee and ankle pitch are single C5 hinges. Extract their signed
+    // twist to prohibit hyperextension and out-of-range foot dorsiflexion.
+    if(channel==="knee"||channel==="ankle-flex"){
       this.neutral.copy(joint.quaternion);
       desired.set(this.localAxis.x*this.neutral.x+
         this.localAxis.y*this.neutral.y+
@@ -473,7 +473,12 @@ export class GroundedFootContacts {
       let angle=2*Math.atan2(desired.x,desired.w);
       if(angle>Math.PI)angle-=2*Math.PI;
       if(angle<-Math.PI)angle+=2*Math.PI;
-      step=THREE.MathUtils.clamp(angle+step,freedom.min,freedom.max)-angle;
+      const allowable=THREE.MathUtils.clamp(angle+step,
+        freedom.min,freedom.max)-angle;
+      // A source FK pose can already exceed its nominal C5 residual range.
+      // Never jump it all the way back to a bound (which would snap the skin);
+      // simply refuse residual correction that cannot move safely.
+      step=Math.abs(allowable)>Math.abs(step)?0:allowable;
     }
     if(Math.abs(step)<1e-7)return;
     this.correction.set(key,applied+step);
