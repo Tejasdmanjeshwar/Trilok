@@ -8,7 +8,7 @@ import strafeLeft from "../../../../assets/animations/studio-v1/human-strafe-lef
 import strafeRight from "../../../../assets/animations/studio-v1/human-strafe-right.clip.json";
 import kevinCatalog from "../../../../assets/animations/sources/kevin-basic-motions-v1.json";
 import kevinMotionMap from "../../../../assets/animations/studio-v1/kevin/c63/locomotion-map.json";
-import type {LocomotionGait,TravelDirection} from "@trilok/character-core";
+import type {LocomotionGait,TravelDirection,LocomotionPhaseReferenceV1} from "@trilok/character-core";
 export const EXPERIMENTAL_KEVIN_C63_REVIEW=typeof location!=="undefined" &&
   new URLSearchParams(location.search).has("c63-kevin-review");
 const c63ReviewClips=new Map<string,AnimationClipV1>();
@@ -72,11 +72,11 @@ export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1,
       walk:loadBakedStudioAnimation("human-kevin-walk",graph),
       jog:loadBakedStudioAnimation("human-kevin-run",graph),
       sprint:loadBakedStudioAnimation("human-kevin-sprint-forward",graph),
-      phaseBaselines:kevinMotionMap.phaseBaselines,
+      phaseBaselines:kevinMotionMap.phaseBaselines as Record<LocomotionGait,LocomotionPhaseReferenceV1>,
       motions:kevinMotionMap.motions.map(entry=>({
         gait:entry.gait as LocomotionGait,
         direction:entry.direction as TravelDirection,
-        phaseReference:entry.phaseReference,
+        phaseReference:entry.phaseReference as LocomotionPhaseReferenceV1,
         clip:loadBakedStudioAnimation(entry.id,graph),
       })),
       turns:kevinMotionMap.turns.map(entry=>({
