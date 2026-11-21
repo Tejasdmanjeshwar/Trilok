@@ -2,10 +2,6 @@ name: C6.3 Kevin rendered Chromium review
 # Explicitly manual rendered inspection. Never consume browser CI on each PR.
 on:
   workflow_dispatch:
-  # One-time clearance and support diagnostic pass; remove before merge.
-  push:
-    branches: [feat/c6-3-grounded-contacts-gameplay-integration]
-    paths: [.github/workflows/c63-kevin-chromium-review.yml]
 permissions:
   contents: read
 jobs:
