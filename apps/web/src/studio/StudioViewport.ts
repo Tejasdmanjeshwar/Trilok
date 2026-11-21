@@ -26,7 +26,7 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
-import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
+import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW,EXPERIMENTAL_KEVIN_C63_REVIEW,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
 import {StudioLocomotionPlayback} from "./StudioLocomotionPlayback";
 import type {TravelDirection} from "@trilok/character-core";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
