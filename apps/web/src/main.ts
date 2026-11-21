@@ -160,6 +160,7 @@ const faultRestartButton = query<HTMLButtonElement>("#fault-restart");
 const faultCopyButton = query<HTMLButtonElement>("#fault-copy");
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const c63GameplayReview=new URLSearchParams(location.search).has("c63-gameplay-metrics");
 let quality: ArenaQuality = /Android|iPhone|iPad/i.test(navigator.userAgent) ? "low" : "high";
 qualityButton.textContent = "⚙ " + (quality === "high" ? "HIGH" : "MOBILE");
 const scene = new THREE.Scene();
@@ -1391,7 +1392,10 @@ let previous = performance.now();
 let frames = 0;
 let frameSeconds = 0;
 function frame(now: number): void {
-  const delta = Math.min(.05, Math.max(0, (now - previous) / 1000));
+  const elapsedSeconds = Math.min(1, Math.max(0, (now - previous) / 1000));
+  // Rendering/clip integration is capped to prevent large visual jumps;
+  // travel speed is derived from the ACTUAL elapsed interval instead.
+  const delta = Math.min(.05, elapsedSeconds);
   previous = now;
   updateOffenseRhythm(now);
   const expiredArrows = projectiles.expireTurn(session.state.turn);
@@ -1472,10 +1476,11 @@ function frame(now: number): void {
   const motionElapsed = Math.max(0, now - phaseAt);
   hero.face(enemy.root.position);
   enemy.face(hero.root.position);
-  hero.setLocomotion(movement.activity(hero.root) === "approach" ||
-                     movement.activity(hero.root) === "retreat");
-  enemy.setLocomotion(movement.activity(enemy.root) === "approach" ||
-                      movement.activity(enemy.root) === "retreat");
+  // Movement controller sampled the committed presentation transforms above.
+  // Pose presentation never changes actor position, legal combat reach or
+  // dodge/parry windows. The legacy proxy is not a C5 skinned character.
+  hero.setLocomotionIntent(movement.locomotionIntent(hero.root,elapsedSeconds));
+  enemy.setLocomotionIntent(movement.locomotionIntent(enemy.root,elapsedSeconds));
   const frozen = now < visualFeedback.frozenUntil;
   if (!frozen) {
     const heroClipTime = motionElapsed;
@@ -1487,6 +1492,10 @@ function frame(now: number): void {
       counter && counter.attackerId === "enemy" ? motionElapsed :
       presentation === "windup" ? motionElapsed : undefined);
   }
+  if(c63GameplayReview)renderer.domElement.dataset.c63Gameplay=JSON.stringify({
+    hero:hero.locomotionSource,enemy:enemy.locomotionSource,
+    // The animation path never sets either authoritative actor transform.
+  });
   movement.update(now);
   effects.update(now);
   projectiles.update(now);

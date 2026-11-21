@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import {locomotionIntentFromMovement,type LocomotionIntent} from "@trilok/character-core";
 
 export type MovementKind = "approach" | "retreat" | "dodge";
 
@@ -27,9 +28,13 @@ function dash(t: number): number {
 export class CombatMovementController {
   private readonly home = new Map<THREE.Object3D, THREE.Vector3>();
   private readonly moves = new Map<THREE.Object3D, Move>();
+  private readonly previousPresentation = new Map<THREE.Object3D,THREE.Vector3>();
+  private readonly previousHeading = new Map<THREE.Object3D,number>();
 
   register(actor: THREE.Object3D): void {
     this.home.set(actor, actor.position.clone());
+    this.previousPresentation.set(actor,actor.position.clone());
+    this.previousHeading.set(actor,actor.rotation.y);
   }
 
   approach(
@@ -103,13 +108,52 @@ export class CombatMovementController {
     }
   }
 
+  /**
+   * Presentation-facing sample of an already authorized movement result.
+   * Captures ACTUAL root translation after update(now), not requested travel.
+   * Call once per render interval, after movement.update and face().
+   * Combat approach/dodge legality remains with the existing domain.
+   */
+  locomotionIntent(actor:THREE.Object3D,deltaSeconds:number,
+    referenceSpeedMetersPerSecond=5):LocomotionIntent {
+    const previous=this.previousPresentation.get(actor);
+    if(!previous)throw new Error("Unregistered combatant.");
+    const now=actor.position;
+    const displacement:[number,number,number]=[
+      now.x-previous.x,now.y-previous.y,now.z-previous.z,
+    ];
+    previous.copy(now);
+    const oldHeading=this.previousHeading.get(actor)??actor.rotation.y;
+    this.previousHeading.set(actor,actor.rotation.y);
+    // The existing proxy has no authoritative airborne state; its action
+    // choreography contains dodge. Do not falsely plant a dodging character.
+    const grounded=this.activity(actor)!=="dodge";
+    const intent=locomotionIntentFromMovement({
+      displacementMeters:displacement,elapsedSeconds:deltaSeconds,
+      headingRadians:actor.rotation.y,grounded,referenceSpeedMetersPerSecond,
+    });
+    // Only emit a turn when movement is stationary; avoid inventing world
+    // rotation from Kevin's reference root motion.
+    const turn=deltaSeconds>0&&intent.grounded&&
+      Math.hypot(intent.forward,intent.lateral)<.001?
+      THREE.MathUtils.clamp(Math.atan2(
+        Math.sin(actor.rotation.y-oldHeading),
+        Math.cos(actor.rotation.y-oldHeading))/
+          (Math.PI*deltaSeconds),-1,1):0;
+    return {...intent,turn};
+  }
+
   activity(actor: THREE.Object3D): MovementKind | null {
     return this.moves.get(actor)?.kind ?? null;
   }
 
   reset(): void {
     this.moves.clear();
-    for (const [actor, home] of this.home) actor.position.copy(home);
+    for (const [actor, home] of this.home) {
+      actor.position.copy(home);
+      this.previousPresentation.get(actor)?.copy(home);
+      this.previousHeading.set(actor,actor.rotation.y);
+    }
   }
 
   separation(a: THREE.Object3D, b: THREE.Object3D): number {

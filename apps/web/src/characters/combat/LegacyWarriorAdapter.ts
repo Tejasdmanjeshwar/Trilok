@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { AnimatedWarrior, Motion } from "../../actors/AnimatedWarrior";
-import type { AnatomicalGraphV1 } from "@trilok/character-core";
+import type { AnatomicalGraphV1,LocomotionIntent } from "@trilok/character-core";
 
 /** Test-only bridge for the D14 group-driven renderer. This is NOT a new skinned actor. */
 export class LegacyWarriorAdapter implements AnimatedWarrior {
@@ -40,6 +40,9 @@ export class LegacyWarriorAdapter implements AnimatedWarrior {
   face(target:THREE.Vector3):void { this.warrior.face(target); }
   equip(weapon:Parameters<AnimatedWarrior["equip"]>[0]):void {this.warrior.equip(weapon);}
   setLocomotion(moving:boolean):void {this.warrior.setLocomotion(moving);}
+  setLocomotionIntent(intent:LocomotionIntent):void {
+    this.warrior.setLocomotionIntent(intent);
+  }
   socketWorld(out:THREE.Vector3):THREE.Vector3 {return this.warrior.socketWorld(out);}
   /** Existing Warrior still owns its mixer, meshes and full disposal. */
   dispose():void {this.warrior.dispose();}

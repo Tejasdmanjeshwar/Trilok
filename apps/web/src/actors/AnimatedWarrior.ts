@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { createWarrior, type WarriorRole } from "./warrior";
 import type { WeaponId } from "@trilok/combat";
+import type { LocomotionIntent } from "@trilok/character-core";
+import {LegacyCanonicalLegProjection} from "./LegacyCanonicalLegProjection";
 
 export type Motion = "idle" | "attack" | "flurry_melee" | "feint_melee" | "delayed_melee" | "rapid_melee" | "heavy_melee" | "melee" | "windup" | "parry" | "intercept" | "riposte" | "dodge" | "hit" | "hit_heavy" | "hit_arm" | "hit_head" | "victory";
 type Key = readonly [number, number, number, number];
@@ -120,12 +122,16 @@ function clips(): Record<Motion, THREE.AnimationClip> {
 
 export interface AnimatedWarrior {
   readonly root: THREE.Group;
+  /** Opt-in QA inspection of which leg-presentation data is active. */
+  readonly locomotionSource?:"legacy"|"kevin";
   play(name: Motion): void;
   update(deltaSeconds: number, actionElapsedMs?: number): void;
   socketWorld(target: THREE.Vector3): THREE.Vector3;
   face(target: THREE.Vector3): void;
   equip(weapon: WeaponId): void;
   setLocomotion(moving: boolean): void;
+  /** Presentation input sampled from authorized movement; never changes root. */
+  setLocomotionIntent(intent:LocomotionIntent):void;
   dispose(): void;
 }
 
@@ -146,17 +152,43 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
   const rightArm = rig.root.getObjectByName("RightArm");
   const torso = rig.root.getObjectByName("Torso");
   let moving = false;
+  let intent:LocomotionIntent={forward:0,lateral:0,turn:0,grounded:true};
   let gait = 0;
   let stride = 0;
+  let canonical:LegacyCanonicalLegProjection|undefined;
+  let pendingCanonical:Promise<void>|undefined;
+  let canonicalBlend=0;
+  let disposed=false;
+  const requestCanonical=():void=>{
+    if(canonical||pendingCanonical||disposed)return;
+    pendingCanonical=LegacyCanonicalLegProjection.load().then(instance=>{
+      if(disposed)instance.dispose();
+      else canonical=instance;
+    }).catch(error=>{
+      // Explicitly retain the legacy gait if an optional lazy chunk fails.
+      // Combat authority and action animations must never depend on an
+      // animation-resource download completing successfully.
+      console.warn("Canonical combat locomotion unavailable",error);
+    });
+  };
   active.play();
   return {
     root: rig.root,
+    get locomotionSource(){return canonical?"kevin":"legacy" as const;},
     face: rig.face,
     equip(weapon) {
       equipped = weapon;
       rig.equip(weapon);
     },
     setLocomotion(value) { moving = value; },
+    setLocomotionIntent(value) {
+      if(![value.forward,value.lateral,value.turn].every(Number.isFinite)||
+        typeof value.grounded!=="boolean")
+        throw new Error("Invalid actor locomotion presentation input");
+      intent={...value};
+      moving=value.grounded&&Math.hypot(value.forward,value.lateral)>1e-3;
+      if(moving||Math.abs(value.turn)>1e-3)requestCanonical();
+    },
     play(name) {
       if (current === name) {
         if (name !== "idle") active.reset().play();
@@ -185,11 +217,36 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       }
       // A small procedural gait layer prevents root-motion slides while moving.
       // Leg joints are not animated by the authored upper-body clips.
-      gait += ((moving ? 1 : 0) - gait) * (1 - Math.exp(-11 * dt));
-      stride += dt * 14;
+      // Legacy combat mesh compatibility: gait follows observed movement,
+      // not intended travel. Canonical C5 skinned locomotion remains in Studio;
+      // this proxy only has one hinge per leg and cannot run its foot IK.
+      const magnitude=Math.min(1,Math.hypot(intent.forward,intent.lateral));
+      const amplitude=moving?(magnitude>1e-3?magnitude:1):0;
+      gait += (amplitude - gait) * (1 - Math.exp(-11 * dt));
+      const direction=intent.forward<-.01?-1:1;
+      stride += dt * (7+7*magnitude) * direction;
       const step = Math.sin(stride);
-      if (leftLeg) leftLeg.rotation.x = step * gait * .57;
-      if (rightLeg) rightLeg.rotation.x = -step * gait * .57;
+      canonicalBlend+=((canonical?1:0)-canonicalBlend)*
+        (1-Math.exp(-dt/.2));
+      let authored:{leftPitch:number;rightPitch:number;leftRoll:number;rightRoll:number}|undefined;
+      if(canonical){
+        canonical.setIntent(intent);
+        authored=canonical.sample(dt);
+      }
+      const fallbackRoll=Math.max(-.15,Math.min(.15,intent.lateral*.15))*gait;
+      const sourceAmplitude=Math.max(gait,Math.abs(intent.turn));
+      if (leftLeg) {
+        leftLeg.rotation.x=THREE.MathUtils.lerp(step*gait*.57,
+          (authored?.leftPitch??0)*sourceAmplitude,canonicalBlend);
+        leftLeg.rotation.z=THREE.MathUtils.lerp(fallbackRoll,
+          (authored?.leftRoll??0)*sourceAmplitude,canonicalBlend);
+      }
+      if (rightLeg) {
+        rightLeg.rotation.x=THREE.MathUtils.lerp(-step*gait*.57,
+          (authored?.rightPitch??0)*sourceAmplitude,canonicalBlend);
+        rightLeg.rotation.z=THREE.MathUtils.lerp(fallbackRoll,
+          (authored?.rightRoll??0)*sourceAmplitude,canonicalBlend);
+      }
       if (torso) torso.position.y = Math.abs(step) * gait * .045;
       if (current === "idle") {
         if (leftArm) leftArm.rotation.x += -step * gait * .22;
@@ -203,6 +260,8 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       return anchor.localToWorld(out.set(0, -.78, .28));
     },
     dispose() {
+      disposed=true;
+      canonical?.dispose();
       mixer.stopAllAction();
       mixer.uncacheRoot(rig.root);
       rig.dispose();
