@@ -7,7 +7,7 @@ permissions:
 jobs:
   chromium-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -35,6 +35,8 @@ jobs:
         run: pnpm exec playwright test e2e/studio-animation-c6-3-integrated.spec.ts e2e/studio-animation-c6-2.spec.ts --project=desktop-chromium
       - name: Render approved Kevin 2D locomotion in desktop and touch Chromium
         run: pnpm exec playwright test e2e/studio-animation-c6-3-locomotion-preview.spec.ts --project=desktop-chromium --project=touch-chromium
+      - name: Measure grounded skinned-sole and pelvis in desktop/touch WebGL
+        run: pnpm exec playwright test e2e/studio-animation-c6-3-ground-contact-review.spec.ts --project=desktop-chromium --project=touch-chromium
       - name: Archive actual skin screenshots and failure traces
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,6 +46,7 @@ jobs:
             test-results/studio-c6-3/
             test-results/studio-c6-3-locomotion/
             test-results/studio-c6-2/
+            test-results/studio-c6-3-ground/
             test-results/**/trace.zip
           if-no-files-found: warn
           retention-days: 14

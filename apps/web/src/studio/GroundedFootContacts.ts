@@ -9,6 +9,7 @@ import type {JointFrame,JointFreedom} from "../characters/geometry/AnatomicalFK"
  * set actor world position or decide collisions.
  */
 export interface GroundContactSurface {
+  /** Simulation/collision-owned height query in world metres; undefined is unknown. */
   heightAt(x:number,z:number): number | undefined;
 }
 export interface GroundContactMetrics {
@@ -16,6 +17,24 @@ export interface GroundContactMetrics {
   readonly maxAnchorSlipMeters:number;
   readonly maxPenetrationMeters:number;
   readonly unreachableFeet:number;
+  /** Actual deformed skin was available for this many feet (0–2). */
+  readonly sampledSoleFeet?:number;
+  /** Pose-only vertical pelvis correction, never actor/root translation. */
+  readonly pelvisOffsetMeters?:number;
+  /** Contact-eligibility diagnostics; these are observations, not plant markers. */
+  readonly nearestSoleGapMeters?:number;
+  readonly nearestSoleSpeedMetersPerSecond?:number;
+  readonly nearGroundFeet?:number;
+  readonly rawSolePenetrationMeters?:number;
+}
+/** Immutable, diagnostic-only view of the actual posed contact region. */
+export interface FootContactSnapshot {
+  readonly side:"left"|"right";
+  readonly worldPoint:readonly [number,number,number];
+  readonly worldAnchor:readonly [number,number,number];
+  readonly planted:boolean;
+  readonly blend:number;
+  readonly skinned:boolean;
 }
 interface FootChain {
   hip:THREE.Object3D;
@@ -24,12 +43,17 @@ interface FootChain {
   hipFlex?:JointFreedom;
   hipAbduct?:JointFreedom;
   kneeFlex?:JointFreedom;
+  ankleFlex?:JointFreedom;
   ankle:THREE.Object3D;
   toe:THREE.Object3D;
   anchor:THREE.Vector3;
   previous:THREE.Vector3;
   soleOffset:number;
+  /** Two measured skin vertices, calibrated once per regenerated morphology. */
+  samples:readonly {mesh:THREE.SkinnedMesh;index:number}[];
   planted:boolean;
+  /** The real skinned heel or forefoot vertex bearing contact. */
+  region:"heel"|"toe";
   blend:number;
 }
 const minReach=.03;
@@ -37,6 +61,7 @@ const minReach=.03;
 export class GroundedFootContacts {
   private readonly chains:FootChain[];
   private readonly surface:GroundContactSurface;
+  private readonly frames?:ReadonlyMap<string,JointFrame>;
   private disposed=false;
   private readonly scratch=new THREE.Vector3();
   private readonly bend=new THREE.Vector3();
@@ -51,13 +76,40 @@ export class GroundedFootContacts {
   private readonly c=new THREE.Vector3();
   private readonly rotation=new THREE.Quaternion();
   private readonly after=new THREE.Vector3();
+  private readonly ankleRaw=new THREE.Vector3();
+  private readonly sole=new THREE.Vector3();
+  private readonly heel=new THREE.Vector3();
+  private readonly toeSample=new THREE.Vector3();
+  private readonly previousRoot=new THREE.Vector3();
+  private readonly rootMovement=new THREE.Vector3();
+  private readonly worldRoot=new THREE.Vector3();
+  private readonly worldFootMovement=new THREE.Vector3();
+  private readonly localShift=new THREE.Vector3();
+  private readonly pelvisRotation=new THREE.Quaternion();
+  private readonly up=new THREE.Vector3(0,1,0);
+  private readonly pelvis?:THREE.Object3D;
+  private readonly footSamples:number;
+  private readonly root:THREE.Object3D;
+  private rootObserved=false;
+  private pelvisHeight=0;
+  private pelvisLateral=0;
+  private pelvisLean=0;
+  private readonly lastCorrectedPosition=new THREE.Vector3();
+  private readonly lastCorrectedOrientation=new THREE.Quaternion();
+  private readonly sourcePelvisPosition=new THREE.Vector3();
+  private readonly sourcePelvisOrientation=new THREE.Quaternion();
+  private hasLastCorrection=false;
   private metrics:GroundContactMetrics={
     plantedFeet:0,maxAnchorSlipMeters:0,maxPenetrationMeters:0,unreachableFeet:0,
   };
   constructor(character:SemanticCharacter,ground:GroundContactSurface={heightAt:()=>0},
     frames?:ReadonlyMap<string,JointFrame>) {
     this.surface=ground;
+    this.frames=frames;
+    this.root=character.root;
     const graph:AnatomicalGraphV1=character.graph;
+    const pelvisId=graph.joints.find(j=>j.role==="pelvis")?.id;
+    this.pelvis=pelvisId?character.joint(pelvisId):undefined;
     const role=(name:string)=>{
       const candidates=graph.joints.filter(j=>j.role===name);
       if(candidates.length!==1)throw new Error("Ground contact joint not unique: "+name);
@@ -77,22 +129,140 @@ export class GroundedFootContacts {
         const id=graph.joints.find(j=>j.role===roleName)?.id;
         return id?frames?.get(id)?.freedoms.get(motion):undefined;
       };
-      return {hip,knee,ankle,toe,
+      const samples=this.calibrateSole(character.root,ankle,toe);
+      const previous=ankleAt.clone().addScaledVector(this.up,-soleOffset);
+      let region:"heel"|"toe"="heel";
+      if(samples.length===2){
+        this.skinWorld(samples[0]!,this.heel);
+        this.skinWorld(samples[1]!,this.toeSample);
+        region=this.heel.y<=this.toeSample.y?"heel":"toe";
+        previous.copy(region==="heel"?this.heel:this.toeSample);
+      }
+      return {hip,knee,ankle,toe,samples,
         hipFlex:calibrated("hip_"+side,"flexion"),
         hipAbduct:calibrated("hip_"+side,"abduction"),
         kneeFlex:calibrated("knee_"+side,"flexion"),
-        anchor:ankleAt.clone(),previous:ankleAt.clone(),
-        soleOffset,planted:false,blend:0};
+        ankleFlex:calibrated("ankle_"+side,"flexion"),
+        anchor:previous.clone(),previous,
+        soleOffset,planted:false,region,blend:0};
     });
+    this.footSamples=this.chains.filter(c=>c.samples.length===2).length;
+  }
+  /**
+   * Determine heel/toe support from actual bound, currently skinned vertices.
+   * Calibrated once per character: mesh and bone identities are not shared
+   * across regeneration. Never uses a fixed footwear thickness.
+   */
+  private calibrateSole(root:THREE.Object3D,ankle:THREE.Object3D,
+    toe:THREE.Object3D):readonly {mesh:THREE.SkinnedMesh;index:number}[]{
+    const at=ankle.getWorldPosition(new THREE.Vector3());
+    const front=toe.getWorldPosition(new THREE.Vector3());
+    const direction=front.clone().sub(at);direction.y=0;
+    const length=direction.length();
+    if(length<.015)return [];
+    direction.normalize();
+    let heel:{mesh:THREE.SkinnedMesh;index:number;score:number}|undefined;
+    let tip:typeof heel;
+    root.traverse(object=>{
+      if(!(object instanceof THREE.SkinnedMesh))return;
+      const mesh=object;
+      const ankleIndex=mesh.skeleton.bones.indexOf(ankle as THREE.Bone);
+      const toeIndex=mesh.skeleton.bones.indexOf(toe as THREE.Bone);
+      if(ankleIndex<0||toeIndex<0)return;
+      const positions=mesh.geometry.getAttribute("position");
+      const indices=mesh.geometry.getAttribute("skinIndex");
+      const weights=mesh.geometry.getAttribute("skinWeight");
+      if(!positions||!indices||!weights)return;
+      mesh.updateWorldMatrix(true,false);
+      const v=new THREE.Vector3(),offset=new THREE.Vector3();
+      for(let i=0;i<positions.count;i++){
+        let footWeight=0;
+        for(let k=0;k<4;k++){
+          const bone=indices.getComponent(i,k);
+          if(bone===ankleIndex||bone===toeIndex)
+            footWeight+=weights.getComponent(i,k);
+        }
+        if(footWeight<.25)continue;
+        v.fromBufferAttribute(positions,i);
+        mesh.applyBoneTransform(i,v).applyMatrix4(mesh.matrixWorld);
+        offset.copy(v).sub(at);
+        const along=offset.dot(direction);
+        const transverse=offset.clone().addScaledVector(direction,-along).length();
+        if(along<-.12||along>length+.12||transverse>.16||
+          Math.abs(v.y-at.y)>.25)continue;
+        // Height decides sole contact; a small proximity penalty excludes
+        // off-foot vertices when weights spill across nearby regions.
+        const score=v.y+.03*transverse;
+        const candidate={mesh,index:i,score};
+        if(along<=length*.55&&(!heel||score<heel.score))heel=candidate;
+        if(along>=length*.3&&(!tip||score<tip.score))tip=candidate;
+      }
+    });
+    if(!heel||!tip||heel.mesh===tip.mesh&&heel.index===tip.index)return [];
+    return [heel,tip];
+  }
+  private skinWorld(sample:{mesh:THREE.SkinnedMesh;index:number},
+    out:THREE.Vector3):THREE.Vector3{
+    const mesh=sample.mesh;
+    out.fromBufferAttribute(mesh.geometry.getAttribute("position"),sample.index);
+    mesh.applyBoneTransform(sample.index,out);
+    return out.applyMatrix4(mesh.matrixWorld);
+  }
+  private measureSole(chain:FootChain,ankle:THREE.Vector3,
+    out:THREE.Vector3,selectRegion=false):THREE.Vector3 {
+    if(chain.samples.length===2){
+      this.skinWorld(chain.samples[0]!,this.heel);
+      this.skinWorld(chain.samples[1]!,this.toeSample);
+      if(selectRegion){
+        // Contact lives on an ACTUAL sole vertex, never at a fictional
+        // mid-heel/toe XZ location whose height came from another vertex.
+        // Use morphology-scaled height hysteresis to prevent contact-point
+        // switches on a noisy nearly level sole.
+        const hysteresis=this.heel.distanceTo(this.toeSample)*.035;
+        if(chain.region==="heel"&&this.toeSample.y<this.heel.y-hysteresis)
+          chain.region="toe";
+        else if(chain.region==="toe"&&this.heel.y<this.toeSample.y-hysteresis)
+          chain.region="heel";
+      }
+      out.copy(chain.region==="heel"?this.heel:this.toeSample);
+    }else out.copy(ankle).addScaledVector(this.up,-chain.soleOffset);
+    return out;
   }
   get status():GroundContactMetrics {return {...this.metrics};}
+  /** Read-only rendered-sole evidence for QA and terrain-adapter tests.
+   * Never returns mutable skeleton positions or changes stance state. */
+  contactSnapshots():readonly FootContactSnapshot[]{
+    this.live();
+    this.root.updateWorldMatrix(true,true);
+    return this.chains.map((chain,index)=>{
+      const ankle=chain.ankle.getWorldPosition(this.ankleRaw);
+      const point=this.measureSole(chain,ankle,this.sole);
+      return {side:index===0?"left" as const:"right" as const,
+        worldPoint:[point.x,point.y,point.z] as const,
+        worldAnchor:[chain.anchor.x,chain.anchor.y,chain.anchor.z] as const,
+        planted:chain.planted,blend:chain.blend,
+        skinned:chain.samples.length===2};
+    });
+  }
   reset():void {
     this.live();
-    for(const chain of this.chains){chain.planted=false;chain.blend=0;
-      chain.ankle.getWorldPosition(chain.previous);
+    if(this.pelvis&&this.hasLastCorrection &&
+      this.pelvis.position.distanceToSquared(this.lastCorrectedPosition)<1e-14 &&
+      1-Math.abs(this.pelvis.quaternion.dot(this.lastCorrectedOrientation))<1e-12){
+      this.pelvis.position.copy(this.sourcePelvisPosition);
+      this.pelvis.quaternion.copy(this.sourcePelvisOrientation);
+      this.pelvis.updateWorldMatrix(true,true);
     }
+    for(const chain of this.chains){chain.planted=false;chain.blend=0;
+      chain.ankle.getWorldPosition(this.ankleRaw);
+      this.measureSole(chain,this.ankleRaw,chain.previous);
+    }
+    this.rootObserved=false;
+    this.hasLastCorrection=false;
+    this.pelvisHeight=0;this.pelvisLateral=0;this.pelvisLean=0;
     this.metrics={plantedFeet:0,maxAnchorSlipMeters:0,
-      maxPenetrationMeters:0,unreachableFeet:0};
+      maxPenetrationMeters:0,unreachableFeet:0,pelvisOffsetMeters:0,
+      sampledSoleFeet:this.footSamples};
   }
   private live():void {if(this.disposed)throw new Error("Ground contacts disposed");}
   /**
@@ -104,71 +274,218 @@ export class GroundedFootContacts {
     this.live();
     if(!Number.isFinite(deltaSeconds)||deltaSeconds<0||deltaSeconds>1)
       throw new Error("Invalid foot contact delta");
-    let plantedFeet=0,maxAnchorSlipMeters=0,maxPenetrationMeters=0,unreachableFeet=0;
     const dt=Math.max(deltaSeconds,1/120);
-    for(const chain of this.chains){
+    // If a caller advances contact-only (without a new FK pose), undo the
+    // preceding presentation residual before solving. New mixer/FK poses
+    // are left untouched; successive contact passes must not accumulate.
+    if(this.pelvis&&this.hasLastCorrection &&
+      this.pelvis.position.distanceToSquared(this.lastCorrectedPosition)<1e-14 &&
+      1-Math.abs(this.pelvis.quaternion.dot(this.lastCorrectedOrientation))<1e-12){
+      this.pelvis.position.copy(this.sourcePelvisPosition);
+      this.pelvis.quaternion.copy(this.sourcePelvisOrientation);
+      this.pelvis.updateWorldMatrix(true,true);
+    }
+    if(this.pelvis){
+      this.sourcePelvisPosition.copy(this.pelvis.position);
+      this.sourcePelvisOrientation.copy(this.pelvis.quaternion);
+    }
+    let plantedFeet=0,maxAnchorSlipMeters=0,maxPenetrationMeters=0,unreachableFeet=0;
+    let nearestSoleGapMeters=Infinity,nearestSoleSpeedMetersPerSecond=Infinity;
+    let nearGroundFeet=0,rawSolePenetrationMeters=0;
+    this.root.updateWorldMatrix(true,true);
+    this.root.getWorldPosition(this.worldRoot);
+    this.rootMovement.set(0,0,0);
+    if(this.rootObserved)this.rootMovement.copy(this.worldRoot).sub(this.previousRoot);
+    this.previousRoot.copy(this.worldRoot);this.rootObserved=true;
+    const evidence=this.chains.map(chain=>{
       chain.hip.updateWorldMatrix(true,true);
-      const ankle=chain.ankle.getWorldPosition(this.a);
-      const ground=this.surface.heightAt(ankle.x,ankle.z);
-      if(ground===undefined||!Number.isFinite(ground)||!grounded){
-        chain.planted=false;chain.blend=0;chain.previous.copy(ankle);
-        continue;
+      const ankle=chain.ankle.getWorldPosition(this.ankleRaw);
+      const regionBefore=chain.region;
+      const contact=this.measureSole(chain,ankle,this.sole,true);
+      if(chain.region!==regionBefore){
+        // A heel-to-toe roll is a new support region, NOT 20+ cm of
+        // sliding at a single world anchor. Release the old anchor before
+        // establishing a new one at the measured forefoot.
+        chain.planted=false;
+        chain.blend=0;
       }
-      const soleY=ankle.y-chain.soleOffset;
-      const proximity=Math.abs(soleY-ground);
-      const speed=ankle.distanceTo(chain.previous)/dt;
-      // Contact must be near terrain and moving slowly; an anchored foot
-      // keeps its contact until rise/velocity suggests takeoff.
-      const enter=proximity<=.055&&speed<.8;
-      const keep=proximity<=.09&&speed<1.35;
+      // Both measured ends must have valid terrain support: missing terrain
+      // information is not evidence for an invented flat surface.
+      const heelHeight=chain.samples.length===2?
+        this.surface.heightAt(this.heel.x,this.heel.z):undefined;
+      const toeHeight=chain.samples.length===2?
+        this.surface.heightAt(this.toeSample.x,this.toeSample.z):undefined;
+      // Resolve the support elevation at the SAME skinned heel/forefoot
+      // vertex used for the anchor. Taking max(heelHeight,toeHeight)
+      // incorrectly elevates a lower foot region on slopes and makes
+      // world-anchor slip and penetration appear even with stable contact.
+      // Require both region samples so missing terrain never becomes flat.
+      const ground=chain.samples.length===2?
+        (heelHeight!==undefined&&toeHeight!==undefined&&
+          Number.isFinite(heelHeight)&&Number.isFinite(toeHeight)?
+          chain.region==="heel"?heelHeight:toeHeight:undefined):
+        this.surface.heightAt(contact.x,contact.z);
+      // A seek or initial pose evaluation has no elapsed world time:
+      // it cannot provide measured foot velocity or verify a touchdown.
+      // Never fabricate a stance event from a single static low-foot pose.
+      const available=deltaSeconds>0&&ground!==undefined&&
+        Number.isFinite(ground)&&grounded;
+      // Ground contact is defined in the WORLD frame: subtracting actor
+      // translation would incorrectly release a truly stationary planted
+      // sole while the character walks past it.
+      const speed=this.worldFootMovement.copy(contact).sub(chain.previous).length()/dt;
+      const rise=Math.abs(contact.y-chain.previous.y)/dt;
+      if(!available){
+        chain.planted=false;chain.blend=0;chain.previous.copy(contact);
+        return {chain,valid:false,ground:0,contact:contact.clone()};
+      }
+      const leg=chain.hip.getWorldPosition(this.b)
+        .distanceTo(chain.knee.getWorldPosition(this.c))+
+        chain.knee.getWorldPosition(this.c).distanceTo(ankle);
+      // Scale by measured anatomy; phases are advisory, not contact markers.
+      const enterHeight=Math.max(.025,leg*.065);
+      const leaveHeight=Math.max(.045,leg*.12);
+      const proximity=Math.abs(contact.y-ground);
+      nearestSoleGapMeters=Math.min(nearestSoleGapMeters,proximity);
+      nearestSoleSpeedMetersPerSecond=Math.min(nearestSoleSpeedMetersPerSecond,speed);
+      if(proximity<=enterHeight)nearGroundFeet++;
+      rawSolePenetrationMeters=Math.max(rawSolePenetrationMeters,Math.max(0,ground-contact.y));
+      const enter=proximity<=enterHeight&&speed<1.1&&rise<.9;
+      const keep=proximity<=leaveHeight&&speed<2&&rise<1.6;
       if(!chain.planted&&enter){
-        chain.anchor.copy(ankle);
-        chain.anchor.y=ground+chain.soleOffset;
+        chain.anchor.copy(contact);chain.anchor.y=ground;
         chain.planted=true;
       }else if(chain.planted&&!keep)chain.planted=false;
-      chain.previous.copy(ankle);
+      chain.previous.copy(contact);
       const desired=chain.planted?1:0;
-      chain.blend+=Math.min(1,dt/(desired? .09:.11))*(desired-chain.blend);
-      if(chain.blend<.0001){chain.blend=0;continue;}
-      // Plant target stays fixed in world space; during release it approaches
-      // current authored ankle smoothly. Reachability is measured and clamped.
-      this.scratch.copy(ankle).lerp(chain.anchor,chain.blend);
-      this.scratch.y=Math.max(ground+chain.soleOffset,this.scratch.y);
+      chain.blend+=(1-Math.exp(-dt/(desired?.09:.11)))*(desired-chain.blend);
+      if(chain.blend<1e-5)chain.blend=0;
+      return {chain,valid:true,ground,contact:contact.clone()};
+    });
+    // Pose-only pelvis adjustment, after source FK and before residual leg IK.
+    // Up/down follows observed contact residual; lateral shift and roll
+    // favor the single support leg without modifying the gameplay actor.
+    const support=evidence.filter(e=>e.valid&&e.chain.planted);
+    if(this.pelvis&&this.chains.every(c=>c.hipFlex&&c.kneeFlex)){
+      const heightTarget=grounded&&support.length?
+        THREE.MathUtils.clamp(support.reduce((sum,e)=>
+          sum+e.ground-e.contact.y,0)/support.length,-.035,.035):0;
+      const parent=this.pelvis.parent;
+      const pelvisWorld=this.pelvis.getWorldPosition(this.b);
+      // Weight transfer is lateral in the CHARACTER frame, not world X:
+      // the same pose must work when the actor turns toward any heading.
+      const toward=support.length===1?
+        this.localShift.copy(support[0]!.contact).sub(pelvisWorld)
+          .dot(this.worldAxis.set(1,0,0)
+            .transformDirection(this.root.matrixWorld)):0;
+      const lateralTarget=grounded?
+        THREE.MathUtils.clamp(toward*.12,-.024,.024):0;
+      const response=1-Math.exp(-dt/.13);
+      this.pelvisHeight+=(heightTarget-this.pelvisHeight)*response;
+      this.pelvisLateral+=(lateralTarget-this.pelvisLateral)*response;
+      this.pelvisLean+=(THREE.MathUtils.clamp(-this.pelvisLateral*.85,-.03,.03)-
+        this.pelvisLean)*response;
+      this.localShift.set(this.pelvisLateral,this.pelvisHeight,0);
+      if(parent) {
+        parent.getWorldQuaternion(this.sourceQ).invert();
+        this.localShift.applyQuaternion(this.sourceQ);
+      }
+      // FK supplies the untouched authored pose each frame; no pelvis/root
+      // drift is stored in game state or injected into animation assets.
+      this.pelvis.position.add(this.localShift);
+      this.pelvisRotation.setFromAxisAngle(this.worldAxis.set(0,0,1),this.pelvisLean);
+      this.pelvis.quaternion.multiply(this.pelvisRotation).normalize();
+      this.pelvis.updateWorldMatrix(true,true);
+    }
+    if(this.pelvis){
+      this.lastCorrectedPosition.copy(this.pelvis.position);
+      this.lastCorrectedOrientation.copy(this.pelvis.quaternion);
+      this.hasLastCorrection=true;
+    }
+    for(const item of evidence){
+      const {chain,valid,ground,contact}=item;
+      if(!valid||chain.blend<1e-5)continue;
+      chain.ankle.getWorldPosition(this.a);
+      // Anchor is a WORLD sole surface point. The ankle IK target is the
+      // measured difference from that point to its current deformed skin.
+      this.scratch.copy(this.a).addScaledVector(
+        this.delta.copy(chain.anchor).sub(contact),chain.blend);
       const hip=chain.hip.getWorldPosition(this.b);
       const knee=chain.knee.getWorldPosition(this.c);
-      const upper=hip.distanceTo(knee);
-      const lower=knee.distanceTo(ankle);
-      if(upper<minReach||lower<minReach){unreachableFeet++;continue;}
+      const upper=hip.distanceTo(knee),lower=knee.distanceTo(this.a);
+      if(upper<minReach||lower<minReach){
+        unreachableFeet++;
+        // The existing C5 bones are degenerate: do not force a fallback
+        // rotation. Release support smoothly rather than retaining an anchor.
+        chain.planted=false;
+        chain.blend*=Math.exp(-dt/.11);
+        continue;
+      }
       const distance=hip.distanceTo(this.scratch);
       const maxReach=(upper+lower)*.985;
       const minDistance=Math.abs(upper-lower)+.012;
       if(distance>maxReach||distance<minDistance){
         unreachableFeet++;
-        this.scratch.sub(hip).setLength(THREE.MathUtils.clamp(distance,minDistance,maxReach)).add(hip);
+        // No authored foot can remain planted beyond the measured reach.
+        // Fade out support; clamp only the residual correction target, NOT
+        // the gameplay root or the original world-space foot anchor.
+        chain.planted=false;
+        chain.blend*=Math.exp(-dt/.11);
+        if(distance<1e-8)continue;
+        this.scratch.sub(hip).setLength(
+          THREE.MathUtils.clamp(distance,minDistance,maxReach)).add(hip);
       }
-      // Bounded residual updates in the *existing* C5 leg hinge planes.
-      // Never choose arbitrary CCD axes or force a knee through extension.
-      // Uncalibrated test/proxy rigs deliberately receive no IK correction.
       this.correction.clear();
       for(let iter=0;iter<4;iter++){
-        this.rotateBounded(chain.knee,chain.ankle,this.scratch,chain.kneeFlex,
-          "knee",.14);
-        this.rotateBounded(chain.hip,chain.ankle,this.scratch,chain.hipFlex,
-          "hip-flex",.12);
-        this.rotateBounded(chain.hip,chain.ankle,this.scratch,chain.hipAbduct,
-          "hip-abduct",.075);
+        this.rotateBounded(chain.knee,chain.ankle,this.scratch,chain.kneeFlex,"knee",.14);
+        this.rotateBounded(chain.hip,chain.ankle,this.scratch,chain.hipFlex,"hip-flex",.12);
+        this.rotateBounded(chain.hip,chain.ankle,this.scratch,chain.hipAbduct,"hip-abduct",.075);
       }
       chain.hip.updateWorldMatrix(true,true);
       chain.ankle.getWorldPosition(this.after);
+      let sole=this.measureSole(chain,this.after,this.sole);
+      // On a verified support, use the two REAL skinned-foot sample points
+      // and the caller's local terrain height to align ankle pitch to the
+      // measured longitudinal slope. No new ankle freedom or tilt marker.
+      if(chain.planted&&chain.samples.length===2&&chain.ankleFlex){
+        const heelGround=this.surface.heightAt(this.heel.x,this.heel.z);
+        const toeGround=this.surface.heightAt(this.toeSample.x,this.toeSample.z);
+        if(heelGround!==undefined&&toeGround!==undefined&&
+          Number.isFinite(heelGround)&&Number.isFinite(toeGround)){
+          const groundRise=toeGround-heelGround;
+          // Add the TERRAIN slope as a bounded residual. Preserve the
+          // authored Kevin ankle/toe pitch on a flat surface; normal source
+          // toe-off is not evidence of a sloped ground plane.
+          const error=groundRise;
+          if(Number.isFinite(error)&&Math.abs(error)>1e-5){
+            chain.toe.getWorldPosition(this.after);
+            this.scratch.copy(this.after);
+            // A residual only, not a source-clip overwrite: constrain the
+            // toe target by measured foot length and a gentle pitch budget.
+            const along=this.toeSample.distanceTo(this.heel);
+            this.scratch.y+=THREE.MathUtils.clamp(error,
+              -along*.18,along*.18);
+            this.rotateBounded(chain.ankle,chain.toe,this.scratch,
+              chain.ankleFlex,"ankle-flex",.065);
+            chain.ankle.getWorldPosition(this.after);
+            sole=this.measureSole(chain,this.after,this.sole);
+          }
+        }
+      }
       if(chain.planted){
         plantedFeet++;
         maxAnchorSlipMeters=Math.max(maxAnchorSlipMeters,
-          this.after.distanceTo(chain.anchor));
+          sole.distanceTo(chain.anchor));
       }
-      maxPenetrationMeters=Math.max(maxPenetrationMeters,
-        Math.max(0,ground-(this.after.y-chain.soleOffset)));
+      maxPenetrationMeters=Math.max(maxPenetrationMeters,Math.max(0,ground-sole.y));
     }
-    this.metrics={plantedFeet,maxAnchorSlipMeters,maxPenetrationMeters,unreachableFeet};
+    this.metrics={plantedFeet,maxAnchorSlipMeters,maxPenetrationMeters,unreachableFeet,
+      sampledSoleFeet:this.footSamples,
+      pelvisOffsetMeters:this.pelvisHeight,
+      nearestSoleGapMeters:Number.isFinite(nearestSoleGapMeters)?nearestSoleGapMeters:0,
+      nearestSoleSpeedMetersPerSecond:Number.isFinite(nearestSoleSpeedMetersPerSecond)?
+        nearestSoleSpeedMetersPerSecond:0,
+      nearGroundFeet,rawSolePenetrationMeters};
     return this.status;
   }
   /**
@@ -202,17 +519,28 @@ export class GroundedFootContacts {
       gradient.dot(this.delta.copy(target).sub(endAt))/(denom+1e-8),-.07,.07);
     step=THREE.MathUtils.clamp(applied+step,-maxCorrection,maxCorrection)-applied;
     if(Math.abs(step)<1e-7)return;
-    // Knee is a single C5 flexion hinge. Extract current twist signed
-    // around its hinge axis to prohibit hyperextension and excess flexion.
-    if(channel==="knee"){
-      this.neutral.copy(joint.quaternion);
-      desired.set(this.localAxis.x*this.neutral.x+
-        this.localAxis.y*this.neutral.y+
-        this.localAxis.z*this.neutral.z,0,0,this.neutral.w);
+    // Knee and ankle pitch are single C5 hinges. Extract their signed
+    // twist to prohibit hyperextension and out-of-range foot dorsiflexion.
+    if(channel==="knee"||channel==="ankle-flex"){
+      // C5 constraints describe REST-RELATIVE joint motion. Projecting the
+      // absolute local bone quaternion would misclassify source poses whose
+      // calibrated bind orientation is not the identity, especially across
+      // the asymmetric and regenerated skeletons.
+      const rest=this.frames?.get(joint.name)?.rest;
+      if(!rest)return; // No calibrated frame -> never invent a legal hinge.
+      this.neutral.copy(rest).invert().multiply(joint.quaternion).normalize();
+      const projection=this.localAxis.x*this.neutral.x+
+        this.localAxis.y*this.neutral.y+this.localAxis.z*this.neutral.z;
+      desired.set(projection,0,0,this.neutral.w);
       let angle=2*Math.atan2(desired.x,desired.w);
       if(angle>Math.PI)angle-=2*Math.PI;
       if(angle<-Math.PI)angle+=2*Math.PI;
-      step=THREE.MathUtils.clamp(angle+step,freedom.min,freedom.max)-angle;
+      const allowable=THREE.MathUtils.clamp(angle+step,
+        freedom.min,freedom.max)-angle;
+      // A source FK pose can already exceed its nominal C5 residual range.
+      // Never jump it all the way back to a bound (which would snap the skin);
+      // simply refuse residual correction that cannot move safely.
+      step=Math.abs(allowable)>Math.abs(step)?0:allowable;
     }
     if(Math.abs(step)<1e-7)return;
     this.correction.set(key,applied+step);
