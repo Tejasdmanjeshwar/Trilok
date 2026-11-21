@@ -57,4 +57,47 @@ describe("C6.3 calibrated skinned-foot contact presentation",()=>{
       contacts.dispose();other.dispose();a.dispose();b.dispose();
     }
   });
+  it("preserves measured world anchors under authorized actor translation and releases on lift",()=>{
+    const spike=createSkinningSpike();
+    const root=spike.character.root;
+    const fk=new AnatomicalFK(spike.graph,spike.bones);
+    const calibration=new GroundedFootContacts(spike.character,undefined,fk.frames);
+    // The terrain is located at the actual current anatomical sole, not at
+    // a hard-coded zero plane or a fabricated authored phase marker.
+    const rest=calibration.contactSnapshots();
+    expect(rest).toHaveLength(2);
+    const height=rest[0]!.worldPoint[1];
+    calibration.dispose();
+    const contacts=new GroundedFootContacts(spike.character,{
+      heightAt:()=>height,
+    },fk.frames);
+    try {
+      expect(contacts.apply(1/60,true).plantedFeet).toBeGreaterThanOrEqual(1);
+      const before=contacts.contactSnapshots();
+      expect(before.some(foot=>foot.planted)).toBe(true);
+      for(let frame=0;frame<5;frame++){
+        // Actor translation comes from the caller. Foot IK must never alter
+        // this simulation-owned root, even when retaining a support anchor.
+        root.position.z+=.001;
+        const authorized=root.position.clone();
+        contacts.apply(1/60,true);
+        expect(root.position).toEqual(authorized);
+        const after=contacts.contactSnapshots();
+        for(let side=0;side<2;side++){
+          if(before[side]!.planted&&after[side]!.planted){
+            for(let axis=0;axis<3;axis++)
+              expect(after[side]!.worldAnchor[axis])
+                .toBeCloseTo(before[side]!.worldAnchor[axis]!,10);
+          }
+        }
+        finitePose(spike);
+      }
+      root.position.y+=2; // Authorized airborne displacement; no root correction.
+      const above=contacts.apply(1/60,true);
+      expect(above.plantedFeet).toBe(0);
+      expect(contacts.contactSnapshots().every(s=>!s.planted)).toBe(true);
+      expect(root.position.y).toBe(2);
+    }finally{contacts.dispose();spike.dispose();}
+  });
+
 });
