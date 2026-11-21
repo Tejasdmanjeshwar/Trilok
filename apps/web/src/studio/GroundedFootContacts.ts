@@ -397,8 +397,10 @@ export class GroundedFootContacts {
         if(heelGround!==undefined&&toeGround!==undefined&&
           Number.isFinite(heelGround)&&Number.isFinite(toeGround)){
           const groundRise=toeGround-heelGround;
-          const skinnedRise=this.toeSample.y-this.heel.y;
-          const error=groundRise-skinnedRise;
+          // Add the TERRAIN slope as a bounded residual. Preserve the
+          // authored Kevin ankle/toe pitch on a flat surface; normal source
+          // toe-off is not evidence of a sloped ground plane.
+          const error=groundRise;
           if(Number.isFinite(error)&&Math.abs(error)>1e-5){
             chain.toe.getWorldPosition(this.after);
             this.scratch.copy(this.after);
