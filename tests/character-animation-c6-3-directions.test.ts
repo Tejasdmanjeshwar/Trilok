@@ -1,6 +1,7 @@
 import {describe,expect,it} from "vitest";
 import {createAnatomyPreset,CanonicalLocomotionMixer} from "../packages/character-core/src/index";
-import {loadStudioLocomotionLibrary,loadBakedStudioAnimation} from "../apps/web/src/studio/StudioAnimationLibrary";
+import {loadStudioLocomotionLibrary,loadBakedStudioAnimation,registerKevinC63Review,STUDIO_ANIMATIONS} from "../apps/web/src/studio/StudioAnimationLibrary";
+import kevinCatalog from "../assets/animations/sources/kevin-basic-motions-v1.json";
 import {readFileSync} from "node:fs";
 
 const graph=createAnatomyPreset({archetype:"human"});
@@ -119,6 +120,25 @@ describe("C6.3 authored directional locomotion",()=>{
           }
         }
       }
+    }finally{mixer.dispose();}
+  });
+  it("lazy-promotes approved Kevin direction clips without bloating ordinary solo menus",()=>{
+    const before=STUDIO_ANIMATIONS.map(option=>option.id);
+    expect(before).not.toContain("human-kevin-walk-backward");
+    registerKevinC63Review(kevinCatalog.c63ReviewClips.map(entry=>({
+      id:entry.id,label:entry.label,
+      clip:JSON.parse(readFileSync(
+        "assets/animations/studio-v1/kevin/c63/"+entry.id+".clip.json","utf8")),
+    })));
+    expect(STUDIO_ANIMATIONS.map(option=>option.id)).toEqual(before);
+    const promoted=loadStudioLocomotionLibrary(graph);
+    expect(promoted.motions).toHaveLength(19);
+    expect(promoted.turns).toHaveLength(2);
+    const mixer=new CanonicalLocomotionMixer(graph,promoted);
+    try{
+      mixer.setIntent(intent(-.45,.45));
+      mixer.advance(.3);
+      expect(mixer.blendWeights["motion:walk:backward-right"]).toBeGreaterThan(0);
     }finally{mixer.dispose();}
   });
   it("retains independently approved UAL1 library sampling",()=>{
