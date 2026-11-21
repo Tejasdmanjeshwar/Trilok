@@ -72,6 +72,10 @@ describe("C6.3 calibrated skinned-foot contact presentation",()=>{
       heightAt:()=>height,
     },fk.frames);
     try {
+      // A paused seek has no measured foot velocity and may not assert
+      // support solely because the foot happens to be low in the pose.
+      expect(contacts.apply(0,true).plantedFeet).toBe(0);
+      expect(contacts.contactSnapshots().every(foot=>!foot.planted)).toBe(true);
       expect(contacts.apply(1/60,true).plantedFeet).toBeGreaterThanOrEqual(1);
       const before=contacts.contactSnapshots();
       expect(before.some(foot=>foot.planted)).toBe(true);
