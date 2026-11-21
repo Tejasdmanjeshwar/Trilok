@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "source": "kevin-basic-motions-v1",
+  "semantics": "C6.3 manually approved authored movement coverage; optional contact markers require offline measured verification",
+  "motions": [
+    {
+      "id": "human-kevin-walk-backward",
+      "gait": "walk",
+      "direction": "backward"
+    },
+    {
+      "id": "human-kevin-walk-backward-left",
+      "gait": "walk",
+      "direction": "backward-left"
+    },
+    {
+      "id": "human-kevin-walk-backward-right",
+      "gait": "walk",
+      "direction": "backward-right"
+    },
+    {
+      "id": "human-kevin-walk-forward-left",
+      "gait": "walk",
+      "direction": "forward-left"
+    },
+    {
+      "id": "human-kevin-walk-forward-right",
+      "gait": "walk",
+      "direction": "forward-right"
+    },
+    {
+      "id": "human-kevin-walk-left",
+      "gait": "walk",
+      "direction": "left"
+    },
+    {
+      "id": "human-kevin-walk-right",
+      "gait": "walk",
+      "direction": "right"
+    },
+    {
+      "id": "human-kevin-run-backward",
+      "gait": "jog",
+      "direction": "backward"
+    },
+    {
+      "id": "human-kevin-run-backward-left",
+      "gait": "jog",
+      "direction": "backward-left"
+    },
+    {
+      "id": "human-kevin-run-backward-right",
+      "gait": "jog",
+      "direction": "backward-right"
+    },
+    {
+      "id": "human-kevin-run-forward-left",
+      "gait": "jog",
+      "direction": "forward-left"
+    },
+    {
+      "id": "human-kevin-run-forward-right",
+      "gait": "jog",
+      "direction": "forward-right"
+    },
+    {
+      "id": "human-kevin-run-left",
+      "gait": "jog",
+      "direction": "left"
+    },
+    {
+      "id": "human-kevin-run-right",
+      "gait": "jog",
+      "direction": "right"
+    },
+    {
+      "id": "human-kevin-sprint-forward",
+      "gait": "sprint",
+      "direction": "forward"
+    },
+    {
+      "id": "human-kevin-sprint-forward-left",
+      "gait": "sprint",
+      "direction": "forward-left"
+    },
+    {
+      "id": "human-kevin-sprint-forward-right",
+      "gait": "sprint",
+      "direction": "forward-right"
+    },
+    {
+      "id": "human-kevin-sprint-left",
+      "gait": "sprint",
+      "direction": "left"
+    },
+    {
+      "id": "human-kevin-sprint-right",
+      "gait": "sprint",
+      "direction": "right"
+    }
+  ],
+  "turns": [
+    {
+      "id": "human-kevin-turn-left",
+      "direction": "left"
+    },
+    {
+      "id": "human-kevin-turn-right",
+      "direction": "right"
+    }
+  ]
+}
