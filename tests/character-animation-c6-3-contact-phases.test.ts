@@ -17,7 +17,9 @@ const source=(name:string)=>readFileSync(
   "apps/web/public/anatomy/"+name,"utf8");
 const mapping=JSON.parse(readFileSync(
   "assets/animations/studio-v1/kevin/c63/locomotion-map.json","utf8")) as {
-    motions:{id:string;gait:string;direction:string}[];
+    phaseBaselines:Record<string,{leftPhase:number;rightPhase:number;sampleCount:number}>;
+    motions:{id:string;gait:string;direction:string;
+      phaseReference:{leftPhase:number;rightPhase:number;sampleCount:number}}[];
   };
 describe("C6.3 source-measured gait phase diagnostics",()=>{
   it("records left/right lowest calibrated ankle-toe phases across authored cycles",()=>{
@@ -74,6 +76,14 @@ describe("C6.3 source-measured gait phase diagnostics",()=>{
           phaseSeparation:Math.min(distance,1-distance),
         }));
         expect(trough.every(v=>Number.isFinite(v.phase)&&Number.isFinite(v.y))).toBe(true);
+        const reference=record.id==="human-kevin-walk"||
+          record.id==="human-kevin-run"?
+          mapping.phaseBaselines[record.gait]:
+          mapping.motions.find(m=>m.id===record.id)?.phaseReference;
+        expect(reference,record.id+" measured phase reference").toBeDefined();
+        expect(reference!.sampleCount).toBe(count);
+        expect(reference!.leftPhase).toBeCloseTo(trough[0]!.phase,10);
+        expect(reference!.rightPhase).toBeCloseTo(trough[1]!.phase,10);
       }
     }finally{human.dispose();}
   },120_000);
