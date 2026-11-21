@@ -24,11 +24,21 @@ export interface LocomotionGaitContactsV1 {
   readonly leftPlantPhase: number;
   readonly rightPlantPhase: number;
 }
+/** Measured signal, NOT a plant/contact claim: lowest average height
+ * of the calibrated ankle and toe over 96 uniformly sampled loop phases. */
+export interface LocomotionPhaseReferenceV1 {
+  readonly schemaVersion: 1;
+  readonly signal: "ankle-toe-height-minimum";
+  readonly sampleCount: 96;
+  readonly leftPhase: number;
+  readonly rightPhase: number;
+}
 export interface LocomotionMotionV1 {
   readonly gait: LocomotionGait;
   readonly direction: TravelDirection;
   readonly clip: AnimationClipV1;
   readonly contacts?: LocomotionGaitContactsV1;
+  readonly phaseReference?: LocomotionPhaseReferenceV1;
 }
 export interface LocomotionTurnV1 {
   readonly direction: "left" | "right";
@@ -41,6 +51,9 @@ export interface LocomotionLibrary {
   readonly sprint: AnimationClipV1;
   /** Backward-compatible C6.3 diagnostic clips. No gait family is inferred. */
   readonly directional?: Partial<Record<LocomotionDirection, AnimationClipV1>>;
+  /** Calibrated, source-measured forward reference phase for each gait.
+   * A phase reference aligns low-foot extrema, never claims a foot plant. */
+  readonly phaseBaselines?: Partial<Record<LocomotionGait,LocomotionPhaseReferenceV1>>;
   /** Validated, source-backed direction and speed metadata. */
   readonly motions?: readonly LocomotionMotionV1[];
   /** Explicit one-shot turning clips; never included in periodic gait phase. */
@@ -116,6 +129,14 @@ export class CanonicalLocomotionMixer {
       entries.push([key,clip]);
       this.directionIds.set(direction,key);
     }
+    const validPhase=(p:LocomotionPhaseReferenceV1):boolean=>
+      p?.schemaVersion===1 && p.signal==="ankle-toe-height-minimum" &&
+      p.sampleCount===96 &&
+      finite(p.leftPhase) && finite(p.rightPhase) &&
+      p.leftPhase>=0 && p.leftPhase<1 &&
+      p.rightPhase>=0 && p.rightPhase<1;
+    for(const baseline of Object.values(library.phaseBaselines??{}))
+      if(!validPhase(baseline))throw new Error("Invalid forward gait phase baseline");
     for(const motion of library.motions??[]){
       if(!DIRECTIONS.includes(motion.direction) ||
         !(["walk","jog","sprint"] as readonly string[]).includes(motion.gait))
@@ -131,6 +152,15 @@ export class CanonicalLocomotionMixer {
           c.rightPlantPhase<0 || c.rightPlantPhase>=1)
           throw new Error("Invalid measured gait contacts for "+key);
         this.contactPhases.set(key,c.leftPlantPhase);
+      }
+      if(motion.phaseReference){
+        const baseline=library.phaseBaselines?.[motion.gait];
+        if(!validPhase(motion.phaseReference) || !baseline)
+          throw new Error("Missing/invalid measured gait phase reference for "+key);
+        // An earlier/later low-foot event must coincide with the same
+        // forward-family low-foot event during walking direction changes.
+        this.contactPhases.set(key,
+          motion.phaseReference.leftPhase-baseline.leftPhase);
       }
       entries.push([key,motion.clip]);this.motionIds.set(key,key);
     }
@@ -342,7 +372,7 @@ export class CanonicalLocomotionMixer {
       const seconds=key==="idle"?this.idleTime%duration:
         (key.startsWith("turn:")||key.startsWith("direction:turn"))?
           Math.min(this.turnTimes.get(key)??0,duration):
-          ((this.phase+(this.contactPhases.get(key)??0))%1)*duration;
+          (((this.phase+(this.contactPhases.get(key)??0))%1+1)%1)*duration;
       for(const joint of sampler.sample(seconds)){
         const index=this.indices.get(joint.jointId)!;
         if(joint.rotation){
