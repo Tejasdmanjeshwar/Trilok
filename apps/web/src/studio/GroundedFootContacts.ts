@@ -289,10 +289,15 @@ export class GroundedFootContacts {
         this.surface.heightAt(this.heel.x,this.heel.z):undefined;
       const toeHeight=chain.samples.length===2?
         this.surface.heightAt(this.toeSample.x,this.toeSample.z):undefined;
+      // Resolve the support elevation at the SAME skinned heel/forefoot
+      // vertex used for the anchor. Taking max(heelHeight,toeHeight)
+      // incorrectly elevates a lower foot region on slopes and makes
+      // world-anchor slip and penetration appear even with stable contact.
+      // Require both region samples so missing terrain never becomes flat.
       const ground=chain.samples.length===2?
         (heelHeight!==undefined&&toeHeight!==undefined&&
           Number.isFinite(heelHeight)&&Number.isFinite(toeHeight)?
-          Math.max(heelHeight,toeHeight):undefined):
+          chain.region==="heel"?heelHeight:toeHeight:undefined):
         this.surface.heightAt(contact.x,contact.z);
       const available=ground!==undefined&&Number.isFinite(ground)&&grounded;
       // Ground contact is defined in the WORLD frame: subtracting actor
