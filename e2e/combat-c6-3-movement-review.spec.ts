@@ -13,6 +13,10 @@ test("C6.3 combat approach shows moving actor without changing attack legality",
   mkdirSync(root,{recursive:true});
   const canvas=page.locator("#viewport canvas");
   const start=await canvas.screenshot({path:root+"/before.png"});
+  // The default bow only opens the aiming UI. Equip melee so the actual
+  // authorized approach/retreat choreography translates the actor.
+  await page.keyboard.press("Digit2");
+  await expect(page.locator("#weapon-deck .is-equipped")).toContainText("Sword");
   await page.locator("#attack").click();
   await page.waitForTimeout(240);
   const moving=await canvas.screenshot({path:root+"/approach.png"});
