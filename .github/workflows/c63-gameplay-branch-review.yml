@@ -1,5 +1,5 @@
 name: C6.3 gameplay branch Chromium review
-# Temporary one-shot workflow; remove after preserving actual artifacts.
+# Final source-backed Kevin projection review; remove after preserving artifacts.
 on:
   push:
     branches: [feat/c6-3-gameplay-locomotion-presentation]
