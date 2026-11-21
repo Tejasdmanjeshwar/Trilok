@@ -23,6 +23,8 @@ export class StudioLocomotionPlayback {
     samples:0,plantSamples:0,nearGroundSamples:0,
     poseTotalMs:0,contactTotalMs:0,mixerTotalMs:0,
     poseMaxMs:0,contactMaxMs:0,mixerMaxMs:0,
+    maxSupportSlipMeters:0,maxSolePenetrationMeters:0,maxRawPenetrationMeters:0,
+    unreachableFrameSamples:0,
   };
   private contactMetrics:GroundContactMetrics={
     plantedFeet:0,maxAnchorSlipMeters:0,maxPenetrationMeters:0,unreachableFeet:0,
@@ -48,7 +50,10 @@ export class StudioLocomotionPlayback {
       nearGroundSamples:p.nearGroundSamples,poseMeanMs:p.poseTotalMs/n,
       contactMeanMs:p.contactTotalMs/n,mixerMeanMs:p.mixerTotalMs/n,
       poseMaxMs:p.poseMaxMs,contactMaxMs:p.contactMaxMs,
-      mixerMaxMs:p.mixerMaxMs};
+      mixerMaxMs:p.mixerMaxMs,maxSupportSlipMeters:p.maxSupportSlipMeters,
+      maxSolePenetrationMeters:p.maxSolePenetrationMeters,
+      maxRawPenetrationMeters:p.maxRawPenetrationMeters,
+      unreachableFrameSamples:p.unreachableFrameSamples};
   }
   get availableDirections(){return this.mixer.availableDirections;}
   setMovement(forward:number,lateral=0,turn=0,grounded=true):void {
@@ -70,6 +75,13 @@ export class StudioLocomotionPlayback {
     p.samples++;
     if(this.contactMetrics.plantedFeet>0)p.plantSamples++;
     if((this.contactMetrics.nearGroundFeet??0)>0)p.nearGroundSamples++;
+    if(this.contactMetrics.unreachableFeet>0)p.unreachableFrameSamples++;
+    p.maxSupportSlipMeters=Math.max(p.maxSupportSlipMeters,
+      this.contactMetrics.maxAnchorSlipMeters);
+    p.maxSolePenetrationMeters=Math.max(p.maxSolePenetrationMeters,
+      this.contactMetrics.maxPenetrationMeters);
+    p.maxRawPenetrationMeters=Math.max(p.maxRawPenetrationMeters,
+      this.contactMetrics.rawSolePenetrationMeters??0);
     p.poseTotalMs+=poseMs;
     p.contactTotalMs+=contactMs;
     p.poseMaxMs=Math.max(p.poseMaxMs,poseMs);
