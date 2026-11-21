@@ -51,7 +51,7 @@ describe("C6.3 calibrated skinned-foot contact presentation",()=>{
       available=true;
       for(let i=0;i<8;i++)contacts.apply(1/60,true);
       contacts.dispose();
-      expect(()=>contacts.apply(1/60,true)).toThrow(/Disposed/);
+      expect(()=>contacts.apply(1/60,true)).toThrow(/disposed/i);
       expect(Number.isFinite(other.apply(1/60,true).maxAnchorSlipMeters)).toBe(true);
     }finally{
       contacts.dispose();other.dispose();a.dispose();b.dispose();
