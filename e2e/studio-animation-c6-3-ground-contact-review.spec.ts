@@ -14,8 +14,8 @@ async function measured(page:Page):Promise<Diagnostic>{
   const diagnostics=JSON.parse(raw!) as Diagnostic;
   for(const value of [...Object.values(diagnostics.contact),...Object.values(diagnostics.profile)])
     expect(Number.isFinite(value)).toBe(true);
-  expect(diagnostics.contact.sampledSoleFeet).toBeGreaterThanOrEqual(0);
-  expect(diagnostics.contact.sampledSoleFeet).toBeLessThanOrEqual(2);
+  expect(diagnostics.contact.sampledSoleFeet,
+    "Both actual MakeHuman skinned feet must calibrate").toBe(2);
   expect(Math.abs(diagnostics.contact.pelvisOffsetMeters)).toBeLessThanOrEqual(.03501);
   expect(diagnostics.contact.plantedFeet).toBeGreaterThanOrEqual(0);
   expect(diagnostics.contact.plantedFeet).toBeLessThanOrEqual(2);
