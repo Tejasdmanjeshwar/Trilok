@@ -4,7 +4,10 @@ import {mkdirSync,writeFileSync} from "node:fs";
 type Diagnostic={
   contact:{plantedFeet:number;sampledSoleFeet:number;maxAnchorSlipMeters:number;
     maxPenetrationMeters:number;unreachableFeet:number;pelvisOffsetMeters:number};
-  profile:{samples:number;poseMeanMs:number;contactMeanMs:number;mixerMeanMs:number;
+  profile:{samples:number;plantSamples:number;nearGroundSamples:number;
+    maxSupportSlipMeters:number;maxSolePenetrationMeters:number;
+    maxRawPenetrationMeters:number;unreachableFrameSamples:number;
+    poseMeanMs:number;contactMeanMs:number;mixerMeanMs:number;
     poseMaxMs:number;contactMaxMs:number;mixerMaxMs:number};
 };
 /** Explicit manual rendered WebGL review only, not normal PR CI. */
@@ -17,6 +20,8 @@ async function measured(page:Page):Promise<Diagnostic>{
   expect(diagnostics.contact.sampledSoleFeet,
     "Both actual MakeHuman skinned feet must calibrate").toBe(2);
   expect(Math.abs(diagnostics.contact.pelvisOffsetMeters)).toBeLessThanOrEqual(.03501);
+  expect(diagnostics.profile.nearGroundSamples).toBeGreaterThan(0);
+  expect(diagnostics.profile.plantSamples).toBeGreaterThan(0);
   expect(diagnostics.contact.plantedFeet).toBeGreaterThanOrEqual(0);
   expect(diagnostics.contact.plantedFeet).toBeLessThanOrEqual(2);
   return diagnostics;
@@ -45,7 +50,7 @@ test("C6.3 real skinned sole, terrain baseline, pelvis and CPU measurements",asy
     await page.locator("#studio-movement-direction").selectOption(direction);
     await setSpeed(page,direction==="backward"?.5:.85);
     await page.locator("#studio-animation-play").click();
-    await page.waitForTimeout(850);
+    await page.waitForTimeout(1500);
     measurements[direction]=await measured(page);
     await page.locator("#studio-animation-play").click();
     for(const view of ["front","side","rear","three-quarter"] as const){
@@ -69,7 +74,9 @@ test("C6.3 real skinned sole, terrain baseline, pelvis and CPU measurements",asy
     await page.locator("#studio-movement-direction").selectOption("forward");
     await setSpeed(page,.6);
     await page.locator("#studio-animation-play").click();
-    await page.waitForTimeout(700);
+    // A real slow software-WebGL frame schedule may capture only ~6 frames
+    // per 700 ms. Observe multiple complete authored gait loops instead.
+    await page.waitForTimeout(2200);
     measurements[preset]=await measured(page);
     await page.locator("#studio-animation-play").click();
     for(const view of ["front","side","rear","three-quarter"] as const){
