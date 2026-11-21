@@ -6,7 +6,7 @@ test("C6.3 combat approach shows moving actor without changing attack legality",
   test.setTimeout(120_000);
   const errors:string[]=[];
   page.on("pageerror",error=>errors.push(error.message));
-  await page.goto("/");
+  await page.goto("/?c63-gameplay-metrics");
   await expect(page.locator("#loading")).toBeHidden({timeout:20_000});
   await expect(page.locator("#end-turn")).toBeEnabled();
   const root="test-results/c63-gameplay/"+info.project.name;
@@ -18,6 +18,10 @@ test("C6.3 combat approach shows moving actor without changing attack legality",
   await page.keyboard.press("Digit2");
   await expect(page.locator("#weapon-deck .is-equipped")).toContainText("Sword");
   await page.locator("#attack").click();
+  await expect.poll(async()=>{
+    const raw=await canvas.getAttribute("data-c63-gameplay");
+    return raw?(JSON.parse(raw) as {hero:string}).hero:"";
+  },{timeout:45_000,message:"Kevin source-backed canonical mixer must load"}).toBe("kevin");
   await page.waitForTimeout(240);
   const moving=await canvas.screenshot({path:root+"/approach.png"});
   await page.waitForTimeout(360);
