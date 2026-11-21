@@ -6,7 +6,11 @@ import manifest from "../../../../assets/animations/studio-v1/kevin/c63/manifest
 /** Separate code-split review chunk, never requested by normal Studio. */
 const bakes=import.meta.glob<{default:AnimationClipV1}>(
   "../../../../assets/animations/studio-v1/kevin/c63/*.clip.json",{eager:true});
+let installed=false;
+/** Idempotent lazy installation: the review route and normal movement
+ * selector may both request this same code-split source library. */
 export function installKevinC63Review():void{
+  if(installed)return;
   if(manifest.schemaVersion!==1||manifest.selection!=="c63-directional-review"||
     manifest.entries.length!==24||
     manifest.entries.some((entry,i)=>entry.id!==catalog.c63ReviewClips[i]?.id))
@@ -18,4 +22,5 @@ export function installKevinC63Review():void{
       throw new Error("Kevin C6.3 review clip missing: "+id);
     return {id,label,clip};
   }));
+  installed=true;
 }

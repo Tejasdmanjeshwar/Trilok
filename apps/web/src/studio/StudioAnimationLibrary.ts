@@ -7,21 +7,27 @@ import backward from "../../../../assets/animations/studio-v1/human-backward.cli
 import strafeLeft from "../../../../assets/animations/studio-v1/human-strafe-left.clip.json";
 import strafeRight from "../../../../assets/animations/studio-v1/human-strafe-right.clip.json";
 import kevinCatalog from "../../../../assets/animations/sources/kevin-basic-motions-v1.json";
+import kevinMotionMap from "../../../../assets/animations/studio-v1/kevin/c63/locomotion-map.json";
+import type {LocomotionGait,TravelDirection,LocomotionPhaseReferenceV1} from "@trilok/character-core";
 export const EXPERIMENTAL_KEVIN_C63_REVIEW=typeof location!=="undefined" &&
   new URLSearchParams(location.search).has("c63-kevin-review");
 const c63ReviewClips=new Map<string,AnimationClipV1>();
 /** Called by an opt-in, separately bundled Studio chunk; ordinary gameplay
  * and normal Studio do not import any unapproved directional clip. */
 export function registerKevinC63Review(entries:readonly {id:string;label:string;clip:AnimationClipV1}[]):void{
-  if(!EXPERIMENTAL_KEVIN_C63_REVIEW||c63ReviewClips.size||entries.length!==24||
+  if(c63ReviewClips.size||entries.length!==24||
     new Set(entries.map(e=>e.id)).size!==24)
     throw new Error("Invalid C6.3 review registration");
   const selected=new Set(kevinCatalog.c63ReviewClips.map(e=>e.id));
   for(const entry of entries)if(!selected.has(entry.id)||entry.clip.id!==entry.id)
     throw new Error("Unexpected Kevin review source "+entry.id);
   for(const entry of entries)c63ReviewClips.set(entry.id,entry.clip);
-  STUDIO_ANIMATIONS.splice(STUDIO_ANIMATIONS.length-1,0,
-    ...entries.map(({id,label})=>({id,label})));
+  // Owner-approved 24 motion assets are always available to the movement
+  // mixer after explicit lazy-loading, but ordinary Studio's solo selector
+  // remains small. The separate review URL still exposes all 27 solos.
+  if(EXPERIMENTAL_KEVIN_C63_REVIEW)
+    STUDIO_ANIMATIONS.splice(STUDIO_ANIMATIONS.length-1,0,
+      ...entries.map(({id,label})=>({id,label})));
 }
 
 
@@ -58,6 +64,27 @@ export const STUDIO_ANIMATIONS = [
 /** Immutable C6.2 assets are shared with the runtime mixer without rebaking. */
 export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1,
   includeUnacceptedKayKit=false){
+  if(c63ReviewClips.size===24){
+    if(kevinMotionMap.schemaVersion!==1||kevinMotionMap.motions.length!==19||kevinMotionMap.turns.length!==2)
+      throw new Error("Invalid C6.3 authored coverage metadata");
+    return {
+      idle:loadBakedStudioAnimation("human-kevin-idle",graph),
+      walk:loadBakedStudioAnimation("human-kevin-walk",graph),
+      jog:loadBakedStudioAnimation("human-kevin-run",graph),
+      sprint:loadBakedStudioAnimation("human-kevin-sprint-forward",graph),
+      phaseBaselines:kevinMotionMap.phaseBaselines as Record<LocomotionGait,LocomotionPhaseReferenceV1>,
+      motions:kevinMotionMap.motions.map(entry=>({
+        gait:entry.gait as LocomotionGait,
+        direction:entry.direction as TravelDirection,
+        phaseReference:entry.phaseReference as LocomotionPhaseReferenceV1,
+        clip:loadBakedStudioAnimation(entry.id,graph),
+      })),
+      turns:kevinMotionMap.turns.map(entry=>({
+        direction:entry.direction as "left"|"right",
+        clip:loadBakedStudioAnimation(entry.id,graph),
+      })),
+    };
+  }
   return {
     idle:loadBakedStudioAnimation("human-idle",graph),
     walk:loadBakedStudioAnimation("human-walk",graph),

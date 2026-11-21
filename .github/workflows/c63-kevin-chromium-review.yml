@@ -33,6 +33,8 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Test source-backed Kevin and approved UAL1 skinned playback
         run: pnpm exec playwright test e2e/studio-animation-c6-3-integrated.spec.ts e2e/studio-animation-c6-2.spec.ts --project=desktop-chromium
+      - name: Render approved Kevin 2D locomotion in desktop and touch Chromium
+        run: pnpm exec playwright test e2e/studio-animation-c6-3-locomotion-preview.spec.ts --project=desktop-chromium --project=touch-chromium
       - name: Archive actual skin screenshots and failure traces
         if: always()
         uses: actions/upload-artifact@v4
@@ -40,6 +42,7 @@ jobs:
           name: c63-kevin-render-review-${{ github.sha }}
           path: |
             test-results/studio-c6-3/
+            test-results/studio-c6-3-locomotion/
             test-results/studio-c6-2/
             test-results/**/trace.zip
           if-no-files-found: warn

@@ -4,25 +4,62 @@ import {
 } from "./animation";
 import type {AnatomicalGraphV1} from "./schema";
 
-/** Presentation-only movement request. Gameplay decides displacement and heading. */
+/** Presentation request only. The actor simulation owns displacement and heading. */
 export interface LocomotionIntent {
-  /** Fraction of the configured forward top speed; never world displacement. */
   readonly forward: number;
   readonly lateral: number;
   readonly turn: number;
   readonly grounded: boolean;
 }
-export type LocomotionDirection = "forward" | "backward" | "left" | "right" | "turn-left" | "turn-right";
+export type TravelDirection =
+  "forward" | "forward-right" | "right" | "backward-right" |
+  "backward" | "backward-left" | "left" | "forward-left";
+export type LocomotionDirection = TravelDirection | "turn-left" | "turn-right";
+export type LocomotionGait = "walk" | "jog" | "sprint";
+
+/** Offline-measured contact markers in each loop's own normalized timeline.
+ * Missing markers are permitted for legacy clips but are NOT verified phase alignment. */
+export interface LocomotionGaitContactsV1 {
+  readonly schemaVersion: 1;
+  readonly leftPlantPhase: number;
+  readonly rightPlantPhase: number;
+}
+/** Measured signal, NOT a plant/contact claim: lowest average height
+ * of the calibrated ankle and toe over 96 uniformly sampled loop phases. */
+export interface LocomotionPhaseReferenceV1 {
+  readonly schemaVersion: 1;
+  readonly signal: "ankle-toe-height-minimum";
+  readonly sampleCount: 96;
+  readonly leftPhase: number;
+  readonly rightPhase: number;
+}
+export interface LocomotionMotionV1 {
+  readonly gait: LocomotionGait;
+  readonly direction: TravelDirection;
+  readonly clip: AnimationClipV1;
+  readonly contacts?: LocomotionGaitContactsV1;
+  readonly phaseReference?: LocomotionPhaseReferenceV1;
+}
+export interface LocomotionTurnV1 {
+  readonly direction: "left" | "right";
+  readonly clip: AnimationClipV1;
+}
 export interface LocomotionLibrary {
   readonly idle: AnimationClipV1;
   readonly walk: AnimationClipV1;
   readonly jog: AnimationClipV1;
   readonly sprint: AnimationClipV1;
-  /** Authored, independently retargeted source clips; never rotate/reverse forward gait. */
+  /** Backward-compatible C6.3 diagnostic clips. No gait family is inferred. */
   readonly directional?: Partial<Record<LocomotionDirection, AnimationClipV1>>;
+  /** Calibrated, source-measured forward reference phase for each gait.
+   * A phase reference aligns low-foot extrema, never claims a foot plant. */
+  readonly phaseBaselines?: Partial<Record<LocomotionGait,LocomotionPhaseReferenceV1>>;
+  /** Validated, source-backed direction and speed metadata. */
+  readonly motions?: readonly LocomotionMotionV1[];
+  /** Explicit one-shot turning clips; never included in periodic gait phase. */
+  readonly turns?: readonly LocomotionTurnV1[];
 }
 export interface LocomotionTuning {
-  /** Preview speed bands are unitless; simulation can supply its own mapping. */
   readonly speedBands: readonly [number, number, number];
   readonly blendSeconds: number;
 }
@@ -33,28 +70,45 @@ export const DEFAULT_LOCOMOTION_TUNING: LocomotionTuning = Object.freeze({
 const clamp = (value: number, a: number, b: number) => Math.max(a, Math.min(b, value));
 const finite = (n: number) => Number.isFinite(n);
 const neutral: readonly [number,number,number,number] = [0,0,0,1];
+const DIRECTIONS: readonly TravelDirection[] = [
+  "forward","forward-right","right","backward-right",
+  "backward","backward-left","left","forward-left",
+];
+const TAU = Math.PI * 2;
+type TurnPlayback = {key:string;seconds:number;running:boolean};
 
 /**
- * Canonical C6.3 gait mixer. All clips use the same C1 graph; the same
- * normalized gait phase samples simultaneously, eliminating phase reset when
- * changing speeds. No root-space translation is ever returned as actor travel.
- * Contacts, terrain and IK are a separate presentation pass.
+ * C6.3 canonical presentation mixer. The C1 graph is shared with Studio and
+ * runtime actors. Clips supply poses, not movement or collision decisions.
+ * Direction weights are computed from the actual 2D vector (rather than
+ * prioritizing the backward axis); gait family is independently selected
+ * from source metadata. One-shot turns have their own nonlooping clock.
  */
 export class CanonicalLocomotionMixer {
   private readonly samplers: ReadonlyMap<string, AnimationSampler>;
   private readonly durations: ReadonlyMap<string, number>;
   private readonly ids: readonly string[];
+  private readonly indices: ReadonlyMap<string,number>;
   private readonly output: SampledJointV1[];
   private readonly rotations: ([number,number,number,number] | undefined)[];
   private readonly translations: ([number,number,number] | undefined)[];
   private readonly bands: readonly [number,number,number];
   private readonly blendSeconds: number;
   private readonly directionIds = new Map<LocomotionDirection,string>();
+  private readonly motionIds = new Map<string,string>();
+  private readonly contactPhases = new Map<string,number>();
+  private readonly turnIds = new Map<"left"|"right",string>();
+  /** One clock per turn, so an interrupted clip never jumps to the new clip\x27s time. */
+  private readonly turnTimes=new Map<string,number>();
   private readonly weights = new Map<string,number>();
   private target: LocomotionIntent = {forward:0,lateral:0,turn:0,grounded:true};
   private phase = 0;
   private idleTime = 0;
+  private playback:TurnPlayback|undefined;
+  private turnArmed=true;
+  private lastTurnSide:"left"|"right"|undefined;
   private disposed = false;
+
   constructor(graph: AnatomicalGraphV1, library: LocomotionLibrary,
     tuning: LocomotionTuning = DEFAULT_LOCOMOTION_TUNING) {
     const b=tuning.speedBands;
@@ -69,9 +123,55 @@ export class CanonicalLocomotionMixer {
     for(const [direction,clip] of Object.entries(library.directional??{}) as
         [LocomotionDirection,AnimationClipV1][]) {
       if(!clip)continue;
+      if(!(["forward","backward","left","right","turn-left","turn-right"] as
+        readonly string[]).includes(direction))throw new Error("Unknown legacy direction");
       const key="direction:"+direction;
       entries.push([key,clip]);
       this.directionIds.set(direction,key);
+    }
+    const validPhase=(p:LocomotionPhaseReferenceV1):boolean=>
+      p?.schemaVersion===1 && p.signal==="ankle-toe-height-minimum" &&
+      p.sampleCount===96 &&
+      finite(p.leftPhase) && finite(p.rightPhase) &&
+      p.leftPhase>=0 && p.leftPhase<1 &&
+      p.rightPhase>=0 && p.rightPhase<1;
+    for(const baseline of Object.values(library.phaseBaselines??{}))
+      if(!validPhase(baseline))throw new Error("Invalid forward gait phase baseline");
+    for(const motion of library.motions??[]){
+      if(!DIRECTIONS.includes(motion.direction) ||
+        !(["walk","jog","sprint"] as readonly string[]).includes(motion.gait))
+        throw new Error("Invalid authored movement category");
+      const key="motion:"+motion.gait+":"+motion.direction;
+      if(this.motionIds.has(key))throw new Error("Duplicate authored movement category: "+key);
+      if(motion.clip.rootTrajectory && motion.clip.rootTrajectory.behavior!=="loop")
+        throw new Error("Only authored loop clips may be registered as gait");
+      if(motion.contacts){
+        const c=motion.contacts;
+        if(c.schemaVersion!==1 || !finite(c.leftPlantPhase) || !finite(c.rightPlantPhase) ||
+          c.leftPlantPhase<0 || c.leftPlantPhase>=1 ||
+          c.rightPlantPhase<0 || c.rightPlantPhase>=1)
+          throw new Error("Invalid measured gait contacts for "+key);
+        this.contactPhases.set(key,c.leftPlantPhase);
+      }
+      if(motion.phaseReference){
+        const baseline=library.phaseBaselines?.[motion.gait];
+        if(!validPhase(motion.phaseReference) || !baseline)
+          throw new Error("Missing/invalid measured gait phase reference for "+key);
+        // An earlier/later low-foot event must coincide with the same
+        // forward-family low-foot event during walking direction changes.
+        this.contactPhases.set(key,
+          motion.phaseReference.leftPhase-baseline.leftPhase);
+      }
+      entries.push([key,motion.clip]);this.motionIds.set(key,key);
+    }
+    for(const turn of library.turns??[]){
+      if(turn.direction!=="left"&&turn.direction!=="right")
+        throw new Error("Invalid authored turn direction");
+      if(this.turnIds.has(turn.direction))throw new Error("Duplicate turn direction");
+      if(turn.clip.rootTrajectory?.behavior!=="one_shot")
+        throw new Error("Stationary turns must be one-shot source clips");
+      const key="turn:"+turn.direction;
+      entries.push([key,turn.clip]);this.turnIds.set(turn.direction,key);
     }
     const samplers=new Map<string,AnimationSampler>();
     const durations=new Map<string,number>();
@@ -81,98 +181,178 @@ export class CanonicalLocomotionMixer {
         throw new Error("Invalid root motion policy");
       const sampler=createAnimationSampler(clip,graph);
       samplers.set(key,sampler);durations.set(key,clip.durationSeconds);
+      if(key.startsWith("turn:")||key.startsWith("direction:turn-"))
+        this.turnTimes.set(key,0);
       for(const id of sampler.jointIds)ids.add(id);
       this.weights.set(key,key==="idle"?1:0);
     }
     this.samplers=samplers;this.durations=durations;
     this.ids=[...ids];
+    this.indices=new Map(this.ids.map((id,j)=>[id,j]));
     this.rotations=this.ids.map(()=>undefined);
     this.translations=this.ids.map(()=>undefined);
     this.output=this.ids.map(jointId=>({jointId}));
   }
   get availableDirections(): readonly LocomotionDirection[] {
-    return [...this.directionIds.keys()];
+    const available=new Set<LocomotionDirection>(this.directionIds.keys());
+    for(const motion of this.motionIds.keys())
+      available.add(motion.split(":")[2] as TravelDirection);
+    for(const side of this.turnIds.keys())available.add(side==="left"?"turn-left":"turn-right");
+    return [...available];
   }
   get gaitPhase():number {return this.phase;}
-  get blendWeights():Readonly<Record<string,number>> {
-    return Object.fromEntries(this.weights);
-  }
+  get blendWeights():Readonly<Record<string,number>> {return Object.fromEntries(this.weights);}
   get intent():LocomotionIntent {return {...this.target};}
-  /** Reinitialize without discarding samplers or rig-bound caches. */
+  get turnStatus():Readonly<{direction:"left"|"right";seconds:number;running:boolean}>|undefined {
+    const turn=this.playback;
+    if(!turn)return undefined;
+    return {direction:turn.key==="turn:left"?"left":"right",
+      seconds:turn.seconds,running:turn.running};
+  }
   reset():void {
     this.live();
     this.target={forward:0,lateral:0,turn:0,grounded:true};
-    this.phase=0;this.idleTime=0;
+    this.phase=0;this.idleTime=0;this.playback=undefined;this.turnArmed=true;
+    this.lastTurnSide=undefined;
+    for(const key of this.turnTimes.keys())this.turnTimes.set(key,0);
     for(const key of this.weights.keys())this.weights.set(key,key==="idle"?1:0);
   }
   setIntent(intent:LocomotionIntent):void {
     this.live();
     if(![intent.forward,intent.lateral,intent.turn].every(finite) ||
       Math.max(Math.abs(intent.forward),Math.abs(intent.lateral),Math.abs(intent.turn))>1 ||
-      typeof intent.grounded!=="boolean") throw new Error("Invalid locomotion intent");
-    const direction=this.direction(intent);
-    if(direction&&!this.directionIds.has(direction))
-      throw new Error("No verified authored clip for "+direction);
+      typeof intent.grounded!=="boolean")throw new Error("Invalid locomotion intent");
+    const movement=Math.min(1,Math.hypot(intent.forward,intent.lateral));
+    if(intent.grounded && movement>1e-3)this.movementTargets(intent);
+    if(intent.grounded && movement<=1e-3 && Math.abs(intent.turn)>1e-3){
+      const side=intent.turn<0?"left":"right";
+      if(!this.turnIds.has(side)&&!this.directionIds.has(side==="left"?"turn-left":"turn-right"))
+        throw new Error("No verified authored clip for turn-"+side);
+    }
     this.target={...intent};
   }
-  private direction(i:LocomotionIntent):LocomotionDirection|undefined {
-    if(i.forward<-.001)return "backward";
-    if(i.lateral<-.001)return "left";
-    if(i.lateral>.001)return "right";
-    if(i.turn<-.001)return "turn-left";
-    if(i.turn>.001)return "turn-right";
-    return undefined;
-  }
   private live():void {if(this.disposed)throw new Error("Locomotion mixer disposed");}
-  /** Purely presentation clock: elapsed seconds must be supplied by caller. */
+
+  /** Angularly interpolate neighboring authored directions, no pose reversal. */
+  private movementTargets(i:LocomotionIntent):Map<string,number>{
+    const targets=new Map<string,number>();
+    const magnitude=Math.min(1,Math.hypot(i.forward,i.lateral));
+    if(magnitude<=1e-3){targets.set("idle",1);return targets;}
+    const angle=(Math.atan2(i.lateral,i.forward)+TAU)%TAU;
+    const sector=angle/(Math.PI/4);
+    const lo=Math.floor(sector)%8;
+    const hi=(lo+1)%8;
+    const fraction=sector-Math.floor(sector);
+    const choices:[[TravelDirection,number],[TravelDirection,number]]=[
+      [DIRECTIONS[lo]!,1-fraction],[DIRECTIONS[hi]!,fraction],
+    ];
+    const gaitWeights:[LocomotionGait,number][]=[];
+    const [walkBand,jogBand]=this.bands;
+    if(magnitude<=walkBand){
+      targets.set("idle",1-magnitude/walkBand);
+      gaitWeights.push(["walk",magnitude/walkBand]);
+    }else if(magnitude<=jogBand){
+      const t=(magnitude-walkBand)/(jogBand-walkBand);
+      gaitWeights.push(["walk",1-t],["jog",t]);
+    }else{
+      const t=(magnitude-jogBand)/(1-jogBand);
+      gaitWeights.push(["jog",1-t],["sprint",t]);
+    }
+    for(const [gait,gaitWeight] of gaitWeights){
+      if(gaitWeight<=1e-8)continue;
+      const options=choices.map(([direction,weight])=>{
+        let key=this.motionIds.get("motion:"+gait+":"+direction);
+        if(!key && direction==="forward")key=gait;
+        // Legacy opt-in KayKit review: never relabel as an authored walk.
+        if(!key && this.motionIds.size===0)
+          key=this.directionIds.get(direction);
+        return {key,weight};
+      });
+      // A missing authored sprint category is not permission to silently
+      // stretch its neighboring strafe into backward/diagonal travel.
+      // Legacy KayKit diagnostic coverage retains its earlier limited fallback.
+      if(this.motionIds.size>0 && options.some(item=>!item.key&&item.weight>1e-8))
+        throw new Error("No verified authored clip for "+gait+" "+
+          DIRECTIONS[Math.round(sector)%8]);
+      const coverage=options.reduce((sum,item)=>sum+(item.key?item.weight:0),0);
+      if(coverage<1e-7)throw new Error("No verified authored clip for "+
+        gait+" "+DIRECTIONS[Math.round(sector)%8]);
+      for(const item of options){
+        if(!item.key || item.weight<=0)continue;
+        targets.set(item.key,(targets.get(item.key)??0)+gaitWeight*item.weight/coverage);
+      }
+    }
+    return targets;
+  }
+  /** Exact exponential weight integration and phase integral for variable dt. */
   advance(deltaSeconds:number):readonly SampledJointV1[] {
     this.live();
     if(!finite(deltaSeconds)||deltaSeconds<0||deltaSeconds>1)
       throw new Error("Invalid locomotion sample delta");
     const i=this.target;
-    const targetWeights=new Map<string,number>();
-    const movement=Math.max(Math.abs(i.forward),Math.abs(i.lateral));
-    const direction=this.direction(i);
-    if(!i.grounded){
-      // No locked feet or fabricated airborne gait. Existing authored sample
-      // is retained; the grounding system receives grounded=false separately.
-      for(const [key,value] of this.weights)targetWeights.set(key,value);
-    }else if(direction){
-      const key=this.directionIds.get(direction)!;
-      const intensity=direction.startsWith("turn")?Math.abs(i.turn):movement;
-      targetWeights.set("idle",1-intensity);
-      targetWeights.set(key,intensity);
-    }else{
-      const keys=["idle","walk","jog","sprint"] as const;
-      const thresholds=[0,...this.bands];
-      for(let x=0;x<3;x++){
-        if(movement<=thresholds[x+1]! || x===2){
-          const alpha=clamp((movement-thresholds[x]!)/
-            (thresholds[x+1]!-thresholds[x]!),0,1);
-          targetWeights.set(keys[x]!,1-alpha);
-          targetWeights.set(keys[x+1]!,alpha);
-          break;
+    const movement=Math.min(1,Math.hypot(i.forward,i.lateral));
+    if(Math.abs(i.turn)<=1e-3 || movement>1e-3 || !i.grounded){
+      this.turnArmed=true;
+      this.lastTurnSide=undefined;
+    }
+    if(this.playback?.running && (movement>1e-3 || Math.abs(i.turn)<=1e-3))
+      this.playback.running=false;
+    if(i.grounded && movement<=1e-3 && Math.abs(i.turn)>1e-3){
+      const side=i.turn<0?"left":"right";
+      // Opposite turn intent interrupts the current one-shot. Holding the same
+      // direction through clip completion must not loop or restart it.
+      if(this.turnArmed || (this.lastTurnSide!==undefined&&this.lastTurnSide!==side)){
+        const key=this.turnIds.get(side)??this.directionIds.get(side==="left"?"turn-left":"turn-right");
+        if(key){
+          this.playback={key,seconds:0,running:true};
+          this.turnTimes.set(key,0);
+          this.turnArmed=false;this.lastTurnSide=side;
         }
       }
     }
-    const inertia=1-Math.exp(-deltaSeconds/this.blendSeconds);
+    if(this.playback?.running){
+      this.playback.seconds=Math.min(this.durations.get(this.playback.key)!,
+        this.playback.seconds+deltaSeconds);
+      this.turnTimes.set(this.playback.key,this.playback.seconds);
+      if(this.playback.seconds>=this.durations.get(this.playback.key)!)
+        this.playback.running=false;
+    }
+    const desired=new Map<string,number>();
+    if(!i.grounded){
+      for(const [key,value] of this.weights)desired.set(key,value);
+    }else if(this.playback?.running && movement<=1e-3){
+      // Last 15% of the one-shot cross-fades back to idle without looping.
+      const turn=this.playback;
+      const duration=this.durations.get(turn.key)!;
+      const remaining=(duration-turn.seconds)/Math.min(.15,duration*.15);
+      const fade=clamp(remaining,0,1)*Math.abs(i.turn);
+      desired.set("idle",1-fade);desired.set(turn.key,fade);
+    }else{
+      for(const [key,value] of this.movementTargets(i))desired.set(key,value);
+    }
+    const decay=Math.exp(-deltaSeconds/this.blendSeconds);
+    const average=deltaSeconds===0?1:(1-decay)/(deltaSeconds/this.blendSeconds);
+    let cyclesPerSecond=0;
     let sum=0;
     for(const [key,current] of this.weights){
-      const next=current+inertia*((targetWeights.get(key)??0)-current);
-      this.weights.set(key,next);sum+=next;
+      const target=desired.get(key)??0;
+      const next=target+(current-target)*decay;
+      const mean=target+(current-target)*average;
+      if(key!=="idle"&&!key.startsWith("turn:")&&
+        !key.startsWith("direction:turn")&&mean>1e-7)
+        cyclesPerSecond+=mean/this.durations.get(key)!;
+      this.weights.set(key,next);
+      sum+=next;
     }
     if(sum>0)for(const [key,current] of this.weights)
       this.weights.set(key,current/sum);
-    let cyclesPerSecond=0;
-    for(const [key,weight] of this.weights){
-      if(key==="idle"||weight<=1e-6)continue;
-      cyclesPerSecond+=weight/this.durations.get(key)!;
-    }
     this.phase=(this.phase+deltaSeconds*cyclesPerSecond)%1;
     this.idleTime+=deltaSeconds;
+    if(this.playback && !this.playback.running &&
+      (this.weights.get(this.playback.key)??0)<1e-5)this.playback=undefined;
     return this.evaluate();
   }
-  /** Seeking uses a normalized phase and never consumes gameplay timeline. */
+  /** Seeking affects periodic gait; an active one-shot keeps its own clock. */
   seek(phase:number):readonly SampledJointV1[] {
     this.live();
     if(!finite(phase)||phase<0||phase>1)throw new Error("Invalid gait phase");
@@ -185,19 +365,20 @@ export class CanonicalLocomotionMixer {
     const positions=new Array<number[]>(n);
     const hasRotation=new Array<boolean>(n).fill(false);
     const hasTranslation=new Array<boolean>(n).fill(false);
-    const indices=new Map(this.ids.map((id,j)=>[id,j]));
     for(const [key,weight] of this.weights){
       if(weight<=1e-7)continue;
       const sampler=this.samplers.get(key)!;
       const duration=this.durations.get(key)!;
-      const seconds=key==="idle"?this.idleTime%duration:this.phase*duration;
+      const seconds=key==="idle"?this.idleTime%duration:
+        (key.startsWith("turn:")||key.startsWith("direction:turn"))?
+          Math.min(this.turnTimes.get(key)??0,duration):
+          (((this.phase+(this.contactPhases.get(key)??0))%1+1)%1)*duration;
       for(const joint of sampler.sample(seconds)){
-        const index=indices.get(joint.jointId)!;
+        const index=this.indices.get(joint.jointId)!;
         if(joint.rotation){
           const q=joint.rotation;
           let accum=sums[index];
           if(!accum){accum=[0,0,0,0];sums[index]=accum;}
-          // Hemisphere-aligned normalized quaternion blending.
           const sign=hasRotation[index] &&
             (accum[0]!*q[0]+accum[1]!*q[1]+accum[2]!*q[2]+accum[3]!*q[3])<0?-1:1;
           for(let k=0;k<4;k++)accum[k]=accum[k]!+sign*weight*q[k]!;
@@ -219,7 +400,7 @@ export class CanonicalLocomotionMixer {
       }else this.rotations[j]=undefined;
       const p=positions[j];
       this.translations[j]=hasTranslation[j]&&p?
-        [p[0]!,p[1]!,0]:undefined; // z is never authoritative actor travel
+        [p[0]!,p[1]!,0]:undefined; // no authored source-Z travel in world space
       this.output[j]={
         jointId:this.ids[j]!,
         ...(this.rotations[j]?{rotation:this.rotations[j]}:{}),
@@ -230,7 +411,8 @@ export class CanonicalLocomotionMixer {
   }
   dispose():void {
     if(this.disposed)return;
-    this.weights.clear();this.directionIds.clear();
-    this.disposed=true;
+    this.weights.clear();this.directionIds.clear();this.motionIds.clear();
+    this.contactPhases.clear();this.turnIds.clear();this.turnTimes.clear();
+    this.playback=undefined;this.disposed=true;
   }
 }

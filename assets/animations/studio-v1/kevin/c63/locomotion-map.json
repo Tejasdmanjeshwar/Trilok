@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "source": "kevin-basic-motions-v1",
+  "semantics": "C6.3 manually approved authored movement coverage; optional contact markers require offline measured verification",
+  "motions": [
+    {
+      "id": "human-kevin-walk-backward",
+      "gait": "walk",
+      "direction": "backward",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.23958333333333334,
+        "rightPhase": 0.71875
+      }
+    },
+    {
+      "id": "human-kevin-walk-backward-left",
+      "gait": "walk",
+      "direction": "backward-left",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.23958333333333334,
+        "rightPhase": 0.71875
+      }
+    },
+    {
+      "id": "human-kevin-walk-backward-right",
+      "gait": "walk",
+      "direction": "backward-right",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.23958333333333334,
+        "rightPhase": 0.71875
+      }
+    },
+    {
+      "id": "human-kevin-walk-forward-left",
+      "gait": "walk",
+      "direction": "forward-left",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.7604166666666666,
+        "rightPhase": 0.2708333333333333
+      }
+    },
+    {
+      "id": "human-kevin-walk-forward-right",
+      "gait": "walk",
+      "direction": "forward-right",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.7604166666666666,
+        "rightPhase": 0.2708333333333333
+      }
+    },
+    {
+      "id": "human-kevin-walk-left",
+      "gait": "walk",
+      "direction": "left",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.7604166666666666,
+        "rightPhase": 0.2708333333333333
+      }
+    },
+    {
+      "id": "human-kevin-walk-right",
+      "gait": "walk",
+      "direction": "right",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.7604166666666666,
+        "rightPhase": 0.2708333333333333
+      }
+    },
+    {
+      "id": "human-kevin-run-backward",
+      "gait": "jog",
+      "direction": "backward",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.25,
+        "rightPhase": 0.71875
+      }
+    },
+    {
+      "id": "human-kevin-run-backward-left",
+      "gait": "jog",
+      "direction": "backward-left",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.25,
+        "rightPhase": 0.71875
+      }
+    },
+    {
+      "id": "human-kevin-run-backward-right",
+      "gait": "jog",
+      "direction": "backward-right",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.25,
+        "rightPhase": 0.71875
+      }
+    },
+    {
+      "id": "human-kevin-run-forward-left",
+      "gait": "jog",
+      "direction": "forward-left",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.7604166666666666,
+        "rightPhase": 0.3333333333333333
+      }
+    },
+    {
+      "id": "human-kevin-run-forward-right",
+      "gait": "jog",
+      "direction": "forward-right",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.7604166666666666,
+        "rightPhase": 0.3333333333333333
+      }
+    },
+    {
+      "id": "human-kevin-run-left",
+      "gait": "jog",
+      "direction": "left",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.7604166666666666,
+        "rightPhase": 0.3333333333333333
+      }
+    },
+    {
+      "id": "human-kevin-run-right",
+      "gait": "jog",
+      "direction": "right",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.7604166666666666,
+        "rightPhase": 0.3333333333333333
+      }
+    },
+    {
+      "id": "human-kevin-sprint-forward",
+      "gait": "sprint",
+      "direction": "forward",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.78125,
+        "rightPhase": 0.28125
+      }
+    },
+    {
+      "id": "human-kevin-sprint-forward-left",
+      "gait": "sprint",
+      "direction": "forward-left",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.78125,
+        "rightPhase": 0.28125
+      }
+    },
+    {
+      "id": "human-kevin-sprint-forward-right",
+      "gait": "sprint",
+      "direction": "forward-right",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.78125,
+        "rightPhase": 0.28125
+      }
+    },
+    {
+      "id": "human-kevin-sprint-left",
+      "gait": "sprint",
+      "direction": "left",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.78125,
+        "rightPhase": 0.28125
+      }
+    },
+    {
+      "id": "human-kevin-sprint-right",
+      "gait": "sprint",
+      "direction": "right",
+      "phaseReference": {
+        "schemaVersion": 1,
+        "signal": "ankle-toe-height-minimum",
+        "sampleCount": 96,
+        "leftPhase": 0.78125,
+        "rightPhase": 0.28125
+      }
+    }
+  ],
+  "turns": [
+    {
+      "id": "human-kevin-turn-left",
+      "direction": "left"
+    },
+    {
+      "id": "human-kevin-turn-right",
+      "direction": "right"
+    }
+  ],
+  "phaseBaselines": {
+    "walk": {
+      "schemaVersion": 1,
+      "signal": "ankle-toe-height-minimum",
+      "sampleCount": 96,
+      "leftPhase": 0.7291666666666666,
+      "rightPhase": 0.2708333333333333
+    },
+    "jog": {
+      "schemaVersion": 1,
+      "signal": "ankle-toe-height-minimum",
+      "sampleCount": 96,
+      "leftPhase": 0.75,
+      "rightPhase": 0.3333333333333333
+    },
+    "sprint": {
+      "schemaVersion": 1,
+      "signal": "ankle-toe-height-minimum",
+      "sampleCount": 96,
+      "leftPhase": 0.78125,
+      "rightPhase": 0.28125
+    }
+  },
+  "phaseReferenceProvenance": "Official MakeHuman-calibrated left/right ankle-toe world-height minima sampled at 96 normalized phases; CI 44901403501 TRILOK_C63_MEASURED_ANKLE_TROUGH. Not skinned-sole contact or stance markers."
+}
