@@ -60,6 +60,18 @@ describe("C6.3 authored directional locomotion",()=>{
       expect(()=>mixer.setIntent(intent(-1,0))).toThrow(/authored clip/);
     }finally{mixer.dispose();}
   });
+  it("does not mislabel partial backward sprint as a source-backed directional clip",()=>{
+    const mixer=new CanonicalLocomotionMixer(graph,canonicalLibrary);
+    try{
+      for(const [forward,lateral] of [[-1,0],[-.8,-.6],[-.35,-.93]]){
+        expect(()=>mixer.setIntent(intent(forward!,lateral!))).toThrow(/authored clip/);
+      }
+      // Authored sprint-left remains supported at its exact direction.
+      mixer.setIntent(intent(0,-1));
+      mixer.advance(.15);
+      expect(mixer.blendWeights["motion:sprint:left"]).toBeGreaterThan(0);
+    }finally{mixer.dispose();}
+  });
   it("plays a stationary turn once and does not restart while the same intent is held",()=>{
     const mixer=new CanonicalLocomotionMixer(graph,canonicalLibrary);
     try{
