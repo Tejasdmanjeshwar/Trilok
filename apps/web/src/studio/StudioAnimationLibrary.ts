@@ -15,15 +15,19 @@ const c63ReviewClips=new Map<string,AnimationClipV1>();
 /** Called by an opt-in, separately bundled Studio chunk; ordinary gameplay
  * and normal Studio do not import any unapproved directional clip. */
 export function registerKevinC63Review(entries:readonly {id:string;label:string;clip:AnimationClipV1}[]):void{
-  if(!EXPERIMENTAL_KEVIN_C63_REVIEW||c63ReviewClips.size||entries.length!==24||
+  if(c63ReviewClips.size||entries.length!==24||
     new Set(entries.map(e=>e.id)).size!==24)
     throw new Error("Invalid C6.3 review registration");
   const selected=new Set(kevinCatalog.c63ReviewClips.map(e=>e.id));
   for(const entry of entries)if(!selected.has(entry.id)||entry.clip.id!==entry.id)
     throw new Error("Unexpected Kevin review source "+entry.id);
   for(const entry of entries)c63ReviewClips.set(entry.id,entry.clip);
-  STUDIO_ANIMATIONS.splice(STUDIO_ANIMATIONS.length-1,0,
-    ...entries.map(({id,label})=>({id,label})));
+  // Owner-approved 24 motion assets are always available to the movement
+  // mixer after explicit lazy-loading, but ordinary Studio's solo selector
+  // remains small. The separate review URL still exposes all 27 solos.
+  if(EXPERIMENTAL_KEVIN_C63_REVIEW)
+    STUDIO_ANIMATIONS.splice(STUDIO_ANIMATIONS.length-1,0,
+      ...entries.map(({id,label})=>({id,label})));
 }
 
 
@@ -60,7 +64,7 @@ export const STUDIO_ANIMATIONS = [
 /** Immutable C6.2 assets are shared with the runtime mixer without rebaking. */
 export function loadStudioLocomotionLibrary(graph:AnatomicalGraphV1,
   includeUnacceptedKayKit=false){
-  if(EXPERIMENTAL_KEVIN_C63_REVIEW && c63ReviewClips.size===24){
+  if(c63ReviewClips.size===24){
     if(kevinMotionMap.schemaVersion!==1||kevinMotionMap.motions.length!==19||kevinMotionMap.turns.length!==2)
       throw new Error("Invalid C6.3 authored coverage metadata");
     return {
