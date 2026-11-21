@@ -812,6 +812,13 @@ export function createStudioViewport(
     }
     controls.update();
     if(animation){animation.update(performance.now());emitAnimation();}
+    // One explicitly opted-in QA instrumentation surface. No runtime
+    // allocations/JSON serialization in normal Studio or gameplay builds.
+    if(new URLSearchParams(location.search).has("c63-ground-metrics") &&
+      animation instanceof StudioLocomotionPlayback && renderer)
+      renderer.domElement.dataset.c63GroundMetrics=JSON.stringify({
+        contact:animation.contactStatus,profile:animation.profile,
+      });
     updateMarkers();
     if(element.clientWidth>0 && element.clientHeight>0) {
       renderer.render(scene,camera);
