@@ -57,7 +57,7 @@ export class LegacyCanonicalLegProjection {
     const hip=(id:string):readonly [number,number]=>{
       const sample:SampledJointV1|undefined=poses.find(j=>j.jointId===id);
       if(!sample?.rotation)return [0,0];
-      this.localRotation.fromArray(sample.rotation as number[]);
+      this.localRotation.set(...sample.rotation);
       this.euler.setFromQuaternion(this.localRotation,"XYZ");
       return [
         THREE.MathUtils.clamp(this.euler.x,-.78,.78),
