@@ -223,8 +223,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
       const direction=intent.forward<-.01?-1:1;
       stride += dt * (7+7*magnitude) * direction;
       const step = Math.sin(stride);
-      const sourceWeight=canonical?(1-Math.exp(-dt/.2)):0;
-      canonicalBlend+=(sourceWeight-canonicalBlend)*
+      canonicalBlend+=((canonical?1:0)-canonicalBlend)*
         (1-Math.exp(-dt/.2));
       let authored:{leftPitch:number;rightPitch:number;leftRoll:number;rightRoll:number}|undefined;
       if(canonical){
@@ -232,17 +231,18 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
         authored=canonical.sample(dt);
       }
       const fallbackRoll=Math.max(-.15,Math.min(.15,intent.lateral*.15))*gait;
+      const sourceAmplitude=Math.max(gait,Math.abs(intent.turn));
       if (leftLeg) {
         leftLeg.rotation.x=THREE.MathUtils.lerp(step*gait*.57,
-          (authored?.leftPitch??0)*gait,canonicalBlend);
+          (authored?.leftPitch??0)*sourceAmplitude,canonicalBlend);
         leftLeg.rotation.z=THREE.MathUtils.lerp(fallbackRoll,
-          (authored?.leftRoll??0)*gait,canonicalBlend);
+          (authored?.leftRoll??0)*sourceAmplitude,canonicalBlend);
       }
       if (rightLeg) {
         rightLeg.rotation.x=THREE.MathUtils.lerp(-step*gait*.57,
-          (authored?.rightPitch??0)*gait,canonicalBlend);
+          (authored?.rightPitch??0)*sourceAmplitude,canonicalBlend);
         rightLeg.rotation.z=THREE.MathUtils.lerp(fallbackRoll,
-          (authored?.rightRoll??0)*gait,canonicalBlend);
+          (authored?.rightRoll??0)*sourceAmplitude,canonicalBlend);
       }
       if (torso) torso.position.y = Math.abs(step) * gait * .045;
       if (current === "idle") {
