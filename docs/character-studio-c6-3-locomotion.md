@@ -224,3 +224,39 @@ some other loop seams (including backward running) are production-ready.
 separate gates.** The automatic PR Verify run initiated by the workflow's
 GitHub bot push required external approval; this owner-authored
 documentation commit will trigger a new reviewable exact-HEAD Verify.
+
+
+## Step 2 implementation branch — authored directional mixer (2026-11-21)
+
+Branch `feat/c6-3-directional-locomotion` adds source-backed eight-direction
+vector resolution, explicit walk/jog/sprint coverage metadata in
+`assets/animations/studio-v1/kevin/c63/locomotion-map.json`, and nonlooping
+turn-left/turn-right execution. It does not change the original 27 motion
+resources, retarget calibration, source hashes, or C1 rig. The 19 additional
+loop categories cover seven walk directions, seven run directions and five
+sprint directions. Forward idle/walk/jog use the existing Kevin clips.
+The two one-shot turn clips use their own clamped seconds rather than the
+periodic gait phase.
+
+**Known gaps (not C6.3 acceptance):** all 27 clips are registered for individual
+review, but the idle-to-idle transition clips and alternate idle are not yet
+driven by an automatic transition policy. The walk/run/sprint gait contacts
+in the source resources are empty; no contact-phase offsets have been
+fabricated. The new `LocomotionGaitContactsV1` contract permits recorded
+phase offsets only after measured offline extraction. Until those data
+exist, the mixer uses identical normalized phases and therefore does not
+prove stance alignment. Unsupported backward sprint is rejected rather
+than silently relabelled. Angular interpolation between covered neighbor
+motions is a presentation fallback, not a newly authored direction.
+For strict deterministic frame-subdivision equivalence, the mixer uses
+analytic exponential weight updates and mean-weight gait frequency;
+multi-axis interrupted transitions, actual source contact trajectories
+and quantization tolerances still require browser validation.
+
+**Safety:** the root trajectory stays reference-only and cannot move the
+gameplay actor. Source yaw is not consumed by gameplay. The opt-in
+`?c63-kevin-review` route uses the 27 Kevin clips for movement mixing;
+ordinary playback continues to use its original compatible library.
+No Cloudflare production deployment is authorized. Step 3 grounding,
+Step 4 gameplay adapter and Step 5 browser/performance acceptance remain
+unimplemented on this branch.
