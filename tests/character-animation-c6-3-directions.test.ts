@@ -79,6 +79,22 @@ describe("C6.3 authored directional locomotion",()=>{
       expect(mixer.turnStatus?.running).toBe(true);
     }finally{mixer.dispose();}
   });
+  it("interrupts a running turn with the opposite source one-shot",()=>{
+    const mixer=new CanonicalLocomotionMixer(graph,canonicalLibrary);
+    try{
+      mixer.setIntent(intent(0,0,-1));
+      mixer.advance(.15);
+      expect(mixer.turnStatus?.direction).toBe("left");
+      mixer.setIntent(intent(0,0,1));
+      mixer.advance(.02);
+      expect(mixer.turnStatus?.direction).toBe("right");
+      expect(mixer.turnStatus?.running).toBe(true);
+      for(let i=0;i<180;i++)mixer.advance(1/60);
+      expect(mixer.turnStatus?.running??false).toBe(false);
+      mixer.advance(.25);
+      expect(mixer.turnStatus?.running??false).toBe(false);
+    }finally{mixer.dispose();}
+  });
   it("keeps canonical quaternions finite and prevents authoritative travel",()=>{
     const mixer=new CanonicalLocomotionMixer(graph,canonicalLibrary);
     try{
