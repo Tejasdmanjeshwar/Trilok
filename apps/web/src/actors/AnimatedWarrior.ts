@@ -122,6 +122,8 @@ function clips(): Record<Motion, THREE.AnimationClip> {
 
 export interface AnimatedWarrior {
   readonly root: THREE.Group;
+  /** Opt-in QA inspection of which leg-presentation data is active. */
+  readonly locomotionSource?:"legacy"|"kevin";
   play(name: Motion): void;
   update(deltaSeconds: number, actionElapsedMs?: number): void;
   socketWorld(target: THREE.Vector3): THREE.Vector3;
@@ -172,6 +174,7 @@ export function createAnimatedWarrior(role: WarriorRole): AnimatedWarrior {
   active.play();
   return {
     root: rig.root,
+    get locomotionSource(){return canonical?"kevin":"legacy" as const;},
     face: rig.face,
     equip(weapon) {
       equipped = weapon;
