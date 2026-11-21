@@ -62,6 +62,9 @@ test("C6.3 real skinned sole, terrain baseline, pelvis and CPU measurements",asy
     await page.locator('[data-section="body"]').click();
     await page.locator("#studio-preset").selectOption(preset);
     await expect(page.locator("#studio-editor-message")).toBeEmpty({timeout:150_000});
+    // Reframe regenerated short/tall skins before comparing their geometry.
+    await page.locator("#studio-reset").click();
+    await page.waitForTimeout(480);
     await page.locator('[data-section="pose"]').click();
     await page.locator("#studio-movement-direction").selectOption("forward");
     await setSpeed(page,.6);
@@ -78,6 +81,15 @@ test("C6.3 real skinned sole, terrain baseline, pelvis and CPU measurements",asy
       });
     }
     await expect(page.locator("#studio-error")).toBeHidden();
+  }
+  // Touch test must inspect a real narrow viewport, not only a touch
+  // browser context with desktop-sized dimensions.
+  if(info.project.name==="touch-chromium"){
+    await page.setViewportSize({width:390,height:844});
+    await page.locator("#studio-viewport canvas").screenshot({
+      path:root+"/touch-narrow-390x844.jpg",type:"jpeg",quality:75,
+    });
+    measurements["touch-narrow"]=await measured(page);
   }
   writeFileSync(root+"/measurements.json",JSON.stringify(measurements,null,2));
   expect(errors).toEqual([]);
