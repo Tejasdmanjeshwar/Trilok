@@ -331,7 +331,7 @@ movementDirection.addEventListener("change",()=>{
   // Keep the requested slider value available for directions that support it.
   const prior=movementDirection.dataset.previous??"forward";
   try{
-    if(selected==="backward" && Number(movementSpeed.value)>.65)
+    if(selected.startsWith("backward") && Number(movementSpeed.value)>.65)
       viewport.setMovementPreviewSpeed(.65);
     viewport.setMovementPreviewDirection(selected as
       Parameters<typeof viewport.setMovementPreviewDirection>[0]);
@@ -348,7 +348,7 @@ movementSpeed.addEventListener("input",()=>{
   const requested=Number(movementSpeed.value);
   const direction=movementDirection.value;
   // No backward-sprint source in the approved 27-clip inventory.
-  const speed=EXPERIMENTAL_KEVIN_C63_REVIEW && direction==="backward"?
+  const speed=EXPERIMENTAL_KEVIN_C63_REVIEW && direction.startsWith("backward")?
     Math.min(.65,requested):requested;
   try{
     viewport.setMovementPreviewSpeed(speed);
