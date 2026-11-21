@@ -250,9 +250,11 @@ export class GroundedFootContacts {
           Math.max(heelHeight,toeHeight):undefined):
         this.surface.heightAt(contact.x,contact.z);
       const available=ground!==undefined&&Number.isFinite(ground)&&grounded;
-      const speed=this.worldFootMovement.copy(ankle).sub(chain.previous)
-        .sub(this.rootMovement).length()/dt;
-      const rise=Math.abs(ankle.y-chain.previous.y-this.rootMovement.y)/dt;
+      // Ground contact is defined in the WORLD frame: subtracting actor
+      // translation would incorrectly release a truly stationary planted
+      // sole while the character walks past it.
+      const speed=this.worldFootMovement.copy(ankle).sub(chain.previous).length()/dt;
+      const rise=Math.abs(ankle.y-chain.previous.y)/dt;
       if(!available){
         chain.planted=false;chain.blend=0;chain.previous.copy(ankle);
         return {chain,valid:false,ground:0,contact:contact.clone()};
