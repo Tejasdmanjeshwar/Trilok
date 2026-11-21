@@ -76,6 +76,11 @@ export class GroundedFootContacts {
   private pelvisHeight=0;
   private pelvisLateral=0;
   private pelvisLean=0;
+  private readonly lastCorrectedPosition=new THREE.Vector3();
+  private readonly lastCorrectedOrientation=new THREE.Quaternion();
+  private readonly sourcePelvisPosition=new THREE.Vector3();
+  private readonly sourcePelvisOrientation=new THREE.Quaternion();
+  private hasLastCorrection=false;
   private metrics:GroundContactMetrics={
     plantedFeet:0,maxAnchorSlipMeters:0,maxPenetrationMeters:0,unreachableFeet:0,
   };
@@ -192,6 +197,7 @@ export class GroundedFootContacts {
       chain.ankle.getWorldPosition(chain.previous);
     }
     this.rootObserved=false;
+    this.hasLastCorrection=false;
     this.pelvisHeight=0;this.pelvisLateral=0;this.pelvisLean=0;
     this.metrics={plantedFeet:0,maxAnchorSlipMeters:0,
       maxPenetrationMeters:0,unreachableFeet:0,pelvisOffsetMeters:0,
@@ -208,6 +214,20 @@ export class GroundedFootContacts {
     if(!Number.isFinite(deltaSeconds)||deltaSeconds<0||deltaSeconds>1)
       throw new Error("Invalid foot contact delta");
     const dt=Math.max(deltaSeconds,1/120);
+    // If a caller advances contact-only (without a new FK pose), undo the
+    // preceding presentation residual before solving. New mixer/FK poses
+    // are left untouched; successive contact passes must not accumulate.
+    if(this.pelvis&&this.hasLastCorrection &&
+      this.pelvis.position.distanceToSquared(this.lastCorrectedPosition)<1e-14 &&
+      1-Math.abs(this.pelvis.quaternion.dot(this.lastCorrectedOrientation))<1e-12){
+      this.pelvis.position.copy(this.sourcePelvisPosition);
+      this.pelvis.quaternion.copy(this.sourcePelvisOrientation);
+      this.pelvis.updateWorldMatrix(true,true);
+    }
+    if(this.pelvis){
+      this.sourcePelvisPosition.copy(this.pelvis.position);
+      this.sourcePelvisOrientation.copy(this.pelvis.quaternion);
+    }
     let plantedFeet=0,maxAnchorSlipMeters=0,maxPenetrationMeters=0,unreachableFeet=0;
     this.root.updateWorldMatrix(true,true);
     this.root.getWorldPosition(this.worldRoot);
@@ -286,6 +306,11 @@ export class GroundedFootContacts {
       this.pelvisRotation.setFromAxisAngle(this.worldAxis.set(0,0,1),this.pelvisLean);
       this.pelvis.quaternion.multiply(this.pelvisRotation).normalize();
       this.pelvis.updateWorldMatrix(true,true);
+    }
+    if(this.pelvis){
+      this.lastCorrectedPosition.copy(this.pelvis.position);
+      this.lastCorrectedOrientation.copy(this.pelvis.quaternion);
+      this.hasLastCorrection=true;
     }
     for(const item of evidence){
       const {chain,valid,ground,contact}=item;
