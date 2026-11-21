@@ -85,6 +85,8 @@ export class CanonicalLocomotionMixer {
   private readonly motionIds = new Map<string,string>();
   private readonly contactPhases = new Map<string,number>();
   private readonly turnIds = new Map<"left"|"right",string>();
+  /** One clock per turn, so an interrupted clip never jumps to the new clip\x27s time. */
+  private readonly turnTimes=new Map<string,number>();
   private readonly weights = new Map<string,number>();
   private target: LocomotionIntent = {forward:0,lateral:0,turn:0,grounded:true};
   private phase = 0;
@@ -149,6 +151,8 @@ export class CanonicalLocomotionMixer {
         throw new Error("Invalid root motion policy");
       const sampler=createAnimationSampler(clip,graph);
       samplers.set(key,sampler);durations.set(key,clip.durationSeconds);
+      if(key.startsWith("turn:")||key.startsWith("direction:turn-"))
+        this.turnTimes.set(key,0);
       for(const id of sampler.jointIds)ids.add(id);
       this.weights.set(key,key==="idle"?1:0);
     }
@@ -180,6 +184,7 @@ export class CanonicalLocomotionMixer {
     this.target={forward:0,lateral:0,turn:0,grounded:true};
     this.phase=0;this.idleTime=0;this.playback=undefined;this.turnArmed=true;
     this.lastTurnSide=undefined;
+    for(const key of this.turnTimes.keys())this.turnTimes.set(key,0);
     for(const key of this.weights.keys())this.weights.set(key,key==="idle"?1:0);
   }
   setIntent(intent:LocomotionIntent):void {
@@ -270,6 +275,7 @@ export class CanonicalLocomotionMixer {
         const key=this.turnIds.get(side)??this.directionIds.get(side==="left"?"turn-left":"turn-right");
         if(key){
           this.playback={key,seconds:0,running:true};
+          this.turnTimes.set(key,0);
           this.turnArmed=false;this.lastTurnSide=side;
         }
       }
@@ -277,6 +283,7 @@ export class CanonicalLocomotionMixer {
     if(this.playback?.running){
       this.playback.seconds=Math.min(this.durations.get(this.playback.key)!,
         this.playback.seconds+deltaSeconds);
+      this.turnTimes.set(this.playback.key,this.playback.seconds);
       if(this.playback.seconds>=this.durations.get(this.playback.key)!)
         this.playback.running=false;
     }
@@ -334,7 +341,7 @@ export class CanonicalLocomotionMixer {
       const duration=this.durations.get(key)!;
       const seconds=key==="idle"?this.idleTime%duration:
         (key.startsWith("turn:")||key.startsWith("direction:turn"))?
-          Math.min(this.playback?.seconds??0,duration):
+          Math.min(this.turnTimes.get(key)??0,duration):
           ((this.phase+(this.contactPhases.get(key)??0))%1)*duration;
       for(const joint of sampler.sample(seconds)){
         const index=this.indices.get(joint.jointId)!;
@@ -375,7 +382,7 @@ export class CanonicalLocomotionMixer {
   dispose():void {
     if(this.disposed)return;
     this.weights.clear();this.directionIds.clear();this.motionIds.clear();
-    this.contactPhases.clear();this.turnIds.clear();
+    this.contactPhases.clear();this.turnIds.clear();this.turnTimes.clear();
     this.playback=undefined;this.disposed=true;
   }
 }
