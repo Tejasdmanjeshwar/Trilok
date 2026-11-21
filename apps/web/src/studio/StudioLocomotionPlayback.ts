@@ -20,7 +20,8 @@ export class StudioLocomotionPlayback {
   private disposed=false;
   private input:LocomotionIntent={forward:0,lateral:0,turn:0,grounded:true};
   private profiling={
-    samples:0,poseTotalMs:0,contactTotalMs:0,mixerTotalMs:0,
+    samples:0,plantSamples:0,nearGroundSamples:0,
+    poseTotalMs:0,contactTotalMs:0,mixerTotalMs:0,
     poseMaxMs:0,contactMaxMs:0,mixerMaxMs:0,
   };
   private contactMetrics:GroundContactMetrics={
@@ -43,7 +44,8 @@ export class StudioLocomotionPlayback {
   /** On-demand measurements; never used as gameplay simulation time. */
   get profile(){
     const p=this.profiling,n=Math.max(1,p.samples);
-    return {samples:p.samples,poseMeanMs:p.poseTotalMs/n,
+    return {samples:p.samples,plantSamples:p.plantSamples,
+      nearGroundSamples:p.nearGroundSamples,poseMeanMs:p.poseTotalMs/n,
       contactMeanMs:p.contactTotalMs/n,mixerMeanMs:p.mixerTotalMs/n,
       poseMaxMs:p.poseMaxMs,contactMaxMs:p.contactMaxMs,
       mixerMaxMs:p.mixerMaxMs};
@@ -66,6 +68,8 @@ export class StudioLocomotionPlayback {
     const p=this.profiling;
     const poseMs=posed-before,contactMs=end-posed;
     p.samples++;
+    if(this.contactMetrics.plantedFeet>0)p.plantSamples++;
+    if((this.contactMetrics.nearGroundFeet??0)>0)p.nearGroundSamples++;
     p.poseTotalMs+=poseMs;
     p.contactTotalMs+=contactMs;
     p.poseMaxMs=Math.max(p.poseMaxMs,poseMs);
