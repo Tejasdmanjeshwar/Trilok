@@ -262,3 +262,61 @@ ordinary playback continues to use its original compatible library.
 No Cloudflare production deployment is authorized. Step 3 grounding,
 Step 4 gameplay adapter and Step 5 browser/performance acceptance remain
 unimplemented on this branch.
+
+
+## Step 2 continuation — approved Kevin directional movement (2026-11-21)
+
+Continued the existing [C6.3 Step 2 PR #124](https://github.com/Tejasdmanjeshwar/Trilok/pull/124)
+on top of the merged [browser-first architecture PR #125](https://github.com/Tejasdmanjeshwar/Trilok/pull/125).
+The owner-approved 27 Kevin clips are retained **byte-for-byte**. No Unity
+dependencies or source archive uploads were introduced. The 24 additional
+clips remain code-split, loaded on demand when normal Character Studio's
+**Movement transitions** option is selected, instead of being fetched on Studio
+startup. The separate `?c63-kevin-review` selector still exposes all 24
+standalone review clips. The ordinary standalone animation menu is unchanged.
+
+The canonical mixer now accepts eight 2D travel directions, using the existing
+Kevin forward base and explicit source-backed metadata for 7 walk, 7 run/jog
+and 5 sprint categories. It resolves diagonal vectors without treating
+backward input as dominant, interpolates between available adjacent authored
+directions, and blends speed bands smoothly. **Backward sprint is not present
+in the 27-clip source set** and is rejected rather than relabelled as side
+sprint; the Studio pace control respects that coverage limit. Two authored
+left/right turns play as one-shot presentation clips with independent clocks
+and no gameplay root translation. The same held turn does not restart after
+completion, while changing to the opposite side interrupts cleanly without
+rewinding a still-visible fading source clip. Transition weights and periodic
+phase frequency use analytic exponential integration for variable frame
+subdivision.
+
+The 3 new idle-family assets (Idle02 and Idle01/02 inter-idle transitions)
+remain independently selectable in the owner-review library; they are
+**not** gait, start-walk or stop-walk clips and have not been misleadingly
+automated as such. Existing four C6.2 UAL1 clips and the legacy KayKit
+diagnostic path are not rebaked, rewritten or conflated with the Kevin profile.
+
+The approved source loops currently have **no verified stance contact
+markers**. The new official-MakeHuman-calibrated 96-sample left/right
+ankle-toe trajectory diagnostic reports candidate low-foot phases, but an
+extremum is not by itself proof of ground contact. No arbitrary contact
+phase offsets are inserted in shipped assets. Validation of a measured
+left/right phase correspondence and further stance corrections is still
+needed for fully natural blend transitions. Precise skinned-sole ground
+contacts, pelvis balancing and collision-driven actor/world movement remain
+Steps 3 and 4.
+
+**Review/test workflow:** `tests/character-animation-c6-3-directions.test.ts`
+tests 2D/gait coverage, strict unsupported sprint, turn lifecycle, immediate
+interruption continuity, frame subdivision and immutable authoritative root.
+`e2e/studio-animation-c6-3-locomotion-preview.spec.ts` captures movement
+from the **ordinary** Studio route for all eight directions and both turns,
+front/side, desktop and touch. The existing source-byte hashes and C5/C121
+regressions remain mandatory. The costly Chromium suite is available only
+through explicitly manual `.github/workflows/c63-kevin-chromium-review.yml`
+or final Phase Acceptance.
+
+**Acceptance:** Actual Chromium screenshot review, measured contact-phase
+quality, C5 equipment regressions and exact-HEAD CI remain separate from
+functional code/test implementation. Do not declare C6.3, or full Step 2
+visual quality, accepted without those results. Do not deploy Cloudflare
+production without explicit owner approval.
