@@ -26,7 +26,7 @@ import {StudioShieldPreview,isSwordShieldEquipment,shieldHand,type ShieldStance}
 import {StudioTwoHandPreview,isTwoHandEquipment,twoHandKind,primaryHand,
   type EquipmentChoice,type TwoHandIKResult} from "./StudioTwoHandGrip";
 import {StudioPerformance} from "./StudioPerformance";
-import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW,EXPERIMENTAL_KEVIN_C63_REVIEW,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
+import {STUDIO_ANIMATIONS,EXPERIMENTAL_KAYKIT_REVIEW,loadBakedStudioAnimation,loadStudioLocomotionLibrary,resolveStudioAnimationId} from "./StudioAnimationLibrary";
 import {StudioLocomotionPlayback} from "./StudioLocomotionPlayback";
 import type {TravelDirection} from "@trilok/character-core";
 import {StudioAnimationPlayback} from "./StudioAnimationPlayback";
@@ -282,9 +282,9 @@ export function createStudioViewport(
     const valid=["forward","forward-right","right","backward-right",
       "backward","backward-left","left","forward-left","turn-left","turn-right"];
     if(!valid.includes(direction))throw Error("Unsupported movement preview direction");
-    if(!EXPERIMENTAL_KEVIN_C63_REVIEW &&
-      !["forward",...(EXPERIMENTAL_KAYKIT_REVIEW?["backward","left","right"]:[])].includes(direction))
-      throw Error("Direction requires the Kevin C6.3 review library");
+    if(EXPERIMENTAL_KAYKIT_REVIEW &&
+      !["forward","backward","left","right"].includes(direction))
+      throw Error("Only KayKit diagnostic directions are available in KayKit review");
     // Validate against available authored gait coverage before updating preview selection.
     // Unsupported backward sprint is rejected; no fake reversed forward clip.
     const previous=previewMovementDirection;
