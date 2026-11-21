@@ -1,16 +1,7 @@
 name: C6.3 Kevin rendered Chromium review
+# Explicitly manual rendered inspection. Never consume browser CI on each PR.
 on:
-  push:
-    branches: [feat/c6-3-grounded-locomotion]
-    paths:
-      - .github/workflows/c63-kevin-chromium-review.yml
-      - e2e/studio-animation-c6-2.spec.ts
-      - e2e/studio-animation-c6-3-integrated.spec.ts
-      - assets/animations/studio-v1/kevin/**
-      - packages/character-core/src/animation.ts
-      - scripts/bake-c63-kevin.mjs
-      - apps/web/src/studio/StudioAnimationPlayback.ts
-      - tests/character-animation-c6-3-root-trajectory.test.ts
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -42,20 +33,6 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Test source-backed Kevin and approved UAL1 skinned playback
         run: pnpm exec playwright test e2e/studio-animation-c6-3-integrated.spec.ts e2e/studio-animation-c6-2.spec.ts --project=desktop-chromium
-      - name: Emit representative skinned JPEGs for model inspection
-        if: always()
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64
-          for name in ["human-kevin-idle-front-0.5.jpg", "human-kevin-walk-front-0.5.jpg", "human-kevin-run-side-0.5.jpg"]:
-            p=Path("test-results/studio-c6-3")/name
-            if p.is_file():
-              print("TRILOK_C63_IMAGE_BASE64:"+name+":"+base64.b64encode(p.read_bytes()).decode())
-            else:
-              print("TRILOK_C63_IMAGE_MISSING:"+name)
-          PY
       - name: Archive actual skin screenshots and failure traces
         if: always()
         uses: actions/upload-artifact@v4

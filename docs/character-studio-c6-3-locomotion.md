@@ -1,3 +1,5 @@
+> **Owner acceptance / next engineering boundary (2026-11-21):** The 27 approved Kevin clips (original three + 24 PR #123 directional review clips) have passed the owner's Step 1 visual selection review. Do not redo selection/import. Steps 2–5 remain: directional locomotion and transitions; skinned-sole contact and pelvis balance; gameplay-authoritative movement; regressions, profiling, Chromium evidence and preview. The browser remains the active target under the [future Unity portability ADR](architecture-browser-first-unity-portability.md), not a disposable Unity placeholder. This acceptance does not assert blend/IK/morphology acceptance.
+
 # C6.3 — Grounded locomotion integration (engineering work in progress)
 
 **Status:** Incomplete; this branch is NOT C6.3 acceptance and must not be merged as a finished phase.

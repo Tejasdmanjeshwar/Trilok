@@ -1,3 +1,5 @@
+> **Current engine policy (2026-11-21):** Three.js/TypeScript remains Trilok's active browser Gameplay Lab **and** procedural Character Studio through C9, including character runtime generation and baking. Unity/C# is the intended **future** native production migration, but no Unity SDK, editor or CI is currently required. See [ADR: browser-first and future Unity portability](architecture-browser-first-unity-portability.md) and [migration-readiness audit](migration-readiness-cleanup-audit-2026-11-21.md). The browser Character Studio may be retired only after Unity feature, generated/baked asset, saved-recipe and runtime-generation parity; browser gameplay testing may remain useful independently.
+
 # Architecture decisions (v0.1)
 
 ## Goals
