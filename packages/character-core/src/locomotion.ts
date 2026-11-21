@@ -91,6 +91,7 @@ export class CanonicalLocomotionMixer {
   private idleTime = 0;
   private playback:TurnPlayback|undefined;
   private turnArmed=true;
+  private lastTurnSide:"left"|"right"|undefined;
   private disposed = false;
 
   constructor(graph: AnatomicalGraphV1, library: LocomotionLibrary,
@@ -178,6 +179,7 @@ export class CanonicalLocomotionMixer {
     this.live();
     this.target={forward:0,lateral:0,turn:0,grounded:true};
     this.phase=0;this.idleTime=0;this.playback=undefined;this.turnArmed=true;
+    this.lastTurnSide=undefined;
     for(const key of this.weights.keys())this.weights.set(key,key==="idle"?1:0);
   }
   setIntent(intent:LocomotionIntent):void {
@@ -248,14 +250,23 @@ export class CanonicalLocomotionMixer {
       throw new Error("Invalid locomotion sample delta");
     const i=this.target;
     const movement=Math.min(1,Math.hypot(i.forward,i.lateral));
-    if(Math.abs(i.turn)<=1e-3)this.turnArmed=true;
+    if(Math.abs(i.turn)<=1e-3 || movement>1e-3 || !i.grounded){
+      this.turnArmed=true;
+      this.lastTurnSide=undefined;
+    }
     if(this.playback?.running && (movement>1e-3 || Math.abs(i.turn)<=1e-3))
       this.playback.running=false;
-    if(i.grounded && movement<=1e-3 && Math.abs(i.turn)>1e-3 &&
-      this.turnArmed && !this.playback?.running){
+    if(i.grounded && movement<=1e-3 && Math.abs(i.turn)>1e-3){
       const side=i.turn<0?"left":"right";
-      const key=this.turnIds.get(side)??this.directionIds.get(side==="left"?"turn-left":"turn-right");
-      if(key){this.playback={key,seconds:0,running:true};this.turnArmed=false;}
+      // Opposite turn intent interrupts the current one-shot. Holding the same
+      // direction through clip completion must not loop or restart it.
+      if(this.turnArmed || (this.lastTurnSide!==undefined&&this.lastTurnSide!==side)){
+        const key=this.turnIds.get(side)??this.directionIds.get(side==="left"?"turn-left":"turn-right");
+        if(key){
+          this.playback={key,seconds:0,running:true};
+          this.turnArmed=false;this.lastTurnSide=side;
+        }
+      }
     }
     if(this.playback?.running){
       this.playback.seconds=Math.min(this.durations.get(this.playback.key)!,
