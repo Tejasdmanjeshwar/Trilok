@@ -19,6 +19,10 @@ export class StudioLocomotionPlayback {
   private anchorMs:number|undefined;
   private disposed=false;
   private input:LocomotionIntent={forward:0,lateral:0,turn:0,grounded:true};
+  private profiling={
+    samples:0,poseTotalMs:0,contactTotalMs:0,mixerTotalMs:0,
+    poseMaxMs:0,contactMaxMs:0,mixerMaxMs:0,
+  };
   private contactMetrics:GroundContactMetrics={
     plantedFeet:0,maxAnchorSlipMeters:0,maxPenetrationMeters:0,unreachableFeet:0,
   };
@@ -36,6 +40,14 @@ export class StudioLocomotionPlayback {
       loop:this.looping,speed:this.speed};
   }
   get contactStatus():GroundContactMetrics{return this.contactMetrics;}
+  /** On-demand measurements; never used as gameplay simulation time. */
+  get profile(){
+    const p=this.profiling,n=Math.max(1,p.samples);
+    return {samples:p.samples,poseMeanMs:p.poseTotalMs/n,
+      contactMeanMs:p.contactTotalMs/n,mixerMeanMs:p.mixerTotalMs/n,
+      poseMaxMs:p.poseMaxMs,contactMaxMs:p.contactMaxMs,
+      mixerMaxMs:p.mixerMaxMs};
+  }
   get availableDirections(){return this.mixer.availableDirections;}
   setMovement(forward:number,lateral=0,turn=0,grounded=true):void {
     this.live();
@@ -46,8 +58,18 @@ export class StudioLocomotionPlayback {
     this.paint(this.mixer.advance(1/60),1/60);
   }
   private paint(samples:readonly SampledJointV1[],dt:number):void {
+    const before=performance.now();
     this.applyPose(samples);
+    const posed=performance.now();
     this.contactMetrics=this.contacts.apply(dt,this.input.grounded);
+    const end=performance.now();
+    const p=this.profiling;
+    const poseMs=posed-before,contactMs=end-posed;
+    p.samples++;
+    p.poseTotalMs+=poseMs;
+    p.contactTotalMs+=contactMs;
+    p.poseMaxMs=Math.max(p.poseMaxMs,poseMs);
+    p.contactMaxMs=Math.max(p.contactMaxMs,contactMs);
   }
   update(nowMs:number):void {
     this.live();
@@ -56,7 +78,11 @@ export class StudioLocomotionPlayback {
     if(this.anchorMs===undefined){this.anchorMs=nowMs;return;}
     const dt=Math.max(0,Math.min(1,(nowMs-this.anchorMs)/1000))*this.speed;
     this.anchorMs=nowMs;
+    const started=performance.now();
     const phase=this.mixer.advance(dt);
+    const mixerMs=performance.now()-started;
+    this.profiling.mixerTotalMs+=mixerMs;
+    this.profiling.mixerMaxMs=Math.max(this.profiling.mixerMaxMs,mixerMs);
     this.seconds=this.mixer.gaitPhase;
     this.paint(phase,dt);
   }
