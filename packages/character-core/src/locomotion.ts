@@ -162,7 +162,7 @@ export class CanonicalLocomotionMixer {
     const available=new Set<LocomotionDirection>(this.directionIds.keys());
     for(const motion of this.motionIds.keys())
       available.add(motion.split(":")[2] as TravelDirection);
-    for(const side of this.turnIds.keys())available.add("turn-"+side);
+    for(const side of this.turnIds.keys())available.add(side==="left"?"turn-left":"turn-right");
     return [...available];
   }
   get gaitPhase():number {return this.phase;}
@@ -189,7 +189,7 @@ export class CanonicalLocomotionMixer {
     if(intent.grounded && movement>1e-3)this.movementTargets(intent);
     if(intent.grounded && movement<=1e-3 && Math.abs(intent.turn)>1e-3){
       const side=intent.turn<0?"left":"right";
-      if(!this.turnIds.has(side)&&!this.directionIds.has("turn-"+side))
+      if(!this.turnIds.has(side)&&!this.directionIds.has(side==="left"?"turn-left":"turn-right"))
         throw new Error("No verified authored clip for turn-"+side);
     }
     this.target={...intent};
@@ -254,7 +254,7 @@ export class CanonicalLocomotionMixer {
     if(i.grounded && movement<=1e-3 && Math.abs(i.turn)>1e-3 &&
       this.turnArmed && !this.playback?.running){
       const side=i.turn<0?"left":"right";
-      const key=this.turnIds.get(side)??this.directionIds.get("turn-"+side);
+      const key=this.turnIds.get(side)??this.directionIds.get(side==="left"?"turn-left":"turn-right");
       if(key){this.playback={key,seconds:0,running:true};this.turnArmed=false;}
     }
     if(this.playback?.running){
