@@ -233,6 +233,12 @@ export class CanonicalLocomotionMixer {
           key=this.directionIds.get(direction);
         return {key,weight};
       });
+      // A missing authored sprint category is not permission to silently
+      // stretch its neighboring strafe into backward/diagonal travel.
+      // Legacy KayKit diagnostic coverage retains its earlier limited fallback.
+      if(this.motionIds.size>0 && options.some(item=>!item.key&&item.weight>1e-8))
+        throw new Error("No verified authored clip for "+gait+" "+
+          DIRECTIONS[Math.round(sector)%8]);
       const coverage=options.reduce((sum,item)=>sum+(item.key?item.weight:0),0);
       if(coverage<1e-7)throw new Error("No verified authored clip for "+
         gait+" "+DIRECTIONS[Math.round(sector)%8]);
