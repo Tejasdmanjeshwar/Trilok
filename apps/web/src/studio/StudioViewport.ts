@@ -196,6 +196,7 @@ export function createStudioViewport(
   let pose:StudioPose="neutral";
   let expression:StudioExpression="neutral";
   let posePreview:StudioPosePreview|undefined;
+  const groundMetricsRequested=new URLSearchParams(location.search).has("c63-ground-metrics");
   let animation:StudioAnimationPlayback|StudioLocomotionPlayback|undefined;
   let previewMovementSpeed=0;
   let previewMovementDirection:TravelDirection|"turn-left"|"turn-right"="forward";
@@ -814,7 +815,7 @@ export function createStudioViewport(
     if(animation){animation.update(performance.now());emitAnimation();}
     // One explicitly opted-in QA instrumentation surface. No runtime
     // allocations/JSON serialization in normal Studio or gameplay builds.
-    if(new URLSearchParams(location.search).has("c63-ground-metrics") &&
+    if(groundMetricsRequested &&
       animation instanceof StudioLocomotionPlayback && renderer)
       renderer.domElement.dataset.c63GroundMetrics=JSON.stringify({
         contact:animation.contactStatus,profile:animation.profile,
