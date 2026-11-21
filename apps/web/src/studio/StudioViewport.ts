@@ -12,6 +12,7 @@ import {DEFAULT_STUDIO_APPEARANCE,validateStudioAppearance,type StudioAppearance
 import {applyStudioSkinMaterial} from "./StudioSkinMaterial";
 import type {StudioRecipeV1} from "./StudioRecipe";
 import { STUDIO_LIGHTS, STUDIO_VIEWS, type StudioLight, type StudioView } from "./StudioPresentation";
+import {fittedStudioView} from "./StudioViewFraming";
 import {STUDIO_FOCUS,DEFAULT_INSPECTION,previewExpression,focusPosition,
   type StudioFocus,type StudioExpression,type StudioPose,type StudioInspectionOptions}
   from "./StudioInspection";
@@ -522,6 +523,9 @@ export function createStudioViewport(
   let renderer:THREE.WebGLRenderer|undefined;
   let controls:OrbitControls|undefined;
   let active:StudioHumanModel|undefined;
+  /** Real skinned model bounds, refreshed only on successful regeneration.
+   * Camera presets fit this box; pose sampling never recomputes it per frame. */
+  let framingBounds:THREE.Box3|undefined;
   let currentMorphology=defaultStudioMorphState();
   let currentAppearance:StudioAppearanceV1=DEFAULT_STUDIO_APPEARANCE;
   let disposed=false;
@@ -596,6 +600,19 @@ export function createStudioViewport(
         fromTarget:target(),toTarget:look,start:performance.now()};
     }
   }
+  function moveToFittedPreset(view:StudioView):void {
+    const fitted=fittedStudioView(view,framingBounds,
+      perspective.aspect,perspective.fov);
+    if(camera instanceof THREE.OrthographicCamera){
+      const distance=fitted.position.distanceTo(fitted.target);
+      const half=distance*Math.tan(THREE.MathUtils.degToRad(perspective.fov)*.5);
+      orthographic.top=half;orthographic.bottom=-half;
+      orthographic.left=-half*perspective.aspect;
+      orthographic.right=half*perspective.aspect;
+      orthographic.zoom=1;orthographic.updateProjectionMatrix();
+    }
+    moveTo(fitted.position,fitted.target);
+  }
   function setView(view:StudioView):void {
     const selected=STUDIO_VIEWS[view];
     if(focusedArea){
@@ -607,12 +624,11 @@ export function createStudioViewport(
       moveTo(positionForFocusedAngle(selected,anchor,distance),anchor);
       return;
     }
-    moveTo(new THREE.Vector3(...selected.position),new THREE.Vector3(...selected.target));
+    moveToFittedPreset(view);
   }
   function resetView():void {
     focusedArea=undefined;priorFocus=undefined;
-    const selected=STUDIO_VIEWS["three-quarter"];
-    moveTo(new THREE.Vector3(...selected.position),new THREE.Vector3(...selected.target));
+    moveToFittedPreset("three-quarter");
   }
   function setOrthographic(enabled:boolean):void {
     if(orthographicMode===enabled)return;
@@ -1018,6 +1034,13 @@ export function createStudioViewport(
       clearSword();
       scene.add(incoming.human.spike.character.root);
       active=incoming;
+      // One geometry-based camera measurement per regenerated character.
+      // This is the actual C5 skinned surface after morphology and current
+      // source pose, never a gameplay-root scaling or skeletal adjustment.
+      const skinned=incoming.human.mesh;
+      skinned.updateWorldMatrix(true,false);
+      skinned.computeBoundingBox();
+      framingBounds=skinned.boundingBox?.clone().applyMatrix4(skinned.matrixWorld);
       posePreview=preview;
       currentRecipe=recipe??{...currentRecipe,morphology:state,appearance};
       if(selectedAnimation) {
