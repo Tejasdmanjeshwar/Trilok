@@ -98,7 +98,11 @@ describe("C6.3 authored directional locomotion",()=>{
       mixer.setIntent(intent(0,0,-1));
       mixer.advance(.15);
       expect(mixer.turnStatus?.direction).toBe("left");
+      const original=JSON.parse(JSON.stringify(mixer.advance(0)));
       mixer.setIntent(intent(0,0,1));
+      // No frame elapses at the interruption boundary. A fading left turn
+      // must stay at its own elapsed time, not seek back to 0 with the right.
+      expect(mixer.advance(0)).toEqual(original);
       mixer.advance(.02);
       expect(mixer.turnStatus?.direction).toBe("right");
       expect(mixer.turnStatus?.running).toBe(true);
